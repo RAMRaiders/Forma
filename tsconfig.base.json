@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    /* Language / module baseline. Packages override module settings as needed. */
+    "target": "ES2023",
+    "lib": ["ES2023"],
+
+    /* Correctness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+
+    /* Interop */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    /* Build hygiene */
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  }
+}

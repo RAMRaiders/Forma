@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RomDex",
+  "version": "0.0.0",
+  "identifier": "com.ramraiders.romdex",
+  "build": {
+    "beforeDevCommand": "npm run dev --workspace @romdex/theme-default",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build --workspace @romdex/theme-default",
+    "frontendDist": "../../packages/theme-default/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "RomDex",
+        "width": 1280,
+        "height": 720
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/icon.png"]
+  }
+}

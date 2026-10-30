@@ -1,0 +1,24 @@
+[workspace]
+resolver = "3"
+members = ["crates/romdex-core", "crates/romdex-app"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/RAMRaiders/RomDex"
+rust-version = "1.99"
+
+[workspace.dependencies]
+romdex-core = { path = "crates/romdex-core" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+tauri = { version = "2.12.5", features = [] }
+tauri-build = { version = "2.7.4", features = [] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

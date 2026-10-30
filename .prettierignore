@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+target
+*.tsbuildinfo
+package-lock.json
+crates/romdex-app/gen
+crates/romdex-app/icons

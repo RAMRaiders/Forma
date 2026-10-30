@@ -1,0 +1,67 @@
+{
+  "name": "romdex",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A modern, HTML-themed frontend for Batocera, replacing EmulationStation.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "tauri dev",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write . && cargo fmt --all",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -b && tsc -p packages/theme-default",
+    "build": "tsc -b && npm run build --workspace @romdex/theme-default",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "rust:fmt": "cargo fmt --all --check",
+    "rust:clippy": "cargo clippy --workspace --all-targets -- -D warnings",
+    "rust:test": "cargo test --workspace",
+    "knip": "knip",
+    "audit": "npm audit",
+    "audit:prod": "npm audit --omit=dev",
+    "outdated": "npm outdated",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run rust:fmt && npm run rust:clippy && npm run rust:test && npm run knip",
+    "verify:ci": "npm run audit:prod && npm run verify",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,html,css}": [
+      "prettier --write"
+    ],
+    "*.rs": [
+      "rustfmt --edition 2024"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@eslint/js": "^10.0.1",
+    "@tauri-apps/cli": "2.12.4",
+    "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "^5.0.2",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.12.0",
+    "husky": "^9.1.7",
+    "knip": "^6.38.0",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}

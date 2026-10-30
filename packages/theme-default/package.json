@@ -1,0 +1,16 @@
+{
+  "name": "@romdex/theme-default",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The reference RomDex theme, built only on the public @romdex/sdk.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@romdex/sdk": "0.0.0"
+  }
+}

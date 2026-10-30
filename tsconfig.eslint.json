@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+
+    /*
+     * Resolve workspace packages to their SOURCE, not their build output. Lint runs before build,
+     * so `dist` does not exist yet and an import through it would resolve to an error type.
+     */
+    "paths": {
+      "@romdex/sdk": ["./packages/sdk/src/index.ts"]
+    }
+  },
+  "include": ["packages/*/src/**/*.ts", "packages/*/*.config.ts", "*.config.ts"]
+}

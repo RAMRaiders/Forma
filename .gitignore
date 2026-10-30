@@ -1,0 +1,28 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Rust
+target/
+
+# Tauri generates these from the capability files and config on every build.
+crates/romdex-app/gen/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# The library index is a local cache rebuilt from Batocera's files, never committed.
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Commit-message scratch file, written by tooling then fed to `git commit -F`.
+.git-commit-msg.txt
+
+.DS_Store
