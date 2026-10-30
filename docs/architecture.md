@@ -79,9 +79,16 @@ matters most and is independent of library size, since it reads one system's row
 
 ## Input
 
-Gamepads are read in Rust (gilrs) and delivered to the theme as normalised actions (`up`,
-`down`, `a`, `b`, `start`, `hotkey`…), because the Gamepad API in WebKitGTK is not reliable
-enough to build a sofa UI on. Themes can still use the browser Gamepad API directly.
+Gamepads are read in Rust (gilrs, using SDL's controller database) and delivered to the theme as
+normalised events, because the Gamepad API in WebKitGTK is not reliable enough to build a sofa
+UI on. Each event carries a semantic **action** (`up`, `down`, `confirm`, `back`, `pageUp`,
+`start`, `hotkey`…) and the physical **button** by position (`south`, `east`…), so a theme can
+follow conventions or draw the right glyph. `confirm`/`back` swap for a Nintendo layout.
+
+The left stick acts as a D-pad, with a press threshold above its release threshold so a stick
+resting near the edge does not flicker. Held directions repeat after 400 ms, every 80 ms.
+Input pauses while a game runs, since the emulator owns the controllers then. Themes can still
+use the browser Gamepad API directly.
 
 ## Decisions to revisit
 

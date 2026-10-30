@@ -14,6 +14,10 @@ pub enum Error {
     #[error("{path}: {message}")]
     Parse { path: PathBuf, message: String },
 
+    /// A game that cannot be launched, with a reason a user can act on.
+    #[error("{0}")]
+    Launch(String),
+
     /// A view or a path into it that cannot be resolved.
     #[error("{0}")]
     View(String),

@@ -16,6 +16,8 @@ pub const HIDDEN: &str = "hidden";
 pub const FAVORITE: &str = "favorite";
 pub const PLAY_COUNT: &str = "play_count";
 pub const LAST_PLAYED: &str = "last_played";
+/// Total seconds played.
+pub const GAME_TIME: &str = "game_time";
 pub const RA_GAME_ID: &str = "ra_game_id";
 pub const RA_HASH: &str = "ra_hash";
 

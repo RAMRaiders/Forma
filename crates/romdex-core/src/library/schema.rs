@@ -5,9 +5,14 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 2;
+pub(crate) const SCHEMA_VERSION: i64 = 3;
 
-const MIGRATIONS: &[&str] = &[V1, V2];
+const MIGRATIONS: &[&str] = &[V1, V2, V3];
+
+/// Total time played, in seconds, recorded by RomDex or imported from Batocera's `gametime`.
+const V3: &str = r"
+ALTER TABLE game ADD COLUMN game_time INTEGER NOT NULL DEFAULT 0;
+";
 
 /// RomDex's own settings (boot view, selected theme…), kept with the library so one file holds
 /// everything a user would lose on a reinstall.

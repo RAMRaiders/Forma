@@ -9,12 +9,14 @@ mod schema;
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
+use std::time::{Duration, SystemTime};
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::Serialize;
 
 use crate::error::{Error, Result};
 use crate::field;
+use crate::systems::System;
 
 pub use refresh::RefreshReport;
 
@@ -58,6 +60,8 @@ pub struct Game {
     pub hidden: bool,
     pub play_count: i64,
     pub last_played: Option<String>,
+    /// Total seconds played.
+    pub game_time: i64,
     pub ra_game_id: Option<i64>,
     /// Media kind (`image`, `video`, `marquee`…) to absolute path.
     pub media: BTreeMap<String, String>,
@@ -65,7 +69,7 @@ pub struct Game {
 
 pub(crate) const GAME_COLUMNS: &str = "g.id, g.system, g.path, g.name, g.description, g.developer, \
      g.publisher, g.genre, g.players, g.release_date, g.rating, g.favorite, g.hidden, \
-     g.play_count, g.last_played, g.ra_game_id";
+     g.play_count, g.last_played, g.ra_game_id, g.game_time";
 
 impl Library {
     /// Opens (creating if needed) the database at `path` and brings its schema up to date.
@@ -164,6 +168,63 @@ impl Library {
         Ok(())
     }
 
+    /// A game and its system, for launching. Includes games that are hidden or whose file is
+    /// missing: the launcher reports the missing file itself, more clearly than "not found".
+    pub fn launch_target(&self, id: i64) -> Result<Option<(Game, System)>> {
+        let Some(game) = self.game(id)? else {
+            return Ok(None);
+        };
+        let definition: String = self.conn.query_row(
+            "SELECT definition FROM system WHERE name = ?1",
+            [&game.system],
+            |r| r.get(0),
+        )?;
+        let system = serde_json::from_str(&definition).map_err(|e| Error::Parse {
+            path: Path::new("library.db").to_path_buf(),
+            message: format!("system `{}` definition is unreadable: {e}", game.system),
+        })?;
+        Ok(Some((game, system)))
+    }
+
+    /// Adds one play of `played` length ending at `ended`. Stored as the user's own data, so a
+    /// gamelist re-import cannot reset it.
+    pub fn record_play(&mut self, id: i64, ended: SystemTime, played: Duration) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        let (count, time): (i64, i64) = tx.query_row(
+            "SELECT play_count, game_time FROM game WHERE id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let seconds = i64::try_from(played.as_secs()).unwrap_or(i64::MAX);
+        let mut set = tx.prepare_cached(
+            "INSERT INTO game_field (game_id, field, source, value) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT (game_id, field, source) DO UPDATE SET value = excluded.value",
+        )?;
+        let user = Source::User as i64;
+        set.execute(params![
+            id,
+            field::PLAY_COUNT,
+            user,
+            (count + 1).to_string()
+        ])?;
+        set.execute(params![
+            id,
+            field::LAST_PLAYED,
+            user,
+            crate::time::iso_utc(ended)
+        ])?;
+        set.execute(params![
+            id,
+            field::GAME_TIME,
+            user,
+            time.saturating_add(seconds).to_string()
+        ])?;
+        drop(set);
+        materialise(&tx, &[id], &[])?;
+        tx.commit()?;
+        Ok(())
+    }
+
     /// A RomDex setting, e.g. [`crate::hierarchy::DEFAULT_VIEW_SETTING`].
     pub fn setting(&self, key: &str) -> Result<Option<String>> {
         Ok(self
@@ -214,6 +275,7 @@ impl Library {
                     play_count: r.get(13)?,
                     last_played: r.get(14)?,
                     ra_game_id: r.get(15)?,
+                    game_time: r.get(16)?,
                     media: BTreeMap::new(),
                 })
             })?
@@ -251,7 +313,7 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
         "UPDATE game SET name = ?2, description = ?3, developer = ?4, publisher = ?5, genre = ?6,
              players = ?7, players_max = ?8, release_date = ?9, release_year = ?10, rating = ?11,
              region = ?12, lang = ?13, hidden = ?14, favorite = ?15, play_count = ?16,
-             last_played = ?17, ra_game_id = ?18, ra_hash = ?19
+             last_played = ?17, ra_game_id = ?18, ra_hash = ?19, game_time = ?20
          WHERE id = ?1",
     )?;
     let mut clear_media = tx.prepare_cached("DELETE FROM media WHERE game_id = ?1")?;
@@ -319,6 +381,9 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
             get(field::LAST_PLAYED),
             get(field::RA_GAME_ID).and_then(|n| n.parse::<i64>().ok()),
             get(field::RA_HASH),
+            get(field::GAME_TIME)
+                .and_then(|n| n.parse::<i64>().ok())
+                .unwrap_or(0),
         ])?;
 
         clear_media.execute([id])?;

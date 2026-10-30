@@ -2,13 +2,13 @@
 
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result, Warning};
 use crate::paths::Paths;
 use crate::xml::{self, Element};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct System {
     /// Short id, e.g. `nes`. Unique; also the folder name under `roms/`.
     pub name: String,
@@ -27,13 +27,13 @@ pub struct System {
     pub emulators: Vec<Emulator>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Emulator {
     pub name: String,
     pub cores: Vec<Core>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Core {
     pub name: String,
     pub default: bool,

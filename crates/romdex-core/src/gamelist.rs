@@ -38,6 +38,7 @@ const TEXT_FIELDS: &[(&str, &str, Kind)] = &[
     ("lastplayed", field::LAST_PLAYED, Kind::DateTime),
     ("rating", field::RATING, Kind::Rating),
     ("playcount", field::PLAY_COUNT, Kind::Count),
+    ("gametime", field::GAME_TIME, Kind::Count),
     ("favorite", field::FAVORITE, Kind::Bool),
     ("hidden", field::HIDDEN, Kind::Bool),
     ("cheevosId", field::RA_GAME_ID, Kind::Count),
