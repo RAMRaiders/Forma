@@ -27,7 +27,7 @@ pub enum Source {
 }
 
 pub struct Library {
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -63,7 +63,7 @@ pub struct Game {
     pub media: BTreeMap<String, String>,
 }
 
-const GAME_COLUMNS: &str = "g.id, g.system, g.path, g.name, g.description, g.developer, \
+pub(crate) const GAME_COLUMNS: &str = "g.id, g.system, g.path, g.name, g.description, g.developer, \
      g.publisher, g.genre, g.players, g.release_date, g.rating, g.favorite, g.hidden, \
      g.play_count, g.last_played, g.ra_game_id";
 
@@ -164,7 +164,36 @@ impl Library {
         Ok(())
     }
 
-    fn query_games(&self, sql: &str, params: impl rusqlite::Params) -> Result<Vec<Game>> {
+    /// A RomDex setting, e.g. [`crate::hierarchy::DEFAULT_VIEW_SETTING`].
+    pub fn setting(&self, key: &str) -> Result<Option<String>> {
+        Ok(self
+            .conn
+            .query_row("SELECT value FROM setting WHERE key = ?1", [key], |r| {
+                r.get(0)
+            })
+            .optional()?)
+    }
+
+    /// Sets a RomDex setting; `None` clears it.
+    pub fn set_setting(&mut self, key: &str, value: Option<&str>) -> Result<()> {
+        match value {
+            Some(value) => self.conn.execute(
+                "INSERT INTO setting (key, value) VALUES (?1, ?2)
+                 ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )?,
+            None => self
+                .conn
+                .execute("DELETE FROM setting WHERE key = ?1", [key])?,
+        };
+        Ok(())
+    }
+
+    pub(crate) fn query_games(
+        &self,
+        sql: &str,
+        params: impl rusqlite::Params,
+    ) -> Result<Vec<Game>> {
         let mut stmt = self.conn.prepare_cached(sql)?;
         let mut games: Vec<Game> = stmt
             .query_map(params, |r| {

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RAMRaiders/RomDex/docs/view.schema.json",
+  "title": "RomDex hierarchy view",
+  "description": "How RomDex organises the library for browsing. See docs/hierarchy.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "root"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "$ref": "#/$defs/slug" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "root": { "$ref": "#/$defs/node" }
+  },
+  "$defs": {
+    "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "node": {
+      "oneOf": [
+        { "$ref": "#/$defs/groupByNode" },
+        { "$ref": "#/$defs/branchesNode" },
+        { "$ref": "#/$defs/gamesNode" }
+      ]
+    },
+    "groupByNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groupBy", "children"],
+      "properties": {
+        "groupBy": {
+          "enum": [
+            "system",
+            "manufacturer",
+            "hardware",
+            "genre",
+            "developer",
+            "publisher",
+            "year",
+            "decade",
+            "players",
+            "region"
+          ]
+        },
+        "sort": { "enum": ["natural", "name", "count"] },
+        "filter": { "$ref": "#/$defs/filter" },
+        "children": { "$ref": "#/$defs/node" }
+      }
+    },
+    "branchesNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["branches"],
+      "properties": {
+        "filter": { "$ref": "#/$defs/filter" },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name", "children"],
+            "properties": {
+              "id": { "$ref": "#/$defs/slug" },
+              "name": { "type": "string" },
+              "filter": { "$ref": "#/$defs/filter" },
+              "children": { "$ref": "#/$defs/node" }
+            }
+          }
+        }
+      }
+    },
+    "gamesNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["games"],
+      "properties": {
+        "filter": { "$ref": "#/$defs/filter" },
+        "games": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sort": { "enum": ["name", "releaseDate", "rating", "lastPlayed", "playCount"] },
+            "order": { "enum": ["asc", "desc"] },
+            "limit": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "text": {
+      "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } }
+    },
+    "filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "system": { "$ref": "#/$defs/text" },
+        "manufacturer": { "$ref": "#/$defs/text" },
+        "hardware": { "$ref": "#/$defs/text" },
+        "genre": { "$ref": "#/$defs/text" },
+        "developer": { "$ref": "#/$defs/text" },
+        "publisher": { "$ref": "#/$defs/text" },
+        "region": { "$ref": "#/$defs/text" },
+        "year": { "$ref": "#/$defs/range" },
+        "players": { "$ref": "#/$defs/range" },
+        "favorite": { "type": "boolean" },
+        "played": { "type": "boolean" }
+      }
+    }
+  }
+}

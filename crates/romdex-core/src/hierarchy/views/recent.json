@@ -1,0 +1,9 @@
+{
+  "id": "recent",
+  "name": "Recently played",
+  "description": "The last 50 games you played.",
+  "root": {
+    "filter": { "played": true },
+    "games": { "sort": "lastPlayed", "limit": 50 }
+  }
+}

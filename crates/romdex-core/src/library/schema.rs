@@ -5,9 +5,18 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 1;
+pub(crate) const SCHEMA_VERSION: i64 = 2;
 
-const MIGRATIONS: &[&str] = &[V1];
+const MIGRATIONS: &[&str] = &[V1, V2];
+
+/// RomDex's own settings (boot view, selected theme…), kept with the library so one file holds
+/// everything a user would lose on a reinstall.
+const V2: &str = r"
+CREATE TABLE setting (
+    key    TEXT PRIMARY KEY,
+    value  TEXT NOT NULL
+);
+";
 
 const V1: &str = r"
 CREATE TABLE system (

@@ -1,0 +1,39 @@
+{
+  "id": "home",
+  "name": "Home",
+  "description": "A menu: favourites, recents, and the library by system, manufacturer or genre.",
+  "root": {
+    "branches": [
+      {
+        "id": "favorites",
+        "name": "Favourites",
+        "filter": { "favorite": true },
+        "children": { "games": { "sort": "name" } }
+      },
+      {
+        "id": "recent",
+        "name": "Recently played",
+        "filter": { "played": true },
+        "children": { "games": { "sort": "lastPlayed", "limit": 50 } }
+      },
+      {
+        "id": "systems",
+        "name": "Systems",
+        "children": { "groupBy": "system", "children": { "games": {} } }
+      },
+      {
+        "id": "manufacturers",
+        "name": "Manufacturers",
+        "children": {
+          "groupBy": "manufacturer",
+          "children": { "groupBy": "system", "children": { "games": {} } }
+        }
+      },
+      {
+        "id": "genres",
+        "name": "Genres",
+        "children": { "groupBy": "genre", "sort": "count", "children": { "games": {} } }
+      }
+    ]
+  }
+}

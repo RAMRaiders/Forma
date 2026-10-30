@@ -1,0 +1,12 @@
+{
+  "id": "manufacturer-system",
+  "name": "By manufacturer",
+  "description": "Nintendo, Sega, Sony… then their systems, then games.",
+  "root": {
+    "groupBy": "manufacturer",
+    "children": {
+      "groupBy": "system",
+      "children": { "games": { "sort": "name" } }
+    }
+  }
+}

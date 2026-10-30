@@ -59,6 +59,11 @@ impl Paths {
         self.romdex_dir().join("library.db")
     }
 
+    /// The user's own hierarchy views, one JSON file each.
+    pub fn views_dir(&self) -> PathBuf {
+        self.romdex_dir().join("views")
+    }
+
     /// Batocera's files spell paths as `/userdata/...`. Moves such a path under the configured
     /// root, so a fixture tree behaves like a real box. Any other path is returned unchanged.
     pub fn rebase(&self, path: &Path) -> PathBuf {

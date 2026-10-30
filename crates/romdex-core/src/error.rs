@@ -14,6 +14,10 @@ pub enum Error {
     #[error("{path}: {message}")]
     Parse { path: PathBuf, message: String },
 
+    /// A view or a path into it that cannot be resolved.
+    #[error("{0}")]
+    View(String),
+
     #[error("library database: {0}")]
     Db(#[from] rusqlite::Error),
 }

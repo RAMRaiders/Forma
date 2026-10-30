@@ -1,0 +1,9 @@
+{
+  "id": "systems",
+  "name": "Systems",
+  "description": "Every system, then its games: the EmulationStation layout.",
+  "root": {
+    "groupBy": "system",
+    "children": { "games": { "sort": "name" } }
+  }
+}

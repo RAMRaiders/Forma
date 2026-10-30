@@ -1,0 +1,9 @@
+{
+  "id": "favorites",
+  "name": "Favourites",
+  "description": "Your favourite games from every system.",
+  "root": {
+    "filter": { "favorite": true },
+    "games": { "sort": "name" }
+  }
+}

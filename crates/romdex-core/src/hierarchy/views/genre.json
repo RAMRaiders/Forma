@@ -1,0 +1,10 @@
+{
+  "id": "genre",
+  "name": "By genre",
+  "description": "Every genre across all systems, largest first.",
+  "root": {
+    "groupBy": "genre",
+    "sort": "count",
+    "children": { "games": { "sort": "name" } }
+  }
+}

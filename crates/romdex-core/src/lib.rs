@@ -7,6 +7,7 @@
 mod error;
 pub mod field;
 pub mod gamelist;
+pub mod hierarchy;
 pub mod library;
 pub mod paths;
 pub mod scan;

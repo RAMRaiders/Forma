@@ -1,35 +1,125 @@
 # Hierarchy views
 
-> Draft. The view schema lands in #13 and the engine in #14.
-
 EmulationStation organises a library one way: system, then games. In RomDex a **view** is a
-tree of nodes you define, resolved against the library index, so a theme only renders nodes.
+tree of nodes you define, resolved against the library database, so a theme only renders what
+it is given. The bundled views are written in exactly the same format as yours
+(`crates/romdex-core/src/hierarchy/views/`), so any of them is a starting point.
 
-## Node types
+The format is checked by [`view.schema.json`](view.schema.json); point your editor at it for
+completion. RomDex validates every view on load and says where a problem is
+(`root.children.branches[1]: id "a" is used twice`).
 
-| Node         | What it does                                                                                   |
-| ------------ | ---------------------------------------------------------------------------------------------- |
-| `groupBy`    | Splits games by `system`, `manufacturer`, `genre`, `year`, `players`, `developer` or `region`. |
-| `filter`     | Keeps games matching an expression.                                                            |
-| `collection` | A static list, or `favorites` / `recent`.                                                      |
-| `games`      | The leaf: a sorted list of games.                                                              |
-
-## Example: manufacturer → system → games
+## A view
 
 ```json
 {
   "id": "manufacturer-system",
   "name": "By manufacturer",
+  "description": "Nintendo, Sega, Sony… then their systems, then games.",
   "root": {
     "groupBy": "manufacturer",
-    "children": { "groupBy": "system", "children": { "games": { "sort": "name" } } }
+    "children": {
+      "groupBy": "system",
+      "children": { "games": { "sort": "name" } }
+    }
   }
 }
 ```
 
+| Field         | Meaning                                                            |
+| ------------- | ------------------------------------------------------------------ |
+| `id`          | Lower-case letters, digits and dashes. Unique.                     |
+| `name`        | Shown to the user.                                                 |
+| `description` | Optional.                                                          |
+| `root`        | The top node. Every branch of the tree must end in a `games` node. |
+
+## Nodes
+
+Every node is exactly one of these three, and may also carry a `filter` that applies to
+everything below it.
+
+### `groupBy`: split games by a field
+
+```json
+{ "groupBy": "genre", "sort": "count", "children": { "games": {} } }
+```
+
+| Key            | Groups by                                       | Natural order      |
+| -------------- | ----------------------------------------------- | ------------------ |
+| `system`       | System, labelled with its full name             | `es_systems` order |
+| `manufacturer` | The system's manufacturer                       | name               |
+| `hardware`     | The system's kind: console, portable, computer… | name               |
+| `genre`        | Game genre, as scraped                          | name               |
+| `developer`    | Game developer                                  | name               |
+| `publisher`    | Game publisher                                  | name               |
+| `region`       | Game region                                     | name               |
+| `year`         | Release year                                    | ascending          |
+| `decade`       | Release decade, labelled `1980s`                | ascending          |
+| `players`      | Maximum players, labelled `2 players`           | ascending          |
+
+`sort` is `natural` (default), `name` or `count` (largest first). Games with no value for the
+field are grouped under **Unknown**, always last. `children` is what each group contains.
+
+### `branches`: a fixed menu
+
+Each branch has an `id`, a `name`, an optional `filter` and its own `children`. This is how
+you build a home screen:
+
+```json
+{
+  "branches": [
+    {
+      "id": "favorites",
+      "name": "Favourites",
+      "filter": { "favorite": true },
+      "children": { "games": {} }
+    },
+    {
+      "id": "by-decade",
+      "name": "By decade",
+      "children": { "groupBy": "decade", "children": { "games": {} } }
+    }
+  ]
+}
+```
+
+### `games`: the list at the bottom
+
+```json
+{ "games": { "sort": "lastPlayed", "order": "desc", "limit": 50 } }
+```
+
+| Field   | Values                                                                          |
+| ------- | ------------------------------------------------------------------------------- |
+| `sort`  | `name` (default), `releaseDate`, `rating`, `lastPlayed`, `playCount`            |
+| `order` | `asc` or `desc`. Defaults: ascending for name and date, descending for the rest |
+| `limit` | Show at most this many                                                          |
+
+Games with no value for the sort field come last either way.
+
+## Filters
+
+Every condition in a filter must hold. Filters on nested nodes add up.
+
+| Field                                                                             | Matches                                                  |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `system`, `manufacturer`, `hardware`, `genre`, `developer`, `publisher`, `region` | One value or a list of any; case-insensitive, exact      |
+| `year`, `players`                                                                 | A range: `{ "min": 1985, "max": 1995 }`, either end open |
+| `favorite`                                                                        | `true` or `false`                                        |
+| `played`                                                                          | `true`: played at least once. `false`: never played      |
+
+Hidden games and games whose file is missing never appear in any view.
+
 ## Bundled views
 
-`systems` (EmulationStation-equivalent), `manufacturer-system`, `genre`, `favorites`, `recent`.
+| id                    | What it is                                                    |
+| --------------------- | ------------------------------------------------------------- |
+| `systems`             | System, then games: the EmulationStation layout               |
+| `manufacturer-system` | Manufacturer, then system, then games                         |
+| `genre`               | Genres across all systems, largest first                      |
+| `favorites`           | Favourite games from every system                             |
+| `recent`              | The last 50 games played                                      |
+| `home`                | A menu of favourites, recents, systems, manufacturers, genres |
 
 ## The view RomDex opens with
 
@@ -46,5 +136,18 @@ read and set it through the SDK: `nav.defaultView()` and `nav.setDefaultView(id)
 
 ## Your own views
 
-Drop JSON files in `/userdata/system/romdex/views/`. A broken view is reported and skipped; it
-never takes the others down with it.
+Drop JSON files in `/userdata/system/romdex/views/` (RomDex creates the folder). They are
+reloaded as soon as you save. A file with the same `id` as a bundled view replaces it. A broken
+file is reported and skipped; it never takes the others down with it.
+
+## How themes browse a view
+
+A theme asks for a view and a **path**: the keys it has opened so far, from the root down.
+Each group's `key` (or branch `id`) is the next path segment. The answer is one page of:
+
+- **groups**: key, label, game count and a representative image (the best-rated game in the
+  group that has one);
+- **branches**: id, name and game count;
+- **games**: the games themselves, with a total for paging.
+
+It also carries a **trail** of labels for a breadcrumb: `Manufacturers › Sega › Mega Drive`.

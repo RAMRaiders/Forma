@@ -51,6 +51,8 @@ pub enum SyncEvent {
     Failed(String),
     /// A path could not be watched; changes there are found by the periodic rescan.
     WatchUnavailable(Warning),
+    /// Something in the user's views folder changed: reload the view catalog.
+    ViewsChanged,
 }
 
 /// Runs until dropped. Dropping stops the thread and waits for it.
@@ -90,23 +92,26 @@ pub fn spawn(
     SyncHandle { tx, thread }
 }
 
-/// Where a batch of changes needs a refresh.
-#[derive(Debug, PartialEq)]
-enum Scope {
-    Systems(BTreeSet<String>),
-    Full,
+/// What a batch of changes needs: a full refresh, some systems rescanned, the views reloaded.
+#[derive(Debug, Default, PartialEq)]
+struct Scope {
+    full: bool,
+    systems: BTreeSet<String>,
+    views: bool,
 }
 
 impl Scope {
-    fn merge(self, other: Option<Scope>) -> Scope {
-        match (self, other) {
-            (Scope::Full, _) | (_, Some(Scope::Full)) => Scope::Full,
-            (Scope::Systems(mut a), Some(Scope::Systems(b))) => {
-                a.extend(b);
-                Scope::Systems(a)
-            }
-            (scope, None) => scope,
+    fn full() -> Self {
+        Self {
+            full: true,
+            ..Self::default()
         }
+    }
+
+    fn merge(&mut self, other: Scope) {
+        self.full |= other.full;
+        self.views |= other.views;
+        self.systems.extend(other.systems);
     }
 }
 
@@ -122,6 +127,8 @@ fn run(
         Ok(lib) => lib,
         Err(e) => return emit(SyncEvent::Failed(e.to_string())),
     };
+    // Created up front so it can be watched, and so users find where their views go.
+    let _ = std::fs::create_dir_all(paths.views_dir());
     refresh_all(&mut lib, paths, &mut emit);
     let mut targets = Targets::of(paths);
     // Held only to keep watching; replacing it unwatches everything the old one held.
@@ -136,42 +143,35 @@ fn run(
         let mut scope = match first {
             Ok(Msg::Fs(event)) => targets.classify(&event),
             Ok(Msg::Stop) | Err(RecvTimeoutError::Disconnected) => return,
-            Err(RecvTimeoutError::Timeout) => Some(Scope::Full),
+            Err(RecvTimeoutError::Timeout) => Scope::full(),
         };
 
         // Merge everything that arrives until it goes quiet, or max_delay passes.
         let started = Instant::now();
         while let Some(left) = options.max_delay.checked_sub(started.elapsed()) {
             match rx.recv_timeout(options.debounce.min(left)) {
-                Ok(Msg::Fs(event)) => {
-                    let next = targets.classify(&event);
-                    scope = match scope {
-                        Some(s) => Some(s.merge(next)),
-                        None => next,
-                    };
-                }
+                Ok(Msg::Fs(event)) => scope.merge(targets.classify(&event)),
                 Ok(Msg::Stop) | Err(RecvTimeoutError::Disconnected) => return,
                 Err(RecvTimeoutError::Timeout) => break,
             }
         }
 
-        match scope {
-            None => {}
-            Some(Scope::Systems(names)) => {
-                let names: Vec<String> = names.into_iter().collect();
-                emit(match lib.refresh_systems(paths, &names) {
-                    Ok(report) => SyncEvent::Refreshed(report),
-                    Err(e) => SyncEvent::Failed(e.to_string()),
-                });
-            }
-            Some(Scope::Full) => {
-                refresh_all(&mut lib, paths, &mut emit);
-                // System definitions may have changed, and with them the folders to watch.
-                targets = Targets::of(paths);
-                _watcher = None;
-                _watcher = rewatch(&targets, options, watcher_tx, &mut emit);
-                next_rescan = options.rescan_every.map(|every| Instant::now() + every);
-            }
+        if scope.views {
+            emit(SyncEvent::ViewsChanged);
+        }
+        if scope.full {
+            refresh_all(&mut lib, paths, &mut emit);
+            // System definitions may have changed, and with them the folders to watch.
+            targets = Targets::of(paths);
+            _watcher = None;
+            _watcher = rewatch(&targets, options, watcher_tx, &mut emit);
+            next_rescan = options.rescan_every.map(|every| Instant::now() + every);
+        } else if !scope.systems.is_empty() {
+            let names: Vec<String> = scope.systems.into_iter().collect();
+            emit(match lib.refresh_systems(paths, &names) {
+                Ok(report) => SyncEvent::Refreshed(report),
+                Err(e) => SyncEvent::Failed(e.to_string()),
+            });
         }
     }
 }
@@ -201,6 +201,7 @@ fn rewatch(
 struct Targets {
     systems_cfg: PathBuf,
     overlay_dir: PathBuf,
+    views_dir: PathBuf,
     roms: PathBuf,
     /// System name and ROM folder; a symlinked folder is listed under both of its paths,
     /// since watchers report the resolved one.
@@ -215,6 +216,7 @@ impl Targets {
         let mut targets = Self {
             systems_cfg: paths.systems_cfg.clone(),
             overlay_dir: paths.systems_overlay_dir(),
+            views_dir: paths.views_dir(),
             roms: paths.roms(),
             ..Self::default()
         };
@@ -233,34 +235,30 @@ impl Targets {
         targets
     }
 
-    fn classify(&self, event: &notify::Result<notify::Event>) -> Option<Scope> {
+    fn classify(&self, event: &notify::Result<notify::Event>) -> Scope {
         let event = match event {
             Ok(event) => event,
             // The watcher lost track (e.g. its queue overflowed): only a full rescan is safe.
-            Err(_) => return Some(Scope::Full),
+            Err(_) => return Scope::full(),
         };
         if event.need_rescan() {
-            return Some(Scope::Full);
+            return Scope::full();
         }
+        let mut scope = Scope::default();
         if matches!(event.kind, EventKind::Access(_)) {
-            return None;
+            return scope;
         }
-        let mut scope: Option<Scope> = None;
         for path in &event.paths {
-            let here = if path == &self.systems_cfg || path.starts_with(&self.overlay_dir) {
-                Some(Scope::Full)
+            if path == &self.systems_cfg || path.starts_with(&self.overlay_dir) {
+                scope.full = true;
+            } else if path.starts_with(&self.views_dir) {
+                scope.views = true;
             } else if let Some(name) = self.system_of(path) {
-                Some(Scope::Systems(BTreeSet::from([name.to_owned()])))
+                scope.systems.insert(name.to_owned());
             } else if path.parent() == Some(self.roms.as_path()) {
                 // A folder appeared in `roms/` that no watched system owns yet.
-                Some(Scope::Full)
-            } else {
-                None
-            };
-            scope = match (scope, here) {
-                (Some(s), next) => Some(s.merge(next)),
-                (None, next) => next,
-            };
+                scope.full = true;
+            }
         }
         scope
     }
@@ -298,6 +296,7 @@ fn watch(
     let shallow = [
         cfg_dir,
         Some(targets.overlay_dir.clone()),
+        Some(targets.views_dir.clone()),
         Some(targets.roms.clone()),
     ];
     let shallow = shallow
@@ -359,7 +358,7 @@ mod tests {
                 match self.events.recv_timeout(left) {
                     Ok(SyncEvent::Refreshed(report)) => return report,
                     Ok(SyncEvent::Failed(e)) => panic!("refresh failed: {e}"),
-                    Ok(SyncEvent::WatchUnavailable(_)) => {}
+                    Ok(SyncEvent::WatchUnavailable(_) | SyncEvent::ViewsChanged) => {}
                     Err(e) => panic!("no refresh within {WAIT:?}: {e}"),
                 }
             }
@@ -371,6 +370,17 @@ mod tests {
                 let report = self.next_refresh();
                 if !report.changed_systems.is_empty() {
                     return report;
+                }
+            }
+        }
+
+        fn next_views_changed(&self) {
+            loop {
+                match self.events.recv_timeout(WAIT) {
+                    Ok(SyncEvent::ViewsChanged) => return,
+                    Ok(SyncEvent::Refreshed(r)) => panic!("refreshed instead: {r:?}"),
+                    Ok(_) => {}
+                    Err(e) => panic!("no views change within {WAIT:?}: {e}"),
                 }
             }
         }
@@ -474,6 +484,17 @@ mod tests {
     }
 
     #[test]
+    fn a_view_file_change_reloads_views_without_a_rescan() {
+        let (_dir, paths) = fixture_copy();
+        let sync = Running::start(&paths, injected());
+        sync.next_refresh();
+        assert!(paths.views_dir().is_dir(), "created at start");
+        sync.touch(paths.views_dir().join("mine.json"));
+        sync.next_views_changed();
+        assert!(sync.quiet_for(Duration::from_millis(400)));
+    }
+
+    #[test]
     fn polling_finds_changes_without_a_watcher() {
         let (_dir, paths) = fixture_copy();
         let sync = Running::start(
@@ -513,25 +534,37 @@ mod tests {
         let event = |path: PathBuf| {
             Ok(notify::Event::new(EventKind::Create(CreateKind::File)).add_path(path))
         };
+        let systems = |names: &[&str]| Scope {
+            systems: names.iter().map(|n| (*n).to_owned()).collect(),
+            ..Scope::default()
+        };
         assert_eq!(
             targets.classify(&event(paths.roms().join("nes/images/x.png"))),
-            Some(Scope::Systems(BTreeSet::from(["nes".to_owned()])))
+            systems(&["nes"])
         );
         assert_eq!(
             targets.classify(&event(paths.systems_overlay_dir().join("es_systems_x.cfg"))),
-            Some(Scope::Full)
+            Scope::full()
         );
         assert_eq!(
             targets.classify(&event(paths.roms().join("newsystem"))),
-            Some(Scope::Full)
+            Scope::full()
+        );
+        assert!(
+            targets
+                .classify(&event(paths.views_dir().join("v.json")))
+                .views
         );
         assert_eq!(
-            targets.classify(&event(paths.userdata.join("system/romdex/x"))),
-            None
+            targets.classify(&event(paths.userdata.join("system/romdex/library.db"))),
+            Scope::default()
         );
         assert_eq!(
             targets.classify(&Err(notify::Error::generic("overflow"))),
-            Some(Scope::Full)
+            Scope::full()
         );
+        let mut merged = systems(&["nes"]);
+        merged.merge(systems(&["snes"]));
+        assert_eq!(merged, systems(&["nes", "snes"]));
     }
 }
