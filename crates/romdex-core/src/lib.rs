@@ -4,6 +4,22 @@
 //! hierarchy views, launching games and normalising input. It must not depend on Tauri, so it
 //! can be tested on any machine and reused by other hosts.
 
+mod error;
+pub mod field;
+pub mod gamelist;
+pub mod library;
+pub mod paths;
+pub mod scan;
+pub mod systems;
+mod xml;
+
+#[cfg(test)]
+mod test_support;
+
+pub use error::{Error, Result, Warning};
+pub use library::{Game, Library, RefreshReport, SystemSummary};
+pub use paths::Paths;
+
 /// Version of the theme-facing API this core implements. Themes declare the range they need in
 /// `theme.json` (`"sdk": "^1"`) and `@romdex/sdk` checks it against this value at startup.
 pub const SDK_API_VERSION: &str = "1.0.0";

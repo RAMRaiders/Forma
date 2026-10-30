@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<gameList>
+	<game>
+		<path>./Super Metroid (Japan, USA).sfc</path>
+		<name>Super Metroid</name>
+		<genre>Platform</genre>
+		<developer>Nintendo R&amp;D1</developer>
+		<players>1</players>
+	</game>
+	<game>
+		<path>./Chrono Trigger (USA).sfc</path>
+		<name>Chrono Trig

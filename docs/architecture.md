@@ -45,6 +45,23 @@ Data flows in from three sources, and each field records which one set it:
 
 RomDex still launches through Batocera's own `emulatorlauncher`.
 
+### Measured
+
+`cargo run --release -p romdex-core --example bench_library` generates 10 systems × 2,000 games
+with full gamelists and times what a user feels. On an Apple M-series laptop, 2026-10-30:
+
+| Operation                                  |   Time |
+| ------------------------------------------ | -----: |
+| First import (scan + parse every gamelist) | 1.19 s |
+| Refresh with nothing changed (scan only)   |  98 ms |
+| Cold boot to the first list (2,000 games)  |  14 ms |
+| Search, top 50                             | 2–4 ms |
+
+The first import was 3.2 s while the search index was kept up by triggers; maintaining it from
+code, only for games whose searchable text changed, cut it to 1.19 s. Expect a Raspberry Pi to be
+several times slower: the spike (#39) measures it on real hardware. Cold boot is the number that
+matters most and is independent of library size, since it reads one system's rows.
+
 ## Input
 
 Gamepads are read in Rust (gilrs) and delivered to the theme as normalised actions (`up`,

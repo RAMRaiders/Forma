@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<gameList>
+	<game id="1234" source="ScreenScraper.fr">
+		<path>./Super Mario Bros. (World).nes</path>
+		<name>Super Mario Bros.</name>
+		<desc>Mario &amp; Luigi save the Mushroom Kingdom. Caf&#233; included.</desc>
+		<image>./images/Super Mario Bros. (World)-image.png</image>
+		<marquee>./images/Super Mario Bros. (World)-marquee.png</marquee>
+		<video>./videos/Super Mario Bros. (World)-video.mp4</video>
+		<rating>0.9</rating>
+		<releasedate>19850913T000000</releasedate>
+		<developer>Nintendo</developer>
+		<publisher>Nintendo</publisher>
+		<genre>Platform</genre>
+		<players>1-2</players>
+		<favorite>true</favorite>
+		<playcount>12</playcount>
+		<lastplayed>20260101T120000</lastplayed>
+		<region>wor</region>
+		<lang>en</lang>
+		<cheevosId>1446</cheevosId>
+		<cheevosHash>811b027eaf99c2def7b933c5208636de</cheevosHash>
+		<someFutureTag>kept, not understood</someFutureTag>
+	</game>
+	<game>
+		<path>./The Legend of Zelda (USA).nes</path>
+		<name>The Legend of Zelda</name>
+		<desc><![CDATA[Link explores <Hyrule>.]]></desc>
+		<rating>0.85</rating>
+		<releasedate>19860221T000000</releasedate>
+		<developer>Nintendo</developer>
+		<publisher>Nintendo</publisher>
+		<genre>Action / Adventure</genre>
+		<players>1</players>
+	</game>
+	<game>
+		<path>./Tom &amp; Jerry (USA).nes</path>
+		<name>Tom &amp; Jerry</name>
+		<desc>Uses an HTML entity the XML spec does not define: &nbsp;here.</desc>
+		<hidden>true</hidden>
+	</game>
+	<game>
+		<name>An entry with no path, which ES would ignore too</name>
+	</game>
+	<game>
+		<path>./Deleted Game (USA).nes</path>
+		<name>Listed but not on disk</name>
+	</game>
+	<folder>
+		<path>./images</path>
+		<name>Images folder entry</name>
+	</folder>
+</gameList>

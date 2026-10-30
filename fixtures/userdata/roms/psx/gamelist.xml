@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<gameList>
+	<game>
+		<path>./Final Fantasy VII.m3u</path>
+		<name>Final Fantasy VII</name>
+		<genre>Role Playing Game</genre>
+		<developer>Square</developer>
+		<publisher>Sony Computer Entertainment</publisher>
+		<releasedate>19970907T000000</releasedate>
+		<players>1</players>
+	</game>
+</gameList>
