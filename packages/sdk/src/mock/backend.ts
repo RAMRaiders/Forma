@@ -15,6 +15,9 @@ import type {
   GameEnd,
   GameStart,
   LibraryChanged,
+  NetplayRoom,
+  RaGame,
+  RaUser,
   SystemSummary,
   ThemeInfo,
   Unsubscribe,
@@ -27,6 +30,8 @@ export interface MockOptions {
   playMs?: number;
   /** Permissions the mock pretends the theme declared, e.g. `settings.system`. */
   permissions?: string[];
+  /** Pretend RetroAchievements is set up (default) or not. */
+  ra?: boolean;
 }
 
 interface Snapshot {
@@ -35,6 +40,8 @@ interface Snapshot {
   views: ViewInfo[];
   games: Game[];
   browse: Record<string, Browse>;
+  ra: { user: RaUser; games: Record<string, RaGame> };
+  lobby: NetplayRoom[];
 }
 
 const snapshot = data as unknown as Snapshot;
@@ -66,9 +73,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
     for (const handler of listeners.get(event) ?? []) handler(payload);
   };
 
-  const mediaUrl = (gameId: number, kind: string): string => {
-    if (kind === 'video') return '';
-    const name = games.get(gameId)?.name ?? `Game ${gameId}`;
+  const mediaUrl = (gameId: number, kind: string): string =>
+    kind === 'video' ? '' : placeholder(games.get(gameId)?.name ?? `Game ${gameId}`, kind);
+
+  /** A labelled placeholder image, so a theme's layout can be judged without real media. */
+  function placeholder(name: string, kind: string): string {
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">` +
       `<rect width="100%" height="100%" fill="#2a2d3a"/>` +
@@ -77,7 +86,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       `<text x="50%" y="62%" fill="#8a8d99" font-family="sans-serif" font-size="14" ` +
       `text-anchor="middle">${escapeXml(kind)}</text></svg>`;
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  };
+  }
 
   /** The live copy of a game, with media as URLs, as the app sends it. */
   const present = (game: Game): Game => {
@@ -88,6 +97,27 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (url) media[kind] = url;
     }
     return { ...live, media };
+  };
+
+  /** RetroAchievements media in the snapshot is `ra-media/<path>`; draw a placeholder. */
+  const raMedia = <T>(value: T): T =>
+    JSON.parse(JSON.stringify(value), (_key, v: unknown) =>
+      typeof v === 'string' && v.startsWith('ra-media/')
+        ? placeholder(v.split('/').pop()!, 'badge')
+        : v
+    ) as T;
+  const fetched = <T>(data: T) => ({
+    data: raMedia(data),
+    stale: false,
+    fetchedAt: new Date().toISOString().slice(0, 19)
+  });
+  const raConfigured = () => {
+    if (options.ra === false) {
+      fail(
+        'notConfigured',
+        'set your RetroAchievements web API key as the RomDex setting ra.apiKey'
+      );
+    }
   };
 
   const settingKey = (key: string, scope: unknown): string => {
@@ -165,6 +195,17 @@ export function mockBackend(options: MockOptions = {}): Backend {
     themes_select: ({ id }) =>
       id === 'mock' ? null : fail('notFound', `theme \`${String(id)}\` is not available`),
     input_controllers: () => [],
+    ra_user: () => {
+      raConfigured();
+      return fetched(snapshot.ra.user);
+    },
+    ra_game: ({ id }) => {
+      raConfigured();
+      const game = snapshot.ra.games[String(id)];
+      if (!game) fail('notFound', `no RetroAchievements id is known for game ${String(id)} yet`);
+      return fetched(game);
+    },
+    netplay_lobby: () => fetched(snapshot.lobby),
     system_quit: () => power(),
     system_power: () => power(),
     launch_game: ({ id }) => {

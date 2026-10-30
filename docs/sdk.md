@@ -125,6 +125,42 @@ Values are any JSON. `set(key, null)` removes a setting.
 | `list()`     | Every theme found, with `unavailable` saying why one cannot load |
 | `select(id)` | Switches to that theme (the window reloads into it)              |
 
+## `ra`
+
+RetroAchievements, read-only: unlocking happens inside RetroArch, which Batocera already logs in.
+
+| Method     | Returns                                                        |
+| ---------- | -------------------------------------------------------------- |
+| `user()`   | The user's profile, points, rank and recently played games     |
+| `game(id)` | A local game's achievements and progress (`id` is RomDex's id) |
+
+```ts
+const { data, stale } = await romdex.ra.game(game.id);
+for (const a of data.achievements) {
+  badge(a.badge, a.title, a.earnedAt !== null);
+}
+if (stale) note("Offline: showing the last known progress");
+```
+
+Both answer with `{ data, stale, fetchedAt }`: offline, RomDex serves the last answer it got,
+with `stale: true`. Badge, icon and avatar URLs are served by RomDex itself, so a theme needs no
+`network` permission to show them.
+
+They need the user's **web API key** (retroachievements.org → Settings → Keys) in the RomDex
+setting `ra.apiKey`; without it they reject with `notConfigured` and a message saying so. The
+username defaults to the one Batocera logs in with. `game()` rejects with `notFound` when no
+RetroAchievements id is known for the game yet (matching by hash arrives in Milestone 2).
+
+## `netplay`
+
+| Method    | Returns                                                                |
+| --------- | ---------------------------------------------------------------------- |
+| `lobby()` | Open rooms on the libretro lobby, joinable first, as `{ data, stale }` |
+
+Each room has `localGameId` when a local game has the same name, so a theme can offer to join
+with `launch.game(room.localGameId, { netplay: { mode: 'client', host: room.host, port: room.port } })`.
+Hosting and joining from the default theme arrive in Milestone 2.
+
 ## `system`
 
 `quit()`, `restart()` and `shutdown()` need the `system.power` permission. Restart and

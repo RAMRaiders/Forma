@@ -2587,6 +2587,117 @@
       "system": "homebrew"
     }
   ],
+  "lobby": [
+    {
+      "connectable": true,
+      "coreName": "FCEUmm",
+      "coreVersion": "(SVN) 7d2f0b6",
+      "country": "pt",
+      "created": "2026-10-30T13:01:22.501Z",
+      "frontend": "linux x64",
+      "gameCrc": "3337EC46",
+      "gameName": "Super Mario Bros. (World)",
+      "hasPassword": false,
+      "hasSpectatePassword": false,
+      "host": "192.0.2.10",
+      "id": 7123401,
+      "localGameId": 2,
+      "port": 55435,
+      "relayHost": null,
+      "relayPort": null,
+      "retroarchVersion": "1.21.0",
+      "username": "Kirby_Fan"
+    },
+    {
+      "connectable": false,
+      "coreName": "Snes9x",
+      "coreVersion": "1.63",
+      "country": "br",
+      "created": "2026-10-30T12:44:03.000Z",
+      "frontend": "win64",
+      "gameCrc": "B2D8F6B9",
+      "gameName": "Street Fighter II Turbo (USA)",
+      "hasPassword": true,
+      "hasSpectatePassword": false,
+      "host": "198.51.100.7",
+      "id": 7123455,
+      "localGameId": null,
+      "port": 55435,
+      "relayHost": "198.51.100.200",
+      "relayPort": 55436,
+      "retroarchVersion": "1.20.0",
+      "username": "speedrunner"
+    }
+  ],
+  "ra": {
+    "games": {
+      "2": {
+        "achievementCount": 3,
+        "achievements": [
+          {
+            "badge": "ra-media/Badge/04913.png",
+            "description": "Clear World 1-1",
+            "earnedAt": "2026-10-29 20:11:02",
+            "earnedHardcoreAt": "2026-10-29 20:11:02",
+            "id": 4874,
+            "points": 5,
+            "title": "Mushroom Kingdom"
+          },
+          {
+            "badge": "ra-media/Badge/04914.png",
+            "description": "Use a warp pipe",
+            "earnedAt": "2026-10-29 20:40:57",
+            "earnedHardcoreAt": null,
+            "id": 4875,
+            "points": 10,
+            "title": "Warp Zone"
+          },
+          {
+            "badge": "ra-media/Badge/04915.png",
+            "description": "Rescue the princess",
+            "earnedAt": null,
+            "earnedHardcoreAt": null,
+            "id": 4876,
+            "points": 25,
+            "title": "Princess Toadstool"
+          }
+        ],
+        "completion": 0.6667000000000001,
+        "console": "NES/Famicom",
+        "earned": 2,
+        "earnedHardcore": 1,
+        "icon": "ra-media/Images/085573.png",
+        "raGameId": 1446,
+        "title": "Super Mario Bros."
+      }
+    },
+    "user": {
+      "avatar": "ra-media/UserPic/fixture-user.png",
+      "memberSince": "2019-04-02 18:21:33",
+      "points": 4210,
+      "rank": 15342,
+      "recentlyPlayed": [
+        {
+          "console": "NES/Famicom",
+          "icon": "ra-media/Images/085573.png",
+          "lastPlayed": "2026-10-29 21:04:11",
+          "raGameId": 1446,
+          "title": "Super Mario Bros."
+        },
+        {
+          "console": "Genesis/Mega Drive",
+          "icon": "ra-media/Images/067895.png",
+          "lastPlayed": "2026-10-12 19:40:02",
+          "raGameId": 1,
+          "title": "Sonic the Hedgehog"
+        }
+      ],
+      "richPresence": "Mario is in World 1-2",
+      "softcorePoints": 120,
+      "truePoints": 9875,
+      "username": "fixture-user"
+    }
+  },
   "systems": [
     {
       "fullname": "Nintendo Entertainment System",

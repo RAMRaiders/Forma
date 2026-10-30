@@ -18,6 +18,14 @@ pub enum Error {
     #[error("{0}")]
     Launch(String),
 
+    /// A service could not be reached, or answered with something unreadable.
+    #[error("{0}")]
+    Network(String),
+
+    /// A feature needs setting up first (e.g. a RetroAchievements API key).
+    #[error("{0}")]
+    NotConfigured(String),
+
     /// A view or a path into it that cannot be resolved.
     #[error("{0}")]
     View(String),

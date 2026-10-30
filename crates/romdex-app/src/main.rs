@@ -37,6 +37,9 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::system_quit,
         commands::system_power,
         commands::launch_game,
+        commands::ra_user,
+        commands::ra_game,
+        commands::netplay_lobby,
     ]
 }
 

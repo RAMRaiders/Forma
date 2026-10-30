@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use romdex_core::hierarchy::load_views;
 use romdex_core::launch::MockLauncher;
+use romdex_core::net::{Http, HttpError};
 use romdex_core::themes::discover;
 use romdex_core::{Library, Paths};
 use serde_json::{Value, json};
@@ -61,6 +62,7 @@ impl Harness {
             bundled_themes: bundled,
             current_theme: RwLock::new("default".into()),
             launcher: Box::new(MockLauncher::new(Duration::from_millis(20))),
+            http: Box::new(FixtureHttp),
             playing: AtomicBool::new(false),
             theme_ready: AtomicBool::new(false),
             input: Mutex::new(None),
@@ -115,6 +117,30 @@ impl Harness {
 
     fn state(&self) -> tauri::State<'_, AppState> {
         self.window.state::<AppState>()
+    }
+}
+
+/// Answers from `fixtures/http`, like the services would.
+struct FixtureHttp;
+
+impl Http for FixtureHttp {
+    fn get(&self, url: &str) -> Result<Vec<u8>, HttpError> {
+        let file = if url.contains("API_GetUserSummary") {
+            "ra-user.json"
+        } else if url.contains("API_GetGameInfoAndUserProgress") {
+            "ra-game.json"
+        } else if url.contains("lobby.libretro.com") {
+            "lobby.json"
+        } else {
+            return Err(HttpError {
+                status: Some(404),
+                message: url.into(),
+            });
+        };
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/http")
+            .join(file);
+        Ok(std::fs::read(path).unwrap())
     }
 }
 
@@ -345,4 +371,53 @@ fn a_page_from_another_origin_cannot_call_commands() {
         json!({ "query": "a" }),
     );
     assert!(refused.is_err(), "{refused:?}");
+}
+
+#[test]
+fn achievements_need_an_api_key_and_then_show_progress_through_the_proxy() {
+    let h = Harness::new(&[]);
+    let err = h.call("ra_user", json!({})).unwrap_err();
+    assert_eq!(code(&err), "notConfigured");
+    assert!(err["message"].as_str().unwrap().contains("ra.apiKey"));
+
+    h.state()
+        .library()
+        .set_setting("ra.apiKey", Some("\"key\""))
+        .unwrap();
+    let user = h.call("ra_user", json!({})).unwrap();
+    assert_eq!(user["data"]["username"], "fixture-user");
+    assert_eq!(user["stale"], false);
+    assert_eq!(
+        user["data"]["avatar"],
+        "romdex://localhost/ra-media/UserPic/fixture-user.png"
+    );
+
+    let mario = h
+        .call("library_search", json!({ "query": "super mario" }))
+        .unwrap()[0]["id"]
+        .clone();
+    let game = h.call("ra_game", json!({ "id": mario })).unwrap();
+    assert_eq!(game["data"]["achievements"].as_array().unwrap().len(), 3);
+    assert_eq!(game["data"]["earned"], 2);
+
+    let zelda = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap()[0]["id"]
+        .clone();
+    let err = h.call("ra_game", json!({ "id": zelda })).unwrap_err();
+    assert_eq!(code(&err), "notFound");
+}
+
+#[test]
+fn the_netplay_lobby_is_matched_to_local_games() {
+    let h = Harness::new(&[]);
+    let lobby = h.call("netplay_lobby", json!({})).unwrap();
+    let rooms = lobby["data"].as_array().unwrap();
+    assert_eq!(rooms.len(), 2);
+    let mario = h
+        .call("library_search", json!({ "query": "super mario" }))
+        .unwrap()[0]["id"]
+        .clone();
+    assert_eq!(rooms[0]["localGameId"], mario);
+    assert_eq!(rooms[1]["localGameId"], Value::Null);
 }

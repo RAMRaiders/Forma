@@ -96,4 +96,28 @@ describe('the SDK surface', () => {
     press('Enter');
     expect(seen).toHaveLength(2);
   });
+
+  it('RetroAchievements and the netplay lobby', async () => {
+    const romdex = await sdk();
+    const user = await romdex.ra.user();
+    expect(user.stale).toBe(false);
+    expect(user.data.username).toBe('fixture-user');
+    expect(user.data.avatar).toMatch(/^data:image\/svg/);
+
+    const [mario] = await romdex.library.search('super mario');
+    const progress = await romdex.ra.game(mario!.id);
+    expect(progress.data.achievements.map((a) => a.title)).toEqual([
+      'Mushroom Kingdom',
+      'Warp Zone',
+      'Princess Toadstool'
+    ]);
+    const [zelda] = await romdex.library.search('zelda');
+    await expect(romdex.ra.game(zelda!.id)).rejects.toMatchObject({ code: 'notFound' });
+
+    const lobby = await romdex.netplay.lobby();
+    expect(lobby.data[0]).toMatchObject({ connectable: true, localGameId: mario!.id });
+
+    const unset = await connect({ backend: mockBackend({ ra: false }), keyboard: false });
+    await expect(unset.ra.user()).rejects.toMatchObject({ code: 'notConfigured' });
+  });
 });

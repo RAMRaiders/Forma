@@ -7,6 +7,7 @@ use std::time::SystemTime;
 
 use romdex_core::hierarchy::{Browse, DEFAULT_VIEW_SETTING, Listing, Origin, Page};
 use romdex_core::launch::{self, Controller, GameEvent, LaunchRequest};
+use romdex_core::net::{Fetched, achievements, netplay};
 use romdex_core::themes::{Theme, ThemeOrigin};
 use romdex_core::{Game, SDK_API_VERSION, SystemSummary};
 use serde::Serialize;
@@ -15,7 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
 use crate::api::{ApiError, ApiResult, ErrorCode};
 use crate::permissions::{self, Scope};
-use crate::protocol::{media_url, theme_url};
+use crate::protocol::{RA_MEDIA_PREFIX, media_url, theme_url};
 use crate::state::{AppState, THEME_SETTING};
 
 pub const EVENT_INPUT: &str = "input";
@@ -159,7 +160,7 @@ pub struct DefaultView {
 
 #[tauri::command]
 pub fn nav_default_view(state: State<'_, AppState>) -> ApiResult<DefaultView> {
-    let setting = state.library().setting(DEFAULT_VIEW_SETTING)?;
+    let setting = state.library().setting_text(DEFAULT_VIEW_SETTING)?;
     let suggested = state.current_theme().and_then(|t| t.manifest?.hierarchy);
     let views = state.views();
     let (view, notes) = views.boot_view(setting.as_deref(), suggested.as_deref());
@@ -405,6 +406,77 @@ fn set_playing_ui<R: Runtime>(app: &AppHandle<R>, state: &AppState, playing: boo
             let _ = window.set_focus();
         }
     }
+}
+
+/// Runs network work on a blocking thread: a slow service must never stall the UI thread.
+async fn off_thread<R: Runtime, T: Send + 'static>(
+    app: AppHandle<R>,
+    work: impl FnOnce(&AppState) -> ApiResult<T> + Send + 'static,
+) -> ApiResult<T> {
+    tauri::async_runtime::spawn_blocking(move || work(&app.state::<AppState>()))
+        .await
+        .map_err(|e| ApiError::new(ErrorCode::Internal, e.to_string()))?
+}
+
+/// The user's RetroAchievements profile. Read-only: unlocking happens in RetroArch.
+#[tauri::command]
+pub async fn ra_user<R: Runtime>(app: AppHandle<R>) -> ApiResult<Fetched<achievements::RaUser>> {
+    off_thread(app, |state| {
+        // Read the account, then let go of the library before going to the network.
+        let account = achievements::account(&state.library(), &state.paths)?;
+        Ok(achievements::user(
+            &*state.http,
+            &state.http_cache(),
+            &account,
+            RA_MEDIA_PREFIX,
+        )?)
+    })
+    .await
+}
+
+/// A local game's achievements and the user's progress in it.
+#[tauri::command]
+pub async fn ra_game<R: Runtime>(
+    app: AppHandle<R>,
+    id: i64,
+) -> ApiResult<Fetched<achievements::RaGame>> {
+    off_thread(app, move |state| {
+        let (ra_id, account) = {
+            let lib = state.library();
+            let game = lib.game(id)?.ok_or_else(|| {
+                ApiError::new(ErrorCode::NotFound, format!("no game with id {id}"))
+            })?;
+            let ra_id = game.ra_game_id.ok_or_else(|| {
+                ApiError::new(
+                    ErrorCode::NotFound,
+                    format!("no RetroAchievements id is known for {} yet", game.name),
+                )
+            })?;
+            (ra_id, achievements::account(&lib, &state.paths)?)
+        };
+        Ok(achievements::game(
+            &*state.http,
+            &state.http_cache(),
+            &account,
+            ra_id,
+            RA_MEDIA_PREFIX,
+        )?)
+    })
+    .await
+}
+
+/// Open netplay rooms, joinable first, matched to local games where possible.
+#[tauri::command]
+pub async fn netplay_lobby<R: Runtime>(
+    app: AppHandle<R>,
+) -> ApiResult<Fetched<Vec<netplay::Room>>> {
+    off_thread(app, |state| {
+        let mut rooms = netplay::lobby(&*state.http, &state.http_cache())?;
+        // The library is locked only for the name match, never across the request.
+        netplay::match_local(&mut rooms.data, &state.library())?;
+        Ok(rooms)
+    })
+    .await
 }
 
 /// The URL a theme is served from, for the window to load.

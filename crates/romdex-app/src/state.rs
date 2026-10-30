@@ -7,6 +7,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard};
 use romdex_core::hierarchy::ViewCatalog;
 use romdex_core::input::InputHandle;
 use romdex_core::launch::Launcher;
+use romdex_core::net::{Cache, Http, achievements};
 use romdex_core::sync::SyncHandle;
 use romdex_core::themes::Theme;
 use romdex_core::{Library, Paths};
@@ -26,6 +27,8 @@ pub struct AppState {
     pub bundled_themes: Vec<PathBuf>,
     pub current_theme: RwLock<String>,
     pub launcher: Box<dyn Launcher>,
+    /// How RomDex reaches RetroAchievements and the netplay lobby.
+    pub http: Box<dyn Http>,
     pub playing: AtomicBool,
     /// Set by the SDK once the current theme has started.
     pub theme_ready: AtomicBool,
@@ -36,6 +39,10 @@ pub struct AppState {
 impl AppState {
     pub fn library(&self) -> MutexGuard<'_, Library> {
         self.library.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub fn http_cache(&self) -> Cache {
+        Cache::new(self.paths.cache_dir().join("http"))
     }
 
     pub fn views(&self) -> RwLockReadGuard<'_, ViewCatalog> {
@@ -87,5 +94,10 @@ impl Resolver for AppState {
     fn media(&self, game_id: i64, kind: &str) -> Option<PathBuf> {
         let game = self.library().game(game_id).ok()??;
         game.media.get(kind).map(PathBuf::from)
+    }
+
+    fn ra_media(&self, path: &str) -> Option<PathBuf> {
+        let dir = self.paths.cache_dir().join("ra-media");
+        achievements::media_file(&*self.http, &dir, path).ok()
     }
 }

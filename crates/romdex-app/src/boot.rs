@@ -34,7 +34,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             t.unavailable.as_deref().unwrap_or_default()
         );
     }
-    let selected = library.setting(THEME_SETTING)?;
+    let selected = library.setting_text(THEME_SETTING)?;
     let current = pick_theme(&themes, selected.as_deref()).unwrap_or_default();
 
     app.manage(AppState {
@@ -44,6 +44,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         bundled_themes,
         current_theme: RwLock::new(current.clone()),
         launcher: launcher_from_env(),
+        http: Box::new(romdex_core::net::UreqHttp::default()),
         playing: AtomicBool::new(false),
         theme_ready: AtomicBool::new(false),
         input: Mutex::new(None),

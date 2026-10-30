@@ -11,6 +11,7 @@ pub mod hierarchy;
 pub mod input;
 pub mod launch;
 pub mod library;
+pub mod net;
 pub mod paths;
 pub mod scan;
 pub mod sync;

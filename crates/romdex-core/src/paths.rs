@@ -59,6 +59,11 @@ impl Paths {
         self.romdex_dir().join("library.db")
     }
 
+    /// Answers from online services and media fetched for themes. Safe to delete.
+    pub fn cache_dir(&self) -> PathBuf {
+        self.romdex_dir().join("cache")
+    }
+
     /// The user's own hierarchy views, one JSON file each.
     pub fn views_dir(&self) -> PathBuf {
         self.romdex_dir().join("views")

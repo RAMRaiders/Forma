@@ -212,3 +212,81 @@ export interface EventMap {
 }
 
 export type Unsubscribe = () => void;
+
+/** An answer from an online service, and whether it is fresh. */
+export interface Fetched<T> {
+  data: T;
+  /** Served from RomDex's cache because the service could not be reached. */
+  stale: boolean;
+  /** When the data was fetched, ISO 8601 UTC. */
+  fetchedAt: string;
+}
+
+export interface RaUser {
+  username: string;
+  points: number;
+  softcorePoints: number;
+  truePoints: number;
+  rank: number | null;
+  memberSince: string | null;
+  richPresence: string | null;
+  /** URL of the avatar. */
+  avatar: string | null;
+  recentlyPlayed: RaRecent[];
+}
+
+export interface RaRecent {
+  raGameId: number;
+  title: string;
+  console: string;
+  icon: string | null;
+  lastPlayed: string | null;
+}
+
+export interface RaGame {
+  raGameId: number;
+  title: string;
+  console: string;
+  icon: string | null;
+  achievementCount: number;
+  earned: number;
+  earnedHardcore: number;
+  /** 0.0–1.0. */
+  completion: number;
+  achievements: RaAchievement[];
+}
+
+export interface RaAchievement {
+  id: number;
+  title: string;
+  description: string;
+  points: number;
+  /** URL of the badge. */
+  badge: string | null;
+  earnedAt: string | null;
+  earnedHardcoreAt: string | null;
+}
+
+export interface NetplayRoom {
+  id: number;
+  username: string;
+  country: string | null;
+  /** The ROM name the host is playing. */
+  gameName: string;
+  gameCrc: string | null;
+  coreName: string;
+  coreVersion: string | null;
+  retroarchVersion: string | null;
+  frontend: string | null;
+  host: string;
+  port: number | null;
+  /** Relay server, for hosts that cannot be reached directly. */
+  relayHost: string | null;
+  relayPort: number | null;
+  hasPassword: boolean;
+  hasSpectatePassword: boolean;
+  connectable: boolean;
+  created: string | null;
+  /** The local game with the same name, when there is one. */
+  localGameId: number | null;
+}

@@ -4,6 +4,8 @@
 //!   `..`, absolute paths and symlinks leading out of the folder are refused.
 //! - `romdex://localhost/media/<game id>/<kind>` serves a game's image, video, marquee… looked up
 //!   by id, so a theme never names (or learns) a path on disk.
+//! - `romdex://localhost/ra-media/<path>` serves RetroAchievements badges, icons and avatars,
+//!   fetched once and cached, so showing achievements never needs the `network` permission.
 //!
 //! HTML responses carry the Content-Security-Policy that keeps a theme to its own folder and
 //! the origins its manifest declares. Media supports byte ranges, which video seeking needs.
@@ -20,6 +22,8 @@ pub trait Resolver {
     fn theme(&self, id: &str) -> Option<(PathBuf, Vec<String>)>;
     /// The file for one kind of a game's media.
     fn media(&self, game_id: i64, kind: &str) -> Option<PathBuf>;
+    /// A RetroAchievements media file, fetched and cached if need be.
+    fn ra_media(&self, path: &str) -> Option<PathBuf>;
 }
 
 pub const ORIGIN: &str = "romdex://localhost";
@@ -32,6 +36,9 @@ pub fn media_url(game_id: i64, kind: &str) -> String {
     format!("{ORIGIN}/media/{game_id}/{kind}")
 }
 
+/// What RetroAchievements media paths are appended to.
+pub const RA_MEDIA_PREFIX: &str = "romdex://localhost/ra-media/";
+
 pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let path = percent_decode(request.uri().path());
     let mut parts = path.trim_start_matches('/').splitn(3, '/');
@@ -40,6 +47,12 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
         .get(header::RANGE)
         .and_then(|v| v.to_str().ok());
 
+    if let Some(rest) = path.strip_prefix("/ra-media/") {
+        return match resolver.ra_media(rest) {
+            Some(file) => serve(&file, range, None),
+            None => status(StatusCode::NOT_FOUND, "no such media"),
+        };
+    }
     match (parts.next(), parts.next(), parts.next()) {
         (Some("theme"), Some(id), rest) => {
             let Some((dir, remote)) = resolver.theme(id) else {
@@ -235,6 +248,9 @@ mod tests {
         fn media(&self, game_id: i64, kind: &str) -> Option<PathBuf> {
             (game_id == 7 && kind == "video").then(|| self.media.clone())
         }
+        fn ra_media(&self, path: &str) -> Option<PathBuf> {
+            (path == "Badge/1.png").then(|| self.media.clone())
+        }
     }
 
     fn setup() -> (tempfile::TempDir, Fake) {
@@ -346,6 +362,10 @@ mod tests {
         ] {
             assert_eq!(get(&fake, uri, None).status(), StatusCode::NOT_FOUND);
         }
+        let badge = get(&fake, "romdex://localhost/ra-media/Badge/1.png", None);
+        assert_eq!(badge.status(), StatusCode::OK);
+        let other = get(&fake, "romdex://localhost/ra-media/Badge/2.png", None);
+        assert_eq!(other.status(), StatusCode::NOT_FOUND);
     }
 
     #[test]

@@ -5,6 +5,10 @@ const CODES = [
   'busy',
   'unsupported',
   'launch',
+  /** A service could not be reached and nothing was cached. */
+  'network',
+  /** A feature needs setting up first; the message says how. */
+  'notConfigured',
   'internal',
   /** The host speaks an SDK version this theme was not built for. */
   'incompatible'

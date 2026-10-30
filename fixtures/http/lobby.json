@@ -1,0 +1,53 @@
+[
+  {
+    "fields": {
+      "id": 7123401,
+      "username": "Kirby_Fan",
+      "country": "pt",
+      "game_name": "Super Mario Bros. (World)",
+      "game_crc": "3337EC46",
+      "core_name": "FCEUmm",
+      "core_version": "(SVN) 7d2f0b6",
+      "subsystem_name": "N/A",
+      "retroarch_version": "1.21.0",
+      "frontend": "linux x64",
+      "ip": "192.0.2.10",
+      "port": 55435,
+      "mitm_ip": "",
+      "mitm_port": 0,
+      "mitm_session": "",
+      "host_method": 0,
+      "has_password": false,
+      "has_spectate_password": false,
+      "connectable": true,
+      "is_retroarch": true,
+      "created": "2026-10-30T13:01:22.501Z",
+      "updated": "2026-10-30T13:05:10.112Z"
+    }
+  },
+  {
+    "fields": {
+      "id": 7123455,
+      "username": "speedrunner",
+      "country": "br",
+      "game_name": "Street Fighter II Turbo (USA)",
+      "game_crc": "B2D8F6B9",
+      "core_name": "Snes9x",
+      "core_version": "1.63",
+      "subsystem_name": "N/A",
+      "retroarch_version": "1.20.0",
+      "frontend": "win64",
+      "ip": "198.51.100.7",
+      "port": "55435",
+      "mitm_ip": "198.51.100.200",
+      "mitm_port": 55436,
+      "host_method": 3,
+      "has_password": true,
+      "has_spectate_password": false,
+      "connectable": false,
+      "is_retroarch": true,
+      "created": "2026-10-30T12:44:03.000Z",
+      "updated": "2026-10-30T13:04:59.000Z"
+    }
+  }
+]

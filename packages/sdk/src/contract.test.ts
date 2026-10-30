@@ -4,7 +4,20 @@
  */
 import { describe, expect, it } from 'vitest';
 import data from './mock/library.json' with { type: 'json' };
-import type { BranchItem, Browse, Crumb, Game, Group, SystemSummary, ViewInfo } from './types.js';
+import type {
+  BranchItem,
+  Browse,
+  Crumb,
+  Game,
+  Group,
+  SystemSummary,
+  ViewInfo,
+  NetplayRoom,
+  RaAchievement,
+  RaGame,
+  RaRecent,
+  RaUser
+} from './types.js';
 
 /** The keys of `T`, listed by hand and checked for completeness by the compiler. */
 function keys<T>() {
@@ -76,5 +89,69 @@ describe('contract with the engine', () => {
         expect(sorted(listing)).toEqual(['items', 'kind', 'total']);
       }
     }
+  });
+
+  it('RetroAchievements and the netplay lobby', () => {
+    const user = keys<RaUser>()(
+      'username',
+      'points',
+      'softcorePoints',
+      'truePoints',
+      'rank',
+      'memberSince',
+      'richPresence',
+      'avatar',
+      'recentlyPlayed'
+    );
+    expect(sorted(data.ra.user)).toEqual(user);
+    const recent = keys<RaRecent>()('raGameId', 'title', 'console', 'icon', 'lastPlayed');
+    for (const r of data.ra.user.recentlyPlayed) expect(sorted(r)).toEqual(recent);
+
+    const game = keys<RaGame>()(
+      'raGameId',
+      'title',
+      'console',
+      'icon',
+      'achievementCount',
+      'earned',
+      'earnedHardcore',
+      'completion',
+      'achievements'
+    );
+    const achievement = keys<RaAchievement>()(
+      'id',
+      'title',
+      'description',
+      'points',
+      'badge',
+      'earnedAt',
+      'earnedHardcoreAt'
+    );
+    for (const g of Object.values(data.ra.games)) {
+      expect(sorted(g)).toEqual(game);
+      for (const a of g.achievements) expect(sorted(a)).toEqual(achievement);
+    }
+
+    const room = keys<NetplayRoom>()(
+      'id',
+      'username',
+      'country',
+      'gameName',
+      'gameCrc',
+      'coreName',
+      'coreVersion',
+      'retroarchVersion',
+      'frontend',
+      'host',
+      'port',
+      'relayHost',
+      'relayPort',
+      'hasPassword',
+      'hasSpectatePassword',
+      'connectable',
+      'created',
+      'localGameId'
+    );
+    for (const r of data.lobby) expect(sorted(r)).toEqual(room);
   });
 });

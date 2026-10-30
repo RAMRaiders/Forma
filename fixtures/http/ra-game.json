@@ -1,0 +1,41 @@
+{
+  "ID": 1446,
+  "Title": "Super Mario Bros.",
+  "ConsoleID": 7,
+  "ConsoleName": "NES/Famicom",
+  "ImageIcon": "/Images/085573.png",
+  "NumAchievements": 3,
+  "NumAwardedToUser": 2,
+  "NumAwardedToUserHardcore": 1,
+  "UserCompletion": "66.67%",
+  "UserCompletionHardcore": "33.33%",
+  "Achievements": {
+    "4874": {
+      "ID": 4874,
+      "Title": "Mushroom Kingdom",
+      "Description": "Clear World 1-1",
+      "Points": 5,
+      "BadgeName": "04913",
+      "DisplayOrder": 1,
+      "DateEarned": "2026-10-29 20:11:02",
+      "DateEarnedHardcore": "2026-10-29 20:11:02"
+    },
+    "4875": {
+      "ID": "4875",
+      "Title": "Warp Zone",
+      "Description": "Use a warp pipe",
+      "Points": "10",
+      "BadgeName": "04914",
+      "DisplayOrder": 2,
+      "DateEarned": "2026-10-29 20:40:57"
+    },
+    "4876": {
+      "ID": 4876,
+      "Title": "Princess Toadstool",
+      "Description": "Rescue the princess",
+      "Points": 25,
+      "BadgeName": "04915",
+      "DisplayOrder": 3
+    }
+  }
+}

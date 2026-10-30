@@ -13,6 +13,10 @@ pub enum ErrorCode {
     /// Not available on this machine yet (e.g. power control outside Batocera).
     Unsupported,
     Launch,
+    /// A service could not be reached and nothing was cached.
+    Network,
+    /// A feature needs setting up first; the message says how.
+    NotConfigured,
     Internal,
 }
 
@@ -37,6 +41,8 @@ impl From<romdex_core::Error> for ApiError {
         let code = match &e {
             E::Launch(_) => ErrorCode::Launch,
             E::View(_) => ErrorCode::Invalid,
+            E::Network(_) => ErrorCode::Network,
+            E::NotConfigured(_) => ErrorCode::NotConfigured,
             E::Io { .. } | E::Parse { .. } | E::Db(_) => ErrorCode::Internal,
         };
         Self::new(code, e.to_string())

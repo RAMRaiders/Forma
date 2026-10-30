@@ -237,6 +237,17 @@ impl Library {
             .optional()?)
     }
 
+    /// A setting as text, whether it was stored raw or as a JSON string (as the SDK stores
+    /// every value). `views.default` set from the UI and from a theme read the same.
+    pub fn setting_text(&self, key: &str) -> Result<Option<String>> {
+        Ok(self
+            .setting(key)?
+            .map(|raw| match serde_json::from_str::<String>(&raw) {
+                Ok(text) => text,
+                Err(_) => raw,
+            }))
+    }
+
     /// Sets a RomDex setting; `None` clears it.
     pub fn set_setting(&mut self, key: &str, value: Option<&str>) -> Result<()> {
         match value {

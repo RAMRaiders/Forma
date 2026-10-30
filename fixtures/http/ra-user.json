@@ -1,0 +1,31 @@
+{
+  "User": "fixture-user",
+  "MemberSince": "2019-04-02 18:21:33",
+  "RichPresenceMsg": "Mario is in World 1-2",
+  "LastGameID": 1446,
+  "TotalPoints": 4210,
+  "TotalSoftcorePoints": 120,
+  "TotalTruePoints": 9875,
+  "Rank": "15342",
+  "UserPic": "/UserPic/fixture-user.png",
+  "Motto": "",
+  "RecentlyPlayed": [
+    {
+      "GameID": "1446",
+      "ConsoleID": "7",
+      "ConsoleName": "NES/Famicom",
+      "Title": "Super Mario Bros.",
+      "ImageIcon": "/Images/085573.png",
+      "LastPlayed": "2026-10-29 21:04:11",
+      "AchievementsTotal": "38"
+    },
+    {
+      "GameID": 1,
+      "ConsoleID": 1,
+      "ConsoleName": "Genesis/Mega Drive",
+      "Title": "Sonic the Hedgehog",
+      "ImageIcon": "/Images/067895.png",
+      "LastPlayed": "2026-10-12 19:40:02"
+    }
+  ]
+}

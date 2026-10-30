@@ -8,11 +8,15 @@ import type {
   Controller,
   DefaultView,
   EventMap,
+  Fetched,
   Game,
   InputEvent,
   LaunchRequest,
   MediaKind,
+  NetplayRoom,
   Page,
+  RaGame,
+  RaUser,
   SystemSummary,
   ThemeInfo,
   Unsubscribe,
@@ -79,6 +83,8 @@ export class RomDex {
   readonly input;
   readonly events;
   readonly system;
+  readonly ra;
+  readonly netplay;
 
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
@@ -156,6 +162,18 @@ export class RomDex {
         event: K,
         handler: (payload: EventMap[K]) => void
       ): Unsubscribe => backend.listen<EventMap[K]>(event, handler)
+    };
+
+    this.ra = {
+      /** The user's RetroAchievements profile. Read-only: unlocking happens in RetroArch. */
+      user: () => invoke<Fetched<RaUser>>('ra_user'),
+      /** A local game's achievements and the user's progress in it. */
+      game: (id: number) => invoke<Fetched<RaGame>>('ra_game', { id })
+    };
+
+    this.netplay = {
+      /** Open rooms, joinable first, each matched to a local game where possible. */
+      lobby: () => invoke<Fetched<NetplayRoom[]>>('netplay_lobby')
     };
 
     this.system = {

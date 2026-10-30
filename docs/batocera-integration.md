@@ -49,6 +49,16 @@ name, which RomDex does pass. Whether that is enough on real hardware is part of
 For development without Batocera, `ROMDEX_LAUNCHER=mock` logs the command it would run and
 "plays" for two seconds.
 
+## RetroAchievements and netplay
+
+RetroAchievements unlocking stays in RetroArch, set up by Batocera from `batocera.conf`. RomDex
+only shows progress, through the Web API, which needs the user's **web API key**: Batocera stores
+the account password for RetroArch, not that key. It is the RomDex setting `ra.apiKey`; the
+username comes from `global.retroachievements.username` unless `ra.username` overrides it.
+
+The netplay lobby is read from `lobby.libretro.com`. Answers from both are cached under
+`/userdata/system/romdex/cache/`, and served marked stale when offline.
+
 ## Open question: the WebView runtime
 
 Tauri renders through WebKitGTK on Linux, and Batocera does not ship it. Spike #39 measures a
