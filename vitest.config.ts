@@ -21,7 +21,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: './coverage',
-      include: ['packages/sdk/src/**/*.ts'],
+      include: ['packages/sdk/src/**/*.ts', 'packages/theme-default/src/logic/**/*.ts'],
       exclude: ['**/*.test.ts', '**/*.d.ts', '**/index.ts'],
       // Thresholds are a ratchet: raise them as coverage grows, never lower them.
       thresholds: {

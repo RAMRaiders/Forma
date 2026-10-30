@@ -1,15 +1,12 @@
 import { connect } from '@romdex/sdk';
 
-// Placeholder until the theme views (#32–#35) land: proves the SDK round trip end to end.
-const status = document.querySelector<HTMLParagraphElement>('#status');
+import { App } from './app.js';
+
+const root = document.querySelector<HTMLElement>('#app')!;
 
 try {
   const romdex = await connect();
-  const systems = await romdex.library.systems();
-  const games = systems.reduce((n, s) => n + s.gameCount, 0);
-  if (status) {
-    status.textContent = `${systems.length} systems, ${games} games · SDK ${romdex.hostVersion} (${romdex.backendKind})`;
-  }
+  await new App(romdex, root).start();
 } catch (error) {
-  if (status) status.textContent = `Could not connect to RomDex: ${String(error)}`;
+  root.textContent = `Could not connect to RomDex: ${String(error)}`;
 }
