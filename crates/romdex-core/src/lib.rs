@@ -10,6 +10,7 @@ pub mod gamelist;
 pub mod library;
 pub mod paths;
 pub mod scan;
+pub mod sync;
 pub mod systems;
 mod xml;
 

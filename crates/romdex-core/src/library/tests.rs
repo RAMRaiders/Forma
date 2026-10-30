@@ -249,3 +249,38 @@ fn a_favourite_change_does_not_touch_the_search_index() {
     lib.set_favorite(mario, false).unwrap();
     assert_eq!(lib.search("mario", 10).unwrap().len(), 1);
 }
+
+#[test]
+fn reports_which_systems_changed() {
+    let (_dir, paths) = fixture_copy();
+    let mut lib = Library::open_in_memory().unwrap();
+    let first = lib.refresh(&paths).unwrap();
+    assert_eq!(first.changed_systems.len(), 5);
+
+    assert!(lib.refresh(&paths).unwrap().changed_systems.is_empty());
+
+    let rom = paths.roms().join("megadrive/Streets of Rage 2 (USA).md");
+    std::fs::remove_file(&rom).unwrap();
+    assert_eq!(lib.refresh(&paths).unwrap().changed_systems, ["megadrive"]);
+    // Still missing: not a new change.
+    assert!(lib.refresh(&paths).unwrap().changed_systems.is_empty());
+    std::fs::write(&rom, b"").unwrap();
+    assert_eq!(lib.refresh(&paths).unwrap().changed_systems, ["megadrive"]);
+}
+
+#[test]
+fn refresh_systems_scans_only_the_named_ones() {
+    let (_dir, paths) = fixture_copy();
+    let mut lib = Library::open_in_memory().unwrap();
+    lib.refresh(&paths).unwrap();
+    std::fs::write(paths.roms().join("nes/New.nes"), b"").unwrap();
+    std::fs::write(paths.roms().join("megadrive/New.md"), b"").unwrap();
+
+    let report = lib
+        .refresh_systems(&paths, &["megadrive".to_owned()])
+        .unwrap();
+    assert_eq!(report.systems, 1);
+    assert_eq!(report.changed_systems, ["megadrive"]);
+    assert_eq!(lib.games("nes").unwrap().len(), 3, "nes was not scanned");
+    assert_eq!(lib.games("megadrive").unwrap().len(), 3);
+}

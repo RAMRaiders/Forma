@@ -1,6 +1,6 @@
 //! Bringing the library in line with what is on disk.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use rusqlite::{OptionalExtension, Transaction, params};
@@ -13,9 +13,13 @@ use crate::paths::Paths;
 use crate::scan::{ScannedRom, scan_system};
 use crate::systems::{System, load_systems};
 
+/// Counts cover the systems that were refreshed (all of them, or the ones asked for).
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct RefreshReport {
     pub systems: usize,
+    /// Systems whose visible content changed: games added, gone or back, metadata re-imported,
+    /// or the system itself added or removed. Empty means a UI has nothing to redraw.
+    pub changed_systems: Vec<String>,
     /// Games present on disk after the refresh.
     pub games: usize,
     pub added: usize,
@@ -31,26 +35,56 @@ impl Library {
     /// that changed. A gamelist is also re-imported when its system gained a game, in case the
     /// file already described it. One transaction: a reader sees the old or the new library.
     pub fn refresh(&mut self, paths: &Paths) -> Result<RefreshReport> {
+        self.refresh_where(paths, |_| true)
+    }
+
+    /// [`Library::refresh`] limited to the named systems' folders, for when a watcher knows
+    /// where the change was. System definitions are always re-read: they are one small file.
+    pub fn refresh_systems(&mut self, paths: &Paths, names: &[String]) -> Result<RefreshReport> {
+        self.refresh_where(paths, |s| names.contains(&s.name))
+    }
+
+    fn refresh_where(
+        &mut self,
+        paths: &Paths,
+        include: impl Fn(&System) -> bool,
+    ) -> Result<RefreshReport> {
         let load = load_systems(paths)?;
         let mut report = RefreshReport {
-            systems: load.systems.len(),
             warnings: load.warnings,
             ..RefreshReport::default()
         };
 
         let tx = self.conn.transaction()?;
-        sync_systems(&tx, &load.systems)?;
-        for system in &load.systems {
+        report.changed_systems = sync_systems(&tx, &load.systems)?;
+        for system in load.systems.iter().filter(|s| include(s)) {
+            report.systems += 1;
             let (roms, warnings) = scan_system(system);
             report.warnings.extend(warnings);
-            refresh_system(&tx, system, &roms, paths, &mut report)?;
+            if refresh_system(&tx, system, &roms, paths, &mut report)?
+                && !report.changed_systems.contains(&system.name)
+            {
+                report.changed_systems.push(system.name.clone());
+            }
         }
         tx.commit()?;
         Ok(report)
     }
 }
 
-fn sync_systems(tx: &Transaction<'_>, systems: &[System]) -> Result<()> {
+/// Writes the system definitions; returns the names of systems added or removed.
+fn sync_systems(tx: &Transaction<'_>, systems: &[System]) -> Result<Vec<String>> {
+    let known: HashSet<String> = {
+        let mut stmt = tx.prepare_cached("SELECT name FROM system")?;
+        stmt.query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?
+    };
+    let mut changed: Vec<String> = systems
+        .iter()
+        .filter(|s| !known.contains(&s.name))
+        .map(|s| s.name.clone())
+        .collect();
+
     let mut upsert = tx.prepare_cached(
         "INSERT INTO system (name, fullname, manufacturer, release_year, hardware, rom_path,
                              sort_order, definition)
@@ -76,18 +110,13 @@ fn sync_systems(tx: &Transaction<'_>, systems: &[System]) -> Result<()> {
     }
 
     // A system removed from every config takes its games with it (ON DELETE CASCADE).
-    let names: Vec<&str> = systems.iter().map(|s| s.name.as_str()).collect();
-    let mut known = tx.prepare_cached("SELECT name FROM system")?;
-    let stale: Vec<String> = known
-        .query_map([], |r| r.get(0))?
-        .collect::<rusqlite::Result<Vec<String>>>()?
-        .into_iter()
-        .filter(|n| !names.contains(&n.as_str()))
-        .collect();
-    for name in stale {
-        tx.execute("DELETE FROM system WHERE name = ?1", [name])?;
+    for name in known {
+        if !systems.iter().any(|s| s.name == name) {
+            tx.execute("DELETE FROM system WHERE name = ?1", [&name])?;
+            changed.push(name);
+        }
     }
-    Ok(())
+    Ok(changed)
 }
 
 fn refresh_system(
@@ -96,12 +125,19 @@ fn refresh_system(
     roms: &[ScannedRom],
     paths: &Paths,
     report: &mut RefreshReport,
-) -> Result<()> {
-    let mut ids: HashMap<String, i64> = {
-        let mut stmt = tx.prepare_cached("SELECT path, id FROM game WHERE system = ?1")?;
-        stmt.query_map([&system.name], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<rusqlite::Result<_>>()?
+) -> Result<bool> {
+    let (mut ids, was_present): (HashMap<String, i64>, HashSet<i64>) = {
+        let mut stmt = tx.prepare_cached("SELECT path, id, present FROM game WHERE system = ?1")?;
+        let rows: Vec<(String, i64, bool)> = stmt
+            .query_map([&system.name], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let present = rows.iter().filter(|r| r.2).map(|r| r.1).collect();
+        (
+            rows.into_iter().map(|(p, id, _)| (p, id)).collect(),
+            present,
+        )
     };
+    let mut changed = false;
 
     // Files on disk.
     let mut added = Vec::new();
@@ -119,6 +155,7 @@ fn refresh_system(
             let id = match ids.get(&path) {
                 Some(&id) => {
                     update.execute(params![id, size, rom.mtime_ns])?;
+                    changed |= !was_present.contains(&id);
                     id
                 }
                 None => {
@@ -143,22 +180,26 @@ fn refresh_system(
         if !seen.contains_key(path) {
             mark_missing.execute([id])?;
             report.missing += 1;
+            changed |= was_present.contains(&id);
         }
     }
     report.games += roms.len();
     report.added += added.len();
+    changed |= !added.is_empty();
 
     // The gamelist, only when it (or the set of games it can describe) changed.
     let file = system.rom_path.join("gamelist.xml");
     let affected = if gamelist_changed(tx, &file)? || !added.is_empty() {
         import_gamelist(tx, system, &file, &ids, paths, report)?;
         report.gamelists_imported += usize::from(file.exists());
+        changed = true;
         ids.values().copied().collect()
     } else {
         report.gamelists_unchanged += usize::from(file.exists());
         added.clone()
     };
-    materialise(tx, &affected, &added)
+    materialise(tx, &affected, &added)?;
+    Ok(changed)
 }
 
 /// Compares the file's size and mtime with the last import. A file that disappeared counts

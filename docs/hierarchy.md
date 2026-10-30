@@ -31,6 +31,19 @@ tree of nodes you define, resolved against the library index, so a theme only re
 
 `systems` (EmulationStation-equivalent), `manufacturer-system`, `genre`, `favorites`, `recent`.
 
+## The view RomDex opens with
+
+Whichever view you choose is what RomDex boots into — for example your own
+manufacturer → system view instead of the EmulationStation-style system list. It is a RomDex
+setting (`views.default`), not a theme setting, so it survives a theme change. RomDex picks:
+
+1. your `views.default` setting;
+2. otherwise the view the theme suggests in `theme.json` (`"hierarchy"`);
+3. otherwise the bundled `systems` view.
+
+If the chosen view is deleted or broken, RomDex falls back to the next one and says why. Themes
+read and set it through the SDK: `nav.defaultView()` and `nav.setDefaultView(id)`.
+
 ## Your own views
 
 Drop JSON files in `/userdata/system/romdex/views/`. A broken view is reported and skipped; it

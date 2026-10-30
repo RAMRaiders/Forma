@@ -26,10 +26,16 @@ A RomDex theme is a folder containing a `theme.json` manifest and a web app.
 | `permissions` | Privileged capabilities the theme uses, e.g. `system.power`.            |
 | `resolutions` | Resolutions the theme was designed for. Informational.                  |
 
-## Where themes live
+## Where themes live, and installing your own
 
 - Bundled themes ship with RomDex.
-- User themes go in `/userdata/themes-romdex/<id>/`.
+- User themes go in `/userdata/themes-romdex/<id>/`. Installing a theme is copying its folder
+  there; RomDex lists it and lets you switch to it. A theme with a bad manifest or an
+  incompatible `sdk` range is listed as unavailable, with the reason, and never loaded.
+- An installer (from a `.zip` or URL, with update and remove) comes in Milestone 4 (#52). It
+  shows the permissions a theme asks for before installing it.
+- A theme may ship its own hierarchy views and suggest one to boot into; your own boot view
+  setting still wins (see [hierarchy.md](hierarchy.md)).
 
 ## Rules
 

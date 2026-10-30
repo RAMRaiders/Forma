@@ -45,6 +45,21 @@ Data flows in from three sources, and each field records which one set it:
 
 RomDex still launches through Batocera's own `emulatorlauncher`.
 
+### Staying current
+
+Boot reads the database as it is; a background thread (`romdex_core::sync`) then reconciles it
+with the disk on its own connection, which WAL lets run alongside the UI's reads. After that it
+follows changes:
+
+- A file watcher (inotify on Batocera) says **where** something changed, so only that system's
+  folder is rescanned. A change to `es_systems*.cfg` or a new folder in `roms/` triggers a full
+  refresh and re-watches.
+- Changes are merged until 500 ms of quiet (at most 5 s), so a scraper writing thousands of
+  images causes one refresh, not thousands.
+- Every refresh reports `changed_systems`; an empty list means the UI has nothing to redraw.
+- A full rescan every 5 minutes catches what no watcher reported. Network shares rarely
+  report changes made by another machine.
+
 ### Measured
 
 `cargo run --release -p romdex-core --example bench_library` generates 10 systems × 2,000 games
