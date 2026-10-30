@@ -2672,11 +2672,13 @@ dependencies = [
 name = "romdex-app"
 version = "0.0.0"
 dependencies = [
+ "notify",
  "romdex-core",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
+ "tempfile",
 ]
 
 [[package]]

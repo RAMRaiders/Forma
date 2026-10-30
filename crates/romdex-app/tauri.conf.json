@@ -4,21 +4,14 @@
   "version": "0.0.0",
   "identifier": "com.ramraiders.romdex",
   "build": {
-    "beforeDevCommand": "npm run dev --workspace @romdex/theme-default",
-    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run build --workspace @romdex/theme-default -- --watch",
     "beforeBuildCommand": "npm run build --workspace @romdex/theme-default",
-    "frontendDist": "../../packages/theme-default/dist"
+    "frontendDist": "boot"
   },
   "app": {
-    "windows": [
-      {
-        "title": "RomDex",
-        "width": 1280,
-        "height": 720
-      }
-    ],
+    "windows": [],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {

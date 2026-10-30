@@ -33,6 +33,7 @@ pub struct Library {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SystemSummary {
     pub name: String,
     pub fullname: String,
@@ -44,6 +45,7 @@ pub struct SystemSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Game {
     pub id: i64,
     pub system: String,

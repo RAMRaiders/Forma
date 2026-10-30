@@ -15,6 +15,7 @@ use crate::systems::{System, load_systems};
 
 /// Counts cover the systems that were refreshed (all of them, or the ones asked for).
 #[derive(Debug, Default, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RefreshReport {
     pub systems: usize,
     /// Systems whose visible content changed: games added, gone or back, metadata re-imported,

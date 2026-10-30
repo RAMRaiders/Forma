@@ -37,8 +37,9 @@ pub struct Group {
     pub key: String,
     pub label: String,
     pub game_count: i64,
-    /// A representative image: the best-rated game in the group that has one.
-    pub image: Option<String>,
+    /// The game whose image represents the group: the best-rated one that has an image.
+    /// An id rather than a path, so a host can serve it without exposing the filesystem.
+    pub image_game: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -175,7 +176,7 @@ impl Library {
                 _ => label(key, &k),
             };
             items.push(Group {
-                image: self.sample_image(&c)?,
+                image_game: self.sample_image(&c)?,
                 key: k,
                 label,
                 game_count: n,
@@ -241,9 +242,9 @@ impl Library {
         )?)
     }
 
-    fn sample_image(&self, conds: &Conds) -> Result<Option<String>> {
+    fn sample_image(&self, conds: &Conds) -> Result<Option<i64>> {
         let mut stmt = self.conn.prepare_cached(&format!(
-            "SELECT m.path FROM game g JOIN system s ON s.name = g.system
+            "SELECT g.id FROM game g JOIN system s ON s.name = g.system
              JOIN media m ON m.game_id = g.id AND m.kind = 'image'
              WHERE {} ORDER BY g.rating IS NULL, g.rating DESC, g.name LIMIT 1",
             conds.sql()

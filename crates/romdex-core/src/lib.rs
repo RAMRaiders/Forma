@@ -15,6 +15,7 @@ pub mod paths;
 pub mod scan;
 pub mod sync;
 pub mod systems;
+pub mod themes;
 mod time;
 mod xml;
 

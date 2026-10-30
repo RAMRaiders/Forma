@@ -75,14 +75,9 @@ fn the_systems_view_matches_emulationstation() {
     let Listing::Groups { items, .. } = &root.listing else {
         unreachable!()
     };
-    assert!(
-        items[0]
-            .image
-            .as_deref()
-            .unwrap()
-            .ends_with("Super Mario Bros. (World)-image.png")
-    );
-    assert_eq!(items[1].image, None);
+    let mario = lib.search("super mario", 1).unwrap()[0].id;
+    assert_eq!(items[0].image_game, Some(mario));
+    assert_eq!(items[1].image_game, None);
 
     let nes = browse(&lib, &view, &["nes"]);
     assert_eq!(
