@@ -30,3 +30,6 @@ fixtures/userdata/themes-romdex/
 .git-commit-msg.txt
 
 .DS_Store
+
+# Spike AppImages (scripts/spike/build-appimage.sh).
+dist-spike/

@@ -1,0 +1,8 @@
+# The spike build (scripts/spike/Dockerfile) copies the repository; these are rebuilt inside.
+**/node_modules
+target
+**/dist
+dist-spike
+coverage
+.git
+fixtures/userdata/system/romdex

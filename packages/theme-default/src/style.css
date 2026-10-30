@@ -302,3 +302,17 @@ kbd {
     transition: none;
   }
 }
+
+.perf {
+  position: fixed;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 0.4rem;
+  background: rgb(0 0 0 / 75%);
+  color: #7cfc8a;
+  font:
+    0.8rem ui-monospace,
+    monospace;
+  pointer-events: none;
+}

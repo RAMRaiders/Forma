@@ -1,6 +1,10 @@
 //! Times the library against a generated collection.
 //!
 //! cargo run --release -p romdex-core --example bench_library -- [systems] [games-per-system]
+//!     [--keep DIR]
+//!
+//! `--keep DIR` writes the generated `/userdata` and `es_systems.cfg` to DIR and leaves them, to
+//! copy to a device for the Batocera spike (#39); the paths inside are written for DIR.
 //!
 //! Writes empty ROM files and a full `gamelist.xml` per system into a temporary `/userdata`,
 //! then measures what a user feels: the first import, an unchanged refresh, cold boot to the
@@ -23,16 +27,30 @@ const WORDS: &[&str] = &[
 ];
 
 fn main() {
-    let mut args = std::env::args()
-        .skip(1)
-        .map(|a| a.parse::<usize>().expect("a number"));
-    let systems = args.next().unwrap_or(10);
-    let per_system = args.next().unwrap_or(2_000);
+    let mut keep: Option<std::path::PathBuf> = None;
+    let mut numbers = Vec::new();
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg == "--keep" {
+            keep = Some(args.next().expect("--keep needs a folder").into());
+        } else {
+            numbers.push(arg.parse::<usize>().expect("a number"));
+        }
+    }
+    let systems = numbers.first().copied().unwrap_or(10);
+    let per_system = numbers.get(1).copied().unwrap_or(2_000);
 
-    let dir = tempfile::tempdir().expect("temp dir");
+    let temp = tempfile::tempdir().expect("temp dir");
+    let root = match &keep {
+        Some(dir) => {
+            std::fs::create_dir_all(dir).expect("create --keep folder");
+            dir.canonicalize().expect("--keep folder")
+        }
+        None => temp.path().to_path_buf(),
+    };
     let paths = Paths {
-        userdata: dir.path().join("userdata"),
-        systems_cfg: dir.path().join("es_systems.cfg"),
+        userdata: root.join("userdata"),
+        systems_cfg: root.join("es_systems.cfg"),
     };
     let generated = Instant::now();
     generate(&paths, systems, per_system);
@@ -61,6 +79,14 @@ fn main() {
     row(&format!("cold boot to first list ({count} games)"), boot);
 
     let lib = Library::open(&db).expect("open");
+    if keep.is_some() {
+        println!(
+            "\nkept: ROMDEX_USERDATA={} ROMDEX_SYSTEMS_CFG={}",
+            paths.userdata.display(),
+            paths.systems_cfg.display()
+        );
+    }
+
     for query in ["dragon", "super star", "ninja castle quest"] {
         let runs = 50;
         let (hits, total) = time(|| {
@@ -95,10 +121,9 @@ fn generate(paths: &Paths, systems: usize, per_system: usize) {
         write!(
             cfg,
             "<system><name>{name}</name><fullname>System {s}</fullname>\
-             <manufacturer>Maker {}</manufacturer><path>{}</path>\
+             <manufacturer>Maker {}</manufacturer><path>/userdata/roms/{name}</path>\
              <extension>.rom</extension></system>",
-            s % 3,
-            dir.display()
+            s % 3
         )
         .unwrap();
 

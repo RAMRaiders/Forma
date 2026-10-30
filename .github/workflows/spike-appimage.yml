@@ -1,0 +1,63 @@
+# Builds the RomDex AppImages for the Batocera WebView spike (#39), for download as artifacts.
+# Manual only, and nothing is tagged, released or published. See docs/batocera-integration.md.
+name: Spike AppImage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    name: AppImage (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.04's glibc (2.35) is older than Batocera's, so the AppImages run there.
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      # linuxdeploy is itself an AppImage; do not depend on FUSE being there.
+      APPIMAGE_EXTRACT_AND_RUN: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: System libraries (WebKitGTK, gamepads)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libssl-dev libxdo-dev librsvg2-dev \
+            libayatana-appindicator3-dev libudev-dev file patchelf
+
+      - name: Rust, as rust-toolchain.toml pins it
+        run: |
+          command -v rustup >/dev/null || curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" show active-toolchain || "$HOME/.cargo/bin/rustup" toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: npm ci
+
+      - name: Build the AppImage, with the default theme as a resource
+        run: >-
+          npx tauri build --bundles appimage --config
+          '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../packages/theme-default/dist":"themes/default"}}}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: romdex-spike-${{ matrix.arch }}
+          path: target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+          retention-days: 14

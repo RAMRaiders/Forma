@@ -44,6 +44,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
 }
 
 fn main() {
+    boot::mark_process_start();
     tauri::Builder::default()
         .register_asynchronous_uri_scheme_protocol("romdex", |ctx, request, responder| {
             let app = ctx.app_handle().clone();

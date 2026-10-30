@@ -19,6 +19,20 @@ use crate::commands::{
 };
 use crate::state::{AppState, DEFAULT_THEME, THEME_SETTING, pick_theme};
 
+static PROCESS_START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+
+/// Called first thing in `main`, so start-up time includes Tauri and WebView creation.
+pub fn mark_process_start() {
+    PROCESS_START.get_or_init(std::time::Instant::now);
+}
+
+/// Time since the process started, for the start-up measurement the Batocera spike (#39) needs.
+pub fn since_start() -> Duration {
+    PROCESS_START
+        .get()
+        .map_or(Duration::ZERO, std::time::Instant::elapsed)
+}
+
 /// How long a theme has to call `theme_ready` before RomDex falls back to the default theme.
 const READY_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -71,7 +85,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let url = match state.available_theme(&current) {
-        Some(theme) => WebviewUrl::CustomProtocol(entry_url(&theme).parse()?),
+        Some(theme) => WebviewUrl::CustomProtocol(perf_url(entry_url(&theme)).parse()?),
         // No theme can load: the bundled boot page explains instead of showing nothing.
         None => WebviewUrl::App("index.html".into()),
     };
@@ -101,10 +115,21 @@ pub fn show_theme<R: Runtime>(
     let window = app
         .get_webview_window("main")
         .ok_or("the main window is gone")?;
-    let url = entry_url(theme).parse().map_err(|e| format!("{e}"))?;
+    let url = perf_url(entry_url(theme))
+        .parse()
+        .map_err(|e| format!("{e}"))?;
     window.navigate(url).map_err(|e| e.to_string())?;
     watch_ready(app.clone());
     Ok(())
+}
+
+/// `ROMDEX_PERF=1` asks the theme for its frame-time overlay (`#perf`), for measuring scrolling.
+fn perf_url(url: String) -> String {
+    if std::env::var("ROMDEX_PERF").as_deref() == Ok("1") {
+        url + "#perf"
+    } else {
+        url
+    }
 }
 
 /// Release builds are a kiosk; development is windowed. `ROMDEX_FULLSCREEN=1|0` overrides.

@@ -53,7 +53,14 @@ pub fn sdk_api_version() -> &'static str {
 /// replaced by the default one instead of leaving a blank screen.
 #[tauri::command]
 pub fn theme_ready(state: State<'_, AppState>) {
-    state.theme_ready.store(true, Ordering::SeqCst);
+    // Only the first report is start-up; later ones are theme switches and reloads.
+    if !state.theme_ready.swap(true, Ordering::SeqCst) {
+        let id = state.current_theme().map(|t| t.id).unwrap_or_default();
+        eprintln!(
+            "romdex: theme `{id}` ready {} ms after start",
+            crate::boot::since_start().as_millis()
+        );
+    }
 }
 
 #[tauri::command]
