@@ -19,5 +19,9 @@ thiserror.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 
+[[example]]
+name = "mock_snapshot"
+test = true
+
 [lints]
 workspace = true

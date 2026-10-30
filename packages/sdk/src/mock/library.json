@@ -1,0 +1,2670 @@
+{
+  "apiVersion": "1.0.0",
+  "browse": {
+    "[\"favorites\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [],
+      "trail": [],
+      "view": "favorites"
+    },
+    "[\"genre\",\"\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 10,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Alter Ego",
+            "path": "Alter Ego.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "homebrew"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 5,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Chrono Trigger (USA)",
+            "path": "Chrono Trigger (USA).sfc",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 1,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Homebrew Demo",
+            "path": "Homebrew Demo.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "nes"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 7,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Sonic The Hedgehog (USA, Europe)",
+            "path": "Sonic The Hedgehog (USA, Europe).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 8,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Streets of Rage 2 (USA)",
+            "path": "Streets of Rage 2 (USA).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          }
+        ],
+        "kind": "games",
+        "total": 5
+      },
+      "path": [
+        ""
+      ],
+      "trail": [
+        {
+          "key": "",
+          "label": "Unknown"
+        }
+      ],
+      "view": "genre"
+    },
+    "[\"genre\",\"Action / Adventure\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Link explores <Hyrule>.",
+            "developer": "Nintendo",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Action / Adventure",
+            "hidden": false,
+            "id": 3,
+            "lastPlayed": null,
+            "media": {},
+            "name": "The Legend of Zelda",
+            "path": "The Legend of Zelda (USA).nes",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Nintendo",
+            "raGameId": null,
+            "rating": 0.85,
+            "releaseDate": "1986-02-21",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "Action / Adventure"
+      ],
+      "trail": [
+        {
+          "key": "Action / Adventure",
+          "label": "Action / Adventure"
+        }
+      ],
+      "view": "genre"
+    },
+    "[\"genre\",\"Platform\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          },
+          {
+            "description": null,
+            "developer": "Nintendo R&D1",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 6,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Super Metroid",
+            "path": "Super Metroid (Japan, USA).sfc",
+            "playCount": 0,
+            "players": "1",
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "Platform"
+      ],
+      "trail": [
+        {
+          "key": "Platform",
+          "label": "Platform"
+        }
+      ],
+      "view": "genre"
+    },
+    "[\"genre\",\"Role Playing Game\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": "Square",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Role Playing Game",
+            "hidden": false,
+            "id": 9,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Final Fantasy VII",
+            "path": "Final Fantasy VII.m3u",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Sony Computer Entertainment",
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": "1997-09-07",
+            "system": "psx"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "Role Playing Game"
+      ],
+      "trail": [
+        {
+          "key": "Role Playing Game",
+          "label": "Role Playing Game"
+        }
+      ],
+      "view": "genre"
+    },
+    "[\"genre\"]": {
+      "listing": {
+        "groupBy": "genre",
+        "items": [
+          {
+            "gameCount": 2,
+            "imageGame": 2,
+            "key": "Platform",
+            "label": "Platform"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "Action / Adventure",
+            "label": "Action / Adventure"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "Role Playing Game",
+            "label": "Role Playing Game"
+          },
+          {
+            "gameCount": 5,
+            "imageGame": null,
+            "key": "",
+            "label": "Unknown"
+          }
+        ],
+        "kind": "groups",
+        "total": 4
+      },
+      "path": [],
+      "trail": [],
+      "view": "genre"
+    },
+    "[\"home\",\"favorites\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "favorites"
+      ],
+      "trail": [
+        {
+          "key": "favorites",
+          "label": "Favourites"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"genres\",\"\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 10,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Alter Ego",
+            "path": "Alter Ego.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "homebrew"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 5,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Chrono Trigger (USA)",
+            "path": "Chrono Trigger (USA).sfc",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 1,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Homebrew Demo",
+            "path": "Homebrew Demo.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "nes"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 7,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Sonic The Hedgehog (USA, Europe)",
+            "path": "Sonic The Hedgehog (USA, Europe).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 8,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Streets of Rage 2 (USA)",
+            "path": "Streets of Rage 2 (USA).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          }
+        ],
+        "kind": "games",
+        "total": 5
+      },
+      "path": [
+        "genres",
+        ""
+      ],
+      "trail": [
+        {
+          "key": "genres",
+          "label": "Genres"
+        },
+        {
+          "key": "",
+          "label": "Unknown"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"genres\",\"Action / Adventure\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Link explores <Hyrule>.",
+            "developer": "Nintendo",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Action / Adventure",
+            "hidden": false,
+            "id": 3,
+            "lastPlayed": null,
+            "media": {},
+            "name": "The Legend of Zelda",
+            "path": "The Legend of Zelda (USA).nes",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Nintendo",
+            "raGameId": null,
+            "rating": 0.85,
+            "releaseDate": "1986-02-21",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "genres",
+        "Action / Adventure"
+      ],
+      "trail": [
+        {
+          "key": "genres",
+          "label": "Genres"
+        },
+        {
+          "key": "Action / Adventure",
+          "label": "Action / Adventure"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"genres\",\"Platform\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          },
+          {
+            "description": null,
+            "developer": "Nintendo R&D1",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 6,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Super Metroid",
+            "path": "Super Metroid (Japan, USA).sfc",
+            "playCount": 0,
+            "players": "1",
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "genres",
+        "Platform"
+      ],
+      "trail": [
+        {
+          "key": "genres",
+          "label": "Genres"
+        },
+        {
+          "key": "Platform",
+          "label": "Platform"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"genres\",\"Role Playing Game\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": "Square",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Role Playing Game",
+            "hidden": false,
+            "id": 9,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Final Fantasy VII",
+            "path": "Final Fantasy VII.m3u",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Sony Computer Entertainment",
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": "1997-09-07",
+            "system": "psx"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "genres",
+        "Role Playing Game"
+      ],
+      "trail": [
+        {
+          "key": "genres",
+          "label": "Genres"
+        },
+        {
+          "key": "Role Playing Game",
+          "label": "Role Playing Game"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"genres\"]": {
+      "listing": {
+        "groupBy": "genre",
+        "items": [
+          {
+            "gameCount": 2,
+            "imageGame": 2,
+            "key": "Platform",
+            "label": "Platform"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "Action / Adventure",
+            "label": "Action / Adventure"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "Role Playing Game",
+            "label": "Role Playing Game"
+          },
+          {
+            "gameCount": 5,
+            "imageGame": null,
+            "key": "",
+            "label": "Unknown"
+          }
+        ],
+        "kind": "groups",
+        "total": 4
+      },
+      "path": [
+        "genres"
+      ],
+      "trail": [
+        {
+          "key": "genres",
+          "label": "Genres"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"\",\"homebrew\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 10,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Alter Ego",
+            "path": "Alter Ego.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "homebrew"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "manufacturers",
+        "",
+        "homebrew"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "",
+          "label": "Unknown"
+        },
+        {
+          "key": "homebrew",
+          "label": "Homebrew"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "homebrew",
+            "label": "Homebrew"
+          }
+        ],
+        "kind": "groups",
+        "total": 1
+      },
+      "path": [
+        "manufacturers",
+        ""
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "",
+          "label": "Unknown"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"Nintendo\",\"nes\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 1,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Homebrew Demo",
+            "path": "Homebrew Demo.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "nes"
+          },
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          },
+          {
+            "description": "Link explores <Hyrule>.",
+            "developer": "Nintendo",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Action / Adventure",
+            "hidden": false,
+            "id": 3,
+            "lastPlayed": null,
+            "media": {},
+            "name": "The Legend of Zelda",
+            "path": "The Legend of Zelda (USA).nes",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Nintendo",
+            "raGameId": null,
+            "rating": 0.85,
+            "releaseDate": "1986-02-21",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 3
+      },
+      "path": [
+        "manufacturers",
+        "Nintendo",
+        "nes"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "Nintendo",
+          "label": "Nintendo"
+        },
+        {
+          "key": "nes",
+          "label": "Nintendo Entertainment System"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"Nintendo\",\"snes\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 5,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Chrono Trigger (USA)",
+            "path": "Chrono Trigger (USA).sfc",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": "Nintendo R&D1",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 6,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Super Metroid",
+            "path": "Super Metroid (Japan, USA).sfc",
+            "playCount": 0,
+            "players": "1",
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "manufacturers",
+        "Nintendo",
+        "snes"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "Nintendo",
+          "label": "Nintendo"
+        },
+        {
+          "key": "snes",
+          "label": "Super Famicom"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"Nintendo\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 3,
+            "imageGame": 2,
+            "key": "nes",
+            "label": "Nintendo Entertainment System"
+          },
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "snes",
+            "label": "Super Famicom"
+          }
+        ],
+        "kind": "groups",
+        "total": 2
+      },
+      "path": [
+        "manufacturers",
+        "Nintendo"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "Nintendo",
+          "label": "Nintendo"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"Sega\",\"megadrive\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 7,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Sonic The Hedgehog (USA, Europe)",
+            "path": "Sonic The Hedgehog (USA, Europe).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 8,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Streets of Rage 2 (USA)",
+            "path": "Streets of Rage 2 (USA).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "manufacturers",
+        "Sega",
+        "megadrive"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "Sega",
+          "label": "Sega"
+        },
+        {
+          "key": "megadrive",
+          "label": "Mega Drive"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"Sega\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "megadrive",
+            "label": "Mega Drive"
+          }
+        ],
+        "kind": "groups",
+        "total": 1
+      },
+      "path": [
+        "manufacturers",
+        "Sega"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "Sega",
+          "label": "Sega"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"Sony\",\"psx\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": "Square",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Role Playing Game",
+            "hidden": false,
+            "id": 9,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Final Fantasy VII",
+            "path": "Final Fantasy VII.m3u",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Sony Computer Entertainment",
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": "1997-09-07",
+            "system": "psx"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "manufacturers",
+        "Sony",
+        "psx"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "Sony",
+          "label": "Sony"
+        },
+        {
+          "key": "psx",
+          "label": "PlayStation"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\",\"Sony\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "psx",
+            "label": "PlayStation"
+          }
+        ],
+        "kind": "groups",
+        "total": 1
+      },
+      "path": [
+        "manufacturers",
+        "Sony"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        },
+        {
+          "key": "Sony",
+          "label": "Sony"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"manufacturers\"]": {
+      "listing": {
+        "groupBy": "manufacturer",
+        "items": [
+          {
+            "gameCount": 5,
+            "imageGame": 2,
+            "key": "Nintendo",
+            "label": "Nintendo"
+          },
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "Sega",
+            "label": "Sega"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "Sony",
+            "label": "Sony"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "",
+            "label": "Unknown"
+          }
+        ],
+        "kind": "groups",
+        "total": 4
+      },
+      "path": [
+        "manufacturers"
+      ],
+      "trail": [
+        {
+          "key": "manufacturers",
+          "label": "Manufacturers"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"recent\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "recent"
+      ],
+      "trail": [
+        {
+          "key": "recent",
+          "label": "Recently played"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"systems\",\"homebrew\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 10,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Alter Ego",
+            "path": "Alter Ego.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "homebrew"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "systems",
+        "homebrew"
+      ],
+      "trail": [
+        {
+          "key": "systems",
+          "label": "Systems"
+        },
+        {
+          "key": "homebrew",
+          "label": "Homebrew"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"systems\",\"megadrive\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 7,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Sonic The Hedgehog (USA, Europe)",
+            "path": "Sonic The Hedgehog (USA, Europe).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 8,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Streets of Rage 2 (USA)",
+            "path": "Streets of Rage 2 (USA).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "systems",
+        "megadrive"
+      ],
+      "trail": [
+        {
+          "key": "systems",
+          "label": "Systems"
+        },
+        {
+          "key": "megadrive",
+          "label": "Mega Drive"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"systems\",\"nes\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 1,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Homebrew Demo",
+            "path": "Homebrew Demo.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "nes"
+          },
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          },
+          {
+            "description": "Link explores <Hyrule>.",
+            "developer": "Nintendo",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Action / Adventure",
+            "hidden": false,
+            "id": 3,
+            "lastPlayed": null,
+            "media": {},
+            "name": "The Legend of Zelda",
+            "path": "The Legend of Zelda (USA).nes",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Nintendo",
+            "raGameId": null,
+            "rating": 0.85,
+            "releaseDate": "1986-02-21",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 3
+      },
+      "path": [
+        "systems",
+        "nes"
+      ],
+      "trail": [
+        {
+          "key": "systems",
+          "label": "Systems"
+        },
+        {
+          "key": "nes",
+          "label": "Nintendo Entertainment System"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"systems\",\"psx\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": "Square",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Role Playing Game",
+            "hidden": false,
+            "id": 9,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Final Fantasy VII",
+            "path": "Final Fantasy VII.m3u",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Sony Computer Entertainment",
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": "1997-09-07",
+            "system": "psx"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "systems",
+        "psx"
+      ],
+      "trail": [
+        {
+          "key": "systems",
+          "label": "Systems"
+        },
+        {
+          "key": "psx",
+          "label": "PlayStation"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"systems\",\"snes\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 5,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Chrono Trigger (USA)",
+            "path": "Chrono Trigger (USA).sfc",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": "Nintendo R&D1",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 6,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Super Metroid",
+            "path": "Super Metroid (Japan, USA).sfc",
+            "playCount": 0,
+            "players": "1",
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "systems",
+        "snes"
+      ],
+      "trail": [
+        {
+          "key": "systems",
+          "label": "Systems"
+        },
+        {
+          "key": "snes",
+          "label": "Super Famicom"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\",\"systems\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 3,
+            "imageGame": 2,
+            "key": "nes",
+            "label": "Nintendo Entertainment System"
+          },
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "snes",
+            "label": "Super Famicom"
+          },
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "megadrive",
+            "label": "Mega Drive"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "psx",
+            "label": "PlayStation"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "homebrew",
+            "label": "Homebrew"
+          }
+        ],
+        "kind": "groups",
+        "total": 5
+      },
+      "path": [
+        "systems"
+      ],
+      "trail": [
+        {
+          "key": "systems",
+          "label": "Systems"
+        }
+      ],
+      "view": "home"
+    },
+    "[\"home\"]": {
+      "listing": {
+        "items": [
+          {
+            "gameCount": 1,
+            "id": "favorites",
+            "name": "Favourites"
+          },
+          {
+            "gameCount": 1,
+            "id": "recent",
+            "name": "Recently played"
+          },
+          {
+            "gameCount": 9,
+            "id": "systems",
+            "name": "Systems"
+          },
+          {
+            "gameCount": 9,
+            "id": "manufacturers",
+            "name": "Manufacturers"
+          },
+          {
+            "gameCount": 9,
+            "id": "genres",
+            "name": "Genres"
+          }
+        ],
+        "kind": "branches"
+      },
+      "path": [],
+      "trail": [],
+      "view": "home"
+    },
+    "[\"manufacturer-system\",\"\",\"homebrew\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 10,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Alter Ego",
+            "path": "Alter Ego.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "homebrew"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "",
+        "homebrew"
+      ],
+      "trail": [
+        {
+          "key": "",
+          "label": "Unknown"
+        },
+        {
+          "key": "homebrew",
+          "label": "Homebrew"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\",\"\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "homebrew",
+            "label": "Homebrew"
+          }
+        ],
+        "kind": "groups",
+        "total": 1
+      },
+      "path": [
+        ""
+      ],
+      "trail": [
+        {
+          "key": "",
+          "label": "Unknown"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\",\"Nintendo\",\"nes\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 1,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Homebrew Demo",
+            "path": "Homebrew Demo.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "nes"
+          },
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          },
+          {
+            "description": "Link explores <Hyrule>.",
+            "developer": "Nintendo",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Action / Adventure",
+            "hidden": false,
+            "id": 3,
+            "lastPlayed": null,
+            "media": {},
+            "name": "The Legend of Zelda",
+            "path": "The Legend of Zelda (USA).nes",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Nintendo",
+            "raGameId": null,
+            "rating": 0.85,
+            "releaseDate": "1986-02-21",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 3
+      },
+      "path": [
+        "Nintendo",
+        "nes"
+      ],
+      "trail": [
+        {
+          "key": "Nintendo",
+          "label": "Nintendo"
+        },
+        {
+          "key": "nes",
+          "label": "Nintendo Entertainment System"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\",\"Nintendo\",\"snes\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 5,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Chrono Trigger (USA)",
+            "path": "Chrono Trigger (USA).sfc",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": "Nintendo R&D1",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 6,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Super Metroid",
+            "path": "Super Metroid (Japan, USA).sfc",
+            "playCount": 0,
+            "players": "1",
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "Nintendo",
+        "snes"
+      ],
+      "trail": [
+        {
+          "key": "Nintendo",
+          "label": "Nintendo"
+        },
+        {
+          "key": "snes",
+          "label": "Super Famicom"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\",\"Nintendo\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 3,
+            "imageGame": 2,
+            "key": "nes",
+            "label": "Nintendo Entertainment System"
+          },
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "snes",
+            "label": "Super Famicom"
+          }
+        ],
+        "kind": "groups",
+        "total": 2
+      },
+      "path": [
+        "Nintendo"
+      ],
+      "trail": [
+        {
+          "key": "Nintendo",
+          "label": "Nintendo"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\",\"Sega\",\"megadrive\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 7,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Sonic The Hedgehog (USA, Europe)",
+            "path": "Sonic The Hedgehog (USA, Europe).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 8,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Streets of Rage 2 (USA)",
+            "path": "Streets of Rage 2 (USA).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "Sega",
+        "megadrive"
+      ],
+      "trail": [
+        {
+          "key": "Sega",
+          "label": "Sega"
+        },
+        {
+          "key": "megadrive",
+          "label": "Mega Drive"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\",\"Sega\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "megadrive",
+            "label": "Mega Drive"
+          }
+        ],
+        "kind": "groups",
+        "total": 1
+      },
+      "path": [
+        "Sega"
+      ],
+      "trail": [
+        {
+          "key": "Sega",
+          "label": "Sega"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\",\"Sony\",\"psx\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": "Square",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Role Playing Game",
+            "hidden": false,
+            "id": 9,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Final Fantasy VII",
+            "path": "Final Fantasy VII.m3u",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Sony Computer Entertainment",
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": "1997-09-07",
+            "system": "psx"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "Sony",
+        "psx"
+      ],
+      "trail": [
+        {
+          "key": "Sony",
+          "label": "Sony"
+        },
+        {
+          "key": "psx",
+          "label": "PlayStation"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\",\"Sony\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "psx",
+            "label": "PlayStation"
+          }
+        ],
+        "kind": "groups",
+        "total": 1
+      },
+      "path": [
+        "Sony"
+      ],
+      "trail": [
+        {
+          "key": "Sony",
+          "label": "Sony"
+        }
+      ],
+      "view": "manufacturer-system"
+    },
+    "[\"manufacturer-system\"]": {
+      "listing": {
+        "groupBy": "manufacturer",
+        "items": [
+          {
+            "gameCount": 5,
+            "imageGame": 2,
+            "key": "Nintendo",
+            "label": "Nintendo"
+          },
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "Sega",
+            "label": "Sega"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "Sony",
+            "label": "Sony"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "",
+            "label": "Unknown"
+          }
+        ],
+        "kind": "groups",
+        "total": 4
+      },
+      "path": [],
+      "trail": [],
+      "view": "manufacturer-system"
+    },
+    "[\"recent\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [],
+      "trail": [],
+      "view": "recent"
+    },
+    "[\"systems\",\"homebrew\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 10,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Alter Ego",
+            "path": "Alter Ego.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "homebrew"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "homebrew"
+      ],
+      "trail": [
+        {
+          "key": "homebrew",
+          "label": "Homebrew"
+        }
+      ],
+      "view": "systems"
+    },
+    "[\"systems\",\"megadrive\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 7,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Sonic The Hedgehog (USA, Europe)",
+            "path": "Sonic The Hedgehog (USA, Europe).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 8,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Streets of Rage 2 (USA)",
+            "path": "Streets of Rage 2 (USA).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "megadrive"
+      ],
+      "trail": [
+        {
+          "key": "megadrive",
+          "label": "Mega Drive"
+        }
+      ],
+      "view": "systems"
+    },
+    "[\"systems\",\"nes\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 1,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Homebrew Demo",
+            "path": "Homebrew Demo.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "nes"
+          },
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          },
+          {
+            "description": "Link explores <Hyrule>.",
+            "developer": "Nintendo",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Action / Adventure",
+            "hidden": false,
+            "id": 3,
+            "lastPlayed": null,
+            "media": {},
+            "name": "The Legend of Zelda",
+            "path": "The Legend of Zelda (USA).nes",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Nintendo",
+            "raGameId": null,
+            "rating": 0.85,
+            "releaseDate": "1986-02-21",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 3
+      },
+      "path": [
+        "nes"
+      ],
+      "trail": [
+        {
+          "key": "nes",
+          "label": "Nintendo Entertainment System"
+        }
+      ],
+      "view": "systems"
+    },
+    "[\"systems\",\"psx\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": "Square",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Role Playing Game",
+            "hidden": false,
+            "id": 9,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Final Fantasy VII",
+            "path": "Final Fantasy VII.m3u",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Sony Computer Entertainment",
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": "1997-09-07",
+            "system": "psx"
+          }
+        ],
+        "kind": "games",
+        "total": 1
+      },
+      "path": [
+        "psx"
+      ],
+      "trail": [
+        {
+          "key": "psx",
+          "label": "PlayStation"
+        }
+      ],
+      "view": "systems"
+    },
+    "[\"systems\",\"snes\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 5,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Chrono Trigger (USA)",
+            "path": "Chrono Trigger (USA).sfc",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": "Nintendo R&D1",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 6,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Super Metroid",
+            "path": "Super Metroid (Japan, USA).sfc",
+            "playCount": 0,
+            "players": "1",
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          }
+        ],
+        "kind": "games",
+        "total": 2
+      },
+      "path": [
+        "snes"
+      ],
+      "trail": [
+        {
+          "key": "snes",
+          "label": "Super Famicom"
+        }
+      ],
+      "view": "systems"
+    },
+    "[\"systems\"]": {
+      "listing": {
+        "groupBy": "system",
+        "items": [
+          {
+            "gameCount": 3,
+            "imageGame": 2,
+            "key": "nes",
+            "label": "Nintendo Entertainment System"
+          },
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "snes",
+            "label": "Super Famicom"
+          },
+          {
+            "gameCount": 2,
+            "imageGame": null,
+            "key": "megadrive",
+            "label": "Mega Drive"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "psx",
+            "label": "PlayStation"
+          },
+          {
+            "gameCount": 1,
+            "imageGame": null,
+            "key": "homebrew",
+            "label": "Homebrew"
+          }
+        ],
+        "kind": "groups",
+        "total": 5
+      },
+      "path": [],
+      "trail": [],
+      "view": "systems"
+    }
+  },
+  "comment": "Generated by `cargo run -p romdex-core --example mock_snapshot`. Do not edit.",
+  "games": [
+    {
+      "description": null,
+      "developer": null,
+      "favorite": false,
+      "gameTime": 0,
+      "genre": null,
+      "hidden": false,
+      "id": 1,
+      "lastPlayed": null,
+      "media": {},
+      "name": "Homebrew Demo",
+      "path": "Homebrew Demo.nes",
+      "playCount": 0,
+      "players": null,
+      "publisher": null,
+      "raGameId": null,
+      "rating": null,
+      "releaseDate": null,
+      "system": "nes"
+    },
+    {
+      "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+      "developer": "Nintendo",
+      "favorite": true,
+      "gameTime": 0,
+      "genre": "Platform",
+      "hidden": false,
+      "id": 2,
+      "lastPlayed": "2026-01-01T12:00:00",
+      "media": {
+        "image": "image",
+        "marquee": "marquee",
+        "video": "video"
+      },
+      "name": "Super Mario Bros.",
+      "path": "Super Mario Bros. (World).nes",
+      "playCount": 12,
+      "players": "1-2",
+      "publisher": "Nintendo",
+      "raGameId": 1446,
+      "rating": 0.9,
+      "releaseDate": "1985-09-13",
+      "system": "nes"
+    },
+    {
+      "description": "Link explores <Hyrule>.",
+      "developer": "Nintendo",
+      "favorite": false,
+      "gameTime": 0,
+      "genre": "Action / Adventure",
+      "hidden": false,
+      "id": 3,
+      "lastPlayed": null,
+      "media": {},
+      "name": "The Legend of Zelda",
+      "path": "The Legend of Zelda (USA).nes",
+      "playCount": 0,
+      "players": "1",
+      "publisher": "Nintendo",
+      "raGameId": null,
+      "rating": 0.85,
+      "releaseDate": "1986-02-21",
+      "system": "nes"
+    },
+    {
+      "description": null,
+      "developer": null,
+      "favorite": false,
+      "gameTime": 0,
+      "genre": null,
+      "hidden": false,
+      "id": 5,
+      "lastPlayed": null,
+      "media": {},
+      "name": "Chrono Trigger (USA)",
+      "path": "Chrono Trigger (USA).sfc",
+      "playCount": 0,
+      "players": null,
+      "publisher": null,
+      "raGameId": null,
+      "rating": null,
+      "releaseDate": null,
+      "system": "snes"
+    },
+    {
+      "description": null,
+      "developer": "Nintendo R&D1",
+      "favorite": false,
+      "gameTime": 0,
+      "genre": "Platform",
+      "hidden": false,
+      "id": 6,
+      "lastPlayed": null,
+      "media": {},
+      "name": "Super Metroid",
+      "path": "Super Metroid (Japan, USA).sfc",
+      "playCount": 0,
+      "players": "1",
+      "publisher": null,
+      "raGameId": null,
+      "rating": null,
+      "releaseDate": null,
+      "system": "snes"
+    },
+    {
+      "description": null,
+      "developer": null,
+      "favorite": false,
+      "gameTime": 0,
+      "genre": null,
+      "hidden": false,
+      "id": 7,
+      "lastPlayed": null,
+      "media": {},
+      "name": "Sonic The Hedgehog (USA, Europe)",
+      "path": "Sonic The Hedgehog (USA, Europe).md",
+      "playCount": 0,
+      "players": null,
+      "publisher": null,
+      "raGameId": null,
+      "rating": null,
+      "releaseDate": null,
+      "system": "megadrive"
+    },
+    {
+      "description": null,
+      "developer": null,
+      "favorite": false,
+      "gameTime": 0,
+      "genre": null,
+      "hidden": false,
+      "id": 8,
+      "lastPlayed": null,
+      "media": {},
+      "name": "Streets of Rage 2 (USA)",
+      "path": "Streets of Rage 2 (USA).md",
+      "playCount": 0,
+      "players": null,
+      "publisher": null,
+      "raGameId": null,
+      "rating": null,
+      "releaseDate": null,
+      "system": "megadrive"
+    },
+    {
+      "description": null,
+      "developer": "Square",
+      "favorite": false,
+      "gameTime": 0,
+      "genre": "Role Playing Game",
+      "hidden": false,
+      "id": 9,
+      "lastPlayed": null,
+      "media": {},
+      "name": "Final Fantasy VII",
+      "path": "Final Fantasy VII.m3u",
+      "playCount": 0,
+      "players": "1",
+      "publisher": "Sony Computer Entertainment",
+      "raGameId": null,
+      "rating": null,
+      "releaseDate": "1997-09-07",
+      "system": "psx"
+    },
+    {
+      "description": null,
+      "developer": null,
+      "favorite": false,
+      "gameTime": 0,
+      "genre": null,
+      "hidden": false,
+      "id": 10,
+      "lastPlayed": null,
+      "media": {},
+      "name": "Alter Ego",
+      "path": "Alter Ego.nes",
+      "playCount": 0,
+      "players": null,
+      "publisher": null,
+      "raGameId": null,
+      "rating": null,
+      "releaseDate": null,
+      "system": "homebrew"
+    }
+  ],
+  "systems": [
+    {
+      "fullname": "Nintendo Entertainment System",
+      "gameCount": 3,
+      "hardware": "console",
+      "manufacturer": "Nintendo",
+      "name": "nes",
+      "releaseYear": 1985
+    },
+    {
+      "fullname": "Super Famicom",
+      "gameCount": 2,
+      "hardware": "console",
+      "manufacturer": "Nintendo",
+      "name": "snes",
+      "releaseYear": 1990
+    },
+    {
+      "fullname": "Mega Drive",
+      "gameCount": 2,
+      "hardware": "console",
+      "manufacturer": "Sega",
+      "name": "megadrive",
+      "releaseYear": 1988
+    },
+    {
+      "fullname": "PlayStation",
+      "gameCount": 1,
+      "hardware": "console",
+      "manufacturer": "Sony",
+      "name": "psx",
+      "releaseYear": 1994
+    },
+    {
+      "fullname": "Homebrew",
+      "gameCount": 1,
+      "hardware": null,
+      "manufacturer": null,
+      "name": "homebrew",
+      "releaseYear": null
+    }
+  ],
+  "views": [
+    {
+      "description": "Every system, then its games: the EmulationStation layout.",
+      "id": "systems",
+      "name": "Systems",
+      "origin": "bundled"
+    },
+    {
+      "description": "Nintendo, Sega, Sony… then their systems, then games.",
+      "id": "manufacturer-system",
+      "name": "By manufacturer",
+      "origin": "bundled"
+    },
+    {
+      "description": "Every genre across all systems, largest first.",
+      "id": "genre",
+      "name": "By genre",
+      "origin": "bundled"
+    },
+    {
+      "description": "Your favourite games from every system.",
+      "id": "favorites",
+      "name": "Favourites",
+      "origin": "bundled"
+    },
+    {
+      "description": "The last 50 games you played.",
+      "id": "recent",
+      "name": "Recently played",
+      "origin": "bundled"
+    },
+    {
+      "description": "A menu: favourites, recents, and the library by system, manufacturer or genre.",
+      "id": "home",
+      "name": "Home",
+      "origin": "bundled"
+    }
+  ]
+}

@@ -54,7 +54,9 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/unbound-method': 'off',
-      '@typescript-eslint/require-await': 'off'
+      '@typescript-eslint/require-await': 'off',
+      // Fakes of Tauri's IPC reject with plain objects, because that is what the IPC does.
+      '@typescript-eslint/prefer-promise-reject-errors': 'off'
     }
   },
 

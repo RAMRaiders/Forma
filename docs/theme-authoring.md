@@ -1,8 +1,18 @@
 # Theme authoring
 
-> Draft. The SDK API lands in #28 and the reference documentation in #30.
+A RomDex theme is a folder containing a `theme.json` manifest and a web app that talks to
+RomDex through [`@romdex/sdk`](sdk.md).
 
-A RomDex theme is a folder containing a `theme.json` manifest and a web app.
+```ts
+import { connect } from '@romdex/sdk';
+
+const romdex = await connect();
+const page = await romdex.nav.browse((await romdex.nav.defaultView()).id ?? 'systems');
+romdex.input.onPress('confirm', () => …);
+```
+
+Open the theme in a plain browser while you work: outside RomDex the SDK serves a mock library,
+so you can build without a device.
 
 ## `theme.json`
 

@@ -55,6 +55,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/), enf
 
 - [Architecture](docs/architecture.md)
 - [Theme authoring](docs/theme-authoring.md)
+- [SDK reference](docs/sdk.md)
 - [Hierarchy views](docs/hierarchy.md)
 - [Batocera integration](docs/batocera-integration.md)
 

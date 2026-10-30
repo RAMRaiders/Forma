@@ -1,0 +1,214 @@
+/**
+ * The shapes RomDex sends and accepts. They mirror the Rust types' JSON exactly; the contract
+ * test checks these field lists against the real engine's output.
+ */
+
+export interface SystemSummary {
+  name: string;
+  fullname: string;
+  manufacturer: string | null;
+  releaseYear: number | null;
+  hardware: string | null;
+  /** Visible games: present on disk and not hidden. */
+  gameCount: number;
+}
+
+export type MediaKind = 'image' | 'thumbnail' | 'marquee' | 'video' | 'fanart' | 'manual';
+
+export interface Game {
+  id: number;
+  system: string;
+  /** Relative to the system's ROM folder. */
+  path: string;
+  name: string;
+  description: string | null;
+  developer: string | null;
+  publisher: string | null;
+  genre: string | null;
+  players: string | null;
+  /** `YYYY-MM-DD`. */
+  releaseDate: string | null;
+  /** 0.0–1.0. */
+  rating: number | null;
+  favorite: boolean;
+  hidden: boolean;
+  playCount: number;
+  /** ISO 8601, UTC. */
+  lastPlayed: string | null;
+  /** Total seconds played. */
+  gameTime: number;
+  raGameId: number | null;
+  /** Media kind → URL to load it from. */
+  media: Partial<Record<MediaKind, string>>;
+}
+
+export interface ViewInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  origin: 'bundled' | 'user';
+}
+
+export interface Page {
+  offset: number;
+  limit: number;
+}
+
+export interface Crumb {
+  key: string;
+  label: string;
+}
+
+export type GroupKey =
+  | 'system'
+  | 'manufacturer'
+  | 'hardware'
+  | 'genre'
+  | 'developer'
+  | 'publisher'
+  | 'year'
+  | 'decade'
+  | 'players'
+  | 'region';
+
+export interface Group {
+  /** Append to the path to open this group. Empty for "Unknown". */
+  key: string;
+  label: string;
+  gameCount: number;
+  /** The game whose image represents the group; see `library.mediaUrl`. */
+  imageGame: number | null;
+}
+
+export interface BranchItem {
+  id: string;
+  name: string;
+  gameCount: number;
+}
+
+export type Listing =
+  | { kind: 'groups'; groupBy: GroupKey; items: Group[]; total: number }
+  | { kind: 'branches'; items: BranchItem[] }
+  | { kind: 'games'; items: Game[]; total: number };
+
+export interface Browse {
+  view: string;
+  path: string[];
+  /** Labels for a breadcrumb, one per path segment. */
+  trail: Crumb[];
+  listing: Listing;
+}
+
+export interface DefaultView {
+  id: string | null;
+  /** Why a preferred view was passed over, if one was. */
+  notes: string[];
+}
+
+export type Netplay =
+  { mode: 'host'; port?: number } | { mode: 'client'; host: string; port: number };
+
+export interface LaunchRequest {
+  /** Overrides Batocera's configured emulator/core for this launch only. */
+  emulator?: string;
+  core?: string;
+  netplay?: Netplay;
+}
+
+export interface ThemeInfo {
+  id: string;
+  name: string | null;
+  version: string | null;
+  origin: 'bundled' | 'user';
+  permissions: string[];
+  current: boolean;
+  /** Why the theme cannot load, if it cannot. */
+  unavailable: string | null;
+}
+
+export interface Controller {
+  index: number;
+  /** SDL GUID. */
+  guid: string;
+  name: string;
+}
+
+export type Button =
+  | 'dpadUp'
+  | 'dpadDown'
+  | 'dpadLeft'
+  | 'dpadRight'
+  | 'south'
+  | 'east'
+  | 'west'
+  | 'north'
+  | 'l1'
+  | 'r1'
+  | 'l2'
+  | 'r2'
+  | 'l3'
+  | 'r3'
+  | 'start'
+  | 'select'
+  | 'hotkey';
+
+export type Action =
+  | 'up'
+  | 'down'
+  | 'left'
+  | 'right'
+  | 'confirm'
+  | 'back'
+  | 'west'
+  | 'north'
+  | 'pageUp'
+  | 'pageDown'
+  | 'l2'
+  | 'r2'
+  | 'l3'
+  | 'r3'
+  | 'start'
+  | 'select'
+  | 'hotkey';
+
+export interface InputEvent {
+  action: Action;
+  /** The physical button; `null` for an analog stick or the keyboard. */
+  button: Button | null;
+  /** Gamepad in connection order; -1 for the keyboard. */
+  gamepad: number;
+  pressed: boolean;
+  /** Generated while a direction is held. */
+  repeat: boolean;
+}
+
+export interface GameStart {
+  type: 'game:start';
+  gameId: number;
+  system: string;
+  name: string;
+}
+
+export interface GameEnd {
+  type: 'game:end';
+  gameId: number;
+  seconds: number;
+  exitCode: number | null;
+  /** Why the launch failed, if it did. */
+  error: string | null;
+}
+
+export interface LibraryChanged {
+  /** Systems whose games changed: re-query anything showing them. */
+  systems: string[];
+}
+
+export interface EventMap {
+  'game:start': GameStart;
+  'game:end': GameEnd;
+  'library:changed': LibraryChanged;
+  'views:changed': null;
+  input: InputEvent;
+}
+
+export type Unsubscribe = () => void;
