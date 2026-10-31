@@ -18,6 +18,12 @@ ES='^emulationstation( |$)'
 
 export WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/var/run HOME=/userdata/system
 export FORMA_READY_FILE="$READY" FORMA_FULLSCREEN=1
+# AppRun's hooks build their paths from APPDIR, which only the AppImage runtime sets; run from the
+# extracted folder it was empty, so GStreamer's plugin path became Batocera's own /usr/lib one:
+# hundreds of plugins that do not load against Forma's libraries (15 s at start-up), and video
+# that would not play. And a registry of Forma's own, never mixed with Batocera's.
+export APPDIR="$(dirname "$APP")"
+export GST_REGISTRY_1_0=/userdata/system/forma/cache/gstreamer-registry.bin
 
 log() { echo "$(date '+%F %T') forma-standalone: $*" >> "$LOG"; }
 
