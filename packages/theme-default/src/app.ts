@@ -6,6 +6,7 @@ import { LazyList } from './logic/pager.js';
 import { el } from './ui/dom.js';
 import { type Card, GridView } from './ui/grid.js';
 import { GamesView } from './ui/games.js';
+import { Menu } from './ui/menu.js';
 import { Switcher } from './ui/switcher.js';
 
 /** One level of the path, and where the selection was, so going back returns to it. */
@@ -40,6 +41,9 @@ export class App {
     return kind ? this.forma.library.mediaUrl(game.id, kind, DETAIL_WIDTH) : null;
   });
   readonly #switcher = new Switcher();
+  readonly #menu = new Menu();
+  /** A power action waiting for its second press, and until when. */
+  #confirming: { id: string; until: number } | null = null;
 
   #views: ViewInfo[] = [];
   #view = 'systems';
@@ -60,6 +64,7 @@ export class App {
       this.#main,
       this.#hints,
       this.#switcher.root,
+      this.#menu.root,
       this.#playing,
       this.#toast
     );
@@ -170,18 +175,24 @@ export class App {
       ...(this.#page?.trail ?? []).map((c) => el('span', { class: 'crumb' }, c.label))
     );
     const games = this.#page?.listing.kind === 'games';
-    const hints: [string, string][] = this.#switcher.open
+    const hints: [string, string][] = this.#menu.open
       ? [
-          ['A', 'Show'],
-          ['Y', 'Make home view'],
+          ['A', 'Choose'],
           ['B', 'Close']
         ]
-      : [
-          ['A', games ? 'Play' : 'Open'],
-          ...(games ? [['Y', 'Favourite'] as [string, string]] : []),
-          ...(this.#stack.length > 1 ? [['B', 'Back'] as [string, string]] : []),
-          ['Select', 'Views']
-        ];
+      : this.#switcher.open
+        ? [
+            ['A', 'Show'],
+            ['Y', 'Make home view'],
+            ['B', 'Close']
+          ]
+        : [
+            ['A', games ? 'Play' : 'Open'],
+            ...(games ? [['Y', 'Favourite'] as [string, string]] : []),
+            ...(this.#stack.length > 1 ? [['B', 'Back'] as [string, string]] : []),
+            ['Select', 'Views'],
+            ['Start', 'Menu']
+          ];
     this.#hints.replaceChildren(
       ...hints.map(([button, label]) => el('span', { class: 'hint' }, el('kbd', {}, button), label))
     );
@@ -189,6 +200,7 @@ export class App {
 
   #onInput(e: InputEvent): void {
     if (!e.pressed || !this.#playing.hidden) return;
+    if (this.#menu.open) return this.#onMenuInput(e);
     if (this.#switcher.open) return this.#onSwitcherInput(e);
 
     const move = MOVES[e.action];
@@ -202,8 +214,10 @@ export class App {
       case 'north':
         return void this.#toggleFavorite();
       case 'select':
-      case 'start':
         this.#switcher.show(this.#views, this.#view, this.#home);
+        return this.#renderChrome();
+      case 'start':
+        this.#openMenu();
         return this.#renderChrome();
       default:
     }
@@ -255,6 +269,56 @@ export class App {
     } catch (error) {
       this.#notify(FormaError.from(error).message);
     }
+  }
+
+  #openMenu(): void {
+    this.#confirming = null;
+    this.#menu.show('Forma', [
+      { id: 'views', label: 'Views…', description: 'Organise the library another way' },
+      {
+        id: 'emulationstation',
+        label: 'Switch to EmulationStation',
+        description: 'For system settings, scraping and updates; Forma returns at the next boot'
+      },
+      { id: 'restart', label: 'Restart', description: 'Press A twice' },
+      { id: 'shutdown', label: 'Shut down', description: 'Press A twice' }
+    ]);
+  }
+
+  #onMenuInput(e: InputEvent): void {
+    const m = this.#menu;
+    if (e.action === 'up' || e.action === 'down') {
+      this.#confirming = null;
+      return m.select(moveList(m.selected, m.count, e.action, 5, e.repeat));
+    }
+    if (e.repeat) return;
+    if (e.action === 'back' || e.action === 'start') {
+      m.close();
+      return this.#renderChrome();
+    }
+    if (e.action !== 'confirm' || !m.item) return;
+    const id = m.item.id;
+    if (id === 'views') {
+      m.close();
+      this.#switcher.show(this.#views, this.#view, this.#home);
+      return this.#renderChrome();
+    }
+    // Power actions need a second press within three seconds: a stray A must not shut down.
+    const powerful = id === 'restart' || id === 'shutdown';
+    const now = Date.now();
+    if (powerful && (this.#confirming?.id !== id || now > this.#confirming.until)) {
+      this.#confirming = { id, until: now + 3000 };
+      this.#notify(`Press A again to ${id === 'restart' ? 'restart' : 'shut down'}`);
+      return;
+    }
+    this.#confirming = null;
+    const action =
+      id === 'restart'
+        ? this.forma.system.restart()
+        : id === 'shutdown'
+          ? this.forma.system.shutdown()
+          : this.forma.system.quit();
+    action.catch((error: unknown) => this.#notify(FormaError.from(error).message));
   }
 
   #onSwitcherInput(e: InputEvent): void {

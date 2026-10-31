@@ -35,6 +35,10 @@ pub struct AppState {
     pub playing: AtomicBool,
     /// Set by the SDK once the current theme has started.
     pub theme_ready: AtomicBool,
+    /// Written once the first theme is ready, for the Batocera service (`FORMA_READY_FILE`).
+    pub ready_file: Option<PathBuf>,
+    /// Running on Batocera: power actions go to its own tools.
+    pub on_batocera: bool,
     pub input: Mutex<Option<InputHandle>>,
     pub sync: Mutex<Option<SyncHandle>>,
 }

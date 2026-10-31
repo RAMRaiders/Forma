@@ -51,7 +51,7 @@ describe('the default theme', () => {
       'Homebrew'
     ]);
     expect(text('.card.selected .label')).toEqual(['Nintendo Entertainment System']);
-    expect(text('.hint')).toEqual(['AOpen', 'SelectViews']);
+    expect(text('.hint')).toEqual(['AOpen', 'SelectViews', 'StartMenu']);
   });
 
   it('opens a system into its games, shows details, and goes back to where it was', async () => {
@@ -129,5 +129,26 @@ describe('the default theme', () => {
     );
     await press('confirm');
     await vi.waitFor(() => expect(text('.row')).toEqual(['★ Super Mario Bros.']));
+  });
+
+  it('opens a system menu on Start, and power actions need a second press', async () => {
+    const { press, text } = await start();
+    await press('start');
+    expect(text('.switcher li .name')).toEqual([
+      'Views…',
+      'Switch to EmulationStation',
+      'Restart',
+      'Shut down'
+    ]);
+    await press('down');
+    await press('down');
+    await press('confirm');
+    expect(text('.toast')).toEqual(['Press A again to restart']);
+    await press('confirm');
+    // The mock grants no permission, as a theme without `system.power` would get.
+    await vi.waitFor(() => expect(text('.toast')[0]).toContain('system.power'));
+    await press('back');
+    // Closed: the normal hints are back.
+    expect(text('.hint')).toContain('StartMenu');
   });
 });

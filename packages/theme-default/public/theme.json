@@ -4,6 +4,6 @@
   "version": "0.0.0",
   "entry": "index.html",
   "sdk": "^1",
-  "permissions": [],
+  "permissions": ["system.power"],
   "resolutions": ["1280x720", "1920x1080"]
 }

@@ -1,0 +1,88 @@
+#!/bin/bash
+# Runs Forma in Batocera's labwc session in place of EmulationStation.
+#
+# EmulationStation starts first, as Batocera always does; this takes over once it is up, so
+# anything going wrong before that point leaves EmulationStation on screen. The screen goes
+# back to EmulationStation when Forma quits (its "Switch to EmulationStation"), or when Forma
+# fails three times in two minutes, counting "never became ready" as a failure.
+
+APP=/userdata/system/forma/app/AppRun
+LOG=/userdata/system/logs/forma.log
+READY=/var/run/forma.ready
+READY_TIMEOUT=30
+MAX_FAILURES=3
+FAILURE_WINDOW=120
+
+export WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/var/run HOME=/userdata/system
+export FORMA_READY_FILE="$READY" FORMA_FULLSCREEN=1
+
+log() { echo "$(date '+%F %T') forma-standalone: $*" >> "$LOG"; }
+
+# wait_for <seconds> <command...>: true as soon as the command succeeds.
+wait_for() {
+    local ticks=$(( $1 * 10 )); shift
+    while [ "$ticks" -gt 0 ]; do
+        "$@" > /dev/null 2>&1 && return 0
+        sleep 0.1
+        ticks=$(( ticks - 1 ))
+    done
+    return 1
+}
+
+back_to_emulationstation() {
+    log "handing the screen back to EmulationStation: $1"
+    # As labwc's autostart starts it.
+    cd /userdata && nohup /usr/bin/emulationstation-standalone > /dev/null 2>&1 &
+    exit 0
+}
+
+mkdir -p "$(dirname "$LOG")"
+[ -x "$APP" ] || { log "no Forma at $APP; EmulationStation stays"; exit 1; }
+wait_for 60 wlr-randr || { log "no Wayland compositor; EmulationStation stays"; exit 1; }
+wait_for 60 pgrep -x emulationstation || log "EmulationStation never started; taking over anyway"
+
+# Stop EmulationStation's restart loop, then EmulationStation itself.
+emulationstation-standalone --stop-rebooting
+pkill -x emulationstation
+wait_for 20 sh -c '! pgrep -x emulationstation' || pkill -9 -x emulationstation
+
+language="$(batocera-settings-get system.language)"
+export LANG="${language:-en_US}.UTF-8" LC_ALL="${language:-en_US}.UTF-8"
+
+failures=()
+while true; do
+    rm -f "$READY"
+    log "starting Forma"
+    cd /userdata
+    "$APP" >> "$LOG" 2>&1 &
+    pid=$!
+
+    # Ready, or gone, or out of time.
+    ticks=$(( READY_TIMEOUT * 10 ))
+    while [ "$ticks" -gt 0 ] && [ ! -e "$READY" ] && kill -0 "$pid" 2> /dev/null; do
+        sleep 0.1
+        ticks=$(( ticks - 1 ))
+    done
+    if [ ! -e "$READY" ] && kill -0 "$pid" 2> /dev/null; then
+        log "Forma did not become ready within ${READY_TIMEOUT}s"
+        pkill -x forma
+    fi
+
+    wait "$pid"
+    code=$?
+    if [ -e "$READY" ] && [ "$code" -eq 0 ]; then
+        back_to_emulationstation "Forma quit"
+    fi
+
+    log "Forma failed (exit $code)"
+    now=$(date +%s)
+    recent=()
+    for t in "${failures[@]}" "$now"; do
+        [ $(( now - t )) -le "$FAILURE_WINDOW" ] && recent+=("$t")
+    done
+    failures=("${recent[@]}")
+    if [ "${#failures[@]}" -ge "$MAX_FAILURES" ]; then
+        back_to_emulationstation "Forma failed ${MAX_FAILURES} times in ${FAILURE_WINDOW}s"
+    fi
+    sleep 2
+done

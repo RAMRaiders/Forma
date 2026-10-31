@@ -2,6 +2,30 @@
 
 > Design only. Nothing here is packaged or deployed yet; that is Milestone 3.
 
+## Installing on Batocera
+
+On the box (e.g. over SSH), with a Forma AppImage built by the **Spike AppImage** workflow and
+this repository's `scripts/batocera/`:
+
+```sh
+./install.sh /userdata/Forma_0.0.0_aarch64.AppImage   # extract, install the service, enable it
+batocera-services start forma                          # take over now, or reboot
+```
+
+- The AppImage is **extracted once** to `/userdata/system/forma/app`. Batocera has no FUSE 2,
+  and running the AppImage directly unpacks ~260 MB into `/tmp` (RAM) at every start.
+- `forma` is a **Batocera user service** (`/userdata/system/services/forma`), the supported way
+  to run something at boot; Batocera's own menu lists it. It starts after EmulationStation, so
+  anything failing before Forma takes over leaves EmulationStation on screen.
+- `forma-standalone` replaces EmulationStation's restart loop with Forma's in the same labwc
+  session, and gives the screen back to EmulationStation when Forma quits (the menu's
+  "Switch to EmulationStation") or fails three times in two minutes. Never becoming ready
+  within 30 seconds counts as failing.
+- Restart and Shut down use `batocera-es-swissknife`, as EmulationStation does.
+- The log is `/userdata/system/logs/forma.log`.
+- `./uninstall.sh` disables the service and removes the program; `--purge` removes Forma's data
+  too. Batocera's own files (gamelists, `batocera.conf`) are never written.
+
 ## What Forma reads
 
 | Batocera file                                                | Used for                               |

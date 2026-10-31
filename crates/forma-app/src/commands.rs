@@ -60,6 +60,10 @@ pub fn theme_ready(state: State<'_, AppState>) {
             "forma: theme `{id}` ready {} ms after start",
             crate::boot::since_start().as_millis()
         );
+        // Tells the Batocera service Forma is usable (see scripts/batocera/forma-standalone).
+        if let Some(file) = &state.ready_file {
+            let _ = std::fs::write(file, id);
+        }
     }
 }
 
@@ -291,6 +295,7 @@ pub fn input_controllers(state: State<'_, AppState>) -> Vec<Controller> {
         .unwrap_or_default()
 }
 
+/// Quits Forma. On Batocera, the service then hands the screen back to EmulationStation.
 #[tauri::command]
 pub fn system_quit<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) -> ApiResult<()> {
     permissions::require(&theme(&state)?, permissions::SYSTEM_POWER)?;
@@ -298,21 +303,33 @@ pub fn system_quit<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) ->
     Ok(())
 }
 
-/// `restart` or `shutdown`. Checked now, implemented with Batocera integration (M3): Forma
-/// must not power off a development machine because a theme asked it to.
+/// `restart` or `shutdown`, through Batocera's own `batocera-es-swissknife`, as
+/// EmulationStation does. Anywhere but Batocera it is refused: Forma must not power off a
+/// development machine because a theme asked it to.
 #[tauri::command]
 pub fn system_power(state: State<'_, AppState>, action: String) -> ApiResult<()> {
     permissions::require(&theme(&state)?, permissions::SYSTEM_POWER)?;
-    if !matches!(action.as_str(), "restart" | "shutdown") {
+    let flag = match action.as_str() {
+        "restart" => "--reboot",
+        "shutdown" => "--shutdown",
+        _ => {
+            return Err(ApiError::new(
+                ErrorCode::Invalid,
+                format!("unknown action `{action}`"),
+            ));
+        }
+    };
+    if !state.on_batocera {
         return Err(ApiError::new(
-            ErrorCode::Invalid,
-            format!("unknown action `{action}`"),
+            ErrorCode::Unsupported,
+            format!("{action} is only available on Batocera"),
         ));
     }
-    Err(ApiError::new(
-        ErrorCode::Unsupported,
-        format!("{action} is not available yet: it arrives with Batocera integration"),
-    ))
+    std::process::Command::new("batocera-es-swissknife")
+        .arg(flag)
+        .spawn()
+        .map(drop)
+        .map_err(|e| ApiError::new(ErrorCode::Internal, format!("could not {action}: {e}")))
 }
 
 /// Starts a game and returns at once; `game:start` and `game:end` follow as events. The window

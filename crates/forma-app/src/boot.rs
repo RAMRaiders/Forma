@@ -34,6 +34,9 @@ pub fn since_start() -> Duration {
         .map_or(Duration::ZERO, std::time::Instant::elapsed)
 }
 
+/// Present on every Batocera install, and nowhere else.
+const BATOCERA_VERSION_FILE: &str = "/usr/share/batocera/batocera.version";
+
 /// How long a theme has to call `theme_ready` before Forma falls back to the default theme.
 const READY_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -66,6 +69,8 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         )),
         playing: AtomicBool::new(false),
         theme_ready: AtomicBool::new(false),
+        ready_file: std::env::var_os("FORMA_READY_FILE").map(PathBuf::from),
+        on_batocera: Path::new(BATOCERA_VERSION_FILE).is_file(),
         input: Mutex::new(None),
         sync: Mutex::new(None),
         paths: paths.clone(),

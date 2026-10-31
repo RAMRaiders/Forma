@@ -69,6 +69,8 @@ impl Harness {
             )),
             playing: AtomicBool::new(false),
             theme_ready: AtomicBool::new(false),
+            ready_file: Some(root.join("forma.ready")),
+            on_batocera: false,
             input: Mutex::new(None),
             sync: Mutex::new(None),
             paths,
@@ -286,7 +288,16 @@ fn the_boot_view_can_be_chosen_from_the_ui() {
 }
 
 #[test]
-fn power_needs_permission_and_is_not_wired_outside_batocera_yet() {
+fn reporting_ready_writes_the_ready_file_for_the_batocera_service() {
+    let h = Harness::new(&[]);
+    let file = h.state().ready_file.clone().unwrap();
+    assert!(!file.exists());
+    h.call("theme_ready", json!({})).unwrap();
+    assert_eq!(std::fs::read_to_string(file).unwrap(), "default");
+}
+
+#[test]
+fn power_needs_permission_and_is_refused_outside_batocera() {
     let h = Harness::new(&[]);
     let err = h
         .call("system_power", json!({ "action": "shutdown" }))

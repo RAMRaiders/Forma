@@ -1,0 +1,17 @@
+#!/bin/bash
+# Batocera user service for Forma. Installed as /userdata/system/services/forma by install.sh;
+# `batocera-services enable forma` makes Batocera start it at every boot, and
+# `batocera-services disable forma` gives the box back to EmulationStation.
+
+case "$1" in
+    start)
+        nohup /userdata/system/forma/bin/forma-standalone > /dev/null 2>&1 &
+        ;;
+    stop)
+        pkill -f /userdata/system/forma/bin/forma-standalone
+        pkill -x forma
+        ;;
+    status)
+        if pgrep -x forma > /dev/null; then echo "Forma is running"; else echo "Forma is not running"; fi
+        ;;
+esac
