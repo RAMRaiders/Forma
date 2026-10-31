@@ -331,7 +331,7 @@ function describeEthernet(status: NetworkStatus): string {
 
 function describeWifi(status: NetworkStatus): string {
   const w = status.wifi!;
-  if (!w.enabled) return w.saved ? `${w.saved} is saved` : 'Off';
+  if (!w.enabled) return w.saved ? `${w.saved} is saved; A turns Wi-Fi on` : 'A turns Wi-Fi on';
   if (w.connected) return `Connected to ${w.connected}${w.ipv4 ? ` · ${w.ipv4.address}` : ''}`;
   if (w.saved && status.ethernet?.connected) return `${w.saved} is saved; the cable is in use`;
   return w.saved ? `${w.saved} is saved, not in range` : 'Not connected';
