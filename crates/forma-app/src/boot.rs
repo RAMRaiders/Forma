@@ -188,17 +188,33 @@ fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
         .map_or(theme.id.as_str(), |m| m.name.as_str());
     let version = theme.manifest.as_ref().map_or("", |m| m.version.as_str());
     let line = format!("{name} {version}");
+    let margins = screen_margins(state);
     let sound = forma_core::net::batocera_conf(&state.paths.batocera_conf())
         .get("splash.screen.sound")
         .is_none_or(|v| v != "0");
     splash_url(&format!(
-        "next={}&batocera={}&theme={}&forma={}&sound={}",
+        "next={}&batocera={}&theme={}&forma={}&sound={}&margins={}",
         query_value(&theme_url),
         query_value(batocera.trim()),
         query_value(line.trim()),
         query_value(env!("CARGO_PKG_VERSION")),
-        u8::from(sound)
+        u8::from(sound),
+        margins
     ))
+}
+
+/// The Forma setting every theme shares for a TV that cuts the picture's edges (overscan): how
+/// much, in percent of each side, to keep clear. 0 to 10.
+pub const MARGINS_SETTING: &str = "display.margins";
+
+fn screen_margins(state: &AppState) -> u8 {
+    state
+        .library()
+        .setting_text(MARGINS_SETTING)
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .map_or(0, |m| m.clamp(0.0, 10.0).round() as u8)
 }
 
 /// Time since the system booted (`/proc/uptime`).

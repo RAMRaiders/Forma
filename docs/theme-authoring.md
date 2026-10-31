@@ -102,3 +102,17 @@ the theme's files change.
 - Themes are served from `forma://theme/<id>/`, so use **relative** asset URLs.
 - A strict Content Security Policy applies: no remote scripts unless the manifest declares them.
 - Everything goes through `@ramraiders/forma-sdk`. There is no private API, even for the bundled theme.
+
+## Screen margins (overscan)
+
+Many TVs enlarge the picture so its edges fall outside the screen. Forma keeps one setting for
+it, shared by every theme and by its own start-up screen: `display.margins`, the percentage of
+each side to keep clear (0–10), read with `settings.getSystem('display.margins')` (it needs
+`settings.system`). The simplest way to honour it is to shrink the whole page evenly:
+
+```ts
+document.body.style.transform = margins > 0 ? `scale(${1 - (2 * margins) / 100})` : "";
+```
+
+Fixed overlays live inside the body, so they shrink with it. The default theme offers the
+setting under Interface → Screen margins.
