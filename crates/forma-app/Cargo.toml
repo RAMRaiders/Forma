@@ -21,6 +21,9 @@ serde.workspace = true
 serde_json.workspace = true
 tauri.workspace = true
 
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk.workspace = true
+
 [dev-dependencies]
 tauri = { workspace = true, features = ["test"] }
 tempfile.workspace = true

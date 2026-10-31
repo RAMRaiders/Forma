@@ -28,7 +28,7 @@ impl Launcher for ProcessLauncher {
         let log = File::create(&command.log).map_err(|e| Error::io(&command.log, e))?;
         let err_log = log.try_clone().map_err(|e| Error::io(&command.log, e))?;
         let started = Instant::now();
-        let status = std::process::Command::new(&command.program)
+        let status = crate::host::command(&command.program)
             .args(&command.args)
             .stdin(std::process::Stdio::null())
             .stdout(log)

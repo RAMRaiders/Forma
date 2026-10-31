@@ -23,6 +23,8 @@ ureq = "3.5.0"
 tauri = { version = "2.12.5", features = [] }
 tauri-build = { version = "2.7.4", features = [] }
 tempfile = "3.27.0"
+# The WebKitGTK binding Tauri itself uses on Linux (same version), for page-process events.
+webkit2gtk = "=2.0.2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

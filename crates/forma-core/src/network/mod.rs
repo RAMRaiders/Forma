@@ -35,13 +35,14 @@ pub trait Shell: Send + Sync {
     fn run(&self, program: &str, args: &[&str]) -> Result<String>;
 }
 
-/// Runs real programs. Errors name the program, never its arguments: those can hold a Wi-Fi
-/// password.
+/// Runs real programs, with the host's environment rather than the AppImage's (see
+/// [`crate::host`]): `connmand`, restarted from here, must not load Forma's libraries. Errors
+/// name the program, never its arguments: those can hold a Wi-Fi password.
 pub struct SystemShell;
 
 impl Shell for SystemShell {
     fn run(&self, program: &str, args: &[&str]) -> Result<String> {
-        let out = std::process::Command::new(program)
+        let out = crate::host::command(program)
             .args(args)
             .stdin(std::process::Stdio::null())
             .output()

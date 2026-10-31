@@ -8,6 +8,7 @@ mod error;
 pub mod field;
 pub mod gamelist;
 pub mod hierarchy;
+pub mod host;
 pub mod import;
 pub mod input;
 pub mod launch;

@@ -101,17 +101,40 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         // No theme can load: the bundled boot page explains instead of showing nothing.
         None => WebviewUrl::App("index.html".into()),
     };
-    WebviewWindowBuilder::new(app, "main", url)
+    let window = WebviewWindowBuilder::new(app, "main", url)
         .title("Forma")
         .inner_size(1280.0, 720.0)
         .fullscreen(fullscreen())
         .build()?;
+    reload_if_the_page_dies(&window);
 
     watch_ready(app.handle().clone());
     #[cfg(debug_assertions)]
     reload_on_theme_change(app.handle().clone());
     Ok(())
 }
+
+/// WebKitGTK draws the page in a process of its own. If that process dies, the window keeps its
+/// last frame and stops answering input while Forma itself runs on, so the Batocera service sees
+/// nothing wrong. Reload the page instead.
+#[cfg(target_os = "linux")]
+fn reload_if_the_page_dies<R: Runtime>(window: &tauri::WebviewWindow<R>) {
+    use webkit2gtk::WebViewExt;
+    let attached = window.with_webview(|webview| {
+        webview
+            .inner()
+            .connect_web_process_terminated(|view, reason| {
+                eprintln!("forma: the page's process ended ({reason:?}); reloading");
+                view.reload();
+            });
+    });
+    if let Err(e) = attached {
+        eprintln!("forma: cannot watch the page's process: {e}");
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn reload_if_the_page_dies<R: Runtime>(_window: &tauri::WebviewWindow<R>) {}
 
 /// Loads `theme` in the window and makes it current.
 pub fn show_theme<R: Runtime>(

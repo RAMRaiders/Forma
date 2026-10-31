@@ -328,7 +328,7 @@ pub fn system_power(state: State<'_, AppState>, action: String) -> ApiResult<()>
             format!("{action} is only available on Batocera"),
         ));
     }
-    std::process::Command::new("shutdown")
+    forma_core::host::command("shutdown")
         .args(args)
         .spawn()
         .map(drop)
