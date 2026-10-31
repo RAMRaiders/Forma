@@ -21,7 +21,9 @@ batocera-services start forma                          # take over now, or reboo
   session, and gives the screen back to EmulationStation when Forma quits (the menu's
   "Switch to EmulationStation") or fails three times in two minutes. Never becoming ready
   within 30 seconds counts as failing.
-- Restart and Shut down use `batocera-es-swissknife`, as EmulationStation does.
+- Restart and Shut down run `shutdown -r now` / `shutdown -P -h now`, where EmulationStation's
+  path ends. `batocera-es-swissknife --reboot` would do nothing: it only acts while
+  EmulationStation is running.
 - The log is `/userdata/system/logs/forma.log`.
 - `./uninstall.sh` disables the service and removes the program; `--purge` removes Forma's data
   too. Batocera's own files (gamelists, `batocera.conf`) are never written.

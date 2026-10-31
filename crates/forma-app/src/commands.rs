@@ -303,15 +303,17 @@ pub fn system_quit<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) ->
     Ok(())
 }
 
-/// `restart` or `shutdown`, through Batocera's own `batocera-es-swissknife`, as
-/// EmulationStation does. Anywhere but Batocera it is refused: Forma must not power off a
+/// `restart` or `shutdown`, with `shutdown -r` / `shutdown -P -h` as EmulationStation's
+/// own path ends in. Not through `batocera-es-swissknife`: it powers off only while
+/// EmulationStation is running, and does nothing once Forma has replaced it. Anywhere but
+/// Batocera it is refused: Forma must not power off a
 /// development machine because a theme asked it to.
 #[tauri::command]
 pub fn system_power(state: State<'_, AppState>, action: String) -> ApiResult<()> {
     permissions::require(&theme(&state)?, permissions::SYSTEM_POWER)?;
-    let flag = match action.as_str() {
-        "restart" => "--reboot",
-        "shutdown" => "--shutdown",
+    let args: &[&str] = match action.as_str() {
+        "restart" => &["-r", "now"],
+        "shutdown" => &["-P", "-h", "now"],
         _ => {
             return Err(ApiError::new(
                 ErrorCode::Invalid,
@@ -325,8 +327,8 @@ pub fn system_power(state: State<'_, AppState>, action: String) -> ApiResult<()>
             format!("{action} is only available on Batocera"),
         ));
     }
-    std::process::Command::new("batocera-es-swissknife")
-        .arg(flag)
+    std::process::Command::new("shutdown")
+        .args(args)
         .spawn()
         .map(drop)
         .map_err(|e| ApiError::new(ErrorCode::Internal, format!("could not {action}: {e}")))
