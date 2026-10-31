@@ -167,8 +167,15 @@ export class GamesView {
           playsinline: ''
         });
         player.muted = true;
+        // The screenshot stays until the video really plays: a box without a decoder for it
+        // (a Pi 5 has no H.264 hardware) would otherwise show an empty frame.
+        player.hidden = true;
+        player.addEventListener('playing', () => {
+          player.hidden = false;
+          art.replaceChildren(player);
+        });
         player.addEventListener('error', () => player.remove());
-        art.replaceChildren(player);
+        art.append(player);
       }, VIDEO_DELAY_MS);
     }
   }
