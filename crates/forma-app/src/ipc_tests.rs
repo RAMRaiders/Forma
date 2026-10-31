@@ -182,7 +182,10 @@ fn code(err: &Value) -> &str {
 #[test]
 fn answers_the_version_handshake() {
     let h = Harness::new(&[]);
-    assert_eq!(h.call("sdk_api_version", json!({})).unwrap(), "1.0.0");
+    assert_eq!(
+        h.call("sdk_api_version", json!({})).unwrap(),
+        forma_core::SDK_API_VERSION
+    );
 }
 
 #[test]

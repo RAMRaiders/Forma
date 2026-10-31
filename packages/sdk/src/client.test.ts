@@ -5,7 +5,7 @@ import { FormaError } from './errors.js';
 import type { InputEvent } from './types.js';
 
 /** Commands that reject, with what Tauri's IPC rejects with: the app's plain error object. */
-function fakeBackend(host = '1.0.0', rejections: Record<string, object> = {}) {
+function fakeBackend(host = '1.1.0', rejections: Record<string, object> = {}) {
   const calls: string[] = [];
   const listeners = new Map<string, (p: unknown) => void>();
   const backend: Backend = {
@@ -50,7 +50,7 @@ describe('connect', () => {
 
 describe('calls', () => {
   it('reject with a FormaError carrying the host code', async () => {
-    const { backend } = fakeBackend('1.0.0', {
+    const { backend } = fakeBackend('1.1.0', {
       system_quit: { code: 'permissionDenied', message: 'needs system.power' }
     });
     const sdk = await connect({ backend });
