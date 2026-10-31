@@ -11,17 +11,20 @@ import { type ErrorCode, FormaError } from '../errors.js';
 import type {
   Browse,
   DefaultView,
+  EthernetConfig,
   Game,
   GameEnd,
   GameStart,
   LibraryChanged,
   NetplayRoom,
+  NetworkStatus,
   RaGame,
   RaUser,
   SystemSummary,
   ThemeInfo,
   Unsubscribe,
-  ViewInfo
+  ViewInfo,
+  WifiNetwork
 } from '../types.js';
 import data from './library.json' with { type: 'json' };
 
@@ -42,6 +45,7 @@ interface Snapshot {
   browse: Record<string, Browse>;
   ra: { user: RaUser; games: Record<string, RaGame> };
   lobby: NetplayRoom[];
+  network: { status: NetworkStatus; wifi: WifiNetwork[] };
 }
 
 const snapshot = data as unknown as Snapshot;
@@ -67,6 +71,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const settings = new Map<string, unknown>();
   const listeners = new Map<string, Set<Handler>>();
   let defaultView: string | null = null;
+  const network = structuredClone(snapshot.network);
   let playing = false;
 
   const emit = (event: string, payload: unknown) => {
@@ -206,6 +211,68 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return fetched(game);
     },
     netplay_lobby: () => fetched(snapshot.lobby),
+    network_status: () => {
+      networkAllowed();
+      return structuredClone(network.status);
+    },
+    network_wifi_scan: () => {
+      networkAllowed();
+      if (!network.status.wifi?.enabled) return [];
+      return network.wifi.map((n) => ({
+        ...n,
+        saved: n.ssid === network.status.wifi?.saved,
+        connected: n.ssid === network.status.wifi?.connected
+      }));
+    },
+    network_wifi_join: ({ ssid, passphrase }) => {
+      networkAllowed();
+      const target = network.wifi.find((n) => n.ssid === ssid);
+      if (target?.security === 'enterprise') {
+        fail('unsupported', `${String(ssid)} needs 802.1X, which Batocera cannot set up`);
+      }
+      const key = typeof passphrase === 'string' ? passphrase : '';
+      if (target?.security !== 'open' && key.length < 8) {
+        fail('invalid', 'a Wi-Fi password is 8 to 63 characters');
+      }
+      // The mock's one wrong password, for trying a theme's error handling.
+      if (key === 'wrong-password') {
+        fail('network', `${String(ssid)} refused the connection: check the password`);
+      }
+      const wifi = network.status.wifi ?? fail('unsupported', 'this box has no Wi-Fi');
+      wifi.enabled = true;
+      wifi.saved = String(ssid);
+      // As on Batocera: with a cable in, Ethernet stays in use.
+      if (network.status.ethernet?.connected) return 'saved';
+      wifi.connected = String(ssid);
+      wifi.ipv4 = { address: '192.168.1.120', netmask: '255.255.255.0', gateway: '192.168.1.254' };
+      return 'connected';
+    },
+    network_wifi_set_enabled: ({ enabled }) => {
+      networkAllowed();
+      const wifi = network.status.wifi ?? fail('unsupported', 'this box has no Wi-Fi');
+      wifi.enabled = Boolean(enabled);
+      if (!wifi.enabled) {
+        wifi.connected = null;
+        wifi.ipv4 = null;
+      }
+      return null;
+    },
+    network_ethernet_configure: ({ config }) => {
+      networkAllowed();
+      const ethernet =
+        network.status.ethernet ?? fail('unsupported', 'this box has no wired network interface');
+      const c = config as EthernetConfig;
+      const ipv4 = /^(\d{1,3})(\.\d{1,3}){3}$/;
+      if (c.method === 'manual' && (!ipv4.test(c.address) || !ipv4.test(c.netmask))) {
+        fail('invalid', `the address ${JSON.stringify(c.address)} is not an IPv4 address`);
+      }
+      ethernet.config = structuredClone(c);
+      if (c.method === 'manual') {
+        ethernet.ipv4 = { address: c.address, netmask: c.netmask, gateway: c.gateway };
+        ethernet.nameservers = [...c.nameservers];
+      }
+      return null;
+    },
     system_quit: () => power(),
     system_power: () => power(),
     launch_game: ({ id }) => {
@@ -235,6 +302,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return null;
     }
   };
+
+  function networkAllowed(): void {
+    if (!permissions.has('system.network')) {
+      fail('permissionDenied', 'theme `mock` needs the `system.network` permission');
+    }
+  }
 
   function power(): never {
     if (!permissions.has('system.power')) {

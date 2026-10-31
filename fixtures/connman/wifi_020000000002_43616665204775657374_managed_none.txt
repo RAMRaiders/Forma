@@ -1,0 +1,25 @@
+/net/connman/service/wifi_020000000002_43616665204775657374_managed_none
+  Type = wifi
+  Security = [ none ]
+  State = idle
+  Strength = 61
+  Favorite = False
+  Immutable = False
+  AutoConnect = False
+  Name = Cafe Guest
+  Ethernet = [ Method=auto, Interface=wlan0, Address=02:00:00:00:00:02, MTU=1500 ]
+  IPv4 = [  ]
+  IPv4.Configuration = [ Method=dhcp ]
+  IPv6 = [  ]
+  IPv6.Configuration = [ Method=auto, Privacy=disabled ]
+  Nameservers = [  ]
+  Nameservers.Configuration = [  ]
+  Timeservers = [  ]
+  Timeservers.Configuration = [  ]
+  Domains = [  ]
+  Domains.Configuration = [  ]
+  Proxy = [  ]
+  Proxy.Configuration = [  ]
+  mDNS = False
+  mDNS.Configuration = False
+  Provider = [  ]

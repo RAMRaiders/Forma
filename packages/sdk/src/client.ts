@@ -7,6 +7,7 @@ import type {
   Browse,
   Controller,
   DefaultView,
+  EthernetConfig,
   EventMap,
   Fetched,
   Game,
@@ -14,13 +15,16 @@ import type {
   LaunchRequest,
   MediaKind,
   NetplayRoom,
+  NetworkStatus,
   Page,
   RaGame,
   RaUser,
   SystemSummary,
   ThemeInfo,
   Unsubscribe,
-  ViewInfo
+  ViewInfo,
+  WifiJoined,
+  WifiNetwork
 } from './types.js';
 import { SDK_VERSION, satisfies } from './version.js';
 
@@ -85,6 +89,7 @@ export class Forma {
   readonly system;
   readonly ra;
   readonly netplay;
+  readonly network;
 
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
@@ -179,6 +184,23 @@ export class Forma {
     this.netplay = {
       /** Open rooms, joinable first, each matched to a local game where possible. */
       lobby: () => invoke<Fetched<NetplayRoom[]>>('netplay_lobby')
+    };
+
+    /** The box's Wi-Fi and Ethernet. Needs the `system.network` permission; Batocera only. */
+    this.network = {
+      status: () => invoke<NetworkStatus>('network_status'),
+      /** Networks in range, the one in use and the saved one first. Takes a few seconds. */
+      wifiScan: () => invoke<WifiNetwork[]>('network_wifi_scan'),
+      /**
+       * Saves `ssid` as the Wi-Fi network and waits, up to 30 seconds, for it to connect. Fails
+       * with `invalid` for a bad password format and `network` when the network refuses it.
+       */
+      joinWifi: (ssid: string, passphrase?: string) =>
+        invoke<WifiJoined>('network_wifi_join', { ssid, passphrase }),
+      setWifiEnabled: (enabled: boolean) => invoke<void>('network_wifi_set_enabled', { enabled }),
+      /** DHCP or a static address, kept across reboots. The connection drops for a moment. */
+      configureEthernet: (config: EthernetConfig) =>
+        invoke<void>('network_ethernet_configure', { config })
     };
 
     this.system = {

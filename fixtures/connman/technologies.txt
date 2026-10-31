@@ -1,0 +1,21 @@
+/net/connman/technology/p2p
+  Name = P2P
+  Type = p2p
+  Powered = False
+  Connected = False
+  Tethering = False
+  TetheringFreq = 0
+/net/connman/technology/ethernet
+  Name = Wired
+  Type = ethernet
+  Powered = True
+  Connected = True
+  Tethering = False
+  TetheringFreq = 0
+/net/connman/technology/wifi
+  Name = WiFi
+  Type = wifi
+  Powered = True
+  Connected = False
+  Tethering = False
+  TetheringFreq = 2412

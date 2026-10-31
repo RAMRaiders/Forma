@@ -26,7 +26,7 @@ batocera-services start forma                          # take over now, or reboo
   EmulationStation is running.
 - The log is `/userdata/system/logs/forma.log`.
 - `./uninstall.sh` disables the service and removes the program; `--purge` removes Forma's data
-  too. Batocera's own files (gamelists, `batocera.conf`) are never written.
+  too. Gamelists are never written; network settings are, as below.
 
 ## What Forma reads
 
@@ -39,6 +39,25 @@ batocera-services start forma                          # take over now, or reboo
 
 For development, `FORMA_USERDATA` and `FORMA_SYSTEMS_CFG` point these at
 `fixtures/userdata`.
+
+## Network settings
+
+The menu's Network screen (`forma.network` in the SDK, `system.network` permission) changes the
+box's connections the way Batocera does, so EmulationStation sees the same settings:
+
+| Change                 | How                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Join a Wi-Fi network   | `batocera-wifi enable <ssid> <key> <country>`: saved in `batocera.conf`                                                         |
+| Wi-Fi off              | `wifi.enabled=0`, then `S08connman reload` (`batocera-wifi disable` waits for every address to go, ten seconds with a cable in) |
+| Static Ethernet / DHCP | Forma's own `[service_forma_ethernet]` section in `/userdata/system/network-connman.config`, then `S08connman restart`          |
+
+- `/var` is in memory, so `connmanctl config` alone is forgotten at boot. The provisioning file
+  is linked into `/var/lib/connman` by Batocera and read when connman starts; Forma rewrites
+  only its own section of it.
+- Batocera runs connman with `SingleConnectedTechnology` and Ethernet preferred. With a cable
+  in, joining Wi-Fi saves the network and the box switches to it once the cable is unplugged.
+- 802.1X (enterprise) networks cannot be joined: `batocera-wifi` has no way to set them up.
+- Status and scans come from `connmanctl technologies`, `services` and `services <id>`.
 
 ## Launching
 

@@ -26,6 +26,14 @@ pub enum Error {
     #[error("{0}")]
     NotConfigured(String),
 
+    /// A request with a value that cannot work (a malformed address, a short password).
+    #[error("{0}")]
+    Invalid(String),
+
+    /// Something this box cannot do (no Wi-Fi hardware, an 802.1X network).
+    #[error("{0}")]
+    Unsupported(String),
+
     /// A view or a path into it that cannot be resolved.
     #[error("{0}")]
     View(String),

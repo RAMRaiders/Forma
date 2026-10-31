@@ -12,11 +12,16 @@ import type {
   Group,
   SystemSummary,
   ViewInfo,
+  EthernetStatus,
+  Ipv4,
   NetplayRoom,
+  NetworkStatus,
   RaAchievement,
   RaGame,
   RaRecent,
-  RaUser
+  RaUser,
+  WifiNetwork,
+  WifiStatus
 } from './types.js';
 
 /** The keys of `T`, listed by hand and checked for completeness by the compiler. */
@@ -153,5 +158,21 @@ describe('contract with the engine', () => {
       'localGameId'
     );
     for (const r of data.lobby) expect(sorted(r)).toEqual(room);
+  });
+
+  it('the network', () => {
+    const { status, wifi } = data.network;
+    expect(sorted(status)).toEqual(keys<NetworkStatus>()('ethernet', 'wifi'));
+    expect(sorted(status.ethernet)).toEqual(
+      keys<EthernetStatus>()('connected', 'ipv4', 'nameservers', 'config')
+    );
+    expect(sorted(status.ethernet.ipv4)).toEqual(keys<Ipv4>()('address', 'netmask', 'gateway'));
+    expect(status.ethernet.config).toEqual({ method: 'dhcp' });
+    expect(sorted(status.wifi)).toEqual(
+      keys<WifiStatus>()('enabled', 'connected', 'ipv4', 'saved')
+    );
+    const network = keys<WifiNetwork>()('ssid', 'strength', 'security', 'connected', 'saved');
+    for (const n of wifi) expect(sorted(n)).toEqual(network);
+    expect(new Set(wifi.map((n) => n.security))).toEqual(new Set(['psk', 'open', 'enterprise']));
   });
 });

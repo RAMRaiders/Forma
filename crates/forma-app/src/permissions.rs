@@ -9,6 +9,7 @@ use crate::api::{ApiError, ApiResult, ErrorCode};
 
 pub const SYSTEM_POWER: &str = "system.power";
 pub const SETTINGS_SYSTEM: &str = "settings.system";
+pub const SYSTEM_NETWORK: &str = "system.network";
 
 pub fn require(theme: &Theme, permission: &str) -> ApiResult<()> {
     if theme.has_permission(permission) {

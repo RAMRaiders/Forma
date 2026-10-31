@@ -72,7 +72,8 @@ Remote origins must be `https://` and need the `network` permission.
 
 | Permission        | Allows                                                     |
 | ----------------- | ---------------------------------------------------------- |
-| `system.power`    | Quitting Forma; restart and shutdown (with M3)             |
+| `system.power`    | Quitting Forma; restart and shutdown                       |
+| `system.network`  | Seeing and changing Wi-Fi and Ethernet (Batocera only)     |
 | `settings.system` | Reading and writing Forma settings, beyond the theme's own |
 | `network`         | Loading from the origins listed in `remote`                |
 

@@ -8,6 +8,7 @@ use forma_core::hierarchy::ViewCatalog;
 use forma_core::input::InputHandle;
 use forma_core::launch::Launcher;
 use forma_core::net::{Cache, Http, achievements};
+use forma_core::network::Network;
 use forma_core::sync::SyncHandle;
 use forma_core::themes::Theme;
 use forma_core::thumbs::Thumbnailer;
@@ -30,6 +31,8 @@ pub struct AppState {
     pub launcher: Box<dyn Launcher>,
     /// How Forma reaches RetroAchievements and the netplay lobby.
     pub http: Box<dyn Http>,
+    /// This box's Ethernet and Wi-Fi, through Batocera's tools.
+    pub network: Network,
     /// Resized artwork, made in the background.
     pub thumbnails: Thumbnailer,
     pub playing: AtomicBool,
@@ -37,7 +40,7 @@ pub struct AppState {
     pub theme_ready: AtomicBool,
     /// Written once the first theme is ready, for the Batocera service (`FORMA_READY_FILE`).
     pub ready_file: Option<PathBuf>,
-    /// Running on Batocera: power actions go to its own tools.
+    /// Running on Batocera: power and network settings go to its own tools.
     pub on_batocera: bool,
     pub input: Mutex<Option<InputHandle>>,
     pub sync: Mutex<Option<SyncHandle>>,

@@ -1,0 +1,7 @@
+*AO Wired                ethernet_020000000001_cable
+    Home                 wifi_020000000002_486f6d65_managed_psk
+    Cafe Guest           wifi_020000000002_43616665204775657374_managed_none
+    Office 5G            wifi_020000000002_4f6666696365203547_managed_psk
+    Campus               wifi_020000000002_43616d707573_managed_ieee8021x
+    Home                 wifi_020000000003_486f6d65_managed_psk
+                         wifi_020000000002_hidden_managed_psk

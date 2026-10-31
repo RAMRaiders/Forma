@@ -164,10 +164,30 @@ Each room has `localGameId` when a local game has the same name, so a theme can 
 with `launch.game(room.localGameId, { netplay: { mode: 'client', host: room.host, port: room.port } })`.
 Hosting and joining from the default theme arrive in Milestone 2.
 
+## `network`
+
+The box's own Wi-Fi and Ethernet. Every method needs the `system.network` permission and
+answers `unsupported` anywhere but Batocera.
+
+| Method                        | Returns                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| `status()`                    | `{ ethernet, wifi }`: connection, address, and what is saved for each                  |
+| `wifiScan()`                  | Networks in range, in use and saved first, then by strength (seconds)                  |
+| `joinWifi(ssid, passphrase?)` | `'connected'`, or `'saved'` when a cable keeps Ethernet in use                         |
+| `setWifiEnabled(on)`          | Turns Wi-Fi on (joining the saved network) or off                                      |
+| `configureEthernet(config)`   | `{ method: 'dhcp' }` or `{ method: 'manual', address, netmask, gateway, nameservers }` |
+
+`joinWifi` waits up to 30 seconds. It rejects with `invalid` for a password that cannot be
+right (WPA needs 8–63 characters), `network` when the network refuses it or never answers (it
+stays saved either way), and `unsupported` for 802.1X networks. `configureEthernet` restarts
+connman, so the connection drops for a few seconds; read `status()` again after that. The mock
+answers from recorded connman output, has a cable plugged in, and refuses the password
+`wrong-password`.
+
 ## `system`
 
 `quit()`, `restart()` and `shutdown()` need the `system.power` permission. Restart and
-shutdown answer `unsupported` until Batocera integration (Milestone 3).
+shutdown answer `unsupported` outside Batocera.
 
 ## Errors
 
@@ -179,6 +199,7 @@ shutdown answer `unsupported` until Batocera integration (Milestone 3).
 | `busy`             | A game is already running                                     |
 | `unsupported`      | Not available on this machine yet                             |
 | `launch`           | The game could not start; the message says why                |
+| `network`          | A service or network could not be reached or refused          |
 | `incompatible`     | Forma and the theme disagree on the SDK version               |
 | `internal`         | Anything else                                                 |
 

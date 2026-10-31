@@ -290,3 +290,65 @@ export interface NetplayRoom {
   /** The local game with the same name, when there is one. */
   localGameId: number | null;
 }
+
+/** The box's own connections. Needs the `system.network` permission; Batocera only. */
+export interface NetworkStatus {
+  /** `null` when the box has no wired interface. */
+  ethernet: EthernetStatus | null;
+  /** `null` when the box has no Wi-Fi hardware. */
+  wifi: WifiStatus | null;
+}
+
+export interface EthernetStatus {
+  /** A cable is in and the box has an address on it. */
+  connected: boolean;
+  ipv4: Ipv4 | null;
+  nameservers: string[];
+  /** What is saved: DHCP unless a static address was set. */
+  config: EthernetConfig;
+}
+
+export interface WifiStatus {
+  /** Batocera's `wifi.enabled`. */
+  enabled: boolean;
+  /** The network in use, if any. */
+  connected: string | null;
+  ipv4: Ipv4 | null;
+  /** The network Batocera joins whenever it can. */
+  saved: string | null;
+}
+
+export interface Ipv4 {
+  address: string;
+  netmask: string;
+  gateway: string | null;
+}
+
+export type EthernetConfig =
+  | { method: 'dhcp' }
+  | {
+      method: 'manual';
+      address: string;
+      netmask: string;
+      gateway: string | null;
+      /** Up to three. */
+      nameservers: string[];
+    };
+
+/** 802.1X networks (`enterprise`) cannot be joined from Batocera's Wi-Fi settings. */
+export type WifiSecurity = 'open' | 'wep' | 'psk' | 'enterprise';
+
+export interface WifiNetwork {
+  ssid: string;
+  /** 0–100. */
+  strength: number | null;
+  security: WifiSecurity;
+  connected: boolean;
+  saved: boolean;
+}
+
+/**
+ * `saved`: a cable is plugged in, so Ethernet stays in use and the box joins the network once
+ * it is unplugged.
+ */
+export type WifiJoined = 'connected' | 'saved';

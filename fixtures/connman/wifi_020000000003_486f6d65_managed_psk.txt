@@ -1,0 +1,25 @@
+/net/connman/service/wifi_020000000003_486f6d65_managed_psk
+  Type = wifi
+  Security = [ psk, wps ]
+  State = idle
+  Strength = 52
+  Favorite = False
+  Immutable = False
+  AutoConnect = False
+  Name = Home
+  Ethernet = [ Method=auto, Interface=wlan0, Address=02:00:00:00:00:02, MTU=1500 ]
+  IPv4 = [  ]
+  IPv4.Configuration = [ Method=dhcp ]
+  IPv6 = [  ]
+  IPv6.Configuration = [ Method=auto, Privacy=disabled ]
+  Nameservers = [  ]
+  Nameservers.Configuration = [  ]
+  Timeservers = [  ]
+  Timeservers.Configuration = [  ]
+  Domains = [  ]
+  Domains.Configuration = [  ]
+  Proxy = [  ]
+  Proxy.Configuration = [  ]
+  mDNS = False
+  mDNS.Configuration = False
+  Provider = [  ]

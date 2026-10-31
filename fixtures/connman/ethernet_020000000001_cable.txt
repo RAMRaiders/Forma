@@ -1,0 +1,24 @@
+/net/connman/service/ethernet_020000000001_cable
+  Type = ethernet
+  Security = [  ]
+  State = online
+  Favorite = True
+  Immutable = False
+  AutoConnect = True
+  Name = Wired
+  Ethernet = [ Method=auto, Interface=eth0, Address=02:00:00:00:00:01, MTU=1500 ]
+  IPv4 = [ Method=dhcp, Address=192.168.1.113, Netmask=255.255.255.0, Gateway=192.168.1.254 ]
+  IPv4.Configuration = [ Method=dhcp ]
+  IPv6 = [ Method=auto, Address=2001:db8::1, PrefixLength=64, Privacy=disabled ]
+  IPv6.Configuration = [ Method=auto, Privacy=disabled ]
+  Nameservers = [ 192.168.1.254 ]
+  Nameservers.Configuration = [  ]
+  Timeservers = [  ]
+  Timeservers.Configuration = [  ]
+  Domains = [ lan ]
+  Domains.Configuration = [  ]
+  Proxy = [ Method=direct ]
+  Proxy.Configuration = [  ]
+  mDNS = False
+  mDNS.Configuration = False
+  Provider = [  ]

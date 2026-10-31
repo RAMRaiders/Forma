@@ -9,6 +9,7 @@ use std::time::Duration;
 use forma_core::hierarchy::load_views;
 use forma_core::input::{self, InputOptions};
 use forma_core::launch::launcher_from_env;
+use forma_core::network::{Network, SystemShell};
 use forma_core::sync::{self, SyncEvent, SyncOptions};
 use forma_core::themes::{Theme, discover};
 use forma_core::thumbs::{self, Thumbnailer, Thumbs};
@@ -63,6 +64,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         current_theme: RwLock::new(current.clone()),
         launcher: launcher_from_env(),
         http: Box::new(forma_core::net::UreqHttp::default()),
+        network: Network::new(Box::new(SystemShell), &paths),
         thumbnails: Thumbnailer::spawn(Thumbs::new(
             paths.cache_dir().join("thumbs"),
             thumbs::DEFAULT_MAX_BYTES,

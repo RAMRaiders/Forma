@@ -2629,6 +2629,60 @@
       "username": "speedrunner"
     }
   ],
+  "network": {
+    "status": {
+      "ethernet": {
+        "config": {
+          "method": "dhcp"
+        },
+        "connected": true,
+        "ipv4": {
+          "address": "192.168.1.113",
+          "gateway": "192.168.1.254",
+          "netmask": "255.255.255.0"
+        },
+        "nameservers": [
+          "192.168.1.254"
+        ]
+      },
+      "wifi": {
+        "connected": null,
+        "enabled": true,
+        "ipv4": null,
+        "saved": "Home"
+      }
+    },
+    "wifi": [
+      {
+        "connected": false,
+        "saved": true,
+        "security": "psk",
+        "ssid": "Home",
+        "strength": 94
+      },
+      {
+        "connected": false,
+        "saved": false,
+        "security": "open",
+        "ssid": "Cafe Guest",
+        "strength": 61
+      },
+      {
+        "connected": false,
+        "saved": false,
+        "security": "psk",
+        "ssid": "Office 5G",
+        "strength": 40
+      },
+      {
+        "connected": false,
+        "saved": false,
+        "security": "enterprise",
+        "ssid": "Campus",
+        "strength": 33
+      }
+    ]
+  },
   "ra": {
     "games": {
       "2": {

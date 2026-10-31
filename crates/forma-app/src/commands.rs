@@ -8,6 +8,7 @@ use std::time::SystemTime;
 use forma_core::hierarchy::{Browse, DEFAULT_VIEW_SETTING, Listing, Origin, Page};
 use forma_core::launch::{self, Controller, GameEvent, LaunchRequest};
 use forma_core::net::{Fetched, achievements, netplay};
+use forma_core::network::{EthernetConfig, Joined, NetworkStatus, WifiNetwork};
 use forma_core::themes::{Theme, ThemeOrigin};
 use forma_core::{Game, SDK_API_VERSION, SystemSummary};
 use serde::Serialize;
@@ -501,6 +502,78 @@ pub async fn netplay_lobby<R: Runtime>(
         // The library is locked only for the name match, never across the request.
         netplay::match_local(&mut rooms.data, &state.library())?;
         Ok(rooms)
+    })
+    .await
+}
+
+/// Network settings run Batocera's own tools: refused anywhere else, as power is.
+fn network_allowed(state: &AppState) -> ApiResult<()> {
+    permissions::require(&theme(state)?, permissions::SYSTEM_NETWORK)?;
+    if !state.on_batocera {
+        return Err(ApiError::new(
+            ErrorCode::Unsupported,
+            "network settings are only available on Batocera",
+        ));
+    }
+    Ok(())
+}
+
+/// The wired and Wi-Fi connections, and what is saved for each.
+#[tauri::command]
+pub async fn network_status<R: Runtime>(app: AppHandle<R>) -> ApiResult<NetworkStatus> {
+    off_thread(app, |state| {
+        network_allowed(state)?;
+        Ok(state.network.status()?)
+    })
+    .await
+}
+
+/// Wi-Fi networks in range. Takes a few seconds: it scans first.
+#[tauri::command]
+pub async fn network_wifi_scan<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<WifiNetwork>> {
+    off_thread(app, |state| {
+        network_allowed(state)?;
+        Ok(state.network.wifi_scan()?)
+    })
+    .await
+}
+
+/// Saves a Wi-Fi network as Batocera's and waits, up to 30 seconds, for it to connect.
+#[tauri::command]
+pub async fn network_wifi_join<R: Runtime>(
+    app: AppHandle<R>,
+    ssid: String,
+    passphrase: Option<String>,
+) -> ApiResult<Joined> {
+    off_thread(app, move |state| {
+        network_allowed(state)?;
+        Ok(state.network.wifi_join(&ssid, passphrase.as_deref())?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn network_wifi_set_enabled<R: Runtime>(
+    app: AppHandle<R>,
+    enabled: bool,
+) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        network_allowed(state)?;
+        Ok(state.network.wifi_set_enabled(enabled)?)
+    })
+    .await
+}
+
+/// DHCP, or a static address that survives reboots. The connection drops for a few seconds
+/// while connman restarts to apply it.
+#[tauri::command]
+pub async fn network_ethernet_configure<R: Runtime>(
+    app: AppHandle<R>,
+    config: EthernetConfig,
+) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        network_allowed(state)?;
+        Ok(state.network.ethernet_configure(&config)?)
     })
     .await
 }

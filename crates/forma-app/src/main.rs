@@ -40,6 +40,11 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::ra_user,
         commands::ra_game,
         commands::netplay_lobby,
+        commands::network_status,
+        commands::network_wifi_scan,
+        commands::network_wifi_join,
+        commands::network_wifi_set_enabled,
+        commands::network_ethernet_configure,
     ]
 }
 

@@ -279,6 +279,72 @@ kbd {
   color: var(--fg);
 }
 
+.switcher .note {
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+
+/* ---- On-screen keyboard ------------------------------------------------ */
+
+.keyboard .panel {
+  width: min(56rem, 94vw);
+  max-height: none;
+}
+
+.keyboard .field {
+  display: flex;
+  align-items: center;
+  min-height: 2.8rem;
+  margin-bottom: 1.2rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 1.4rem;
+  overflow: hidden;
+  white-space: pre;
+}
+
+.keyboard .caret {
+  width: 0.12rem;
+  height: 1.6rem;
+  margin-left: 0.1rem;
+  background: var(--accent);
+}
+
+.keyboard .keys {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.keyboard .row {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.keyboard .key {
+  flex: 0 0 4rem;
+  padding: 0.7rem 0;
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+.keyboard .key.wide {
+  flex: 1 1 6rem;
+  font-size: 1rem;
+  line-height: 1.95rem;
+}
+
+.keyboard .key.space {
+  flex-grow: 3;
+}
+
+.keyboard .key.selected {
+  background: var(--accent);
+}
+
 .badge {
   padding: 0 0.5rem;
   border-radius: 0.4rem;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Backend } from '../backend.js';
-import type { Browse, Game, GameEnd } from '../types.js';
+import type { Browse, Game, GameEnd, NetworkStatus, WifiNetwork } from '../types.js';
 import { mockBackend } from './backend.js';
 
 const browse = (b: Backend, view: string, path: string[] = [], page?: object) =>
@@ -95,6 +95,48 @@ describe('mock backend', () => {
     const after = await b.invoke<Game>('library_game', { id: zelda.id });
     expect(after.playCount).toBe(1);
     expect(after.gameTime).toBe(3);
+  });
+
+  it('network settings: permission, scan, join as Batocera does with a cable in', async () => {
+    await expect(mockBackend().invoke('network_status')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ permissions: ['system.network'] });
+    const status = await b.invoke<NetworkStatus>('network_status');
+    expect(status.ethernet?.connected).toBe(true);
+    expect(status.wifi?.saved).toBe('Home');
+
+    const found = await b.invoke<WifiNetwork[]>('network_wifi_scan');
+    expect(found.map((n) => n.ssid)).toEqual(['Home', 'Cafe Guest', 'Office 5G', 'Campus']);
+    await expect(
+      b.invoke('network_wifi_join', { ssid: 'Office 5G', passphrase: 'short' })
+    ).rejects.toMatchObject({ code: 'invalid' });
+    await expect(
+      b.invoke('network_wifi_join', { ssid: 'Office 5G', passphrase: 'wrong-password' })
+    ).rejects.toMatchObject({ code: 'network' });
+    await expect(b.invoke('network_wifi_join', { ssid: 'Campus' })).rejects.toMatchObject({
+      code: 'unsupported'
+    });
+    expect(await b.invoke('network_wifi_join', { ssid: 'Cafe Guest' })).toBe('saved');
+    expect((await b.invoke<NetworkStatus>('network_status')).wifi?.saved).toBe('Cafe Guest');
+
+    await b.invoke('network_wifi_set_enabled', { enabled: false });
+    expect(await b.invoke('network_wifi_scan')).toEqual([]);
+
+    const manual = {
+      method: 'manual',
+      address: '192.168.1.50',
+      netmask: '255.255.255.0',
+      gateway: '192.168.1.254',
+      nameservers: ['1.1.1.1']
+    };
+    await b.invoke('network_ethernet_configure', { config: manual });
+    const after = await b.invoke<NetworkStatus>('network_status');
+    expect(after.ethernet?.config).toEqual(manual);
+    expect(after.ethernet?.ipv4?.address).toBe('192.168.1.50');
+    await expect(
+      b.invoke('network_ethernet_configure', { config: { ...manual, address: 'nope' } })
+    ).rejects.toMatchObject({ code: 'invalid' });
   });
 
   it('rejects unknown commands instead of answering null', async () => {

@@ -9,6 +9,7 @@ use std::time::Duration;
 use forma_core::hierarchy::load_views;
 use forma_core::launch::MockLauncher;
 use forma_core::net::{Http, HttpError};
+use forma_core::network::{Network, SystemShell};
 use forma_core::themes::discover;
 use forma_core::{Library, Paths};
 use serde_json::{Value, json};
@@ -63,6 +64,7 @@ impl Harness {
             current_theme: RwLock::new("default".into()),
             launcher: Box::new(MockLauncher::new(Duration::from_millis(20))),
             http: Box::new(FixtureHttp),
+            network: Network::new(Box::new(SystemShell), &paths),
             thumbnails: forma_core::thumbs::Thumbnailer::spawn(forma_core::thumbs::Thumbs::new(
                 root.join("thumbs"),
                 forma_core::thumbs::DEFAULT_MAX_BYTES,
@@ -309,6 +311,38 @@ fn power_needs_permission_and_is_refused_outside_batocera() {
     let allowed = Harness::new(&["system.power"]);
     let err = allowed
         .call("system_power", json!({ "action": "shutdown" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "unsupported");
+}
+
+#[test]
+fn network_settings_need_permission_and_are_refused_outside_batocera() {
+    let h = Harness::new(&[]);
+    for (cmd, args) in [
+        ("network_status", json!({})),
+        ("network_wifi_scan", json!({})),
+        (
+            "network_wifi_join",
+            json!({ "ssid": "Home", "passphrase": "secret-key" }),
+        ),
+        ("network_wifi_set_enabled", json!({ "enabled": false })),
+        (
+            "network_ethernet_configure",
+            json!({ "config": { "method": "dhcp" } }),
+        ),
+    ] {
+        let err = h.call(cmd, args.clone()).unwrap_err();
+        assert_eq!(code(&err), "permissionDenied", "{cmd}");
+    }
+
+    let allowed = Harness::new(&["system.network"]);
+    let err = allowed.call("network_status", json!({})).unwrap_err();
+    assert_eq!(code(&err), "unsupported", "{err}");
+    let err = allowed
+        .call(
+            "network_ethernet_configure",
+            json!({ "config": { "method": "manual", "address": "10.0.0.2", "netmask": "255.0.0.0", "gateway": null } }),
+        )
         .unwrap_err();
     assert_eq!(code(&err), "unsupported");
 }

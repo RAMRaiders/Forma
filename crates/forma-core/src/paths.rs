@@ -50,6 +50,11 @@ impl Paths {
         self.userdata.join("system/batocera.conf")
     }
 
+    /// connman's provisioning file, which Batocera links into `/var/lib/connman` at boot.
+    pub fn network_config(&self) -> PathBuf {
+        self.userdata.join("system/network-connman.config")
+    }
+
     /// Forma's own state: the library database, user views, imports, caches.
     pub fn forma_dir(&self) -> PathBuf {
         self.userdata.join("system/forma")

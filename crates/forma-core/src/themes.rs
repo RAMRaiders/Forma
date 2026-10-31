@@ -23,6 +23,10 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "change Forma settings beyond the theme's own",
     ),
     (
+        "system.network",
+        "see and change the machine's Wi-Fi and Ethernet settings",
+    ),
+    (
         "network",
         "load content from the internet (the origins listed in `remote`)",
     ),
