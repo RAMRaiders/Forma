@@ -153,8 +153,9 @@ pub const BATOCERA_SPLASH: &str = "/usr/share/batocera/splash";
 /// restarted later.
 const SPLASH_WITHIN: Duration = Duration::from_secs(180);
 
-/// Where the window opens: Forma's start-up screen (Batocera's animation and version, the theme
-/// and its version), which then loads `theme_url`; or the theme straight away.
+/// Where the window opens: Forma's start-up screen (Batocera's animation, then Forma's logo with
+/// the theme and its version, and Forma's and Batocera's versions), which then loads `theme_url`;
+/// or the theme straight away.
 /// `FORMA_SPLASH=1|0` forces it either way, for development.
 fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
     let wanted = match std::env::var("FORMA_SPLASH").as_deref() {
@@ -186,15 +187,16 @@ fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
         .as_ref()
         .map_or(theme.id.as_str(), |m| m.name.as_str());
     let version = theme.manifest.as_ref().map_or("", |m| m.version.as_str());
-    let line = format!("{} {} · Forma {}", name, version, env!("CARGO_PKG_VERSION"));
+    let line = format!("{name} {version}");
     let sound = forma_core::net::batocera_conf(&state.paths.batocera_conf())
         .get("splash.screen.sound")
         .is_none_or(|v| v != "0");
     splash_url(&format!(
-        "next={}&batocera={}&theme={}&sound={}",
+        "next={}&batocera={}&theme={}&forma={}&sound={}",
         query_value(&theme_url),
         query_value(batocera.trim()),
-        query_value(&line),
+        query_value(line.trim()),
+        query_value(env!("CARGO_PKG_VERSION")),
         u8::from(sound)
     ))
 }

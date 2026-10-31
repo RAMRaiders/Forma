@@ -7,8 +7,9 @@
 //!   for images; the original is served until the copy has been made.
 //! - `forma://localhost/ra-media/<path>` serves RetroAchievements badges, icons and avatars,
 //!   fetched once and cached, so showing achievements never needs the `network` permission.
-//! - `forma://localhost/system/splash.html` is Forma's start-up screen, compiled in; next to it,
-//!   `splash.mp4` and `boot-logo.png` are Batocera's own splash files, and nothing else.
+//! - `forma://localhost/system/splash.html` is Forma's start-up screen and `forma-logo.svg` its
+//!   logo, both compiled in; next to them, `splash.mp4` and `boot-logo.png` are Batocera's own
+//!   splash files, and nothing else.
 //!
 //! HTML responses carry the Content-Security-Policy that keeps a theme to its own folder and
 //! the origins its manifest declares. Media supports byte ranges, which video seeking needs.
@@ -33,6 +34,8 @@ pub trait Resolver {
 
 /// Forma's start-up screen: Batocera's splash, then the theme.
 const SPLASH_PAGE: &str = include_str!("../boot/splash.html");
+/// Forma's logo, for the start-up screen.
+const LOGO: &str = include_str!("../boot/forma-logo.svg");
 
 /// The start-up screen's own policy: its inline script and style, Batocera's splash files.
 const SPLASH_CSP: &str = "default-src 'none'; script-src 'unsafe-inline'; \
@@ -104,6 +107,11 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
             .header(header::CONTENT_SECURITY_POLICY, SPLASH_CSP)
             .header("X-Content-Type-Options", "nosniff")
             .body(SPLASH_PAGE.as_bytes().to_vec())
+            .unwrap_or_default(),
+        (Some("system"), Some("forma-logo.svg"), None) => Response::builder()
+            .header(header::CONTENT_TYPE, "image/svg+xml")
+            .header("X-Content-Type-Options", "nosniff")
+            .body(LOGO.as_bytes().to_vec())
             .unwrap_or_default(),
         (Some("system"), Some(name @ ("splash.mp4" | "boot-logo.png")), None) => {
             match resolver.splash_file(name) {
@@ -339,6 +347,10 @@ mod tests {
             .to_str()
             .unwrap();
         assert!(csp.starts_with("default-src 'none'") && csp.contains("media-src forma:"));
+
+        let logo = get(&fake, "forma://localhost/system/forma-logo.svg", None);
+        assert_eq!(logo.headers()[header::CONTENT_TYPE], "image/svg+xml");
+        assert!(String::from_utf8_lossy(logo.body()).contains("aria-label=\"Forma\""));
 
         let video = get(
             &fake,
