@@ -74,6 +74,12 @@ pub(crate) const GAME_COLUMNS: &str = "g.id, g.system, g.path, g.name, g.descrip
      g.publisher, g.genre, g.players, g.release_date, g.rating, g.favorite, g.hidden, \
      g.play_count, g.last_played, g.ra_game_id, g.game_time";
 
+/// Systems with visible games, and how many; counted from the `game_visible` index alone.
+const SYSTEMS_SQL: &str =
+    "SELECT s.name, s.fullname, s.manufacturer, s.release_year, s.hardware, COUNT(g.id)
+     FROM system s JOIN game g ON g.system = s.name AND g.present = 1 AND g.hidden = 0
+     GROUP BY s.name ORDER BY s.sort_order";
+
 impl Library {
     /// Opens (creating if needed) the database at `path` and brings its schema up to date.
     pub fn open(path: &Path) -> Result<Self> {
@@ -95,11 +101,7 @@ impl Library {
 
     /// Systems with at least one visible game, in definition order.
     pub fn systems(&self) -> Result<Vec<SystemSummary>> {
-        let mut stmt = self.conn.prepare_cached(
-            "SELECT s.name, s.fullname, s.manufacturer, s.release_year, s.hardware, COUNT(g.id)
-             FROM system s JOIN game g ON g.system = s.name AND g.present = 1 AND g.hidden = 0
-             GROUP BY s.name ORDER BY s.sort_order",
-        )?;
+        let mut stmt = self.conn.prepare_cached(SYSTEMS_SQL)?;
         let rows = stmt.query_map([], |r| {
             Ok(SystemSummary {
                 name: r.get(0)?,

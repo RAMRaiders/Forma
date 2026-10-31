@@ -82,6 +82,30 @@ fn hidden_games_are_not_listed() {
 }
 
 #[test]
+fn system_counts_come_from_the_index_alone() {
+    let (lib, _) = refreshed();
+    let sql = lib
+        .conn
+        .prepare_cached(SYSTEMS_SQL)
+        .unwrap()
+        .expanded_sql()
+        .unwrap();
+    let plan: Vec<String> = lib
+        .conn
+        .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+        .unwrap()
+        .query_map([], |r| r.get(3))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    assert!(
+        plan.iter()
+            .any(|p| p.contains("COVERING INDEX game_visible")),
+        "{plan:?}"
+    );
+}
+
+#[test]
 fn search_matches_prefixes_and_ignores_accents() {
     let (lib, _) = refreshed();
     let names = |q: &str| -> Vec<String> {

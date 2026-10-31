@@ -5,9 +5,15 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 3;
+pub(crate) const SCHEMA_VERSION: i64 = 4;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4];
+
+/// Visible games per system from the index alone: counting them read every game row, 2.6 s on
+/// a cold SD card at boot, and far longer while the start-up refresh read the disk too.
+const V4: &str = r"
+CREATE INDEX game_visible ON game (system) WHERE present = 1 AND hidden = 0;
+";
 
 /// Total time played, in seconds, recorded by Forma or imported from Batocera's `gametime`.
 const V3: &str = r"

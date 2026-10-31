@@ -39,7 +39,10 @@ pub struct RefreshReport {
 impl Library {
     /// Re-reads system definitions, scans every ROM folder, and re-imports each `gamelist.xml`
     /// that changed. A gamelist is also re-imported when its system gained a game, in case the
-    /// file already described it. One transaction: a reader sees the old or the new library.
+    /// file already described it. One transaction per system, with its folder scanned before the
+    /// transaction opens: a reader sees each system old or new, and the UI's own writes (a
+    /// favourite, a setting) wait for one system, not for the whole library, which on a cold SD
+    /// card at boot took longer than SQLite's busy timeout.
     pub fn refresh(&mut self, paths: &Paths) -> Result<RefreshReport> {
         self.refresh_where(paths, |_| true)
     }
@@ -63,18 +66,21 @@ impl Library {
 
         let tx = self.conn.transaction()?;
         report.changed_systems = sync_systems(&tx, &load.systems)?;
+        tx.commit()?;
         for system in load.systems.iter().filter(|s| include(s)) {
             report.systems += 1;
             let (roms, warnings) = scan_system(system);
             report.warnings.extend(warnings);
-            if refresh_system(&tx, system, &roms, paths, &mut report)?
-                && !report.changed_systems.contains(&system.name)
-            {
+            let tx = self.conn.transaction()?;
+            let changed = refresh_system(&tx, system, &roms, paths, &mut report)?;
+            tx.commit()?;
+            if changed && !report.changed_systems.contains(&system.name) {
                 report.changed_systems.push(system.name.clone());
             }
         }
         // After the scan: a record may describe a game added just now.
         let added = report.added > 0;
+        let tx = self.conn.transaction()?;
         super::imports::apply(&tx, paths, added, &mut report)?;
         tx.commit()?;
         Ok(report)
