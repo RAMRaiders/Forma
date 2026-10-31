@@ -153,20 +153,20 @@ Run on 2026-10-31 over SSH, driven by `wtype` (real key events through the compo
 back with `grim` screenshots and the theme's own frame statistics. EmulationStation was left
 running underneath. The x86_64 box has not been measured yet.
 
-| Measure                                     | x86_64 | Raspberry Pi 5 (4 GB)                                         | Target   |
-| ------------------------------------------- | ------ | ------------------------------------------------------------- | -------- |
-| Batocera version, display server            |        | 43.1, Wayland (labwc)                                         |          |
-| AppImage size                               |        | 82 MB; 259 MB extracted                                       | < 150 MB |
-| Launch to ready, AppImage (unpacks to /tmp) |        | 2.5 s                                                         | < 3 s    |
-| Launch to ready, extracted, cold / warm     |        | 2.6 s / 0.55 s                                                | < 3 s    |
-| Inside Forma: process start to ready        |        | 0.4–0.6 s warm, 1.4 s cold                                    |          |
-| First import of 20,000 games                |        | done before the first screenshot (< 20 s)                     |          |
-| Memory, Forma + WebKit (PSS / RSS)          |        | 234 MiB / 345 MiB                                             | < 400 MB |
-| Idle on the systems grid                    |        | 60 fps, p95 18 ms                                             | 60 / 17  |
-| Holding down in a 2,000-game list           |        | 20 fps, p95 66 ms → **57–60 fps, p95 19–27 ms** after the fix | 60 / 17  |
-| Paging (shoulder button)                    |        | 58 fps, p95 25 ms                                             | 60 / 17  |
-| Video preview plays smoothly                |        | not tested: the generated library has no video                | yes      |
-| Gamepad input arrives                       |        | not tested: needs someone holding a pad                       | yes      |
+| Measure                                     | x86_64 | Raspberry Pi 5 (4 GB)                                                                                                  | Target   |
+| ------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------- | -------- |
+| Batocera version, display server            |        | 43.1, Wayland (labwc)                                                                                                  |          |
+| AppImage size                               |        | 82 MB; 259 MB extracted                                                                                                | < 150 MB |
+| Launch to ready, AppImage (unpacks to /tmp) |        | 2.5 s                                                                                                                  | < 3 s    |
+| Launch to ready, extracted, cold / warm     |        | 2.6 s / 0.55 s                                                                                                         | < 3 s    |
+| Inside Forma: process start to ready        |        | 0.4–0.6 s warm, 1.4 s cold                                                                                             |          |
+| First import of 20,000 games                |        | done before the first screenshot (< 20 s)                                                                              |          |
+| Memory, Forma + WebKit (PSS / RSS)          |        | 234 MiB / 345 MiB                                                                                                      | < 400 MB |
+| Idle on the systems grid                    |        | 60 fps, p95 18 ms                                                                                                      | 60 / 17  |
+| Holding down in a 2,000-game list           |        | 20 fps, p95 66 ms → **57–60 fps, p95 19–27 ms** after the fix                                                          | 60 / 17  |
+| Paging (shoulder button)                    |        | 58 fps, p95 25 ms                                                                                                      | 60 / 17  |
+| Video preview plays smoothly                |        | crashed WebKit's page process (no GStreamer playback plugins in the AppImage); `bundleMediaFramework` added, to retest | yes      |
+| Gamepad input arrives                       |        | not tested: needs someone holding a pad                                                                                | yes      |
 
 What it found:
 
