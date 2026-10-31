@@ -64,6 +64,11 @@ impl Paths {
         self.romdex_dir().join("cache")
     }
 
+    /// Where other tools drop import files (`*.jsonl`, see `docs/import-format.md`).
+    pub fn import_dir(&self) -> PathBuf {
+        self.romdex_dir().join("import")
+    }
+
     /// The user's own hierarchy views, one JSON file each.
     pub fn views_dir(&self) -> PathBuf {
         self.romdex_dir().join("views")

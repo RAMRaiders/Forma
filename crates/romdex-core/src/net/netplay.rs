@@ -56,13 +56,29 @@ pub fn lobby(http: &dyn Http, cache: &Cache) -> Result<Fetched<Vec<Room>>> {
     Ok(fetched)
 }
 
-/// Sets each room's `local_game_id` where a local game has the same name.
+/// Sets each room's `local_game_id`: by CRC when a local game's hash is known (imported, see
+/// `docs/import-format.md`), else by name.
 pub fn match_local(rooms: &mut [Room], lib: &Library) -> Result<()> {
-    let local = local_games(lib)?;
+    let by_name = local_games(lib)?;
+    let by_crc = local_crcs(lib)?;
     for room in rooms {
-        room.local_game_id = local.get(&normalise(&room.game_name)).copied();
+        room.local_game_id = room
+            .game_crc
+            .as_deref()
+            .and_then(|crc| by_crc.get(&crc.to_ascii_lowercase()))
+            .or_else(|| by_name.get(&normalise(&room.game_name)))
+            .copied();
     }
     Ok(())
+}
+
+fn local_crcs(lib: &Library) -> Result<HashMap<String, i64>> {
+    let mut stmt = lib.conn.prepare_cached(
+        "SELECT f.value, f.game_id FROM game_field f JOIN game g ON g.id = f.game_id
+         WHERE f.field = ?1 AND g.present = 1",
+    )?;
+    let rows = stmt.query_map([crate::field::HASH_CRC32], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
 /// Rooms name games by their ROM file name (no-intro style, without extension), which is also
@@ -182,5 +198,39 @@ mod tests {
             rooms.data.len(),
             rooms.data.first()
         );
+    }
+}
+
+#[cfg(test)]
+mod crc_tests {
+    use super::*;
+    use crate::net::fake::FakeHttp;
+    use crate::test_support::fixture_copy;
+
+    #[test]
+    fn an_imported_crc_matches_a_room_whose_name_does_not() {
+        let (dir, paths) = fixture_copy();
+        std::fs::create_dir_all(paths.import_dir()).unwrap();
+        // The lobby fixture's second room plays CRC B2D8F6B9 under another name.
+        std::fs::write(
+            paths.import_dir().join("hashes.jsonl"),
+            "{\"format\":\"romdex-import\",\"formatVersion\":1}\n\
+             {\"system\":\"nes\",\"path\":\"Homebrew Demo.nes\",\"hashes\":{\"crc32\":\"B2D8F6B9\"}}\n",
+        )
+        .unwrap();
+        let mut lib = Library::open_in_memory().unwrap();
+        lib.refresh(&paths).unwrap();
+        let http = FakeHttp::default().fixture("lobby.libretro.com", "lobby.json");
+        let mut rooms = lobby(&http, &Cache::new(dir.path().join("cache")))
+            .unwrap()
+            .data;
+        match_local(&mut rooms, &lib).unwrap();
+
+        let demo = lib.search("homebrew demo", 1).unwrap()[0].id;
+        let sf2 = rooms
+            .iter()
+            .find(|r| r.game_name.contains("Street Fighter"))
+            .unwrap();
+        assert_eq!(sf2.local_game_id, Some(demo));
     }
 }

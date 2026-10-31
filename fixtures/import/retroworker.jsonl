@@ -1,0 +1,7 @@
+{"format":"romdex-import","formatVersion":1,"source":"retroworker","generatedAt":"2026-10-31T12:00:00Z"}
+{"system":"nes","path":"The Legend of Zelda (USA).nes","metadata":{"name":"The Legend of Zelda","releaseDate":"1986-02-21","publisher":"Nintendo"},"media":{"marquee":"./images/zelda-marquee.png"},"hashes":{"crc32":"3FE272FB","md5":"337bd6f1a1163df31bf2633665589ab0","sha1":"dab79c84934f9aa5db4e7dad390e5d0c12443fa2","ra":"e2a91f8e3e5a7ffc5f8fd9a9dd1b6b1d"},"raGameId":1447}
+
+this line is not JSON
+{"system":"snes","path":"Super Metroid (Japan, USA).sfc","metadata":{"name":"Super Metroid","rating":7},"hashes":{"crc32":"nothex!!"}}
+{"system":"megadrive","path":"Sonic The Hedgehog (USA, Europe).md","metadata":{"name":"Sonic the Hedgehog","genre":"Platform"},"hashes":{"crc32":"F9394E97"},"raGameId":1}
+{"system":"nes","path":"Not On Disk (USA).nes","metadata":{"name":"Pending"}}

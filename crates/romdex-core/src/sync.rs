@@ -127,8 +127,9 @@ fn run(
         Ok(lib) => lib,
         Err(e) => return emit(SyncEvent::Failed(e.to_string())),
     };
-    // Created up front so it can be watched, and so users find where their views go.
+    // Created up front so they can be watched, and so users find where views and imports go.
     let _ = std::fs::create_dir_all(paths.views_dir());
+    let _ = std::fs::create_dir_all(paths.import_dir());
     refresh_all(&mut lib, paths, &mut emit);
     let mut targets = Targets::of(paths);
     // Held only to keep watching; replacing it unwatches everything the old one held.
@@ -202,6 +203,7 @@ struct Targets {
     systems_cfg: PathBuf,
     overlay_dir: PathBuf,
     views_dir: PathBuf,
+    import_dir: PathBuf,
     roms: PathBuf,
     /// System name and ROM folder; a symlinked folder is listed under both of its paths,
     /// since watchers report the resolved one.
@@ -217,6 +219,7 @@ impl Targets {
             systems_cfg: paths.systems_cfg.clone(),
             overlay_dir: paths.systems_overlay_dir(),
             views_dir: paths.views_dir(),
+            import_dir: paths.import_dir(),
             roms: paths.roms(),
             ..Self::default()
         };
@@ -249,7 +252,11 @@ impl Targets {
             return scope;
         }
         for path in &event.paths {
-            if path == &self.systems_cfg || path.starts_with(&self.overlay_dir) {
+            // An import file can touch any system; imports are rare, so refresh them all.
+            if path == &self.systems_cfg
+                || path.starts_with(&self.overlay_dir)
+                || path.starts_with(&self.import_dir)
+            {
                 scope.full = true;
             } else if path.starts_with(&self.views_dir) {
                 scope.views = true;
@@ -297,6 +304,7 @@ fn watch(
         cfg_dir,
         Some(targets.overlay_dir.clone()),
         Some(targets.views_dir.clone()),
+        Some(targets.import_dir.clone()),
         Some(targets.roms.clone()),
     ];
     let shallow = shallow
@@ -554,6 +562,10 @@ mod tests {
             targets
                 .classify(&event(paths.views_dir().join("v.json")))
                 .views
+        );
+        assert_eq!(
+            targets.classify(&event(paths.import_dir().join("retroworker.jsonl"))),
+            Scope::full()
         );
         assert_eq!(
             targets.classify(&event(paths.userdata.join("system/romdex/library.db"))),

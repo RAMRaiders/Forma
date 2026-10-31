@@ -284,3 +284,136 @@ fn refresh_systems_scans_only_the_named_ones() {
     assert_eq!(lib.games("nes").unwrap().len(), 3, "nes was not scanned");
     assert_eq!(lib.games("megadrive").unwrap().len(), 3);
 }
+
+fn drop_import(paths: &crate::paths::Paths, name: &str, body: &str) {
+    std::fs::create_dir_all(paths.import_dir()).unwrap();
+    std::fs::write(paths.import_dir().join(name), body).unwrap();
+}
+
+const HEADER: &str = r#"{"format":"romdex-import","formatVersion":1,"source":"test"}"#;
+
+#[test]
+fn imports_metadata_hashes_and_ra_ids_and_reports_what_it_skipped() {
+    let (_dir, paths) = fixture_copy();
+    let sample = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/import/retroworker.jsonl"),
+    )
+    .unwrap();
+    drop_import(&paths, "retroworker.jsonl", &sample);
+    let mut lib = Library::open_in_memory().unwrap();
+    let report = lib.refresh(&paths).unwrap();
+    assert_eq!((report.imports_applied, report.import_records), (1, 3));
+
+    let sonic = by_name(&lib.games("megadrive").unwrap(), "Sonic the Hedgehog").clone();
+    assert_eq!(
+        sonic.genre.as_deref(),
+        Some("Platform"),
+        "a system with no gamelist"
+    );
+    assert_eq!(sonic.ra_game_id, Some(1));
+    let zelda = by_name(&lib.games("nes").unwrap(), "The Legend of Zelda").clone();
+    assert_eq!(zelda.ra_game_id, Some(1447));
+    assert_eq!(
+        zelda.rating,
+        Some(0.85),
+        "fields the import does not set keep the gamelist's"
+    );
+    assert!(zelda.media["marquee"].ends_with("nes/images/zelda-marquee.png"));
+
+    let messages: Vec<&str> = report.warnings.iter().map(|w| w.message.as_str()).collect();
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.contains("not in the library yet")),
+        "{messages:?}"
+    );
+    assert!(
+        messages.iter().any(|m| m.starts_with("line 4:")),
+        "{messages:?}"
+    );
+
+    let again = lib.refresh(&paths).unwrap();
+    assert_eq!(again.imports_applied, 0, "unchanged files are not re-read");
+}
+
+#[test]
+fn an_import_outranks_the_gamelist_and_the_user_outranks_both() {
+    let (_dir, paths) = fixture_copy();
+    let mut lib = Library::open_in_memory().unwrap();
+    lib.refresh(&paths).unwrap();
+    let mario = by_name(&lib.games("nes").unwrap(), "Super Mario Bros.").id;
+    lib.set_favorite(mario, false).unwrap();
+
+    drop_import(
+        &paths,
+        "a.jsonl",
+        &format!(
+            "{HEADER}\n{}",
+            r#"{"system":"nes","path":"./Super Mario Bros. (World).nes","metadata":{"name":"SMB (imported)","genre":"Action"}}"#
+        ),
+    );
+    let report = lib.refresh(&paths).unwrap();
+    assert_eq!(report.changed_systems, ["nes"]);
+    let game = lib.game(mario).unwrap().unwrap();
+    assert_eq!(game.name, "SMB (imported)");
+    assert_eq!(game.genre.as_deref(), Some("Action"));
+    assert_eq!(
+        game.developer.as_deref(),
+        Some("Nintendo"),
+        "gamelist shows through"
+    );
+    assert!(
+        !game.favorite,
+        "the user's choice still wins over the gamelist's favorite"
+    );
+
+    // A later file wins where two set the same field.
+    drop_import(
+        &paths,
+        "b.jsonl",
+        &format!(
+            "{HEADER}\n{}",
+            r#"{"system":"nes","path":"Super Mario Bros. (World).nes","metadata":{"genre":"Platform"}}"#
+        ),
+    );
+    lib.refresh(&paths).unwrap();
+    let game = lib.game(mario).unwrap().unwrap();
+    assert_eq!(
+        (game.name.as_str(), game.genre.as_deref()),
+        ("SMB (imported)", Some("Platform"))
+    );
+
+    // Remove the files: the gamelist's values are back.
+    std::fs::remove_file(paths.import_dir().join("a.jsonl")).unwrap();
+    std::fs::remove_file(paths.import_dir().join("b.jsonl")).unwrap();
+    lib.refresh(&paths).unwrap();
+    let game = lib.game(mario).unwrap().unwrap();
+    assert_eq!(
+        (game.name.as_str(), game.genre.as_deref()),
+        ("Super Mario Bros.", Some("Platform"))
+    );
+    assert_eq!(
+        lib.search("imported", 5).unwrap().len(),
+        0,
+        "the search index followed"
+    );
+}
+
+#[test]
+fn a_record_waits_for_its_file_to_appear() {
+    let (_dir, paths) = fixture_copy();
+    drop_import(
+        &paths,
+        "a.jsonl",
+        &format!(
+            "{HEADER}\n{}",
+            r#"{"system":"nes","path":"Later (USA).nes","metadata":{"name":"Arrived Later"}}"#
+        ),
+    );
+    let mut lib = Library::open_in_memory().unwrap();
+    lib.refresh(&paths).unwrap();
+    std::fs::write(paths.roms().join("nes/Later (USA).nes"), b"").unwrap();
+    let report = lib.refresh(&paths).unwrap();
+    assert_eq!(report.import_records, 1);
+    by_name(&lib.games("nes").unwrap(), "Arrived Later");
+}

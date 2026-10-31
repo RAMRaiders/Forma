@@ -57,6 +57,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/), enf
 - [Theme authoring](docs/theme-authoring.md)
 - [SDK reference](docs/sdk.md)
 - [Hierarchy views](docs/hierarchy.md)
+- [Import format](docs/import-format.md) (for RetroWorker and other tools)
 - [Batocera integration](docs/batocera-integration.md)
 
 ## Licence

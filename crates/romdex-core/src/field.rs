@@ -20,6 +20,9 @@ pub const LAST_PLAYED: &str = "last_played";
 pub const GAME_TIME: &str = "game_time";
 pub const RA_GAME_ID: &str = "ra_game_id";
 pub const RA_HASH: &str = "ra_hash";
+pub const HASH_CRC32: &str = "hash.crc32";
+pub const HASH_MD5: &str = "hash.md5";
+pub const HASH_SHA1: &str = "hash.sha1";
 
 /// Media fields share a prefix; the part after it is the media kind a theme asks for.
 pub const MEDIA_PREFIX: &str = "media.";

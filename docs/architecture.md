@@ -28,11 +28,11 @@ ROM hashes, playtime, custom collections).
 
 Data flows in from three sources, and each field records which one set it:
 
-| Source                | How it arrives                                                     | Precedence |
-| --------------------- | ------------------------------------------------------------------ | ---------- |
-| The user, in RomDex   | Favourites, collections, settings                                  | highest    |
-| External import (#57) | Versioned JSON Lines dropped in a watched folder, e.g. RetroWorker | middle     |
-| `gamelist.xml` (#9)   | Whatever Batocera's or any other scraper wrote                     | lowest     |
+| Source                                       | How it arrives                                                     | Precedence |
+| -------------------------------------------- | ------------------------------------------------------------------ | ---------- |
+| The user, in RomDex                          | Favourites, collections, settings                                  | highest    |
+| External import ([format](import-format.md)) | Versioned JSON Lines dropped in a watched folder, e.g. RetroWorker | middle     |
+| `gamelist.xml` (#9)                          | Whatever Batocera's or any other scraper wrote                     | lowest     |
 
 - **Batocera's files are read, never owned.** Batocera, Skraper and other scrapers keep writing
   `gamelist.xml`; RomDex re-imports only the files that changed (#55 watches for them).

@@ -4,6 +4,7 @@
 //! per source in `game_field`, and the winning value is materialised onto the `game` row, so a
 //! re-import from `gamelist.xml` can never overwrite what the user set in RomDex.
 
+mod imports;
 mod refresh;
 mod schema;
 

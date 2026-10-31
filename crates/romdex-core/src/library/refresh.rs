@@ -7,6 +7,7 @@ use rusqlite::{OptionalExtension, Transaction, params};
 use serde::Serialize;
 
 use super::{Library, Source, default_name, materialise};
+
 use crate::error::{Result, Warning};
 use crate::gamelist::parse_gamelist;
 use crate::paths::Paths;
@@ -28,6 +29,10 @@ pub struct RefreshReport {
     pub missing: usize,
     pub gamelists_imported: usize,
     pub gamelists_unchanged: usize,
+    /// Import files read this refresh (0 when none changed).
+    pub imports_applied: usize,
+    /// Import records that matched a game.
+    pub import_records: usize,
     pub warnings: Vec<Warning>,
 }
 
@@ -68,6 +73,9 @@ impl Library {
                 report.changed_systems.push(system.name.clone());
             }
         }
+        // After the scan: a record may describe a game added just now.
+        let added = report.added > 0;
+        super::imports::apply(&tx, paths, added, &mut report)?;
         tx.commit()?;
         Ok(report)
     }
@@ -214,10 +222,11 @@ fn gamelist_changed(tx: &Transaction<'_>, file: &Path) -> Result<bool> {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .optional()?;
-    Ok(stat(file) != previous)
+    Ok(file_stamp(file) != previous)
 }
 
-fn stat(file: &Path) -> Option<(i64, i64)> {
+/// A file's size and modification time (ns), to tell whether it changed since last read.
+pub(super) fn file_stamp(file: &Path) -> Option<(i64, i64)> {
     let meta = std::fs::metadata(file).ok()?;
     let mtime = meta
         .modified()
@@ -247,7 +256,7 @@ fn import_gamelist(
     )?;
     let key = file.to_string_lossy();
 
-    let Some(size_mtime) = stat(file) else {
+    let Some(size_mtime) = file_stamp(file) else {
         tx.execute("DELETE FROM import_file WHERE path = ?1", [&key])?;
         return Ok(());
     };
