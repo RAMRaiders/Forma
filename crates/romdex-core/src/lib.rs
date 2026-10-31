@@ -17,6 +17,7 @@ pub mod scan;
 pub mod sync;
 pub mod systems;
 pub mod themes;
+pub mod thumbs;
 mod time;
 mod xml;
 

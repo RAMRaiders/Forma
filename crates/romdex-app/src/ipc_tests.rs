@@ -63,6 +63,10 @@ impl Harness {
             current_theme: RwLock::new("default".into()),
             launcher: Box::new(MockLauncher::new(Duration::from_millis(20))),
             http: Box::new(FixtureHttp),
+            thumbnails: romdex_core::thumbs::Thumbnailer::spawn(romdex_core::thumbs::Thumbs::new(
+                root.join("thumbs"),
+                romdex_core::thumbs::DEFAULT_MAX_BYTES,
+            )),
             playing: AtomicBool::new(false),
             theme_ready: AtomicBool::new(false),
             input: Mutex::new(None),

@@ -3,7 +3,8 @@
 //! - `romdex://localhost/theme/<id>/<file>` serves a file from inside that theme's folder.
 //!   `..`, absolute paths and symlinks leading out of the folder are refused.
 //! - `romdex://localhost/media/<game id>/<kind>` serves a game's image, video, marquee… looked up
-//!   by id, so a theme never names (or learns) a path on disk.
+//!   by id, so a theme never names (or learns) a path on disk. `?w=480` asks for a resized copy
+//!   for images; the original is served until the copy has been made.
 //! - `romdex://localhost/ra-media/<path>` serves RetroAchievements badges, icons and avatars,
 //!   fetched once and cached, so showing achievements never needs the `network` permission.
 //!
@@ -20,8 +21,8 @@ use tauri::http::{Request, Response, StatusCode, header};
 pub trait Resolver {
     /// The folder of an available theme, and the remote origins it may use.
     fn theme(&self, id: &str) -> Option<(PathBuf, Vec<String>)>;
-    /// The file for one kind of a game's media.
-    fn media(&self, game_id: i64, kind: &str) -> Option<PathBuf>;
+    /// The file for one kind of a game's media, at about `width` px if asked and it is an image.
+    fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf>;
     /// A RetroAchievements media file, fetched and cached if need be.
     fn ra_media(&self, path: &str) -> Option<PathBuf>;
 }
@@ -31,6 +32,9 @@ pub const ORIGIN: &str = "romdex://localhost";
 pub fn theme_url(id: &str, entry: &str) -> String {
     format!("{ORIGIN}/theme/{id}/{entry}")
 }
+
+/// The widest resized copy a theme can ask for; anything wider gets the original.
+const MAX_WIDTH: u32 = 4096;
 
 pub fn media_url(game_id: i64, kind: &str) -> String {
     format!("{ORIGIN}/media/{game_id}/{kind}")
@@ -65,7 +69,17 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
             }
         }
         (Some("media"), Some(id), Some(kind)) => {
-            match id.parse().ok().and_then(|id| resolver.media(id, kind)) {
+            let width = request
+                .uri()
+                .query()
+                .and_then(|q| q.split('&').find_map(|p| p.strip_prefix("w=")))
+                .and_then(|w| w.parse::<u32>().ok())
+                .filter(|w| (1..=MAX_WIDTH).contains(w));
+            match id
+                .parse()
+                .ok()
+                .and_then(|id| resolver.media(id, kind, width))
+            {
                 Some(file) => serve(&file, range, None),
                 None => status(StatusCode::NOT_FOUND, "no such media"),
             }
@@ -117,6 +131,9 @@ fn serve(file: &Path, range: Option<&str>, csp: Option<&str>) -> Response<Vec<u8
     let mime = mime_type(file);
     let mut builder = Response::builder()
         .header(header::CONTENT_TYPE, mime)
+        // Revalidate every time: the same media URL serves the original until its resized copy
+        // exists, then the copy. Reading a local file again costs nothing worth caching.
+        .header(header::CACHE_CONTROL, "no-cache")
         .header(header::ACCEPT_RANGES, "bytes")
         .header("X-Content-Type-Options", "nosniff");
     if let Some(csp) = csp.filter(|_| mime.starts_with("text/html")) {
@@ -239,13 +256,15 @@ mod tests {
     struct Fake {
         theme: PathBuf,
         media: PathBuf,
+        asked_width: std::sync::Mutex<Option<u32>>,
     }
 
     impl Resolver for Fake {
         fn theme(&self, id: &str) -> Option<(PathBuf, Vec<String>)> {
             (id == "neon").then(|| (self.theme.clone(), vec!["https://cdn.example.com".into()]))
         }
-        fn media(&self, game_id: i64, kind: &str) -> Option<PathBuf> {
+        fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf> {
+            *self.asked_width.lock().unwrap() = width;
             (game_id == 7 && kind == "video").then(|| self.media.clone())
         }
         fn ra_media(&self, path: &str) -> Option<PathBuf> {
@@ -262,7 +281,14 @@ mod tests {
         std::fs::write(dir.path().join("secret.txt"), "secret").unwrap();
         let media = dir.path().join("clip.mp4");
         std::fs::write(&media, b"0123456789").unwrap();
-        (dir, Fake { theme, media })
+        (
+            dir,
+            Fake {
+                theme,
+                media,
+                asked_width: std::sync::Mutex::new(None),
+            },
+        )
     }
 
     fn get(fake: &Fake, uri: &str, range: Option<&str>) -> Response<Vec<u8>> {
@@ -366,6 +392,26 @@ mod tests {
         assert_eq!(badge.status(), StatusCode::OK);
         let other = get(&fake, "romdex://localhost/ra-media/Badge/2.png", None);
         assert_eq!(other.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn passes_a_sane_width_through_and_ignores_the_rest() {
+        let (_dir, fake) = setup();
+        let width = |uri: &str| {
+            get(&fake, uri, None);
+            *fake.asked_width.lock().unwrap()
+        };
+        assert_eq!(width("romdex://localhost/media/7/video?w=480"), Some(480));
+        assert_eq!(
+            width("romdex://localhost/media/7/video?x=1&w=320"),
+            Some(320)
+        );
+        assert_eq!(width("romdex://localhost/media/7/video?w=0"), None);
+        assert_eq!(width("romdex://localhost/media/7/video?w=99999"), None);
+        assert_eq!(width("romdex://localhost/media/7/video?w=big"), None);
+        assert_eq!(width("romdex://localhost/media/7/video"), None);
+        let res = get(&fake, "romdex://localhost/media/7/video", None);
+        assert_eq!(res.headers()[header::CACHE_CONTROL], "no-cache");
     }
 
     #[test]

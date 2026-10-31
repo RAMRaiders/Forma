@@ -21,7 +21,8 @@ export class GamesView {
   #selected = 0;
   #videoTimer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor() {
+  /** `imageUrl` picks the art for the detail panel, at the size the panel shows it. */
+  constructor(private readonly imageUrl: (game: Game) => string | null) {
     this.#list.append(this.#spacer);
     this.root.append(this.#list, this.#detail);
     this.#list.addEventListener('scroll', () => this.render(), { passive: true });
@@ -106,7 +107,7 @@ export class GamesView {
       this.#detail.replaceChildren();
       return;
     }
-    const image = game.media.image ?? game.media.thumbnail ?? null;
+    const image = this.imageUrl(game);
     const art = el('div', { class: 'art' });
     if (image) art.append(el('img', { src: image, alt: '', decoding: 'async' }));
 

@@ -15,6 +15,9 @@ interface Level {
 }
 
 const PAGE = 100;
+/** Image widths asked for: what a card and the detail panel show at 1080p. */
+const CARD_WIDTH = 480;
+const DETAIL_WIDTH = 960;
 const MOVES: Partial<Record<Action, Move>> = {
   up: 'up',
   down: 'down',
@@ -32,7 +35,10 @@ export class App {
   readonly #toast = el('div', { class: 'toast', role: 'status', hidden: '' });
   readonly #playing = el('div', { class: 'overlay playing', hidden: '' });
   readonly #grid = new GridView();
-  readonly #games = new GamesView();
+  readonly #games = new GamesView((game) => {
+    const kind = game.media.image ? 'image' : game.media.thumbnail ? 'thumbnail' : null;
+    return kind ? this.romdex.library.mediaUrl(game.id, kind, DETAIL_WIDTH) : null;
+  });
   readonly #switcher = new Switcher();
 
   #views: ViewInfo[] = [];
@@ -152,7 +158,8 @@ export class App {
       key: g.key,
       label: g.label,
       count: g.gameCount,
-      image: g.imageGame === null ? null : this.romdex.library.mediaUrl(g.imageGame)
+      image:
+        g.imageGame === null ? null : this.romdex.library.mediaUrl(g.imageGame, 'image', CARD_WIDTH)
     }));
   }
 

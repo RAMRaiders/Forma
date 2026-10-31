@@ -43,7 +43,10 @@ await romdex.library.setFavorite(hit.id, true);
 img.src = hit.media.image ?? "";
 ```
 
-Media always comes as URLs a page can load, never as paths on disk.
+Media always comes as URLs a page can load, never as paths on disk. Pass `width` for images
+shown small, e.g. `mediaUrl(id, 'image', 480)` for a card: RomDex serves a resized copy, made
+in the background and cached, and the original until it is ready. Full-size box art on every
+card is the easiest way to make a Raspberry Pi stutter.
 
 ## `nav`
 

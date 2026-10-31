@@ -33,5 +33,8 @@ describe('tauriBackend', () => {
 
   it('serves media from the romdex protocol by game id', () => {
     expect(tauriBackend().mediaUrl(42, 'video')).toBe('romdex://localhost/media/42/video');
+    expect(tauriBackend().mediaUrl(42, 'image', 479.6)).toBe(
+      'romdex://localhost/media/42/image?w=480'
+    );
   });
 });

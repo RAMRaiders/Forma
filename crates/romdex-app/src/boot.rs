@@ -11,6 +11,7 @@ use romdex_core::input::{self, InputOptions};
 use romdex_core::launch::launcher_from_env;
 use romdex_core::sync::{self, SyncEvent, SyncOptions};
 use romdex_core::themes::{Theme, discover};
+use romdex_core::thumbs::{self, Thumbnailer, Thumbs};
 use romdex_core::{Library, Paths};
 use tauri::{App, AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
@@ -59,6 +60,10 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         current_theme: RwLock::new(current.clone()),
         launcher: launcher_from_env(),
         http: Box::new(romdex_core::net::UreqHttp::default()),
+        thumbnails: Thumbnailer::spawn(Thumbs::new(
+            paths.cache_dir().join("thumbs"),
+            thumbs::DEFAULT_MAX_BYTES,
+        )),
         playing: AtomicBool::new(false),
         theme_ready: AtomicBool::new(false),
         input: Mutex::new(None),

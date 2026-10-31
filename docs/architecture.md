@@ -60,6 +60,15 @@ follows changes:
 - A full rescan every 5 minutes catches what no watcher reported. Network shares rarely
   report changes made by another machine.
 
+### Artwork
+
+Themes ask for images at the width they show them (`?w=480`). RomDex snaps that up to one of a
+few sizes (160–1280 px), makes a resized copy on a single background thread (JPEG, or PNG when
+the art has transparency), and serves the original until the copy exists. Copies are keyed by
+the source's path, size and modification time, capped at 512 MB with the oldest evicted, and
+live in `/userdata/system/romdex/cache/thumbs`, safe to delete. WebP would be smaller, but the
+pure-Rust encoder only writes lossless WebP, which is larger than JPEG for box art.
+
 ### Measured
 
 `cargo run --release -p romdex-core --example bench_library` generates 10 systems × 2,000 games

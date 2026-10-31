@@ -103,8 +103,13 @@ export class RomDex {
       search: (query: string, limit?: number) => invoke<Game[]>('library_search', { query, limit }),
       setFavorite: (id: number, favorite: boolean) =>
         invoke<void>('library_set_favorite', { id, favorite }),
-      /** A URL for one kind of a game's media, e.g. a group's `imageGame`. */
-      mediaUrl: (gameId: number, kind: MediaKind = 'image') => backend.mediaUrl(gameId, kind)
+      /**
+       * A URL for one kind of a game's media, e.g. a group's `imageGame`. With `width`, images
+       * come resized to about that many pixels: ask for what the layout shows, which is much
+       * lighter than full-size art on a Raspberry Pi.
+       */
+      mediaUrl: (gameId: number, kind: MediaKind = 'image', width?: number) =>
+        backend.mediaUrl(gameId, kind, width)
     };
 
     this.nav = {

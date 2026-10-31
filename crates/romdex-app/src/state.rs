@@ -10,6 +10,7 @@ use romdex_core::launch::Launcher;
 use romdex_core::net::{Cache, Http, achievements};
 use romdex_core::sync::SyncHandle;
 use romdex_core::themes::Theme;
+use romdex_core::thumbs::Thumbnailer;
 use romdex_core::{Library, Paths};
 
 use crate::protocol::Resolver;
@@ -29,6 +30,8 @@ pub struct AppState {
     pub launcher: Box<dyn Launcher>,
     /// How RomDex reaches RetroAchievements and the netplay lobby.
     pub http: Box<dyn Http>,
+    /// Resized artwork, made in the background.
+    pub thumbnails: Thumbnailer,
     pub playing: AtomicBool,
     /// Set by the SDK once the current theme has started.
     pub theme_ready: AtomicBool,
@@ -91,9 +94,15 @@ impl Resolver for AppState {
         Some((theme.dir, remote))
     }
 
-    fn media(&self, game_id: i64, kind: &str) -> Option<PathBuf> {
+    fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf> {
         let game = self.library().game(game_id).ok()??;
-        game.media.get(kind).map(PathBuf::from)
+        let source = PathBuf::from(game.media.get(kind)?);
+        // Video and manuals (PDF) are served as they are.
+        let image = !matches!(kind, "video" | "manual");
+        Some(match width {
+            Some(w) if image => self.thumbnails.file_for(&source, w),
+            _ => source,
+        })
     }
 
     fn ra_media(&self, path: &str) -> Option<PathBuf> {
