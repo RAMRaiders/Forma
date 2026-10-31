@@ -154,7 +154,7 @@
   </head>
   <body>
     <section class="batocera">
-      <video src="splash.mp4" playsinline preload="auto"></video>
+      <video playsinline preload="auto"></video>
       <img class="still" src="boot-logo.png" alt="" hidden />
     </section>
     <section class="forma" hidden>
@@ -217,11 +217,19 @@
       video.addEventListener('ended', formaScreen);
       video.addEventListener('error', noVideo);
       video.muted = query.get('sound') !== '1';
-      video.play().catch(() => {
-        // Sound refused before any input: play it silent rather than not at all.
-        video.muted = true;
-        video.play().catch(noVideo);
-      });
+      // From a blob: WebKitGTK's media player (GStreamer) loads only http(s) and blob URLs, so
+      // the video straight from forma:// fails as an unsupported format.
+      fetch('splash.mp4')
+        .then((response) => (response.ok ? response.blob() : Promise.reject(response.status)))
+        .then((blob) => {
+          video.src = URL.createObjectURL(blob);
+          return video.play().catch(() => {
+            // Sound refused before any input: play it silent rather than not at all.
+            video.muted = true;
+            return video.play();
+          });
+        })
+        .catch(noVideo);
       // A key skips ahead: the video to Forma's screen, Forma's screen to the theme.
       window.addEventListener('keydown', () => (stage === 1 ? formaScreen() : theme()));
       setTimeout(formaScreen, 12000);

@@ -39,7 +39,8 @@ const LOGO: &str = include_str!("../boot/forma-logo.svg");
 
 /// The start-up screen's own policy: its inline script and style, Batocera's splash files.
 const SPLASH_CSP: &str = "default-src 'none'; script-src 'unsafe-inline'; \
-                          style-src 'unsafe-inline'; media-src forma:; img-src forma:";
+                          style-src 'unsafe-inline'; connect-src forma:; media-src blob:; \
+                          img-src forma:";
 
 pub fn splash_url(query: &str) -> String {
     format!("{ORIGIN}/system/splash.html?{query}")
@@ -342,11 +343,11 @@ mod tests {
         let (_dir, fake) = setup();
         let page = get(&fake, "forma://localhost/system/splash.html?next=x", None);
         assert_eq!(page.status(), StatusCode::OK);
-        assert!(String::from_utf8_lossy(page.body()).contains("<video src=\"splash.mp4\""));
+        assert!(String::from_utf8_lossy(page.body()).contains("fetch('splash.mp4')"));
         let csp = page.headers()[header::CONTENT_SECURITY_POLICY]
             .to_str()
             .unwrap();
-        assert!(csp.starts_with("default-src 'none'") && csp.contains("media-src forma:"));
+        assert!(csp.starts_with("default-src 'none'") && csp.contains("media-src blob:"));
 
         let logo = get(&fake, "forma://localhost/system/forma-logo.svg", None);
         assert_eq!(logo.headers()[header::CONTENT_TYPE], "image/svg+xml");

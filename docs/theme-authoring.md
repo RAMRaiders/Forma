@@ -57,6 +57,17 @@ Game media never comes as a path on disk. The SDK hands out URLs such as
 `forma://localhost/media/<game id>/image` (also `video`, `marquee`, `thumbnail`, `fanart`,
 `manual`); videos support seeking.
 
+On Linux (Batocera), a `<video>` or `<audio>` cannot play a `forma://` URL directly: WebKitGTK's
+media player (GStreamer) loads only http(s) and blob URLs, and reports anything else as an
+unsupported format. Fetch the file and play it from a blob, freeing it when done:
+
+```ts
+const blob = await (await fetch(game.media.video, { signal })).blob();
+video.src = URL.createObjectURL(blob); // later: URL.revokeObjectURL(video.src)
+```
+
+The theme CSP allows `blob:` for media. Images are not affected.
+
 ### Content Security Policy
 
 Every HTML page gets a CSP that allows the theme's own folder (`forma:`), Tauri's IPC, inline
