@@ -215,7 +215,7 @@ fn is_https_origin(origin: &str) -> bool {
 }
 
 /// Whether `version` satisfies a caret `range` (`^1`, `^1.2`, `^1.2.3`). The same rule as
-/// `satisfies` in `@forma/sdk`, so host and theme agree on what compatible means.
+/// `satisfies` in `@ramraiders/forma-sdk`, so host and theme agree on what compatible means.
 pub fn satisfies(range: &str, version: &str) -> bool {
     let parse = |s: &str| -> Option<Vec<u64>> { s.split('.').map(|p| p.parse().ok()).collect() };
     let (Some(want), Some(have)) = (

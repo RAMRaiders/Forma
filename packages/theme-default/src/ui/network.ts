@@ -1,5 +1,11 @@
-import type { EthernetConfig, Forma, InputEvent, NetworkStatus, WifiNetwork } from '@forma/sdk';
-import { FormaError } from '@forma/sdk';
+import type {
+  EthernetConfig,
+  Forma,
+  InputEvent,
+  NetworkStatus,
+  WifiNetwork
+} from '@ramraiders/forma-sdk';
+import { FormaError } from '@ramraiders/forma-sdk';
 
 import { moveList } from '../logic/nav.js';
 import { el } from './dom.js';

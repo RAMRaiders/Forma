@@ -1,4 +1,4 @@
-import type { ViewInfo } from '@forma/sdk';
+import type { ViewInfo } from '@ramraiders/forma-sdk';
 
 import { el } from './dom.js';
 

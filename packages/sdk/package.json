@@ -1,7 +1,6 @@
 {
-  "name": "@forma/sdk",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@ramraiders/forma-sdk",
+  "version": "1.0.0",
   "description": "The public API Forma themes and custom interfaces use to control the frontend.",
   "license": "Apache-2.0",
   "type": "module",
@@ -11,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./mock": {
+      "types": "./dist/mock/index.d.ts",
+      "default": "./dist/mock/index.js"
     }
   },
   "files": [
@@ -18,9 +21,18 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/RAMRaiders/Forma.git",
+    "directory": "packages/sdk"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   }
 }

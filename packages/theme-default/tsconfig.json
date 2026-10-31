@@ -9,7 +9,8 @@
     "declaration": false,
     "declarationMap": false,
     "paths": {
-      "@forma/sdk": ["../sdk/src/index.ts"]
+      "@ramraiders/forma-sdk": ["../sdk/src/index.ts"],
+      "@ramraiders/forma-sdk/mock": ["../sdk/src/mock/index.ts"]
     }
   },
   "include": ["src/**/*", "vite.config.ts"]

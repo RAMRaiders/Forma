@@ -1,4 +1,4 @@
-//! The commands behind `@forma/sdk`. Thin: each one checks what the theme may do, calls
+//! The commands behind `@ramraiders/forma-sdk`. Thin: each one checks what the theme may do, calls
 //! `forma-core`, and hands back JSON. Paths on disk never reach a theme; media goes out as
 //! `forma://` URLs.
 

@@ -12,7 +12,7 @@ organised one way: system, then games. Forma keeps everything Batocera already d
 its systems, `gamelist.xml` metadata and `emulatorlauncher` — and replaces the part you look at:
 
 - **Themes are web apps.** HTML, CSS and JavaScript, with any layout, animation or framework.
-- **A public SDK.** `@forma/sdk` exposes the library, navigation, launching, input, settings,
+- **A public SDK.** `@ramraiders/forma-sdk` exposes the library, navigation, launching, input, settings,
   RetroAchievements and netplay. The bundled theme uses nothing else, so anything it does, your
   theme can do.
 - **Your own hierarchy.** Browse by manufacturer → system, genre, year, collections, or a view
@@ -32,7 +32,7 @@ its systems, `gamelist.xml` metadata and `emulatorlauncher` — and replaces the
 | ------------------------ | ---------------------------------------------------------------- |
 | `crates/forma-core`      | Rust core: library, hierarchy engine, launcher, input. No Tauri. |
 | `crates/forma-app`       | Tauri 2 shell that hosts themes and exposes the core to them.    |
-| `packages/sdk`           | `@forma/sdk`, the public TypeScript API for themes.              |
+| `packages/sdk`           | `@ramraiders/forma-sdk`, the public TypeScript API for themes.   |
 | `packages/theme-default` | The reference theme, built only on the SDK.                      |
 | `fixtures/userdata`      | A fake Batocera `/userdata` for tests and development.           |
 

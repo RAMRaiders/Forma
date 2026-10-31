@@ -1,7 +1,7 @@
 /**
  * Knip: find unused files, exports and dependencies.
  *
- * Matters most for `@forma/sdk`, whose exports are the public theme API: an export nothing
+ * Matters most for `@ramraiders/forma-sdk`, whose exports are the public theme API: an export nothing
  * re-exports from `index.ts` is either dead code or API that was never wired up.
  */
 export default {
@@ -10,6 +10,8 @@ export default {
       entry: ['*.config.{ts,mjs}']
     },
     'packages/sdk': {
+      // The package's two public entry points (package.json `exports`).
+      entry: ['src/index.ts', 'src/mock/index.ts'],
       project: ['src/**/*.ts']
     },
     'packages/theme-default': {

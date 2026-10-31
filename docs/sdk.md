@@ -1,14 +1,37 @@
-# `@forma/sdk` reference
+# `@ramraiders/forma-sdk` reference
 
 The SDK is the only way a theme talks to Forma — the bundled default theme included. Every
 call returns a promise; every failure rejects with a `FormaError` that has a `code` to branch
 on and a `message` to show. The types (`Game`, `Browse`, `InputEvent`…) are exported from the
 package and documented in [`types.ts`](../packages/sdk/src/types.ts).
 
+## Installing
+
+The SDK is published to GitHub Packages. While it is private, a theme repo needs an `.npmrc`
+that sends the `@ramraiders` scope there, with a token that can read packages (a classic
+personal access token with `read:packages`, kept out of the repo):
+
+```ini
+@ramraiders:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+```sh
+npm install @ramraiders/forma-sdk
+```
+
+`@ramraiders/forma-sdk/mock` exports `mockBackend` for tests:
+`connect({ backend: mockBackend({ permissions: ['system.network'] }) })`.
+
+The package version follows the API version (`SDK_API_VERSION` in `forma-core`), so a theme's
+`"sdk": "^1"` and its dependency range say the same thing. Publishing is the manual
+**Publish SDK** workflow; a version can only be published once, so a change raises the version
+first.
+
 ## Connecting
 
 ```ts
-import { connect, FormaError } from "@forma/sdk";
+import { connect, FormaError } from "@ramraiders/forma-sdk";
 
 const forma = await connect();
 ```

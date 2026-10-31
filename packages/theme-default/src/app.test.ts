@@ -4,8 +4,8 @@
  * output for the fixture library). jsdom has no layout, so this checks behaviour and wiring,
  * not looks.
  */
-import { connect, type InputEvent } from '@forma/sdk';
-import { mockBackend } from '../../sdk/src/mock/backend.js';
+import { connect, type InputEvent } from '@ramraiders/forma-sdk';
+import { mockBackend } from '@ramraiders/forma-sdk/mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './app.js';

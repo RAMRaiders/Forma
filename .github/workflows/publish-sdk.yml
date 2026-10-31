@@ -1,0 +1,34 @@
+# Publishes @ramraiders/forma-sdk to GitHub Packages, at the version in packages/sdk/package.json.
+# Manual only: nothing publishes on push. A version already published is refused by the
+# registry, so a change to the SDK needs its version raised first (see docs/sdk.md).
+name: Publish SDK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@ramraiders"
+
+      - run: npm ci
+
+      # The SDK's own tests, its contract with the engine's JSON included.
+      - run: npx vitest run packages/sdk
+
+      - run: npm publish --workspace @ramraiders/forma-sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

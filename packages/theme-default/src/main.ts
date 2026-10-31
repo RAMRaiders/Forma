@@ -1,4 +1,4 @@
-import { connect } from '@forma/sdk';
+import { connect } from '@ramraiders/forma-sdk';
 
 import { App } from './app.js';
 import { startPerfOverlay } from './ui/perf.js';

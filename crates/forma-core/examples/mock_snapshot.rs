@@ -1,4 +1,4 @@
-//! Writes the data `@forma/sdk`'s mock backend serves: the real engine's answers for the
+//! Writes the data `@ramraiders/forma-sdk`'s mock backend serves: the real engine's answers for the
 //! fixture library, so a theme developed in a browser sees exactly what Forma would send.
 //!
 //! cargo run -p forma-core --example mock_snapshot > packages/sdk/src/mock/library.json

@@ -3,7 +3,7 @@
 ## Layers
 
 ```
- theme (HTML/CSS/JS)  ──uses──▶  @forma/sdk  ──invoke/listen──▶  forma-app (Tauri)  ──▶  forma-core
+ theme (HTML/CSS/JS)  ──uses──▶  @ramraiders/forma-sdk  ──invoke/listen──▶  forma-app (Tauri)  ──▶  forma-core
                                                                                               │
                                      Batocera: es_systems.cfg, gamelist.xml, batocera.conf ◀──┤
                                      emulatorlauncher                                    ◀──┘
@@ -15,7 +15,7 @@
 - **forma-app** is deliberately thin: a fullscreen window, the `forma://theme` and
   `forma://media` protocols, one command per SDK call, and the permission check in front of
   each privileged command.
-- **@forma/sdk** is the only API themes use. It is versioned (`theme.json` declares
+- **@ramraiders/forma-sdk** is the only API themes use. It is versioned (`theme.json` declares
   `"sdk": "^1"`) and ships a mock backend so themes can be built in a normal browser.
 
 ## The library database

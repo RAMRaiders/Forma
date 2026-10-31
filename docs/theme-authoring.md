@@ -1,10 +1,10 @@
 # Theme authoring
 
 A Forma theme is a folder containing a `theme.json` manifest and a web app that talks to
-Forma through [`@forma/sdk`](sdk.md).
+Forma through [`@ramraiders/forma-sdk`](sdk.md).
 
 ```ts
-import { connect } from '@forma/sdk';
+import { connect } from '@ramraiders/forma-sdk';
 
 const forma = await connect();
 const page = await forma.nav.browse((await forma.nav.defaultView()).id ?? 'systems');
@@ -100,4 +100,4 @@ the theme's files change.
 
 - Themes are served from `forma://theme/<id>/`, so use **relative** asset URLs.
 - A strict Content Security Policy applies: no remote scripts unless the manifest declares them.
-- Everything goes through `@forma/sdk`. There is no private API, even for the bundled theme.
+- Everything goes through `@ramraiders/forma-sdk`. There is no private API, even for the bundled theme.

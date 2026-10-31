@@ -1,8 +1,8 @@
 /**
- * @forma/sdk — the public API for Forma themes and custom interfaces.
+ * @ramraiders/forma-sdk — the public API for Forma themes and custom interfaces.
  *
  * ```ts
- * import { connect } from '@forma/sdk';
+ * import { connect } from '@ramraiders/forma-sdk';
  *
  * const forma = await connect();
  * const home = await forma.nav.defaultView();

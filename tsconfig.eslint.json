@@ -12,7 +12,8 @@
      * so `dist` does not exist yet and an import through it would resolve to an error type.
      */
     "paths": {
-      "@forma/sdk": ["./packages/sdk/src/index.ts"]
+      "@ramraiders/forma-sdk": ["./packages/sdk/src/index.ts"],
+      "@ramraiders/forma-sdk/mock": ["./packages/sdk/src/mock/index.ts"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/*.config.ts", "*.config.ts"]

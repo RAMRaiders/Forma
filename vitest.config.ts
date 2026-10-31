@@ -2,13 +2,15 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 /** Workspace packages resolve to SOURCE, so tests run on a clean checkout without a build. */
-const sdkSrc = fileURLToPath(new URL('./packages/sdk/src/index.ts', import.meta.url));
+const sdkSrc = (file: string) =>
+  fileURLToPath(new URL(`./packages/sdk/src/${file}`, import.meta.url));
 
 export default defineConfig({
   resolve: {
-    alias: {
-      '@forma/sdk': sdkSrc
-    }
+    alias: [
+      { find: /^@ramraiders\/forma-sdk$/, replacement: sdkSrc('index.ts') },
+      { find: /^@ramraiders\/forma-sdk\/mock$/, replacement: sdkSrc('mock/index.ts') }
+    ]
   },
   test: {
     include: ['packages/*/src/**/*.test.ts'],

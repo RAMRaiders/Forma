@@ -1,5 +1,5 @@
-import type { Action, Browse, Game, InputEvent, Forma, ViewInfo } from '@forma/sdk';
-import { FormaError } from '@forma/sdk';
+import type { Action, Browse, Game, InputEvent, Forma, ViewInfo } from '@ramraiders/forma-sdk';
+import { FormaError } from '@ramraiders/forma-sdk';
 
 import { type Move, moveGrid, moveList } from './logic/nav.js';
 import { LazyList } from './logic/pager.js';

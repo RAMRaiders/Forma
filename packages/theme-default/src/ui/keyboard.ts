@@ -1,4 +1,4 @@
-import type { InputEvent } from '@forma/sdk';
+import type { InputEvent } from '@ramraiders/forma-sdk';
 
 import { el } from './dom.js';
 

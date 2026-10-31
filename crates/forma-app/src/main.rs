@@ -16,7 +16,7 @@ use tauri::{Manager, Runtime};
 
 use crate::state::AppState;
 
-/// Every command a theme can call through `@forma/sdk`.
+/// Every command a theme can call through `@ramraiders/forma-sdk`.
 fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         commands::sdk_api_version,
