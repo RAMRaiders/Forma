@@ -19,25 +19,31 @@ fi
 
 "$app" >"$log" 2>&1 &
 pid=$!
+
+# The AppImage runtime starts RomDex as a child, and RomDex starts WebKit's helpers: measure
+# all of them. PSS counts shared pages once, split between the processes using them.
+procs() {
+  { pgrep -x romdex; pgrep -f 'WebKitWebProcess|WebKitNetworkProcess|WebKitGPUProcess'; } 2>/dev/null || true
+}
 peak=0
 last=0
 i=0
 while [ "$i" -lt "$seconds" ] && kill -0 "$pid" 2>/dev/null; do
-  # RomDex plus every WebKit helper process: what the WebView really costs.
-  # pgrep finds nothing until WebKit has started; that is not an error.
-  pids="$pid $({ pgrep -f 'WebKitWebProcess|WebKitNetworkProcess|WebKitGPUProcess' || true; } | tr '\n' ' ')"
   last=0
-  for p in $pids; do
-    kb=$(awk '/^VmRSS:/ {print $2}' "/proc/$p/status" 2>/dev/null || echo 0)
+  for p in $(procs); do
+    kb=$(awk '/^Pss:/ {print $2}' "/proc/$p/smaps_rollup" 2>/dev/null || echo 0)
     last=$((last + ${kb:-0}))
   done
   [ "$last" -gt "$peak" ] && peak=$last
   i=$((i + 1))
   sleep 1
 done
+pkill -x romdex 2>/dev/null || true
 kill "$pid" 2>/dev/null || true
+# An AppImage run with APPIMAGE_EXTRACT_AND_RUN unpacks into /tmp, which is RAM on Batocera.
+rm -rf /tmp/appimage_extracted_* 2>/dev/null || true
 
 echo "--- RomDex spike, $(uname -m), $(date)"
 grep -E 'ready [0-9]+ ms after start' "$log" || echo "start-up: no ready line (see $log)"
-echo "memory: peak $((peak / 1024)) MiB, at the end $((last / 1024)) MiB (RomDex + WebKit processes)"
+echo "memory (PSS): peak $((peak / 1024)) MiB, at the end $((last / 1024)) MiB (RomDex + WebKit)"
 echo "log: $log"

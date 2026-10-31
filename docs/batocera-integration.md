@@ -104,19 +104,43 @@ gamepad input arrives.
 
 ### Results
 
-| Measure                                   | x86_64 | Raspberry Pi 4 | Target   |
-| ----------------------------------------- | ------ | -------------- | -------- |
-| Batocera version, display server          |        |                |          |
-| AppImage size                             |        |                | < 150 MB |
-| Start-up to ready (fixture library)       |        |                | < 3 s    |
-| Start-up to ready (20,000 games)          |        |                | < 5 s    |
-| Peak memory, RomDex + WebKit              |        |                | < 400 MB |
-| Scrolling a 2,000-game list: fps / p95 ms |        |                | 60 / 17  |
-| Video preview plays smoothly              |        |                | yes      |
-| Gamepad input arrives                     |        |                | yes      |
+Run on 2026-10-31 over SSH, driven by `wtype` (real key events through the compositor) and read
+back with `grim` screenshots and the theme's own frame statistics. EmulationStation was left
+running underneath. The x86_64 box has not been measured yet.
 
-The targets are a proposal, set from what a sofa UI on a Pi 4 should feel like; adjust them
-before judging.
+| Measure                                     | x86_64 | Raspberry Pi 5 (4 GB)                                         | Target   |
+| ------------------------------------------- | ------ | ------------------------------------------------------------- | -------- |
+| Batocera version, display server            |        | 43.1, Wayland (labwc)                                         |          |
+| AppImage size                               |        | 82 MB; 259 MB extracted                                       | < 150 MB |
+| Launch to ready, AppImage (unpacks to /tmp) |        | 2.5 s                                                         | < 3 s    |
+| Launch to ready, extracted, cold / warm     |        | 2.6 s / 0.55 s                                                | < 3 s    |
+| Inside RomDex: process start to ready       |        | 0.4–0.6 s warm, 1.4 s cold                                    |          |
+| First import of 20,000 games                |        | done before the first screenshot (< 20 s)                     |          |
+| Memory, RomDex + WebKit (PSS / RSS)         |        | 234 MiB / 345 MiB                                             | < 400 MB |
+| Idle on the systems grid                    |        | 60 fps, p95 18 ms                                             | 60 / 17  |
+| Holding down in a 2,000-game list           |        | 20 fps, p95 66 ms → **57–60 fps, p95 19–27 ms** after the fix | 60 / 17  |
+| Paging (shoulder button)                    |        | 58 fps, p95 25 ms                                             | 60 / 17  |
+| Video preview plays smoothly                |        | not tested: the generated library has no video                | yes      |
+| Gamepad input arrives                       |        | not tested: needs someone holding a pad                       | yes      |
+
+What it found:
+
+- **WebKitGTK works on Batocera 43 on a Pi 5**, under Wayland, with the GPU: rendering, layout
+  and key input through the compositor all behaved.
+- **Holding a direction was the one real problem.** The game list rebuilt its detail panel and
+  loaded its art on every step, 20 times a second. The panel now waits for movement to settle
+  (it still updates at once on a single press): 20 fps became 57–60.
+- **Do not ship it as a self-unpacking AppImage.** Batocera has FUSE 3 only, so the AppImage
+  unpacks itself on every start into `/tmp`, which is RAM: 259 MB gone before RomDex starts.
+  Extracted once onto `/userdata`, it costs nothing in RAM and starts in 0.55 s warm.
+- On a cold cache most of the start is reading 259 MB of libraries from `/userdata` (an
+  external disk here); a smaller bundle, or WebKitGTK in the image, would cut it.
+- The Pi 5 is the stronger board; a Pi 4 run would still be worth doing before calling the
+  targets met for both.
+
+**Recommendation: go, with packaging changed.** Ship the extracted bundle in `/userdata` (or a
+Batocera package that installs it there), not the AppImage. Re-measure on x86_64, on a Pi 4 if
+one is at hand, and with a gamepad and real video before Milestone 3 closes.
 
 ### Packaging options to compare
 

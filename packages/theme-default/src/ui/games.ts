@@ -9,6 +9,12 @@ const ROW_REM = 2.6;
 const OVERSCAN = 6;
 /** Wait before the video preview starts, so scrolling past a game does not start it. */
 const VIDEO_DELAY_MS = 900;
+/**
+ * While the selection moves faster than this (a held direction), the detail panel waits for
+ * it to settle. Rebuilding the panel and loading its art on every step was measured at 20 fps
+ * on a Raspberry Pi 5 holding down; a single press still updates it at once.
+ */
+const DETAIL_SETTLE_MS = 150;
 
 /** A game list of any length, beside the selected game's details. */
 export class GamesView {
@@ -20,6 +26,8 @@ export class GamesView {
   #source: LazyList<Game> | null = null;
   #selected = 0;
   #videoTimer: ReturnType<typeof setTimeout> | undefined;
+  #detailTimer: ReturnType<typeof setTimeout> | undefined;
+  #lastMove = 0;
 
   /** `imageUrl` picks the art for the detail panel, at the size the panel shows it. */
   constructor(private readonly imageUrl: (game: Game) => string | null) {
@@ -56,7 +64,19 @@ export class GamesView {
       this.#list.scrollTop = top + row - this.#list.clientHeight;
     }
     this.render();
-    if (changed) this.#showDetail();
+    if (changed) this.#scheduleDetail();
+  }
+
+  #scheduleDetail(): void {
+    const now = performance.now();
+    const fast = now - this.#lastMove < DETAIL_SETTLE_MS;
+    this.#lastMove = now;
+    clearTimeout(this.#detailTimer);
+    if (fast) {
+      this.#detailTimer = setTimeout(() => this.#showDetail(), DETAIL_SETTLE_MS);
+    } else {
+      this.#showDetail();
+    }
   }
 
   /** Draws the visible rows, from whatever is loaded; called again as pages arrive. */
@@ -109,7 +129,12 @@ export class GamesView {
     }
     const image = this.imageUrl(game);
     const art = el('div', { class: 'art' });
-    if (image) art.append(el('img', { src: image, alt: '', decoding: 'async' }));
+    if (image) {
+      const img = el('img', { src: image, alt: '', decoding: 'async' });
+      // Scraped paths go stale; an empty frame beats a broken-image icon.
+      img.addEventListener('error', () => img.remove());
+      art.append(img);
+    }
 
     const facts = [
       game.releaseDate?.slice(0, 4),

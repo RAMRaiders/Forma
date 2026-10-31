@@ -66,7 +66,8 @@ describe('the default theme', () => {
     expect(text('.row.selected')).toEqual(['Homebrew Demo']);
     await press('down');
     expect(text('.row.selected')).toEqual(['★ Super Mario Bros.']);
-    expect(text('.detail h2')).toEqual(['★ Super Mario Bros.']);
+    // Quick presses count as a held direction: the panel settles once movement pauses.
+    await vi.waitFor(() => expect(text('.detail h2')).toEqual(['★ Super Mario Bros.']));
     expect(text('.detail .facts')[0]).toContain('1985');
     expect(text('.hint')).toContain('YFavourite');
 

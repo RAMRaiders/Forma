@@ -42,9 +42,15 @@ export class GridView {
 }
 
 function card(c: Card): HTMLElement {
-  const art = c.image
-    ? el('img', { src: c.image, alt: '', loading: 'lazy', decoding: 'async' })
-    : el('div', { class: 'initial', 'aria-hidden': 'true' }, c.label.slice(0, 1).toUpperCase());
+  const initial = () =>
+    el('div', { class: 'initial', 'aria-hidden': 'true' }, c.label.slice(0, 1).toUpperCase());
+  let art: HTMLElement = initial();
+  if (c.image) {
+    const img = el('img', { src: c.image, alt: '', loading: 'lazy', decoding: 'async' });
+    // Missing or unreadable art falls back to the letter, not a broken-image icon.
+    img.addEventListener('error', () => img.replaceWith(initial()));
+    art = img;
+  }
   return el(
     'div',
     { class: 'card', role: 'option', 'aria-selected': 'false' },
