@@ -31,6 +31,10 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "change Batocera's RetroAchievements and netplay settings, and log in to RetroAchievements",
     ),
     (
+        "settings.emulators",
+        "change Batocera's emulator, core and game options",
+    ),
+    (
         "system.network",
         "see and change the machine's Wi-Fi and Ethernet settings",
     ),

@@ -2,10 +2,11 @@
 
 A small fake Batocera install for tests and `npm run dev`.
 
-| Path                         | Stands in for                                   |
-| ---------------------------- | ----------------------------------------------- |
-| `usr-share-emulationstation` | `/usr/share/emulationstation` (base systems)    |
-| `userdata`                   | `/userdata` (ROMs, gamelists, overlays, config) |
+| Path                         | Stands in for                                    |
+| ---------------------------- | ------------------------------------------------ |
+| `usr-share-emulationstation` | `/usr/share/emulationstation` (base systems)     |
+| `userdata`                   | `/userdata` (ROMs, gamelists, overlays, config)  |
+| `usr-share-batocera`         | `/usr/share/batocera` (shader sets, decorations) |
 
 Point Forma at it with:
 

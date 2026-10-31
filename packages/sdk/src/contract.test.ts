@@ -21,6 +21,8 @@ import type {
   RaRecent,
   RaUser,
   BatoceraSetting,
+  OptionItem,
+  OptionsPage,
   MusicSource,
   Radio,
   WifiNetwork,
@@ -185,6 +187,32 @@ describe('contract with the engine', () => {
     const password = data.batocera.find((s) => s.key === 'global.retroachievements.password')!;
     expect(password.value).toBeNull();
     expect(data.batocera.find((s) => s.key === 'global.netplay.relay')!.choices).toContain('nyc');
+  });
+
+  it('emulator options', () => {
+    const pages = Object.values(data.options) as unknown as OptionsPage[];
+    const page = keys<OptionsPage>()('options', 'flags');
+    const item = keys<OptionItem>()(
+      'key',
+      'label',
+      'group',
+      'submenu',
+      'description',
+      'kind',
+      'choices',
+      'min',
+      'max',
+      'step',
+      'default',
+      'value',
+      'inherited'
+    );
+    for (const p of pages) {
+      expect(sorted(p)).toEqual(page);
+      for (const o of p.options) expect(sorted(o)).toEqual(item);
+    }
+    const kinds = new Set(pages.flatMap((p) => p.options.map((o) => o.kind)));
+    expect(kinds).toEqual(new Set(['choice', 'number', 'text']));
   });
 
   it('the music folder', () => {

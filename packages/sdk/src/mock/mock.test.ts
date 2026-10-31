@@ -164,6 +164,36 @@ describe('mock backend', () => {
     expect([token.value, token.set]).toEqual([null, true]);
   });
 
+  it('emulator options: levels, inheritance, the emulator choosing the options', async () => {
+    const global = { level: 'global' } as const;
+    await expect(mockBackend().invoke('options_get', { scope: global })).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ permissions: ['settings.emulators'] });
+    type Page = { options: { key: string; value: string | null; inherited: unknown }[] };
+    const get = (scope: unknown) => b.invoke<Page>('options_get', { scope });
+    const set = (scope: unknown, key: string, value: string | null) =>
+      b.invoke('options_set', { scope, key, value });
+    const item = (page: Page, key: string) => page.options.find((o) => o.key === key)!;
+
+    const psx = { level: 'system', system: 'psx' } as const;
+    expect((await get(psx)).options.map((o) => o.key)).toContain('swanstation_pgxp');
+    await set(psx, 'emulator', 'duckstation');
+    expect((await get(psx)).options.map((o) => o.key)).toContain('duckstation_gfxbackend');
+    await expect(set(psx, 'swanstation_pgxp', '1')).rejects.toMatchObject({ code: 'invalid' });
+
+    await set(global, 'ratio', '4/3');
+    const game = { level: 'game', game: 1 } as const;
+    const ratio = item(await get(game), 'ratio');
+    expect([ratio.value, ratio.inherited]).toEqual([null, { value: '4/3', from: 'global' }]);
+    await set(game, 'ratio', '16/9');
+    expect(item(await get(game), 'ratio').value).toBe('16/9');
+    await set(game, 'ratio', null);
+    expect(item(await get(game), 'ratio').value).toBeNull();
+    await expect(set(global, 'ratio', '5/4')).rejects.toMatchObject({ code: 'invalid' });
+    await expect(set(global, 'rumble_gain', '500')).rejects.toMatchObject({ code: 'invalid' });
+  });
+
   it('music: sources, a playing status, events, and radios behind music.manage', async () => {
     const b = mockBackend({ permissions: ['music.manage'] });
     const heard: string[] = [];

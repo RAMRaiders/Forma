@@ -17,6 +17,7 @@ pub mod library;
 pub mod music;
 pub mod net;
 pub mod network;
+pub mod options;
 pub mod paths;
 pub mod scan;
 pub mod sync;

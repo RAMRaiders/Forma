@@ -369,6 +369,50 @@ export interface BatoceraSetting {
   choices: string[];
 }
 
+/**
+ * Where an emulator option is set. A game's value overrides its system's, which overrides the
+ * global one.
+ */
+export type OptionsScope =
+  { level: 'global' } | { level: 'system'; system: string } | { level: 'game'; game: number };
+
+/** One of Batocera's emulator, core or game options, as EmulationStation offers it. */
+export interface OptionItem {
+  /** `emulator`, `core`, or the option's `batocera.conf` key after the level prefix. */
+  key: string;
+  /** Batocera's label, upper-case as ES shows it. */
+  label: string;
+  /** A section of the page ES puts it in (`ADVANCED OPTIONS`)… */
+  group: string | null;
+  /** …or a page of its own (`DECORATIONS`). */
+  submenu: string | null;
+  description: string | null;
+  kind: 'choice' | 'number' | 'text';
+  choices: OptionChoice[];
+  /** For a number. */
+  min: number | null;
+  max: number | null;
+  step: number | null;
+  /** What applies when no level sets it, when Batocera says. */
+  default: string | null;
+  /** Set at this level; `null` when it is not. */
+  value: string | null;
+  /** Set at a level this one inherits from, when this one does not. */
+  inherited: { value: string; from: 'global' | 'system' } | null;
+}
+
+export interface OptionChoice {
+  value: string;
+  label: string;
+}
+
+/** The options of one level, ready to draw. Changing `emulator` or `core` changes the list. */
+export interface OptionsPage {
+  options: OptionItem[];
+  /** What the chosen emulator supports: `netplay`, `cheevos`, `padtokeyboard`. */
+  flags: string[];
+}
+
 /** Something the music player can play. Its `id` is stable: a theme can remember it. */
 export interface MusicSource {
   id: string;

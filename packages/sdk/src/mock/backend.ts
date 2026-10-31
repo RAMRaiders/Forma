@@ -11,6 +11,9 @@ import { type ErrorCode, FormaError } from '../errors.js';
 import type {
   Browse,
   BatoceraSetting,
+  OptionItem,
+  OptionsPage,
+  OptionsScope,
   DefaultView,
   EthernetConfig,
   Game,
@@ -52,6 +55,8 @@ interface Snapshot {
   network: { status: NetworkStatus; wifi: WifiNetwork[] };
   batocera: BatoceraSetting[];
   music: { sources: MusicSource[]; radios: Radio[] };
+  /** The engine's option pages: `global`, and `system|emulator|core` (empty: not set). */
+  options: Record<string, OptionsPage>;
 }
 
 const snapshot = data as unknown as Snapshot;
@@ -110,6 +115,60 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const trackTitle = (n: number) => `Track ${n}`;
   const batocera = new Map(snapshot.batocera.map((s) => [s.key, structuredClone(s)]));
   let playing = false;
+  /** The mock's `batocera.conf`, for emulator options. */
+  const conf = new Map<string, string>();
+  /** A level's key prefix, then each level it inherits from, as Batocera reads them. */
+  const levels = (scope: OptionsScope): { prefix: string; from: 'global' | 'system' }[] => {
+    if (scope.level === 'global') return [{ prefix: 'global', from: 'global' }];
+    const system =
+      scope.level === 'system'
+        ? scope.system
+        : (games.get(scope.game) ?? fail('notFound', `no game ${scope.game}`)).system;
+    const own =
+      scope.level === 'game'
+        ? [
+            {
+              prefix: `${system}["${games.get(scope.game)!.path.split('/').pop()!}"]`,
+              from: 'system' as const
+            }
+          ]
+        : [];
+    return [...own, { prefix: system, from: 'system' }, { prefix: 'global', from: 'global' }];
+  };
+  const optionsPage = (scope: OptionsScope): OptionsPage => {
+    const chain = levels(scope);
+    let page: OptionsPage | undefined;
+    if (scope.level === 'global') page = snapshot.options.global;
+    else {
+      const system = chain[chain.length - 2]!.prefix;
+      // The emulator and core in effect, set at this level or its system's.
+      const chosen = (key: string) =>
+        chain
+          .slice(0, -1)
+          .map((l) => conf.get(`${l.prefix}.${key}`))
+          .find(Boolean) ?? '';
+      page =
+        snapshot.options[`${system}|${chosen('emulator')}|${chosen('core')}`] ??
+        snapshot.options[`${system}|${chosen('emulator')}|`] ??
+        snapshot.options[`${system}||`];
+    }
+    const fill = (o: OptionItem): OptionItem => {
+      const values = chain.map((l) => conf.get(`${l.prefix}.${o.key}`));
+      const at = values.slice(1).findIndex(Boolean);
+      const parent = at < 0 ? null : { value: values[at + 1]!, from: chain[at + 1]!.from };
+      return {
+        ...structuredClone(o),
+        value: values[0] ?? null,
+        // A global emulator or core means nothing to one system.
+        inherited:
+          parent && (parent.from === 'system' || !['emulator', 'core'].includes(o.key))
+            ? parent
+            : null
+      };
+    };
+    const found = page ?? fail('notFound', `no system \`${chain[chain.length - 2]?.prefix}\``);
+    return { options: found.options.map(fill), flags: [...found.flags] };
+  };
 
   const emit = (event: string, payload: unknown) => {
     for (const handler of listeners.get(event) ?? []) handler(payload);
@@ -315,6 +374,34 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const p = typeof prefix === 'string' ? prefix : '';
       return [...batocera.values()].filter((s) => s.key.startsWith(p)).map((s) => ({ ...s }));
     },
+    options_get: ({ scope }) => {
+      optionsAllowed();
+      return optionsPage(scope as OptionsScope);
+    },
+    options_set: ({ scope, key, value }) => {
+      optionsAllowed();
+      const s = scope as OptionsScope;
+      const item =
+        optionsPage(s).options.find((o) => o.key === key) ??
+        fail('invalid', `\`${String(key)}\` is not an option here`);
+      const prefix = levels(s)[0]!.prefix;
+      const v = typeof value === 'string' ? value.trim() : '';
+      if (v === '') conf.delete(`${prefix}.${item.key}`);
+      else {
+        const n = Number(v);
+        const ok =
+          item.kind === 'text'
+            ? !/[\r\n]/.test(v)
+            : item.kind === 'number'
+              ? Number.isFinite(n) && n >= (item.min ?? -Infinity) && n <= (item.max ?? Infinity)
+              : item.choices.some((c) => c.value === v);
+        if (!ok) fail('invalid', `\`${item.key}\`: \`${v}\` is not allowed`);
+        conf.set(`${prefix}.${item.key}`, v);
+      }
+      // A core belongs to its emulator.
+      if (item.key === 'emulator' && v !== item.value) conf.delete(`${prefix}.core`);
+      return null;
+    },
     batocera_set: ({ key, value }) => {
       batoceraAllowed();
       const setting =
@@ -462,6 +549,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
   function batoceraAllowed(): void {
     if (!permissions.has('settings.batocera')) {
       fail('permissionDenied', 'theme `mock` needs the `settings.batocera` permission');
+    }
+  }
+
+  function optionsAllowed(): void {
+    if (!permissions.has('settings.emulators')) {
+      fail('permissionDenied', 'theme `mock` needs the `settings.emulators` permission');
     }
   }
 

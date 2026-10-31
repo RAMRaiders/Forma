@@ -199,6 +199,30 @@ Batocera's RetroAchievements and netplay settings (`global.retroachievements.*`,
 relays or the unlock sounds) or `secret`. A secret's `value` is always `null`: a theme only learns
 whether one is `set`, and sets it through `ra.login`.
 
+## `options`
+
+Batocera's emulator, core and game options: what EmulationStation shows in its game settings
+(global), a system's advanced options and a game's. Read from `es_features.cfg` and
+`es_systems.cfg`, saved in `batocera.conf` (`global.<key>`, `<system>.<key>`,
+`<system>["<file>"].<key>`), and used by the next launch. Needs the `settings.emulators`
+permission; Batocera only.
+
+| Method                   | Returns                                                          |
+| ------------------------ | ---------------------------------------------------------------- |
+| `get(scope)`             | `{ options, flags }`: the options at that level                  |
+| `set(scope, key, value)` | Sets one, checked against its choices or range; `null` unsets it |
+
+`scope` is `{ level: 'global' }`, `{ level: 'system', system: 'snes' }` or
+`{ level: 'game', game: 42 }`. A game's value overrides its system's, which overrides the
+global one; each option says what is set at this level (`value`) and, when nothing is, what it
+inherits and from where (`inherited`).
+
+A system or game page starts with `emulator` and `core`; the options after them are those of the
+chosen core, so get the page again after changing either. Changing the emulator unsets a core set
+at the same level. `kind` is `choice` (one of `choices`), `number` (`min`…`max` by `step`) or
+`text`. `group` and `submenu` say where ES files an option: a section (`ADVANCED OPTIONS`) or a
+page of its own (`DECORATIONS`). `flags` say what the emulator supports (`netplay`, `cheevos`).
+
 ## `netplay`
 
 | Method    | Returns                                                                |

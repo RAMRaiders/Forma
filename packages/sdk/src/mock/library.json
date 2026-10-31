@@ -2848,6 +2848,2841 @@
       }
     ]
   },
+  "options": {
+    "global": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "integerscale",
+          "kind": "choice",
+          "label": "INTEGER SCALING (PIXEL PERFECT)",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "arcade 1980s",
+              "value": "arcade_1980s"
+            },
+            {
+              "label": "consoles",
+              "value": "consoles"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "bezel",
+          "kind": "choice",
+          "label": "DECORATION SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "DECORATIONS",
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "Store past states to rewind to in realtime.",
+          "group": null,
+          "inherited": null,
+          "key": "rewind",
+          "kind": "choice",
+          "label": "REWIND",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [],
+          "default": "100",
+          "description": "Rumble strength, in percent.",
+          "group": "CONTROLS",
+          "inherited": null,
+          "key": "rumble_gain",
+          "kind": "number",
+          "label": "RUMBLE STRENGTH",
+          "max": 100.0,
+          "min": 0.0,
+          "step": 5.0,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "ai_service_url",
+          "kind": "text",
+          "label": "AI TRANSLATION SERVICE URL",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "AI GAME TRANSLATION",
+          "value": null
+        }
+      ]
+    },
+    "homebrew||": {
+      "flags": [],
+      "options": []
+    },
+    "megadrive|libretro|": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "genesisplusgx",
+              "value": "genesisplusgx"
+            },
+            {
+              "label": "picodrive",
+              "value": "picodrive"
+            }
+          ],
+          "default": "genesisplusgx",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "megadrive|libretro|genesisplusgx": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "genesisplusgx",
+              "value": "genesisplusgx"
+            },
+            {
+              "label": "picodrive",
+              "value": "picodrive"
+            }
+          ],
+          "default": "genesisplusgx",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "megadrive|libretro|picodrive": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "genesisplusgx",
+              "value": "genesisplusgx"
+            },
+            {
+              "label": "picodrive",
+              "value": "picodrive"
+            }
+          ],
+          "default": "genesisplusgx",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "megadrive||": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "genesisplusgx",
+              "value": "genesisplusgx"
+            },
+            {
+              "label": "picodrive",
+              "value": "picodrive"
+            }
+          ],
+          "default": "genesisplusgx",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "nes|libretro|": {
+      "flags": [
+        "netplay",
+        "cheevos"
+      ],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "fceumm",
+              "value": "fceumm"
+            },
+            {
+              "label": "nestopia",
+              "value": "nestopia"
+            },
+            {
+              "label": "mesen",
+              "value": "mesen"
+            }
+          ],
+          "default": "fceumm",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "Store past states to rewind to in realtime.",
+          "group": null,
+          "inherited": null,
+          "key": "rewind",
+          "kind": "choice",
+          "label": "REWIND",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "Default",
+              "value": "default"
+            },
+            {
+              "label": "Real",
+              "value": "real"
+            }
+          ],
+          "default": null,
+          "description": "Colour palette.",
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "fceumm_palette",
+          "kind": "choice",
+          "label": "PALETTE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        }
+      ]
+    },
+    "nes|libretro|fceumm": {
+      "flags": [
+        "netplay",
+        "cheevos"
+      ],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "fceumm",
+              "value": "fceumm"
+            },
+            {
+              "label": "nestopia",
+              "value": "nestopia"
+            },
+            {
+              "label": "mesen",
+              "value": "mesen"
+            }
+          ],
+          "default": "fceumm",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "Store past states to rewind to in realtime.",
+          "group": null,
+          "inherited": null,
+          "key": "rewind",
+          "kind": "choice",
+          "label": "REWIND",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "Default",
+              "value": "default"
+            },
+            {
+              "label": "Real",
+              "value": "real"
+            }
+          ],
+          "default": null,
+          "description": "Colour palette.",
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "fceumm_palette",
+          "kind": "choice",
+          "label": "PALETTE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        }
+      ]
+    },
+    "nes|libretro|mesen": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "fceumm",
+              "value": "fceumm"
+            },
+            {
+              "label": "nestopia",
+              "value": "nestopia"
+            },
+            {
+              "label": "mesen",
+              "value": "mesen"
+            }
+          ],
+          "default": "fceumm",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "nes|libretro|nestopia": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "fceumm",
+              "value": "fceumm"
+            },
+            {
+              "label": "nestopia",
+              "value": "nestopia"
+            },
+            {
+              "label": "mesen",
+              "value": "mesen"
+            }
+          ],
+          "default": "fceumm",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "nes||": {
+      "flags": [
+        "netplay",
+        "cheevos"
+      ],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "fceumm",
+              "value": "fceumm"
+            },
+            {
+              "label": "nestopia",
+              "value": "nestopia"
+            },
+            {
+              "label": "mesen",
+              "value": "mesen"
+            }
+          ],
+          "default": "fceumm",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "Store past states to rewind to in realtime.",
+          "group": null,
+          "inherited": null,
+          "key": "rewind",
+          "kind": "choice",
+          "label": "REWIND",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "Default",
+              "value": "default"
+            },
+            {
+              "label": "Real",
+              "value": "real"
+            }
+          ],
+          "default": null,
+          "description": "Colour palette.",
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "fceumm_palette",
+          "kind": "choice",
+          "label": "PALETTE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        }
+      ]
+    },
+    "psx|duckstation|": {
+      "flags": [
+        "cheevos"
+      ],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            },
+            {
+              "label": "duckstation",
+              "value": "duckstation"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "duckstation",
+              "value": "duckstation"
+            }
+          ],
+          "default": "duckstation",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "OpenGL",
+              "value": "OpenGL"
+            },
+            {
+              "label": "Vulkan",
+              "value": "Vulkan"
+            }
+          ],
+          "default": null,
+          "description": "Graphics backend.",
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "duckstation_gfxbackend",
+          "kind": "choice",
+          "label": "RENDERER",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        }
+      ]
+    },
+    "psx|duckstation|duckstation": {
+      "flags": [
+        "cheevos"
+      ],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            },
+            {
+              "label": "duckstation",
+              "value": "duckstation"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "duckstation",
+              "value": "duckstation"
+            }
+          ],
+          "default": "duckstation",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "OpenGL",
+              "value": "OpenGL"
+            },
+            {
+              "label": "Vulkan",
+              "value": "Vulkan"
+            }
+          ],
+          "default": null,
+          "description": "Graphics backend.",
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "duckstation_gfxbackend",
+          "kind": "choice",
+          "label": "RENDERER",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        }
+      ]
+    },
+    "psx|libretro|": {
+      "flags": [
+        "cheevos"
+      ],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            },
+            {
+              "label": "duckstation",
+              "value": "duckstation"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "swanstation",
+              "value": "swanstation"
+            },
+            {
+              "label": "pcsx_rearmed",
+              "value": "pcsx_rearmed"
+            }
+          ],
+          "default": "swanstation",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        },
+        {
+          "choices": [],
+          "default": null,
+          "description": null,
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "swanstation_resolution",
+          "kind": "number",
+          "label": "INTERNAL RESOLUTION",
+          "max": 16.0,
+          "min": 1.0,
+          "step": 1.0,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "swanstation_pgxp",
+          "kind": "choice",
+          "label": "PGXP",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        }
+      ]
+    },
+    "psx|libretro|pcsx_rearmed": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            },
+            {
+              "label": "duckstation",
+              "value": "duckstation"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "swanstation",
+              "value": "swanstation"
+            },
+            {
+              "label": "pcsx_rearmed",
+              "value": "pcsx_rearmed"
+            }
+          ],
+          "default": "swanstation",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "psx|libretro|swanstation": {
+      "flags": [
+        "cheevos"
+      ],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            },
+            {
+              "label": "duckstation",
+              "value": "duckstation"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "swanstation",
+              "value": "swanstation"
+            },
+            {
+              "label": "pcsx_rearmed",
+              "value": "pcsx_rearmed"
+            }
+          ],
+          "default": "swanstation",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        },
+        {
+          "choices": [],
+          "default": null,
+          "description": null,
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "swanstation_resolution",
+          "kind": "number",
+          "label": "INTERNAL RESOLUTION",
+          "max": 16.0,
+          "min": 1.0,
+          "step": 1.0,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "swanstation_pgxp",
+          "kind": "choice",
+          "label": "PGXP",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        }
+      ]
+    },
+    "psx||": {
+      "flags": [
+        "cheevos"
+      ],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            },
+            {
+              "label": "duckstation",
+              "value": "duckstation"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "swanstation",
+              "value": "swanstation"
+            },
+            {
+              "label": "pcsx_rearmed",
+              "value": "pcsx_rearmed"
+            }
+          ],
+          "default": "swanstation",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        },
+        {
+          "choices": [],
+          "default": null,
+          "description": null,
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "swanstation_resolution",
+          "kind": "number",
+          "label": "INTERNAL RESOLUTION",
+          "max": 16.0,
+          "min": 1.0,
+          "step": 1.0,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": "ADVANCED OPTIONS",
+          "inherited": null,
+          "key": "swanstation_pgxp",
+          "kind": "choice",
+          "label": "PGXP",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        }
+      ]
+    },
+    "snes|libretro|": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "bsnes",
+              "value": "bsnes"
+            }
+          ],
+          "default": "bsnes",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "snes|libretro|bsnes": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "bsnes",
+              "value": "bsnes"
+            }
+          ],
+          "default": "bsnes",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    },
+    "snes||": {
+      "flags": [],
+      "options": [
+        {
+          "choices": [
+            {
+              "label": "libretro",
+              "value": "libretro"
+            }
+          ],
+          "default": "libretro",
+          "description": "The emulator that runs this system's games.",
+          "group": null,
+          "inherited": null,
+          "key": "emulator",
+          "kind": "choice",
+          "label": "Emulator",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "bsnes",
+              "value": "bsnes"
+            }
+          ],
+          "default": "bsnes",
+          "description": "The emulator's core for this system.",
+          "group": null,
+          "inherited": null,
+          "key": "core",
+          "kind": "choice",
+          "label": "Core",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "maximum 1920x1080",
+              "value": "max-1920x1080"
+            },
+            {
+              "label": "1920x1080 60 Hz",
+              "value": "1920x1080.60000"
+            },
+            {
+              "label": "1280x720 60 Hz",
+              "value": "1280x720.60000"
+            }
+          ],
+          "default": null,
+          "description": "Set the display's resolution.",
+          "group": null,
+          "inherited": null,
+          "key": "videomode",
+          "kind": "choice",
+          "label": "VIDEO MODE",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "4/3",
+              "value": "4/3"
+            },
+            {
+              "label": "16/9",
+              "value": "16/9"
+            },
+            {
+              "label": "Core provided",
+              "value": "core"
+            }
+          ],
+          "default": null,
+          "description": "Force the game to render in this aspect ratio.",
+          "group": null,
+          "inherited": null,
+          "key": "ratio",
+          "kind": "choice",
+          "label": "GAME ASPECT RATIO",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "retro",
+              "value": "retro"
+            },
+            {
+              "label": "scanlines",
+              "value": "scanlines"
+            }
+          ],
+          "default": null,
+          "description": null,
+          "group": null,
+          "inherited": null,
+          "key": "shaderset",
+          "kind": "choice",
+          "label": "SHADER SET",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": "GAME RENDERING & SHADERS",
+          "value": null
+        }
+      ]
+    }
+  },
   "ra": {
     "games": {
       "2": {

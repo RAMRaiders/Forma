@@ -27,6 +27,8 @@ import type {
   Unsubscribe,
   ViewInfo,
   BatoceraSetting,
+  OptionsPage,
+  OptionsScope,
   WifiJoined,
   WifiNetwork
 } from './types.js';
@@ -95,6 +97,7 @@ export class Forma {
   readonly netplay;
   readonly network;
   readonly batocera;
+  readonly options;
   readonly music;
 
   readonly #backend: Backend;
@@ -227,6 +230,19 @@ export class Forma {
       settings: (prefix = '') => invoke<BatoceraSetting[]>('batocera_settings', { prefix }),
       /** Sets one; an empty string clears it. Secrets are set by `ra.login`, not here. */
       set: (key: string, value: string) => invoke<void>('batocera_set', { key, value })
+    };
+
+    /**
+     * Batocera's emulator, core and game options, as EmulationStation's game settings menus
+     * offer them: global, per system, per game. Used by the next launch. Needs the
+     * `settings.emulators` permission; Batocera only.
+     */
+    this.options = {
+      /** The options at a level, with what is set there and what it inherits. */
+      get: (scope: OptionsScope) => invoke<OptionsPage>('options_get', { scope }),
+      /** Sets one, checked against its choices or range; `null` unsets it (it inherits again). */
+      set: (scope: OptionsScope, key: string, value: string | null) =>
+        invoke<void>('options_set', { scope, key, value })
     };
 
     /**
