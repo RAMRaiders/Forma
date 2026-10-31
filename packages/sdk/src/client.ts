@@ -23,6 +23,7 @@ import type {
   ThemeInfo,
   Unsubscribe,
   ViewInfo,
+  BatoceraSetting,
   WifiJoined,
   WifiNetwork
 } from './types.js';
@@ -90,6 +91,7 @@ export class Forma {
   readonly ra;
   readonly netplay;
   readonly network;
+  readonly batocera;
 
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
@@ -178,7 +180,16 @@ export class Forma {
       /** The user's RetroAchievements profile. Read-only: unlocking happens in RetroArch. */
       user: () => invoke<Fetched<RaUser>>('ra_user'),
       /** A local game's achievements and the user's progress in it. */
-      game: (id: number) => invoke<Fetched<RaGame>>('ra_game', { id })
+      game: (id: number) => invoke<Fetched<RaGame>>('ra_game', { id }),
+      /**
+       * Logs in to RetroAchievements and saves the account (and the token the emulators use) in
+       * Batocera's settings, as EmulationStation does. Resolves with the user name; rejects with
+       * `invalid` when RetroAchievements refuses. Needs `settings.batocera`.
+       */
+      login: (username: string, password: string) =>
+        invoke<string>('ra_login', { username, password }),
+      /** Forgets the account and turns achievements off. Needs `settings.batocera`. */
+      logout: () => invoke<void>('ra_logout')
     };
 
     this.netplay = {
@@ -201,6 +212,17 @@ export class Forma {
       /** DHCP or a static address, kept across reboots. The connection drops for a moment. */
       configureEthernet: (config: EthernetConfig) =>
         invoke<void>('network_ethernet_configure', { config })
+    };
+
+    /**
+     * Batocera's RetroAchievements and netplay settings, as EmulationStation's menus set them.
+     * Needs the `settings.batocera` permission; Batocera only.
+     */
+    this.batocera = {
+      /** Settings whose key starts with `prefix`, e.g. `global.netplay`; `''` for all. */
+      settings: (prefix = '') => invoke<BatoceraSetting[]>('batocera_settings', { prefix }),
+      /** Sets one; an empty string clears it. Secrets are set by `ra.login`, not here. */
+      set: (key: string, value: string) => invoke<void>('batocera_set', { key, value })
     };
 
     this.system = {

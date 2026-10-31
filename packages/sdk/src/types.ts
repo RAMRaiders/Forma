@@ -352,3 +352,18 @@ export interface WifiNetwork {
  * it is unplugged.
  */
 export type WifiJoined = 'connected' | 'saved';
+
+/**
+ * One of Batocera's RetroAchievements or netplay settings (`batocera.conf`). Needs the
+ * `settings.batocera` permission; Batocera only.
+ */
+export interface BatoceraSetting {
+  key: string;
+  /** `null` for a secret, and for a key that is not set. */
+  value: string | null;
+  kind: 'bool' | 'text' | 'port' | 'secret' | 'choice';
+  /** For a secret: whether one is saved. */
+  set: boolean;
+  /** The values a choice accepts. */
+  choices: string[];
+}

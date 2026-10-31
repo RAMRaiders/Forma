@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, PoisonError, RwLock};
 use std::time::Duration;
 
+use forma_core::batocera::BatoceraSettings;
 use forma_core::hierarchy::load_views;
 use forma_core::input::{self, InputOptions};
 use forma_core::launch::launcher_from_env;
@@ -65,6 +66,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         launcher: launcher_from_env(),
         http: Box::new(forma_core::net::UreqHttp::default()),
         network: Network::new(Box::new(SystemShell), &paths),
+        batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
         thumbnails: Thumbnailer::spawn(Thumbs::new(
             paths.cache_dir().join("thumbs"),
             thumbs::DEFAULT_MAX_BYTES,

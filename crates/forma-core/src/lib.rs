@@ -4,6 +4,7 @@
 //! hierarchy views, launching games and normalising input. It must not depend on Tauri, so it
 //! can be tested on any machine and reused by other hosts.
 
+pub mod batocera;
 mod error;
 pub mod field;
 pub mod gamelist;

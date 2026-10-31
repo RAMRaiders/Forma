@@ -139,6 +139,31 @@ describe('mock backend', () => {
     ).rejects.toMatchObject({ code: 'invalid' });
   });
 
+  it("Batocera's settings and the RetroAchievements login", async () => {
+    await expect(mockBackend().invoke('batocera_settings', { prefix: '' })).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ permissions: ['settings.batocera'] });
+    const netplay = await b.invoke<{ key: string }[]>('batocera_settings', {
+      prefix: 'global.netplay'
+    });
+    expect(netplay.every((s) => s.key.startsWith('global.netplay'))).toBe(true);
+    await b.invoke('batocera_set', { key: 'global.netplay.relay', value: 'nyc' });
+    await expect(
+      b.invoke('batocera_set', { key: 'global.netplay.relay', value: 'tokyo' })
+    ).rejects.toMatchObject({ code: 'invalid' });
+    await expect(
+      b.invoke('ra_login', { username: 'me', password: 'wrong-password' })
+    ).rejects.toMatchObject({ code: 'invalid' });
+    expect(await b.invoke('ra_login', { username: ' me ', password: 'right' })).toBe('me');
+    const ra = await b.invoke<{ key: string; value: string | null; set: boolean }[]>(
+      'batocera_settings',
+      { prefix: 'global.retroachievements' }
+    );
+    const token = ra.find((s) => s.key === 'global.retroachievements.token')!;
+    expect([token.value, token.set]).toEqual([null, true]);
+  });
+
   it('rejects unknown commands instead of answering null', async () => {
     await expect(mockBackend().invoke('rm_rf')).rejects.toMatchObject({ code: 'notFound' });
   });

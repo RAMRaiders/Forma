@@ -10,6 +10,7 @@ import type { Backend } from '../backend.js';
 import { type ErrorCode, FormaError } from '../errors.js';
 import type {
   Browse,
+  BatoceraSetting,
   DefaultView,
   EthernetConfig,
   Game,
@@ -46,6 +47,7 @@ interface Snapshot {
   ra: { user: RaUser; games: Record<string, RaGame> };
   lobby: NetplayRoom[];
   network: { status: NetworkStatus; wifi: WifiNetwork[] };
+  batocera: BatoceraSetting[];
 }
 
 const snapshot = data as unknown as Snapshot;
@@ -72,6 +74,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const listeners = new Map<string, Set<Handler>>();
   let defaultView: string | null = null;
   const network = structuredClone(snapshot.network);
+  const batocera = new Map(snapshot.batocera.map((s) => [s.key, structuredClone(s)]));
   let playing = false;
 
   const emit = (event: string, payload: unknown) => {
@@ -273,6 +276,54 @@ export function mockBackend(options: MockOptions = {}): Backend {
       }
       return null;
     },
+    batocera_settings: ({ prefix }) => {
+      batoceraAllowed();
+      const p = typeof prefix === 'string' ? prefix : '';
+      return [...batocera.values()].filter((s) => s.key.startsWith(p)).map((s) => ({ ...s }));
+    },
+    batocera_set: ({ key, value }) => {
+      batoceraAllowed();
+      const setting =
+        batocera.get(String(key)) ??
+        fail('invalid', `\`${String(key)}\` is not a setting Forma can change`);
+      const v = typeof value === 'string' ? value.trim() : '';
+      if (setting.kind === 'secret') fail('invalid', `\`${setting.key}\` is set by logging in`);
+      if (setting.kind === 'bool' && v !== '0' && v !== '1') fail('invalid', 'a switch is 0 or 1');
+      if (setting.kind === 'choice' && v && !setting.choices.includes(v)) {
+        fail('invalid', `\`${setting.key}\` is one of: ${setting.choices.join(', ')}`);
+      }
+      setting.value = v || null;
+      setting.set = Boolean(v);
+      return null;
+    },
+    ra_login: ({ username, password }) => {
+      batoceraAllowed();
+      const user = typeof username === 'string' ? username.trim() : '';
+      const secret = typeof password === 'string' ? password : '';
+      // The mock's one wrong password, for trying a theme's error handling.
+      if (!user || !secret || secret === 'wrong-password') {
+        fail('invalid', 'RetroAchievements refused the login: check the username and password');
+      }
+      const put = (key: string, value: string) => {
+        const s = batocera.get(key);
+        if (s) Object.assign(s, { value: s.kind === 'secret' ? null : value, set: true });
+      };
+      put('global.retroachievements', '1');
+      put('global.retroachievements.username', user);
+      put('global.retroachievements.password', secret);
+      put('global.retroachievements.token', 'mock-token');
+      return user;
+    },
+    ra_logout: () => {
+      batoceraAllowed();
+      for (const key of ['global.retroachievements.password', 'global.retroachievements.token']) {
+        const s = batocera.get(key);
+        if (s) Object.assign(s, { value: null, set: false });
+      }
+      const on = batocera.get('global.retroachievements');
+      if (on) Object.assign(on, { value: '0', set: true });
+      return null;
+    },
     system_quit: () => power(),
     system_power: () => power(),
     launch_game: ({ id }) => {
@@ -302,6 +353,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return null;
     }
   };
+
+  function batoceraAllowed(): void {
+    if (!permissions.has('settings.batocera')) {
+      fail('permissionDenied', 'theme `mock` needs the `settings.batocera` permission');
+    }
+  }
 
   function networkAllowed(): void {
     if (!permissions.has('system.network')) {

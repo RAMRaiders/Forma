@@ -23,6 +23,10 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "change Forma settings beyond the theme's own",
     ),
     (
+        "settings.batocera",
+        "change Batocera's RetroAchievements and netplay settings, and log in to RetroAchievements",
+    ),
+    (
         "system.network",
         "see and change the machine's Wi-Fi and Ethernet settings",
     ),

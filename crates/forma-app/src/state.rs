@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard};
 
+use forma_core::batocera::BatoceraSettings;
 use forma_core::hierarchy::ViewCatalog;
 use forma_core::input::InputHandle;
 use forma_core::launch::Launcher;
@@ -33,6 +34,8 @@ pub struct AppState {
     pub http: Box<dyn Http>,
     /// This box's Ethernet and Wi-Fi, through Batocera's tools.
     pub network: Network,
+    /// Batocera's RetroAchievements and netplay settings.
+    pub batocera: BatoceraSettings,
     /// Resized artwork, made in the background.
     pub thumbnails: Thumbnailer,
     pub playing: AtomicBool,

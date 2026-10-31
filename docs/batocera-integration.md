@@ -40,6 +40,15 @@ batocera-services start forma                          # take over now, or reboo
 For development, `FORMA_USERDATA` and `FORMA_SYSTEMS_CFG` point these at
 `fixtures/userdata`.
 
+## RetroAchievements and netplay settings
+
+The menus change the same `batocera.conf` keys as EmulationStation's, through
+`batocera-settings-set`: `global.retroachievements.*` and `global.netplay.*`, and nothing else.
+Logging in calls RetroAchievements' `dorequest.php?r=login`, as ES does, and saves the account
+with its token (the emulators use the token; RetroArch clears the password). The netplay relay is
+one of `none`, `nyc`, `madrid`, `montreal`, `saopaulo` or `custom` (with
+`global.netplay.customserver`).
+
 ## Network settings
 
 The menu's Network screen (`forma.network` in the SDK, `system.network` permission) changes the

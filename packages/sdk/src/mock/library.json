@@ -1,5 +1,142 @@
 {
   "apiVersion": "1.0.0",
+  "batocera": [
+    {
+      "choices": [],
+      "key": "global.retroachievements",
+      "kind": "bool",
+      "set": true,
+      "value": "1"
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.username",
+      "kind": "text",
+      "set": true,
+      "value": "fixture-user"
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.password",
+      "kind": "secret",
+      "set": true,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.token",
+      "kind": "secret",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.hardcore",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.encore",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.leaderboards",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.richpresence",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.verbose",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.screenshot",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.challenge_indicators",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.retroachievements.unofficial",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [
+        "none"
+      ],
+      "key": "global.retroachievements.sound",
+      "kind": "choice",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.netplay",
+      "kind": "bool",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.netplay.nickname",
+      "kind": "text",
+      "set": true,
+      "value": "FixturePlayer"
+    },
+    {
+      "choices": [],
+      "key": "global.netplay.port",
+      "kind": "port",
+      "set": true,
+      "value": "55435"
+    },
+    {
+      "choices": [
+        "none",
+        "nyc",
+        "madrid",
+        "montreal",
+        "saopaulo",
+        "custom"
+      ],
+      "key": "global.netplay.relay",
+      "kind": "choice",
+      "set": false,
+      "value": null
+    },
+    {
+      "choices": [],
+      "key": "global.netplay.customserver",
+      "kind": "text",
+      "set": false,
+      "value": null
+    }
+  ],
   "browse": {
     "[\"favorites\"]": {
       "listing": {

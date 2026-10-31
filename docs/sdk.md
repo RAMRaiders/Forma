@@ -177,6 +177,28 @@ setting `ra.apiKey`; without it they reject with `notConfigured` and a message s
 username defaults to the one Batocera logs in with. `game()` rejects with `notFound` when no
 RetroAchievements id is known for the game yet (matching by hash arrives in Milestone 2).
 
+### Logging in
+
+`ra.login(username, password)` checks the account with RetroAchievements and saves it in
+Batocera's settings with the session token the emulators use, as EmulationStation does; it
+resolves with the user name as RetroAchievements spells it, and rejects with `invalid` (saving
+nothing) when the login is refused. `ra.logout()` forgets it. Both need `settings.batocera`.
+
+## `batocera`
+
+Batocera's RetroAchievements and netplay settings (`global.retroachievements.*`,
+`global.netplay.*` in `batocera.conf`), as EmulationStation's menus set them. Needs the
+`settings.batocera` permission; Batocera only.
+
+| Method              | Returns                                                                      |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `settings(prefix?)` | `{ key, value, kind, set, choices }` for each setting starting with `prefix` |
+| `set(key, value)`   | Sets one (an empty string clears it), checked against its kind               |
+
+`kind` is `bool` (`'0'`/`'1'`), `text`, `port`, `choice` (one of `choices`, e.g. the netplay
+relays or the unlock sounds) or `secret`. A secret's `value` is always `null`: a theme only learns
+whether one is `set`, and sets it through `ra.login`.
+
 ## `netplay`
 
 | Method    | Returns                                                                |

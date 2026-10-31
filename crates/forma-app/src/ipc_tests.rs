@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
+use forma_core::batocera::BatoceraSettings;
 use forma_core::hierarchy::load_views;
 use forma_core::launch::MockLauncher;
 use forma_core::net::{Http, HttpError};
@@ -65,6 +66,7 @@ impl Harness {
             launcher: Box::new(MockLauncher::new(Duration::from_millis(20))),
             http: Box::new(FixtureHttp),
             network: Network::new(Box::new(SystemShell), &paths),
+            batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             thumbnails: forma_core::thumbs::Thumbnailer::spawn(forma_core::thumbs::Thumbs::new(
                 root.join("thumbs"),
                 forma_core::thumbs::DEFAULT_MAX_BYTES,
@@ -345,6 +347,28 @@ fn network_settings_need_permission_and_are_refused_outside_batocera() {
         )
         .unwrap_err();
     assert_eq!(code(&err), "unsupported");
+}
+
+#[test]
+fn batocera_settings_need_permission_and_are_refused_outside_batocera() {
+    let h = Harness::new(&[]);
+    for (cmd, args) in [
+        ("batocera_settings", json!({ "prefix": "global.netplay" })),
+        (
+            "batocera_set",
+            json!({ "key": "global.netplay", "value": "1" }),
+        ),
+        ("ra_login", json!({ "username": "u", "password": "p" })),
+        ("ra_logout", json!({})),
+    ] {
+        let err = h.call(cmd, args.clone()).unwrap_err();
+        assert_eq!(code(&err), "permissionDenied", "{cmd}");
+    }
+    let allowed = Harness::new(&["settings.batocera"]);
+    let err = allowed
+        .call("batocera_settings", json!({ "prefix": "" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "unsupported", "{err}");
 }
 
 #[test]

@@ -45,6 +45,10 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::network_wifi_join,
         commands::network_wifi_set_enabled,
         commands::network_ethernet_configure,
+        commands::batocera_settings,
+        commands::batocera_set,
+        commands::ra_login,
+        commands::ra_logout,
     ]
 }
 

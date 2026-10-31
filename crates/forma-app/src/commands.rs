@@ -5,6 +5,7 @@
 use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
+use forma_core::batocera::Setting;
 use forma_core::hierarchy::{Browse, DEFAULT_VIEW_SETTING, Listing, Origin, Page};
 use forma_core::launch::{self, Controller, GameEvent, LaunchRequest};
 use forma_core::net::{Fetched, achievements, netplay};
@@ -574,6 +575,65 @@ pub async fn network_ethernet_configure<R: Runtime>(
     off_thread(app, move |state| {
         network_allowed(state)?;
         Ok(state.network.ethernet_configure(&config)?)
+    })
+    .await
+}
+
+/// Batocera's settings belong to Batocera's tools: refused anywhere else, as power is.
+fn batocera_allowed(state: &AppState) -> ApiResult<()> {
+    permissions::require(&theme(state)?, permissions::SETTINGS_BATOCERA)?;
+    if !state.on_batocera {
+        return Err(ApiError::new(
+            ErrorCode::Unsupported,
+            "Batocera's settings are only available on Batocera",
+        ));
+    }
+    Ok(())
+}
+
+/// Batocera's RetroAchievements or netplay settings (`prefix`, e.g. `global.netplay`). Secrets
+/// only say whether they are set.
+#[tauri::command]
+pub fn batocera_settings(state: State<'_, AppState>, prefix: String) -> ApiResult<Vec<Setting>> {
+    batocera_allowed(&state)?;
+    Ok(state.batocera.get(&prefix))
+}
+
+#[tauri::command]
+pub async fn batocera_set<R: Runtime>(
+    app: AppHandle<R>,
+    key: String,
+    value: String,
+) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        batocera_allowed(state)?;
+        Ok(state.batocera.set(&key, &value)?)
+    })
+    .await
+}
+
+/// Logs in to RetroAchievements and saves the account and its token, as ES does. Returns the
+/// user name as RetroAchievements spells it.
+#[tauri::command]
+pub async fn ra_login<R: Runtime>(
+    app: AppHandle<R>,
+    username: String,
+    password: String,
+) -> ApiResult<String> {
+    off_thread(app, move |state| {
+        batocera_allowed(state)?;
+        Ok(state
+            .batocera
+            .ra_login(&*state.http, &username, &password)?)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn ra_logout<R: Runtime>(app: AppHandle<R>) -> ApiResult<()> {
+    off_thread(app, |state| {
+        batocera_allowed(state)?;
+        Ok(state.batocera.ra_logout()?)
     })
     .await
 }

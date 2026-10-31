@@ -20,6 +20,7 @@ import type {
   RaGame,
   RaRecent,
   RaUser,
+  BatoceraSetting,
   WifiNetwork,
   WifiStatus
 } from './types.js';
@@ -174,5 +175,13 @@ describe('contract with the engine', () => {
     const network = keys<WifiNetwork>()('ssid', 'strength', 'security', 'connected', 'saved');
     for (const n of wifi) expect(sorted(n)).toEqual(network);
     expect(new Set(wifi.map((n) => n.security))).toEqual(new Set(['psk', 'open', 'enterprise']));
+  });
+
+  it("Batocera's settings, with secrets never read back", () => {
+    const setting = keys<BatoceraSetting>()('key', 'value', 'kind', 'set', 'choices');
+    for (const s of data.batocera) expect(sorted(s)).toEqual(setting);
+    const password = data.batocera.find((s) => s.key === 'global.retroachievements.password')!;
+    expect(password.value).toBeNull();
+    expect(data.batocera.find((s) => s.key === 'global.netplay.relay')!.choices).toContain('nyc');
   });
 });

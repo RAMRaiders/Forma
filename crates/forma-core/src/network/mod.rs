@@ -29,32 +29,7 @@ use crate::paths::Paths;
 
 use connman::ServiceLine;
 
-/// Runs the system's tools; a fake one in tests.
-pub trait Shell: Send + Sync {
-    /// Runs `program` to completion and returns its standard output.
-    fn run(&self, program: &str, args: &[&str]) -> Result<String>;
-}
-
-/// Runs real programs, with the host's environment rather than the AppImage's (see
-/// [`crate::host`]): `connmand`, restarted from here, must not load Forma's libraries. Errors
-/// name the program, never its arguments: those can hold a Wi-Fi password.
-pub struct SystemShell;
-
-impl Shell for SystemShell {
-    fn run(&self, program: &str, args: &[&str]) -> Result<String> {
-        let out = crate::host::command(program)
-            .args(args)
-            .stdin(std::process::Stdio::null())
-            .output()
-            .map_err(|e| Error::Network(format!("could not run `{program}`: {e}")))?;
-        if !out.status.success() {
-            let stderr = String::from_utf8_lossy(&out.stderr);
-            let why = stderr.lines().next().unwrap_or("no message");
-            return Err(Error::Network(format!("`{program}` failed: {why}")));
-        }
-        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
-    }
-}
+pub use crate::host::{Shell, SystemShell};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
