@@ -1,13 +1,18 @@
 # Import format
 
-How another tool feeds RomDex what `gamelist.xml` cannot carry — ROM hashes above all — so
-RomDex never re-hashes a library on a Raspberry Pi. RetroWorker is the first producer, but the
+How another tool feeds Forma what `gamelist.xml` cannot carry — ROM hashes above all — so
+Forma never re-hashes a library on a Raspberry Pi. RetroWorker is the first producer, but the
 format is the whole contract: no code is shared, and anything that writes these files works.
+
+The header says `romdex-import`, not `forma-import`, on purpose: identifying ROMs (hashing,
+DAT matching, RetroAchievements hashes) is planned as its own project, `romdex`, and this is
+its format. Forma reads it today; the specification will move to that repository when it
+exists, unchanged.
 
 ## Where files go
 
-`/userdata/system/romdex/import/*.jsonl` (RomDex creates the folder). One file per producer is
-the convention, e.g. `retroworker.jsonl`. RomDex notices new, changed and deleted files on its
+`/userdata/system/forma/import/*.jsonl` (Forma creates the folder). One file per producer is
+the convention, e.g. `retroworker.jsonl`. Forma notices new, changed and deleted files on its
 own; write to a temporary name and rename it into place, so it never reads half a file.
 
 ## Shape
@@ -71,9 +76,9 @@ Metadata keys: `name`, `description`, `developer`, `publisher`, `genre`, `player
 
 There is deliberately no favourite, play count or last played: those belong to the user.
 
-## How RomDex applies it
+## How Forma applies it
 
-- **Precedence:** what the user sets in RomDex wins, then imports, then `gamelist.xml`. A field
+- **Precedence:** what the user sets in Forma wins, then imports, then `gamelist.xml`. A field
   an import does not set keeps the gamelist's value.
 - **Several files:** read in name order; where two set the same field, the later file wins.
 - **Changes:** any change to the import files (one edited, added or deleted) re-applies them
@@ -87,15 +92,15 @@ There is deliberately no favourite, play count or last played: those belong to t
 
 ## What it is used for
 
-- **RetroAchievements:** `raGameId` links a game to its achievements (`romdex.ra.game`). The
-  `ra` hash lets RomDex match games by hash (#41) without hashing them on the device.
+- **RetroAchievements:** `raGameId` links a game to its achievements (`forma.ra.game`). The
+  `ra` hash lets Forma match games by hash (#41) without hashing them on the device.
 - **Netplay:** lobby rooms are matched to local games by CRC first, then by name.
 - **Metadata and media** from a producer that knows better than the scraper.
 
 ## Versioning
 
 Additions that older readers can ignore (a new optional field) keep `formatVersion` 1. A change
-in meaning bumps it, and older RomDex versions then skip the file rather than misread it.
+in meaning bumps it, and older Forma versions then skip the file rather than misread it.
 
 A sample with deliberate mistakes, used by the tests, is
 [`fixtures/import/retroworker.jsonl`](../fixtures/import/retroworker.jsonl).

@@ -1,5 +1,5 @@
 import { type Backend, inTauri, tauriBackend } from './backend.js';
-import { RomDexError } from './errors.js';
+import { FormaError } from './errors.js';
 import { keyToInput } from './keyboard.js';
 import type { MockOptions } from './mock/backend.js';
 import type {
@@ -25,7 +25,7 @@ import type {
 import { SDK_VERSION, satisfies } from './version.js';
 
 export interface ConnectOptions {
-  /** Defaults to Tauri inside RomDex and the mock in a plain browser. */
+  /** Defaults to Tauri inside Forma and the mock in a plain browser. */
   backend?: Backend;
   /** Options for the mock, when it is used. */
   mock?: MockOptions;
@@ -34,29 +34,29 @@ export interface ConnectOptions {
 }
 
 /**
- * Connects to RomDex: checks the host speaks a compatible SDK version, then tells it the theme
+ * Connects to Forma: checks the host speaks a compatible SDK version, then tells it the theme
  * has started (a theme that never does is replaced by the default one).
  */
-export async function connect(options: ConnectOptions = {}): Promise<RomDex> {
+export async function connect(options: ConnectOptions = {}): Promise<Forma> {
   let backend = options.backend;
   if (!backend) {
     if (inTauri()) {
       backend = tauriBackend();
     } else {
-      // Loaded only outside RomDex, so the mock's data never ships inside the app's bundle path.
+      // Loaded only outside Forma, so the mock's data never ships inside the app's bundle path.
       const { mockBackend } = await import('./mock/backend.js');
-      console.info('[romdex] not running inside RomDex: using the mock library');
+      console.info('[forma] not running inside Forma: using the mock library');
       backend = mockBackend(options.mock);
     }
   }
   const host = await call<string>(backend, 'sdk_api_version');
   if (!satisfies(`^${SDK_VERSION}`, host)) {
-    throw new RomDexError(
+    throw new FormaError(
       'incompatible',
-      `this theme needs RomDex SDK ^${SDK_VERSION}, but RomDex provides ${host}`
+      `this theme needs Forma SDK ^${SDK_VERSION}, but Forma provides ${host}`
     );
   }
-  const sdk = new RomDex(backend, host, options.keyboard ?? true);
+  const sdk = new Forma(backend, host, options.keyboard ?? true);
   await call(backend, 'theme_ready');
   return sdk;
 }
@@ -65,14 +65,14 @@ async function call<T>(backend: Backend, command: string, args?: Record<string, 
   try {
     return await backend.invoke<T>(command, args);
   } catch (cause) {
-    throw RomDexError.from(cause);
+    throw FormaError.from(cause);
   }
 }
 
-export class RomDex {
-  /** The SDK API version RomDex provides. */
+export class Forma {
+  /** The SDK API version Forma provides. */
   readonly hostVersion: string;
-  /** `tauri` inside RomDex, `mock` in a browser. */
+  /** `tauri` inside Forma, `mock` in a browser. */
   readonly backendKind: Backend['kind'];
 
   readonly library;
@@ -117,7 +117,7 @@ export class RomDex {
       /** One page of a view at `path` (group keys or branch ids, from the root down). */
       browse: (view: string, path: string[] = [], page?: Page) =>
         invoke<Browse>('nav_browse', { view, path, page }),
-      /** The view RomDex opens with: the user's choice, else the theme's, else `systems`. */
+      /** The view Forma opens with: the user's choice, else the theme's, else `systems`. */
       defaultView: () => invoke<DefaultView>('nav_default_view'),
       /** Makes `id` the boot view; `null` clears the choice. */
       setDefaultView: (id: string | null) => invoke<void>('nav_set_default_view', { id })
@@ -132,7 +132,7 @@ export class RomDex {
       /** The theme's own settings, private to it. */
       get: <T = unknown>(key: string) => invoke<T | null>('settings_get', { key }),
       set: (key: string, value: unknown) => invoke<void>('settings_set', { key, value }),
-      /** RomDex's settings. Needs the `settings.system` permission. */
+      /** Forma's settings. Needs the `settings.system` permission. */
       getSystem: <T = unknown>(key: string) =>
         invoke<T | null>('settings_get', { key, scope: 'system' }),
       setSystem: (key: string, value: unknown) =>

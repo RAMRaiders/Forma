@@ -1,18 +1,18 @@
-# RomDex
+# Forma
 
 A modern frontend for [Batocera](https://batocera.org/), built to replace EmulationStation.
 
 > **Status: early development.** Milestone 1 (Core MVP) is in progress. Track it on the
-> [RomDex Roadmap](https://github.com/orgs/RAMRaiders/projects/5).
+> [Forma Roadmap](https://github.com/orgs/RAMRaiders/projects/5).
 
 ## Why
 
 EmulationStation themes are XML layouts with a fixed set of elements, and the library is
-organised one way: system, then games. RomDex keeps everything Batocera already does well —
+organised one way: system, then games. Forma keeps everything Batocera already does well —
 its systems, `gamelist.xml` metadata and `emulatorlauncher` — and replaces the part you look at:
 
 - **Themes are web apps.** HTML, CSS and JavaScript, with any layout, animation or framework.
-- **A public SDK.** `@romdex/sdk` exposes the library, navigation, launching, input, settings,
+- **A public SDK.** `@forma/sdk` exposes the library, navigation, launching, input, settings,
   RetroAchievements and netplay. The bundled theme uses nothing else, so anything it does, your
   theme can do.
 - **Your own hierarchy.** Browse by manufacturer → system, genre, year, collections, or a view
@@ -30,9 +30,9 @@ its systems, `gamelist.xml` metadata and `emulatorlauncher` — and replaces the
 
 | Path                     | What it is                                                       |
 | ------------------------ | ---------------------------------------------------------------- |
-| `crates/romdex-core`     | Rust core: library, hierarchy engine, launcher, input. No Tauri. |
-| `crates/romdex-app`      | Tauri 2 shell that hosts themes and exposes the core to them.    |
-| `packages/sdk`           | `@romdex/sdk`, the public TypeScript API for themes.             |
+| `crates/forma-core`      | Rust core: library, hierarchy engine, launcher, input. No Tauri. |
+| `crates/forma-app`       | Tauri 2 shell that hosts themes and exposes the core to them.    |
+| `packages/sdk`           | `@forma/sdk`, the public TypeScript API for themes.              |
 | `packages/theme-default` | The reference theme, built only on the SDK.                      |
 | `fixtures/userdata`      | A fake Batocera `/userdata` for tests and development.           |
 

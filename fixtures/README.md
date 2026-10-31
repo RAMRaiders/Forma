@@ -7,10 +7,10 @@ A small fake Batocera install for tests and `npm run dev`.
 | `usr-share-emulationstation` | `/usr/share/emulationstation` (base systems)    |
 | `userdata`                   | `/userdata` (ROMs, gamelists, overlays, config) |
 
-Point RomDex at it with:
+Point Forma at it with:
 
 ```sh
-ROMDEX_USERDATA=fixtures/userdata ROMDEX_SYSTEMS_CFG=fixtures/usr-share-emulationstation/es_systems.cfg
+FORMA_USERDATA=fixtures/userdata FORMA_SYSTEMS_CFG=fixtures/usr-share-emulationstation/es_systems.cfg
 ```
 
 **Never add real ROMs or copyrighted artwork.** ROM files here are empty and images are 1×1

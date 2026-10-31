@@ -3,39 +3,39 @@
 ## Layers
 
 ```
- theme (HTML/CSS/JS)  ──uses──▶  @romdex/sdk  ──invoke/listen──▶  romdex-app (Tauri)  ──▶  romdex-core
+ theme (HTML/CSS/JS)  ──uses──▶  @forma/sdk  ──invoke/listen──▶  forma-app (Tauri)  ──▶  forma-core
                                                                                               │
                                      Batocera: es_systems.cfg, gamelist.xml, batocera.conf ◀──┤
                                      emulatorlauncher                                    ◀──┘
 ```
 
-- **romdex-core** owns every decision that is not about a window: parsing Batocera's files,
+- **forma-core** owns every decision that is not about a window: parsing Batocera's files,
   the SQLite library index, the hierarchy engine, building `emulatorlauncher` commands and
   normalising gamepad input. It does not depend on Tauri, so it is testable anywhere.
-- **romdex-app** is deliberately thin: a fullscreen window, the `romdex://theme` and
-  `romdex://media` protocols, one command per SDK call, and the permission check in front of
+- **forma-app** is deliberately thin: a fullscreen window, the `forma://theme` and
+  `forma://media` protocols, one command per SDK call, and the permission check in front of
   each privileged command.
-- **@romdex/sdk** is the only API themes use. It is versioned (`theme.json` declares
+- **@forma/sdk** is the only API themes use. It is versioned (`theme.json` declares
   `"sdk": "^1"`) and ships a mock backend so themes can be built in a normal browser.
 
 ## The library database
 
-SQLite (WAL) is RomDex's **primary store**. Boot reads it directly, so the UI appears without
+SQLite (WAL) is Forma's **primary store**. Boot reads it directly, so the UI appears without
 parsing any XML. `gamelist.xml` is not the store, for four reasons: it has to be parsed in full
 per system before anything shows, it has no indexes for grouping or search, every change
-rewrites the whole file, and it has nowhere to keep RomDex's own data (RetroAchievements ids,
+rewrites the whole file, and it has nowhere to keep Forma's own data (RetroAchievements ids,
 ROM hashes, playtime, custom collections).
 
 Data flows in from three sources, and each field records which one set it:
 
 | Source                                       | How it arrives                                                     | Precedence |
 | -------------------------------------------- | ------------------------------------------------------------------ | ---------- |
-| The user, in RomDex                          | Favourites, collections, settings                                  | highest    |
+| The user, in Forma                           | Favourites, collections, settings                                  | highest    |
 | External import ([format](import-format.md)) | Versioned JSON Lines dropped in a watched folder, e.g. RetroWorker | middle     |
 | `gamelist.xml` (#9)                          | Whatever Batocera's or any other scraper wrote                     | lowest     |
 
 - **Batocera's files are read, never owned.** Batocera, Skraper and other scrapers keep writing
-  `gamelist.xml`; RomDex re-imports only the files that changed (#55 watches for them).
+  `gamelist.xml`; Forma re-imports only the files that changed (#55 watches for them).
 - **RetroWorker feeds the richer route.** It can export what `gamelist.xml` cannot carry —
   notably the ROM hashes it already computes for RetroAchievements, so a device never has to
   re-hash its library. The import format is a documented contract, not shared code, so the
@@ -43,11 +43,11 @@ Data flows in from three sources, and each field records which one set it:
 - **Write-back is optional and later** (#58, M3): favourites and play stats only, atomically,
   so EmulationStation still sees them when it is the fallback.
 
-RomDex still launches through Batocera's own `emulatorlauncher`.
+Forma still launches through Batocera's own `emulatorlauncher`.
 
 ### Staying current
 
-Boot reads the database as it is; a background thread (`romdex_core::sync`) then reconciles it
+Boot reads the database as it is; a background thread (`forma_core::sync`) then reconciles it
 with the disk on its own connection, which WAL lets run alongside the UI's reads. After that it
 follows changes:
 
@@ -62,16 +62,16 @@ follows changes:
 
 ### Artwork
 
-Themes ask for images at the width they show them (`?w=480`). RomDex snaps that up to one of a
+Themes ask for images at the width they show them (`?w=480`). Forma snaps that up to one of a
 few sizes (160–1280 px), makes a resized copy on a single background thread (JPEG, or PNG when
 the art has transparency), and serves the original until the copy exists. Copies are keyed by
 the source's path, size and modification time, capped at 512 MB with the oldest evicted, and
-live in `/userdata/system/romdex/cache/thumbs`, safe to delete. WebP would be smaller, but the
+live in `/userdata/system/forma/cache/thumbs`, safe to delete. WebP would be smaller, but the
 pure-Rust encoder only writes lossless WebP, which is larger than JPEG for box art.
 
 ### Measured
 
-`cargo run --release -p romdex-core --example bench_library` generates 10 systems × 2,000 games
+`cargo run --release -p forma-core --example bench_library` generates 10 systems × 2,000 games
 with full gamelists and times what a user feels. On an Apple M-series laptop, 2026-10-30:
 
 | Operation                                  |   Time |

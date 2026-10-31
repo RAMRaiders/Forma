@@ -2,7 +2,7 @@
 
 > Design only. Nothing here is packaged or deployed yet; that is Milestone 3.
 
-## What RomDex reads
+## What Forma reads
 
 | Batocera file                                                | Used for                               |
 | ------------------------------------------------------------ | -------------------------------------- |
@@ -11,14 +11,14 @@
 | `/userdata/roms/<system>/gamelist.xml`                       | Game metadata and media paths          |
 | `/userdata/system/batocera.conf`                             | RetroAchievements and netplay settings |
 
-For development, `ROMDEX_USERDATA` and `ROMDEX_SYSTEMS_CFG` point these at
+For development, `FORMA_USERDATA` and `FORMA_SYSTEMS_CFG` point these at
 `fixtures/userdata`.
 
 ## Launching
 
 Games launch with the system's own `<command>` template from `es_systems.cfg`, as
 EmulationStation does, so emulator choice, per-game settings and RetroArch achievements are
-still decided by Batocera's configgen. RomDex fills the same placeholders:
+still decided by Batocera's configgen. Forma fills the same placeholders:
 
 | Placeholder           | Becomes                                                |
 | --------------------- | ------------------------------------------------------ |
@@ -37,27 +37,27 @@ Two deliberate differences from EmulationStation:
 - **Overrides and netplay are appended** as `-emulator`, `-core`, and
   `-netplaymode host|client -netplayip … -netplayport …`.
 
-The emulator's output goes to `/userdata/system/romdex/run/launch.log`. After a session RomDex
+The emulator's output goes to `/userdata/system/forma/run/launch.log`. After a session Forma
 records play count, last played and time played as the user's own data; a launch that fails
 within 10 seconds is not counted.
 
 **Not yet matched:** EmulationStation also passes each pad's button, hat and axis counts and
 its `/dev/input` path. gilrs does not expose them; configgen matches controllers by GUID and
-name, which RomDex does pass. Whether that is enough on real hardware is part of the spike
+name, which Forma does pass. Whether that is enough on real hardware is part of the spike
 (#39).
 
-For development without Batocera, `ROMDEX_LAUNCHER=mock` logs the command it would run and
+For development without Batocera, `FORMA_LAUNCHER=mock` logs the command it would run and
 "plays" for two seconds.
 
 ## RetroAchievements and netplay
 
-RetroAchievements unlocking stays in RetroArch, set up by Batocera from `batocera.conf`. RomDex
+RetroAchievements unlocking stays in RetroArch, set up by Batocera from `batocera.conf`. Forma
 only shows progress, through the Web API, which needs the user's **web API key**: Batocera stores
-the account password for RetroArch, not that key. It is the RomDex setting `ra.apiKey`; the
+the account password for RetroArch, not that key. It is the Forma setting `ra.apiKey`; the
 username comes from `global.retroachievements.username` unless `ra.username` overrides it.
 
 The netplay lobby is read from `lobby.libretro.com`. Answers from both are cached under
-`/userdata/system/romdex/cache/`, and served marked stale when offline.
+`/userdata/system/forma/cache/`, and served marked stale when offline.
 
 ## The WebView spike (#39)
 
@@ -79,24 +79,24 @@ slow; building on an arm64 machine (a Pi 4 or 5 with Raspberry Pi OS) is faster.
 ### A library worth scrolling
 
 ```sh
-cargo run --release -p romdex-core --example bench_library -- 10 2000 --keep ./spike-library
+cargo run --release -p forma-core --example bench_library -- 10 2000 --keep ./spike-library
 ```
 
 Copy `spike-library/` to the device. Its paths are written as `/userdata/...`, so it works
-from wherever `ROMDEX_USERDATA` points.
+from wherever `FORMA_USERDATA` points.
 
 ### On each device
 
 1. Copy the AppImage and `scripts/spike/measure.sh` to `/userdata/`, e.g. with `scp`.
 2. Stop EmulationStation, so the two do not compete for the screen and the GPU.
 3. From the graphical session (X11 or Wayland, depending on the Batocera version and board), run
-   `/userdata/measure.sh /userdata/RomDex-*.AppImage 90 /userdata/spike-library/userdata`.
+   `/userdata/measure.sh /userdata/Forma-*.AppImage 90 /userdata/spike-library/userdata`.
 4. While it runs: open a system with 2,000 games, hold down for ten seconds, page with the
    shoulder buttons, open a game and let its video preview play. Note the overlay's figures.
 5. Repeat with the fixture library (small) for a baseline, and restart EmulationStation.
 
 `measure.sh` prints the start-up time (process start to the theme reporting ready) and the
-peak and settled memory of RomDex plus its WebKit processes.
+peak and settled memory of Forma plus its WebKit processes.
 
 Things to watch for and note: the AppImage refusing to start (missing libraries, no FUSE; the
 script sets `APPIMAGE_EXTRACT_AND_RUN=1`), a black window (GPU or compositor), and whether
@@ -114,9 +114,9 @@ running underneath. The x86_64 box has not been measured yet.
 | AppImage size                               |        | 82 MB; 259 MB extracted                                       | < 150 MB |
 | Launch to ready, AppImage (unpacks to /tmp) |        | 2.5 s                                                         | < 3 s    |
 | Launch to ready, extracted, cold / warm     |        | 2.6 s / 0.55 s                                                | < 3 s    |
-| Inside RomDex: process start to ready       |        | 0.4–0.6 s warm, 1.4 s cold                                    |          |
+| Inside Forma: process start to ready        |        | 0.4–0.6 s warm, 1.4 s cold                                    |          |
 | First import of 20,000 games                |        | done before the first screenshot (< 20 s)                     |          |
-| Memory, RomDex + WebKit (PSS / RSS)         |        | 234 MiB / 345 MiB                                             | < 400 MB |
+| Memory, Forma + WebKit (PSS / RSS)          |        | 234 MiB / 345 MiB                                             | < 400 MB |
 | Idle on the systems grid                    |        | 60 fps, p95 18 ms                                             | 60 / 17  |
 | Holding down in a 2,000-game list           |        | 20 fps, p95 66 ms → **57–60 fps, p95 19–27 ms** after the fix | 60 / 17  |
 | Paging (shoulder button)                    |        | 58 fps, p95 25 ms                                             | 60 / 17  |
@@ -131,7 +131,7 @@ What it found:
   loaded its art on every step, 20 times a second. The panel now waits for movement to settle
   (it still updates at once on a single press): 20 fps became 57–60.
 - **Do not ship it as a self-unpacking AppImage.** Batocera has FUSE 3 only, so the AppImage
-  unpacks itself on every start into `/tmp`, which is RAM: 259 MB gone before RomDex starts.
+  unpacks itself on every start into `/tmp`, which is RAM: 259 MB gone before Forma starts.
   Extracted once onto `/userdata`, it costs nothing in RAM and starts in 0.55 s warm.
 - On a cold cache most of the start is reading 259 MB of libraries from `/userdata` (an
   external disk here); a smaller bundle, or WebKitGTK in the image, would cut it.
@@ -156,4 +156,4 @@ one is at hand, and with a gamepad and real video before Milestone 3 closes.
 - **Go, slimmer** if it works but is heavy: try a custom image with WebKitGTK built in-tree.
 - **No-go** if WebKitGTK cannot render acceptably on the Pi 4: fall back to a Chromium-based
   runtime (CEF or Electron, as `batocode-arcade` already runs on Batocera) behind the same
-  `romdex-core` and SDK. Themes would not change; only `romdex-app` would.
+  `forma-core` and SDK. Themes would not change; only `forma-app` would.

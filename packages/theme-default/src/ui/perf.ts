@@ -18,7 +18,7 @@ export interface PerfStats {
 
 /**
  * Frame timing for the Batocera spike (#39): shown when the page is opened with `#perf`, which
- * RomDex adds when started with `ROMDEX_PERF=1`. `report` receives the numbers once a second,
+ * Forma adds when started with `FORMA_PERF=1`. `report` receives the numbers once a second,
  * so they can be read off a device nobody is watching.
  */
 export function startPerfOverlay(report: (stats: PerfStats) => void = () => {}): void {

@@ -1,8 +1,8 @@
-import type { ViewInfo } from '@romdex/sdk';
+import type { ViewInfo } from '@forma/sdk';
 
 import { el } from './dom.js';
 
-/** The overlay for choosing a view, and which one RomDex opens with. */
+/** The overlay for choosing a view, and which one Forma opens with. */
 export class Switcher {
   readonly root = el('div', { class: 'overlay switcher', hidden: '' });
   #items: HTMLElement[] = [];

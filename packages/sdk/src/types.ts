@@ -1,5 +1,5 @@
 /**
- * The shapes RomDex sends and accepts. They mirror the Rust types' JSON exactly; the contract
+ * The shapes Forma sends and accepts. They mirror the Rust types' JSON exactly; the contract
  * test checks these field lists against the real engine's output.
  */
 
@@ -216,7 +216,7 @@ export type Unsubscribe = () => void;
 /** An answer from an online service, and whether it is fresh. */
 export interface Fetched<T> {
   data: T;
-  /** Served from RomDex's cache because the service could not be reached. */
+  /** Served from Forma's cache because the service could not be reached. */
   stale: boolean;
   /** When the data was fetched, ISO 8601 UTC. */
   fetchedAt: string;

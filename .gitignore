@@ -9,11 +9,11 @@ coverage/
 target/
 
 # Tauri generates these from the capability files and config on every build.
-crates/romdex-app/gen/
+crates/forma-app/gen/
 
 # What `npm run dev` writes into the fixtures: the library database, views, user themes.
-fixtures/userdata/system/romdex/
-fixtures/userdata/themes-romdex/
+fixtures/userdata/system/forma/
+fixtures/userdata/themes-forma/
 
 # Environment files
 .env

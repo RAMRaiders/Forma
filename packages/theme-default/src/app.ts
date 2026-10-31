@@ -1,5 +1,5 @@
-import type { Action, Browse, Game, InputEvent, RomDex, ViewInfo } from '@romdex/sdk';
-import { RomDexError } from '@romdex/sdk';
+import type { Action, Browse, Game, InputEvent, Forma, ViewInfo } from '@forma/sdk';
+import { FormaError } from '@forma/sdk';
 
 import { type Move, moveGrid, moveList } from './logic/nav.js';
 import { LazyList } from './logic/pager.js';
@@ -37,7 +37,7 @@ export class App {
   readonly #grid = new GridView();
   readonly #games = new GamesView((game) => {
     const kind = game.media.image ? 'image' : game.media.thumbnail ? 'thumbnail' : null;
-    return kind ? this.romdex.library.mediaUrl(game.id, kind, DETAIL_WIDTH) : null;
+    return kind ? this.forma.library.mediaUrl(game.id, kind, DETAIL_WIDTH) : null;
   });
   readonly #switcher = new Switcher();
 
@@ -52,7 +52,7 @@ export class App {
   #reloadTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
-    private readonly romdex: RomDex,
+    private readonly forma: Forma,
     root: HTMLElement
   ) {
     root.replaceChildren(
@@ -66,27 +66,27 @@ export class App {
   }
 
   async start(): Promise<void> {
-    this.romdex.input.on((e) => this.#onInput(e));
-    this.romdex.events.on('library:changed', () => this.#reloadSoon());
-    this.romdex.events.on('views:changed', () => void this.#loadViews());
-    this.romdex.events.on('game:start', ({ name }) => {
+    this.forma.input.on((e) => this.#onInput(e));
+    this.forma.events.on('library:changed', () => this.#reloadSoon());
+    this.forma.events.on('views:changed', () => void this.#loadViews());
+    this.forma.events.on('game:start', ({ name }) => {
       this.#playing.replaceChildren(el('p', {}, `Starting ${name}…`));
       this.#playing.hidden = false;
     });
-    this.romdex.events.on('game:end', ({ error }) => {
+    this.forma.events.on('game:end', ({ error }) => {
       this.#playing.hidden = true;
       if (error) this.#notify(`The game could not run: ${error}`);
     });
 
     await this.#loadViews();
-    const boot = await this.romdex.nav.defaultView();
+    const boot = await this.forma.nav.defaultView();
     for (const note of boot.notes) this.#notify(note);
     await this.#open(boot.id ?? 'systems');
   }
 
   async #loadViews(): Promise<void> {
-    this.#views = await this.romdex.nav.views();
-    this.#home = (await this.romdex.nav.defaultView()).id;
+    this.#views = await this.forma.nav.views();
+    this.#home = (await this.forma.nav.defaultView()).id;
   }
 
   async #open(view: string): Promise<void> {
@@ -103,13 +103,13 @@ export class App {
   async #load(): Promise<void> {
     const { path, index } = this.#level;
     try {
-      const first = await this.romdex.nav.browse(this.#view, path, { offset: 0, limit: PAGE });
+      const first = await this.forma.nav.browse(this.#view, path, { offset: 0, limit: PAGE });
       this.#page = first;
       const listing = first.listing;
       if (listing.kind === 'games') {
         const list = new LazyList<Game>(
           async (offset, limit) => {
-            const page = await this.romdex.nav.browse(this.#view, path, { offset, limit });
+            const page = await this.forma.nav.browse(this.#view, path, { offset, limit });
             return page.listing.kind === 'games' ? page.listing : { items: [], total: 0 };
           },
           PAGE,
@@ -129,7 +129,7 @@ export class App {
       }
       this.#renderChrome();
     } catch (error) {
-      this.#notify(RomDexError.from(error).message);
+      this.#notify(FormaError.from(error).message);
     }
   }
 
@@ -147,7 +147,7 @@ export class App {
     if (listing.kind !== 'groups') return [];
     const groups = [...listing.items];
     while (groups.length < listing.total) {
-      const next = await this.romdex.nav.browse(this.#view, first.path, {
+      const next = await this.forma.nav.browse(this.#view, first.path, {
         offset: groups.length,
         limit: PAGE
       });
@@ -159,7 +159,7 @@ export class App {
       label: g.label,
       count: g.gameCount,
       image:
-        g.imageGame === null ? null : this.romdex.library.mediaUrl(g.imageGame, 'image', CARD_WIDTH)
+        g.imageGame === null ? null : this.forma.library.mediaUrl(g.imageGame, 'image', CARD_WIDTH)
     }));
   }
 
@@ -225,9 +225,9 @@ export class App {
       const game = this.#games.selected;
       if (!game) return;
       try {
-        await this.romdex.launch.game(game.id);
+        await this.forma.launch.game(game.id);
       } catch (error) {
-        this.#notify(RomDexError.from(error).message);
+        this.#notify(FormaError.from(error).message);
       }
       return;
     }
@@ -247,13 +247,13 @@ export class App {
     const game = this.#games.selected;
     if (!this.#list || !game) return;
     try {
-      await this.romdex.library.setFavorite(game.id, !game.favorite);
+      await this.forma.library.setFavorite(game.id, !game.favorite);
       this.#games.refreshSelected({ ...game, favorite: !game.favorite });
       this.#notify(
         game.favorite ? `Removed ${game.name} from favourites` : `Added ${game.name} to favourites`
       );
     } catch (error) {
-      this.#notify(RomDexError.from(error).message);
+      this.#notify(FormaError.from(error).message);
     }
   }
 
@@ -268,9 +268,9 @@ export class App {
       s.close();
       void this.#open(view.id);
     } else if (e.action === 'north' && view) {
-      void this.romdex.nav.setDefaultView(view.id).then(() => {
+      void this.forma.nav.setDefaultView(view.id).then(() => {
         this.#home = view.id;
-        this.#notify(`RomDex will open on “${view.name}”`);
+        this.#notify(`Forma will open on “${view.name}”`);
         s.show(this.#views, this.#view, this.#home);
         s.select(this.#views.indexOf(view));
       });

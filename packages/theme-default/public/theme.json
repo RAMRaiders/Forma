@@ -1,6 +1,6 @@
 {
   "id": "default",
-  "name": "RomDex Default",
+  "name": "Forma Default",
   "version": "0.0.0",
   "entry": "index.html",
   "sdk": "^1",

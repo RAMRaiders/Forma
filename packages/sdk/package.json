@@ -1,8 +1,8 @@
 {
-  "name": "@romdex/sdk",
+  "name": "@forma/sdk",
   "version": "0.0.0",
   "private": true,
-  "description": "The public API RomDex themes and custom interfaces use to control the frontend.",
+  "description": "The public API Forma themes and custom interfaces use to control the frontend.",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",

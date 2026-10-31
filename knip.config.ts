@@ -1,7 +1,7 @@
 /**
  * Knip: find unused files, exports and dependencies.
  *
- * Matters most for `@romdex/sdk`, whose exports are the public theme API: an export nothing
+ * Matters most for `@forma/sdk`, whose exports are the public theme API: an export nothing
  * re-exports from `index.ts` is either dead code or API that was never wired up.
  */
 export default {

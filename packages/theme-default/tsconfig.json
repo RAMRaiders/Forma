@@ -9,7 +9,7 @@
     "declaration": false,
     "declarationMap": false,
     "paths": {
-      "@romdex/sdk": ["../sdk/src/index.ts"]
+      "@forma/sdk": ["../sdk/src/index.ts"]
     }
   },
   "include": ["src/**/*", "vite.config.ts"]

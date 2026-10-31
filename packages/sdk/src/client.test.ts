@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Backend } from './backend.js';
 import { connect } from './client.js';
-import { RomDexError } from './errors.js';
+import { FormaError } from './errors.js';
 import type { InputEvent } from './types.js';
 
 /** Commands that reject, with what Tauri's IPC rejects with: the app's plain error object. */
@@ -40,7 +40,7 @@ describe('connect', () => {
     expect(calls).not.toContain('theme_ready');
   });
 
-  it('falls back to the mock outside RomDex', async () => {
+  it('falls back to the mock outside Forma', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
     const sdk = await connect();
     expect(sdk.backendKind).toBe('mock');
@@ -49,26 +49,26 @@ describe('connect', () => {
 });
 
 describe('calls', () => {
-  it('reject with a RomDexError carrying the host code', async () => {
+  it('reject with a FormaError carrying the host code', async () => {
     const { backend } = fakeBackend('1.0.0', {
       system_quit: { code: 'permissionDenied', message: 'needs system.power' }
     });
     const sdk = await connect({ backend });
     const error: unknown = await sdk.system.quit().catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(RomDexError);
+    expect(error).toBeInstanceOf(FormaError);
     expect(error).toMatchObject({ code: 'permissionDenied', message: 'needs system.power' });
   });
 
   it('wrap anything else, and codes this SDK does not know, as internal', () => {
-    expect(RomDexError.from({ code: 'fromTheFuture', message: 'x' })).toMatchObject({
+    expect(FormaError.from({ code: 'fromTheFuture', message: 'x' })).toMatchObject({
       code: 'internal',
       message: 'x'
     });
-    expect(RomDexError.from(new Error('boom'))).toMatchObject({
+    expect(FormaError.from(new Error('boom'))).toMatchObject({
       code: 'internal',
       message: 'boom'
     });
-    expect(RomDexError.from('text')).toMatchObject({ code: 'internal', message: 'text' });
+    expect(FormaError.from('text')).toMatchObject({ code: 'internal', message: 'text' });
   });
 
   it('build media URLs through the backend', async () => {

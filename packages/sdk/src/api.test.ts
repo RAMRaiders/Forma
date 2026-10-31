@@ -14,56 +14,56 @@ async function sdk(permissions: string[] = []) {
 
 describe('the SDK surface', () => {
   it('library', async () => {
-    const romdex = await sdk();
-    expect((await romdex.library.systems())[0]!.name).toBe('nes');
-    const [zelda] = await romdex.library.search('zelda', 5);
-    expect(await romdex.library.game(zelda!.id)).toMatchObject({ name: 'The Legend of Zelda' });
+    const forma = await sdk();
+    expect((await forma.library.systems())[0]!.name).toBe('nes');
+    const [zelda] = await forma.library.search('zelda', 5);
+    expect(await forma.library.game(zelda!.id)).toMatchObject({ name: 'The Legend of Zelda' });
     const changed = new Promise<LibraryChanged>((resolve) => {
-      romdex.events.on('library:changed', resolve);
+      forma.events.on('library:changed', resolve);
     });
-    await romdex.library.setFavorite(zelda!.id, true);
+    await forma.library.setFavorite(zelda!.id, true);
     expect(await changed).toEqual({ systems: ['nes'] });
-    expect(romdex.library.mediaUrl(zelda!.id, 'marquee')).toMatch(/^data:image\/svg/);
+    expect(forma.library.mediaUrl(zelda!.id, 'marquee')).toMatch(/^data:image\/svg/);
   });
 
   it('nav', async () => {
-    const romdex = await sdk();
-    expect((await romdex.nav.views()).map((v) => v.id)).toContain('home');
-    const home = await romdex.nav.browse('home');
+    const forma = await sdk();
+    expect((await forma.nav.views()).map((v) => v.id)).toContain('home');
+    const home = await forma.nav.browse('home');
     expect(home.listing.kind).toBe('branches');
     expect(
-      (await romdex.nav.browse('home', ['systems'], { offset: 0, limit: 2 })).listing
+      (await forma.nav.browse('home', ['systems'], { offset: 0, limit: 2 })).listing
     ).toMatchObject({
       kind: 'groups',
       total: 5
     });
-    await romdex.nav.setDefaultView('home');
-    expect(await romdex.nav.defaultView()).toEqual({ id: 'home', notes: [] });
-    await romdex.nav.setDefaultView(null);
-    expect((await romdex.nav.defaultView()).id).toBe('systems');
+    await forma.nav.setDefaultView('home');
+    expect(await forma.nav.defaultView()).toEqual({ id: 'home', notes: [] });
+    await forma.nav.setDefaultView(null);
+    expect((await forma.nav.defaultView()).id).toBe('systems');
   });
 
   it('launch and its events', async () => {
-    const romdex = await sdk();
-    const [mario] = await romdex.library.search('mario');
+    const forma = await sdk();
+    const [mario] = await forma.library.search('mario');
     const ended = new Promise((resolve) => {
-      romdex.events.on('game:end', resolve);
+      forma.events.on('game:end', resolve);
     });
-    await romdex.launch.game(mario!.id, { netplay: { mode: 'host' } });
+    await forma.launch.game(mario!.id, { netplay: { mode: 'host' } });
     expect(await ended).toMatchObject({ type: 'game:end', gameId: mario!.id, exitCode: 0 });
   });
 
   it('settings, themes, controllers and system', async () => {
-    const romdex = await sdk();
-    await romdex.settings.set('grid', 4);
-    expect(await romdex.settings.get<number>('grid')).toBe(4);
-    await expect(romdex.settings.getSystem('x')).rejects.toMatchObject({
+    const forma = await sdk();
+    await forma.settings.set('grid', 4);
+    expect(await forma.settings.get<number>('grid')).toBe(4);
+    await expect(forma.settings.getSystem('x')).rejects.toMatchObject({
       code: 'permissionDenied'
     });
-    await expect(romdex.system.quit()).rejects.toMatchObject({ code: 'permissionDenied' });
-    expect((await romdex.themes.list())[0]).toMatchObject({ id: 'mock', current: true });
-    await romdex.themes.select('mock');
-    expect(await romdex.input.controllers()).toEqual([]);
+    await expect(forma.system.quit()).rejects.toMatchObject({ code: 'permissionDenied' });
+    expect((await forma.themes.list())[0]).toMatchObject({ id: 'mock', current: true });
+    await forma.themes.select('mock');
+    expect(await forma.input.controllers()).toEqual([]);
 
     const admin = await sdk(['settings.system', 'system.power']);
     await admin.settings.setSystem('x', true);
@@ -75,9 +75,9 @@ describe('the SDK surface', () => {
   it('turns keys into input events while someone listens', async () => {
     const target = new EventTarget();
     vi.stubGlobal('window', target);
-    const romdex = await connect({ backend: mockBackend() });
+    const forma = await connect({ backend: mockBackend() });
     const seen: InputEvent[] = [];
-    const off = romdex.input.on((e) => seen.push(e));
+    const off = forma.input.on((e) => seen.push(e));
 
     const press = (key: string, type = 'keydown') => {
       const event = Object.assign(new Event(type, { cancelable: true }), { key, repeat: false });
@@ -98,23 +98,23 @@ describe('the SDK surface', () => {
   });
 
   it('RetroAchievements and the netplay lobby', async () => {
-    const romdex = await sdk();
-    const user = await romdex.ra.user();
+    const forma = await sdk();
+    const user = await forma.ra.user();
     expect(user.stale).toBe(false);
     expect(user.data.username).toBe('fixture-user');
     expect(user.data.avatar).toMatch(/^data:image\/svg/);
 
-    const [mario] = await romdex.library.search('super mario');
-    const progress = await romdex.ra.game(mario!.id);
+    const [mario] = await forma.library.search('super mario');
+    const progress = await forma.ra.game(mario!.id);
     expect(progress.data.achievements.map((a) => a.title)).toEqual([
       'Mushroom Kingdom',
       'Warp Zone',
       'Princess Toadstool'
     ]);
-    const [zelda] = await romdex.library.search('zelda');
-    await expect(romdex.ra.game(zelda!.id)).rejects.toMatchObject({ code: 'notFound' });
+    const [zelda] = await forma.library.search('zelda');
+    await expect(forma.ra.game(zelda!.id)).rejects.toMatchObject({ code: 'notFound' });
 
-    const lobby = await romdex.netplay.lobby();
+    const lobby = await forma.netplay.lobby();
     expect(lobby.data[0]).toMatchObject({ connectable: true, localGameId: mario!.id });
 
     const unset = await connect({ backend: mockBackend({ ra: false }), keyboard: false });

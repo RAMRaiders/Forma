@@ -7,7 +7,7 @@ written in has no outbound network, and RetroAchievements needs a personal API k
 the quirks the real APIs are known for (numbers sent as strings, an empty achievement list sent
 as `[]` instead of `{}`), but the field set should be checked against live responses:
 
-- `cargo test -p romdex-core -- --ignored live_` fetches the real netplay lobby and parses it.
+- `cargo test -p forma-core -- --ignored live_` fetches the real netplay lobby and parses it.
 - For RetroAchievements, replace `ra-user.json` / `ra-game.json` with real responses for any
   account, scrubbed of anything personal.
 

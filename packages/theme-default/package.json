@@ -1,8 +1,8 @@
 {
-  "name": "@romdex/theme-default",
+  "name": "@forma/theme-default",
   "version": "0.0.0",
   "private": true,
-  "description": "The reference RomDex theme, built only on the public @romdex/sdk.",
+  "description": "The reference Forma theme, built only on the public @forma/sdk.",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
@@ -11,6 +11,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@romdex/sdk": "0.0.0"
+    "@forma/sdk": "0.0.0"
   }
 }

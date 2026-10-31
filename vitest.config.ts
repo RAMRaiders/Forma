@@ -7,7 +7,7 @@ const sdkSrc = fileURLToPath(new URL('./packages/sdk/src/index.ts', import.meta.
 export default defineConfig({
   resolve: {
     alias: {
-      '@romdex/sdk': sdkSrc
+      '@forma/sdk': sdkSrc
     }
   },
   test: {

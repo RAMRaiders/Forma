@@ -1,25 +1,25 @@
-# `@romdex/sdk` reference
+# `@forma/sdk` reference
 
-The SDK is the only way a theme talks to RomDex — the bundled default theme included. Every
-call returns a promise; every failure rejects with a `RomDexError` that has a `code` to branch
+The SDK is the only way a theme talks to Forma — the bundled default theme included. Every
+call returns a promise; every failure rejects with a `FormaError` that has a `code` to branch
 on and a `message` to show. The types (`Game`, `Browse`, `InputEvent`…) are exported from the
 package and documented in [`types.ts`](../packages/sdk/src/types.ts).
 
 ## Connecting
 
 ```ts
-import { connect, RomDexError } from "@romdex/sdk";
+import { connect, FormaError } from "@forma/sdk";
 
-const romdex = await connect();
+const forma = await connect();
 ```
 
-`connect()` checks that RomDex speaks a compatible SDK version (it rejects with code
+`connect()` checks that Forma speaks a compatible SDK version (it rejects with code
 `incompatible` otherwise), then reports the theme as started. A theme that never connects is
 replaced by the default theme after 15 seconds.
 
-Outside RomDex, in a plain browser, `connect()` uses a **mock**: the real engine's answers for
+Outside Forma, in a plain browser, `connect()` uses a **mock**: the real engine's answers for
 the repository's fixture library, with favourites, settings and play stats kept in memory and
-placeholder images for media. `romdex.backendKind` says which one you got.
+placeholder images for media. `forma.backendKind` says which one you got.
 
 | Option     | Default          | Meaning                                            |
 | ---------- | ---------------- | -------------------------------------------------- |
@@ -38,13 +38,13 @@ placeholder images for media. `romdex.backendKind` says which one you got.
 | `mediaUrl(gameId, kind)`    | A URL for a game's `image`, `video`, `marquee`… (synchronous) |
 
 ```ts
-const [hit] = await romdex.library.search("super mar");
-await romdex.library.setFavorite(hit.id, true);
+const [hit] = await forma.library.search("super mar");
+await forma.library.setFavorite(hit.id, true);
 img.src = hit.media.image ?? "";
 ```
 
 Media always comes as URLs a page can load, never as paths on disk. Pass `width` for images
-shown small, e.g. `mediaUrl(id, 'image', 480)` for a card: RomDex serves a resized copy, made
+shown small, e.g. `mediaUrl(id, 'image', 480)` for a card: Forma serves a resized copy, made
 in the background and cached, and the original until it is ready. Full-size box art on every
 card is the easiest way to make a Raspberry Pi stutter.
 
@@ -61,15 +61,15 @@ far, from the root down.
 | `setDefaultView(id \| null)` | Makes `id` the boot view; `null` clears it                |
 
 ```ts
-const { id } = await romdex.nav.defaultView();
-const page = await romdex.nav.browse(id ?? "systems", [], { offset: 0, limit: 50 });
+const { id } = await forma.nav.defaultView();
+const page = await forma.nav.browse(id ?? "systems", [], { offset: 0, limit: 50 });
 if (page.listing.kind === "groups") {
   for (const group of page.listing.items) {
-    const art = group.imageGame ? romdex.library.mediaUrl(group.imageGame) : null;
+    const art = group.imageGame ? forma.library.mediaUrl(group.imageGame) : null;
     render(group.label, group.gameCount, art);
   }
 }
-const deeper = await romdex.nav.browse(page.view, [...page.path, page.listing.items[0].key]);
+const deeper = await forma.nav.browse(page.view, [...page.path, page.listing.items[0].key]);
 ```
 
 ## `launch`
@@ -91,9 +91,9 @@ runs the window is hidden and input is paused. A second launch meanwhile rejects
 | `controllers()`            | Connected gamepads                                            |
 
 ```ts
-romdex.input.onPress("down", () => select(+1));
-romdex.input.onPress("confirm", () => open(selected));
-romdex.input.onPress("back", () => goUp());
+forma.input.onPress("down", () => select(+1));
+forma.input.onPress("confirm", () => open(selected));
+forma.input.onPress("back", () => goUp());
 ```
 
 Each event has an `action` (`up`, `down`, `left`, `right`, `confirm`, `back`, `west`, `north`,
@@ -104,20 +104,20 @@ held directions.
 ## `events`
 
 ```ts
-romdex.events.on("library:changed", ({ systems }) => refreshIfShowing(systems));
-romdex.events.on("views:changed", () => reloadViewList());
-romdex.events.on("game:start", ({ name }) => showLaunching(name));
-romdex.events.on("game:end", ({ seconds, error }) => (error ? showError(error) : refresh()));
+forma.events.on("library:changed", ({ systems }) => refreshIfShowing(systems));
+forma.events.on("views:changed", () => reloadViewList());
+forma.events.on("game:start", ({ name }) => showLaunching(name));
+forma.events.on("game:end", ({ seconds, error }) => (error ? showError(error) : refresh()));
 ```
 
 `on` returns a function that unsubscribes.
 
 ## `settings`
 
-| Method                                    | Scope                                      |
-| ----------------------------------------- | ------------------------------------------ |
-| `get(key)`, `set(key, value)`             | The theme's own settings, private to it    |
-| `getSystem(key)`, `setSystem(key, value)` | RomDex's settings; needs `settings.system` |
+| Method                                    | Scope                                     |
+| ----------------------------------------- | ----------------------------------------- |
+| `get(key)`, `set(key, value)`             | The theme's own settings, private to it   |
+| `getSystem(key)`, `setSystem(key, value)` | Forma's settings; needs `settings.system` |
 
 Values are any JSON. `set(key, null)` removes a setting.
 
@@ -132,24 +132,24 @@ Values are any JSON. `set(key, null)` removes a setting.
 
 RetroAchievements, read-only: unlocking happens inside RetroArch, which Batocera already logs in.
 
-| Method     | Returns                                                        |
-| ---------- | -------------------------------------------------------------- |
-| `user()`   | The user's profile, points, rank and recently played games     |
-| `game(id)` | A local game's achievements and progress (`id` is RomDex's id) |
+| Method     | Returns                                                       |
+| ---------- | ------------------------------------------------------------- |
+| `user()`   | The user's profile, points, rank and recently played games    |
+| `game(id)` | A local game's achievements and progress (`id` is Forma's id) |
 
 ```ts
-const { data, stale } = await romdex.ra.game(game.id);
+const { data, stale } = await forma.ra.game(game.id);
 for (const a of data.achievements) {
   badge(a.badge, a.title, a.earnedAt !== null);
 }
 if (stale) note("Offline: showing the last known progress");
 ```
 
-Both answer with `{ data, stale, fetchedAt }`: offline, RomDex serves the last answer it got,
-with `stale: true`. Badge, icon and avatar URLs are served by RomDex itself, so a theme needs no
+Both answer with `{ data, stale, fetchedAt }`: offline, Forma serves the last answer it got,
+with `stale: true`. Badge, icon and avatar URLs are served by Forma itself, so a theme needs no
 `network` permission to show them.
 
-They need the user's **web API key** (retroachievements.org → Settings → Keys) in the RomDex
+They need the user's **web API key** (retroachievements.org → Settings → Keys) in the Forma
 setting `ra.apiKey`; without it they reject with `notConfigured` and a message saying so. The
 username defaults to the one Batocera logs in with. `game()` rejects with `notFound` when no
 RetroAchievements id is known for the game yet (matching by hash arrives in Milestone 2).
@@ -179,12 +179,12 @@ shutdown answer `unsupported` until Batocera integration (Milestone 3).
 | `busy`             | A game is already running                                     |
 | `unsupported`      | Not available on this machine yet                             |
 | `launch`           | The game could not start; the message says why                |
-| `incompatible`     | RomDex and the theme disagree on the SDK version              |
+| `incompatible`     | Forma and the theme disagree on the SDK version               |
 | `internal`         | Anything else                                                 |
 
 ## Keeping the mock honest
 
 The mock's data is generated from the engine by
-`cargo run -p romdex-core --example mock_snapshot > packages/sdk/src/mock/library.json`. A Rust
+`cargo run -p forma-core --example mock_snapshot > packages/sdk/src/mock/library.json`. A Rust
 test fails if the committed file is stale, and a TypeScript test checks every type here against
 it, field by field.

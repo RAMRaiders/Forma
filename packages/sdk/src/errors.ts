@@ -21,25 +21,25 @@ function isCode(code: unknown): code is ErrorCode {
 }
 
 /** Every failed call rejects with one of these: branch on `code`, show `message`. */
-export class RomDexError extends Error {
+export class FormaError extends Error {
   readonly code: ErrorCode;
 
   constructor(code: ErrorCode, message: string) {
     super(message);
-    this.name = 'RomDexError';
+    this.name = 'FormaError';
     this.code = code;
   }
 
   /** Wraps whatever a backend rejected with. */
-  static from(cause: unknown): RomDexError {
-    if (cause instanceof RomDexError) return cause;
+  static from(cause: unknown): FormaError {
+    if (cause instanceof FormaError) return cause;
     if (typeof cause === 'object' && cause !== null && 'code' in cause && 'message' in cause) {
       const { code, message } = cause;
       if (typeof message === 'string') {
         // A code from a newer host than this SDK knows is still an error, just not a typed one.
-        return new RomDexError(isCode(code) ? code : 'internal', message);
+        return new FormaError(isCode(code) ? code : 'internal', message);
       }
     }
-    return new RomDexError('internal', cause instanceof Error ? cause.message : String(cause));
+    return new FormaError('internal', cause instanceof Error ? cause.message : String(cause));
   }
 }

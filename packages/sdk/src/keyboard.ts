@@ -15,7 +15,7 @@ const KEYS: Record<string, Action> = {
   F1: 'start'
 };
 
-/** The input event for a key, or `null` for a key RomDex does not use. */
+/** The input event for a key, or `null` for a key Forma does not use. */
 export function keyToInput(key: string, pressed: boolean, repeat: boolean): InputEvent | null {
   const action = KEYS[key];
   if (!action) return null;

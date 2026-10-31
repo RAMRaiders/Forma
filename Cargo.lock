@@ -856,6 +856,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "forma-app"
+version = "0.0.0"
+dependencies = [
+ "forma-core",
+ "notify",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tempfile",
+]
+
+[[package]]
+name = "forma-core"
+version = "0.0.0"
+dependencies = [
+ "gilrs",
+ "image",
+ "notify",
+ "quick-xml",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "ureq",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2763,35 +2792,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "romdex-app"
-version = "0.0.0"
-dependencies = [
- "notify",
- "romdex-core",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tempfile",
-]
-
-[[package]]
-name = "romdex-core"
-version = "0.0.0"
-dependencies = [
- "gilrs",
- "image",
- "notify",
- "quick-xml",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "ureq",
 ]
 
 [[package]]

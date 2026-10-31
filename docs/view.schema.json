@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/RAMRaiders/RomDex/docs/view.schema.json",
-  "title": "RomDex hierarchy view",
-  "description": "How RomDex organises the library for browsing. See docs/hierarchy.md.",
+  "$id": "https://github.com/RAMRaiders/Forma/docs/view.schema.json",
+  "title": "Forma hierarchy view",
+  "description": "How Forma organises the library for browsing. See docs/hierarchy.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "name", "root"],

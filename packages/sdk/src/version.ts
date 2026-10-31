@@ -1,6 +1,6 @@
 /**
  * The SDK API version this package speaks. Kept in lockstep with `SDK_API_VERSION` in
- * `romdex-core`: the host reports its version and the SDK refuses a mismatch up front.
+ * `forma-core`: the host reports its version and the SDK refuses a mismatch up front.
  */
 export const SDK_VERSION = '1.0.0';
 

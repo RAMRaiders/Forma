@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 
 import type { Unsubscribe } from './types.js';
 
-/** How the SDK reaches RomDex: Tauri inside the app, or the mock in a plain browser. */
+/** How the SDK reaches Forma: Tauri inside the app, or the mock in a plain browser. */
 export interface Backend {
   readonly kind: 'tauri' | 'mock';
   invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
@@ -24,7 +24,7 @@ export function tauriBackend(): Backend {
       };
     },
     mediaUrl: (gameId, kind, width) =>
-      `romdex://localhost/media/${gameId}/${kind}${width ? `?w=${Math.round(width)}` : ''}`
+      `forma://localhost/media/${gameId}/${kind}${width ? `?w=${Math.round(width)}` : ''}`
   };
 }
 

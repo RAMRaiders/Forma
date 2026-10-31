@@ -4,7 +4,7 @@
  * output for the fixture library). jsdom has no layout, so this checks behaviour and wiring,
  * not looks.
  */
-import { connect, type InputEvent } from '@romdex/sdk';
+import { connect, type InputEvent } from '@forma/sdk';
 import { mockBackend } from '../../sdk/src/mock/backend.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,9 +24,9 @@ async function start() {
     if (event === 'input') send = handler as (e: InputEvent) => void;
     return listen(event, handler);
   };
-  const romdex = await connect({ backend, keyboard: false });
+  const forma = await connect({ backend, keyboard: false });
   const root = document.querySelector<HTMLElement>('#app')!;
-  await new App(romdex, root).start();
+  await new App(forma, root).start();
 
   const press = async (action: InputEvent['action'], repeat = false) => {
     send({ action, button: null, gamepad: 0, pressed: true, repeat });
@@ -36,7 +36,7 @@ async function start() {
   };
   const text = (selector: string) =>
     [...root.querySelectorAll(selector)].map((n) => n.textContent?.trim() ?? '');
-  return { root, press, text, romdex };
+  return { root, press, text, forma };
 }
 
 describe('the default theme', () => {
@@ -99,13 +99,13 @@ describe('the default theme', () => {
   });
 
   it('switches view and sets the home view from the switcher', async () => {
-    const { press, text, romdex } = await start();
+    const { press, text, forma } = await start();
     await press('select');
     expect(text('.switcher li.selected .name')).toEqual(['Systems']);
     await press('down');
     await press('north');
     await vi.waitFor(async () =>
-      expect((await romdex.nav.defaultView()).id).toBe('manufacturer-system')
+      expect((await forma.nav.defaultView()).id).toBe('manufacturer-system')
     );
     await press('confirm');
     await vi.waitFor(() => expect(text('h1')).toEqual(['By manufacturer']));

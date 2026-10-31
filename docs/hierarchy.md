@@ -1,12 +1,12 @@
 # Hierarchy views
 
-EmulationStation organises a library one way: system, then games. In RomDex a **view** is a
+EmulationStation organises a library one way: system, then games. In Forma a **view** is a
 tree of nodes you define, resolved against the library database, so a theme only renders what
 it is given. The bundled views are written in exactly the same format as yours
-(`crates/romdex-core/src/hierarchy/views/`), so any of them is a starting point.
+(`crates/forma-core/src/hierarchy/views/`), so any of them is a starting point.
 
 The format is checked by [`view.schema.json`](view.schema.json); point your editor at it for
-completion. RomDex validates every view on load and says where a problem is
+completion. Forma validates every view on load and says where a problem is
 (`root.children.branches[1]: id "a" is used twice`).
 
 ## A view
@@ -121,22 +121,22 @@ Hidden games and games whose file is missing never appear in any view.
 | `recent`              | The last 50 games played                                      |
 | `home`                | A menu of favourites, recents, systems, manufacturers, genres |
 
-## The view RomDex opens with
+## The view Forma opens with
 
-Whichever view you choose is what RomDex boots into — for example your own
-manufacturer → system view instead of the EmulationStation-style system list. It is a RomDex
-setting (`views.default`), not a theme setting, so it survives a theme change. RomDex picks:
+Whichever view you choose is what Forma boots into — for example your own
+manufacturer → system view instead of the EmulationStation-style system list. It is a Forma
+setting (`views.default`), not a theme setting, so it survives a theme change. Forma picks:
 
 1. your `views.default` setting;
 2. otherwise the view the theme suggests in `theme.json` (`"hierarchy"`);
 3. otherwise the bundled `systems` view.
 
-If the chosen view is deleted or broken, RomDex falls back to the next one and says why. Themes
+If the chosen view is deleted or broken, Forma falls back to the next one and says why. Themes
 read and set it through the SDK: `nav.defaultView()` and `nav.setDefaultView(id)`.
 
 ## Your own views
 
-Drop JSON files in `/userdata/system/romdex/views/` (RomDex creates the folder). They are
+Drop JSON files in `/userdata/system/forma/views/` (Forma creates the folder). They are
 reloaded as soon as you save. A file with the same `id` as a bundled view replaces it. A broken
 file is reported and skipped; it never takes the others down with it.
 

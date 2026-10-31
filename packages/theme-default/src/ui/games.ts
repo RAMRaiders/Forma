@@ -1,4 +1,4 @@
-import type { Game } from '@romdex/sdk';
+import type { Game } from '@forma/sdk';
 
 import type { LazyList } from '../logic/pager.js';
 import { el, remPx } from './dom.js';

@@ -1,4 +1,4 @@
-# Builds a RomDex AppImage for the Batocera spike (#39). WebKitGTK is bundled inside it, since
+# Builds a Forma AppImage for the Batocera spike (#39). WebKitGTK is bundled inside it, since
 # Batocera does not ship it. Not a release build: nothing here is signed, versioned or published.
 #
 #   scripts/spike/build-appimage.sh amd64    # or arm64
@@ -27,7 +27,7 @@ ENV APPIMAGE_EXTRACT_AND_RUN=1
 WORKDIR /src
 COPY . .
 RUN npm ci
-# The bundled default theme ships as a resource at themes/default, where RomDex looks for it.
+# The bundled default theme ships as a resource at themes/default, where Forma looks for it.
 RUN npx tauri build --bundles appimage --config '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../packages/theme-default/dist":"themes/default"}}}'
 
 FROM scratch

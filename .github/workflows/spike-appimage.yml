@@ -1,4 +1,4 @@
-# Builds the RomDex AppImages for the Batocera WebView spike (#39), for download as artifacts.
+# Builds the Forma AppImages for the Batocera WebView spike (#39), for download as artifacts.
 # Manual only, and nothing is tagged, released or published. See docs/batocera-integration.md.
 name: Spike AppImage
 
@@ -57,7 +57,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: romdex-spike-${{ matrix.arch }}
+          name: forma-spike-${{ matrix.arch }}
           path: target/release/bundle/appimage/*.AppImage
           if-no-files-found: error
           retention-days: 14
