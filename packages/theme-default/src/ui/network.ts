@@ -294,7 +294,8 @@ export class NetworkScreen {
         : this.#page === 'main'
           ? this.#mainRows()
           : this.#ethernetRows();
-    this.#selected = Math.min(this.#selected, Math.max(0, this.#rows.length - 1));
+    // While busy there are no rows; keep the place for when they come back.
+    if (this.#rows.length > 0) this.#selected = Math.min(this.#selected, this.#rows.length - 1);
     const title = this.#page === 'main' ? 'Network' : 'Ethernet';
     const note = this.#busy ?? this.#error ?? (this.#status ? null : 'Reading the network…');
     this.root.replaceChildren(

@@ -237,4 +237,25 @@ describe('the default theme', () => {
     const status = await forma.network.status();
     expect(status.ethernet?.config).toMatchObject({ method: 'manual', address: '192.168.1.50' });
   });
+
+  it('keeps the selection on Wi-Fi after turning it off, so A turns it back on', async () => {
+    const { press, text } = await start(['system.network']);
+    await press('start');
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.network > .panel li .name')).toContain('Wi-Fi: on'));
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(text('.network > .panel li.selected .name')).toEqual(['Wi-Fi: off'])
+    );
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    const turningOn = press('confirm');
+    await vi.advanceTimersByTimeAsync(5000);
+    await turningOn;
+    vi.useRealTimers();
+    await vi.waitFor(() =>
+      expect(text('.network > .panel li.selected .name')).toEqual(['Wi-Fi: on'])
+    );
+  });
 });
