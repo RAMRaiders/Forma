@@ -29,6 +29,10 @@ pub struct Controller {
     /// SDL GUID, lower-case hex.
     pub guid: String,
     pub name: String,
+    /// The device node and SDL's counts, for the launcher. Never sent to a theme: paths on disk
+    /// stay inside Forma.
+    #[serde(skip)]
+    pub device: Option<crate::input::Device>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
@@ -249,9 +253,9 @@ fn split_template(template: &str) -> Vec<String> {
     out
 }
 
-/// `-p1index 0 -p1guid … -p1name …` per connected pad, the arguments Batocera's configgen reads
-/// to map controllers. Button/axis counts and device paths are not known to gilrs; configgen
-/// matches on the GUID and name.
+/// `-p1index 0 -p1guid … -p1name … -p1devicepath …` per connected pad, as EmulationStation
+/// passes them: configgen maps controllers by GUID and name, and Batocera 43's fails without
+/// the device node.
 fn controllers_args(controllers: &[Controller]) -> Vec<String> {
     let mut args = Vec::new();
     for (player, c) in controllers.iter().enumerate().take(8) {
@@ -264,6 +268,18 @@ fn controllers_args(controllers: &[Controller]) -> Vec<String> {
             format!("-p{p}name"),
             c.name.clone(),
         ]);
+        if let Some(d) = &c.device {
+            args.extend([
+                format!("-p{p}devicepath"),
+                d.path.to_string_lossy().into_owned(),
+                format!("-p{p}nbbuttons"),
+                d.buttons.to_string(),
+                format!("-p{p}nbhats"),
+                d.hats.to_string(),
+                format!("-p{p}nbaxes"),
+                d.axes.to_string(),
+            ]);
+        }
     }
     args
 }

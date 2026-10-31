@@ -158,6 +158,17 @@ fn button(b: gilrs::Button) -> Option<Button> {
     })
 }
 
+#[cfg(target_os = "linux")]
+fn device(pad: &gilrs::Gamepad<'_>) -> Option<super::Device> {
+    use gilrs::LinuxGamepadExt;
+    super::Device::read(pad.devpath())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn device(_pad: &gilrs::Gamepad<'_>) -> Option<super::Device> {
+    None
+}
+
 fn list_controllers(gilrs: &Gilrs, out: &Mutex<Vec<Controller>>) {
     let list = gilrs
         .gamepads()
@@ -167,6 +178,7 @@ fn list_controllers(gilrs: &Gilrs, out: &Mutex<Vec<Controller>>) {
             // gilrs reports SDL's GUID layout, which is what Batocera's configgen matches on.
             guid: pad.uuid().iter().map(|b| format!("{b:02x}")).collect(),
             name: pad.name().to_owned(),
+            device: device(&pad),
         })
         .collect();
     *out.lock().unwrap_or_else(PoisonError::into_inner) = list;

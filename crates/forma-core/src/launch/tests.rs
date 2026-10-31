@@ -9,11 +9,18 @@ fn pads() -> Vec<Controller> {
             index: 0,
             guid: "030000005e0400008e02000014010000".into(),
             name: "Xbox 360 Controller".into(),
+            device: Some(crate::input::Device {
+                path: "/dev/input/event10".into(),
+                buttons: 11,
+                hats: 1,
+                axes: 6,
+            }),
         },
         Controller {
             index: 1,
             guid: "05000000c82d00000161000000010000".into(),
             name: "8BitDo SN30 Pro".into(),
+            device: None,
         },
     ]
 }
@@ -46,6 +53,14 @@ fn builds_the_batocera_command_from_the_system_template() {
         "030000005e0400008e02000014010000",
         "-p1name",
         "Xbox 360 Controller",
+        "-p1devicepath",
+        "/dev/input/event10",
+        "-p1nbbuttons",
+        "11",
+        "-p1nbhats",
+        "1",
+        "-p1nbaxes",
+        "6",
         "-p2index",
         "1",
         "-p2guid",

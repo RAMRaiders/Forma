@@ -7,12 +7,14 @@
 //! [`Mapper`] holds all of the logic (stick deadzones, hold-to-repeat, the confirm/back swap)
 //! and is driven by plain values and timestamps, so it is tested without a controller.
 
+mod device;
 mod gamepad;
 
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
+pub use device::Device;
 pub use gamepad::{InputHandle, spawn};
 
 /// A physical control, by position (Xbox/SDL convention: `south` is the bottom face button).
