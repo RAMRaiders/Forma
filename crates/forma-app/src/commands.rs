@@ -396,8 +396,9 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
         Err(e) => (0, None, Some(e.to_string())),
     };
 
-    set_playing_ui(app, &state, false);
+    // Not playing first: a delayed hide (see set_playing_ui) must not land after the show.
     state.playing.store(false, Ordering::SeqCst);
+    set_playing_ui(app, &state, false);
     let _ = app.emit(
         EVENT_GAME_END,
         GameEvent::End {
@@ -424,17 +425,27 @@ fn set_playing_ui<R: Runtime>(app: &AppHandle<R>, state: &AppState, playing: boo
     {
         input.set_paused(playing);
     }
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = if playing {
-            window.hide()
-        } else {
-            window.show()
-        };
-        if !playing {
-            let _ = window.set_focus();
-        }
+    if playing {
+        // The theme's launch screen stays up while the emulator starts and opens its window over
+        // it; only then does Forma's window go, so it neither draws nor takes focus behind the
+        // game. A game that ends sooner leaves the window as it is.
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(LAUNCH_SCREEN);
+            if app.state::<AppState>().playing.load(Ordering::SeqCst)
+                && let Some(window) = app.get_webview_window("main")
+            {
+                let _ = window.hide();
+            }
+        });
+    } else if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
     }
 }
+
+/// How long the launch screen shows before Forma's window hides behind the game.
+const LAUNCH_SCREEN: std::time::Duration = std::time::Duration::from_millis(2500);
 
 /// Runs network work on a blocking thread: a slow service must never stall the UI thread.
 async fn off_thread<R: Runtime, T: Send + 'static>(
