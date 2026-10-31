@@ -258,6 +258,21 @@ answers from recorded connman output, has a cable plugged in, and refuses the pa
 `quit()`, `restart()` and `shutdown()` need the `system.power` permission. Restart and
 shutdown answer `unsupported` outside Batocera.
 
+Batocera's system settings, as EmulationStation's System settings menu offers them, need the
+`system.settings` permission; Batocera only.
+
+| Method            | Returns                                                                    |
+| ----------------- | -------------------------------------------------------------------------- |
+| `info()`          | `{ label, value }` lines: Batocera's version, model, CPU, memory, address… |
+| `settings()`      | `{ key, label, section, description, kind, choices, value, applies }` each |
+| `set(key, value)` | Sets one, checked against its choices; `null` unsets it (the default)      |
+
+The settings are the video mode, output and rotation; the audio output; the language, time zone
+and keyboard layout; the name on the network, security and update checks; and the storage
+device. `applies` says when a change takes effect: `now`, `restart` (Forma's), or `reboot`
+(Batocera applies display and name settings as it starts). Choices come from Batocera's own tools,
+so they are the box's: its display modes, its audio devices, its disks.
+
 ## Errors
 
 | `code`             | Meaning                                                       |

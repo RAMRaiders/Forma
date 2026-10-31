@@ -13,6 +13,7 @@ pub const SYSTEM_NETWORK: &str = "system.network";
 pub const SETTINGS_BATOCERA: &str = "settings.batocera";
 pub const MUSIC_MANAGE: &str = "music.manage";
 pub const SETTINGS_EMULATORS: &str = "settings.emulators";
+pub const SYSTEM_SETTINGS: &str = "system.settings";
 
 pub fn require(theme: &Theme, permission: &str) -> ApiResult<()> {
     if theme.has_permission(permission) {

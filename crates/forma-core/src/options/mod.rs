@@ -10,7 +10,7 @@
 //! checked against its choices or range. Values go through `batocera-settings-set`; unsetting
 //! comments the key out, as ES does.
 
-mod conf;
+pub(crate) mod conf;
 mod features;
 
 use std::path::{Path, PathBuf};
@@ -296,10 +296,30 @@ impl Options {
             .unwrap_or_default()
             .lines()
             .filter_map(|l| l.split_once(':'))
-            .map(|(id, label)| choice(id.trim(), label.trim()))
+            .map(|(id, label)| choice(id.trim(), &video_mode_label(label)))
             .filter(|c| !c.value.is_empty())
             .collect()
     }
+}
+
+/// `1920x1080 59.939999 Hz` as `1920x1080 · 59.94 Hz`, `maximum 1920x1080` as
+/// `Maximum 1920x1080`.
+pub(crate) fn video_mode_label(label: &str) -> String {
+    let label = label.trim();
+    if let Some((size, rate)) = label
+        .strip_suffix(" Hz")
+        .and_then(|l| l.rsplit_once(' '))
+        .and_then(|(size, rate)| Some((size, rate.parse::<f64>().ok()?)))
+    {
+        let rate = format!("{rate:.2}");
+        let rate = rate.trim_end_matches('0').trim_end_matches('.');
+        return format!("{size} · {rate} Hz");
+    }
+    let mut chars = label.chars();
+    chars
+        .next()
+        .map(|c| c.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
 }
 
 fn choice(value: &str, label: &str) -> OptionChoice {

@@ -12,6 +12,7 @@ use forma_core::launch::MockLauncher;
 use forma_core::net::{Http, HttpError};
 use forma_core::network::{Network, SystemShell};
 use forma_core::options::Options;
+use forma_core::system_settings::SystemSettings;
 use forma_core::themes::discover;
 use forma_core::{Library, Paths};
 use serde_json::{Value, json};
@@ -68,6 +69,7 @@ impl Harness {
             http: Box::new(FixtureHttp),
             network: Network::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
+            system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             options: Options::new(
                 Box::new(SystemShell),
                 &paths.batocera_conf(),

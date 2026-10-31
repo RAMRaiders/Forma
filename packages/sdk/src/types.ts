@@ -413,6 +413,28 @@ export interface OptionsPage {
   flags: string[];
 }
 
+/** One of Batocera's system settings, as EmulationStation's System settings menu offers it. */
+export interface SystemSetting {
+  /** The `batocera.conf` key (`storage`: Batocera's boot configuration). */
+  key: string;
+  label: string;
+  /** `Display`, `Audio`, `Language & region`, `System` or `Storage`. */
+  section: string;
+  description: string;
+  kind: 'choice' | 'text';
+  choices: OptionChoice[];
+  /** `null` when unset: Batocera's default applies. */
+  value: string | null;
+  /** When a change takes effect: at once, after Forma restarts, or after a reboot. */
+  applies: 'now' | 'restart' | 'reboot';
+}
+
+/** A line of what the box is, e.g. `Model` and `Raspberry Pi 5 Model B`. */
+export interface InfoItem {
+  label: string;
+  value: string;
+}
+
 /** Something the music player can play. Its `id` is stable: a theme can remember it. */
 export interface MusicSource {
   id: string;

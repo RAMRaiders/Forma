@@ -2855,15 +2855,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -3098,15 +3098,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -3231,15 +3231,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -3364,15 +3364,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -3497,15 +3497,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -3637,15 +3637,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -3825,15 +3825,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -4010,15 +4010,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -4147,15 +4147,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -4287,15 +4287,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -4470,15 +4470,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -4573,15 +4573,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -4680,15 +4680,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -4856,15 +4856,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -4995,15 +4995,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -5173,15 +5173,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -5341,15 +5341,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -5470,15 +5470,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -5599,15 +5599,15 @@
         {
           "choices": [
             {
-              "label": "maximum 1920x1080",
+              "label": "Maximum 1920x1080",
               "value": "max-1920x1080"
             },
             {
-              "label": "1920x1080 60 Hz",
+              "label": "1920x1080 · 60 Hz",
               "value": "1920x1080.60000"
             },
             {
-              "label": "1280x720 60 Hz",
+              "label": "1280x720 · 60 Hz",
               "value": "1280x720.60000"
             }
           ],
@@ -5751,6 +5751,420 @@
       "truePoints": 9875,
       "username": "fixture-user"
     }
+  },
+  "system": {
+    "info": [
+      {
+        "label": "Batocera",
+        "value": "43.1 2026/05/29 17:30"
+      },
+      {
+        "label": "Model",
+        "value": "Raspberry Pi 5 Model B Rev 1 0"
+      },
+      {
+        "label": "System",
+        "value": "Linux 6.12.62"
+      },
+      {
+        "label": "Architecture",
+        "value": "aarch64"
+      },
+      {
+        "label": "CPU Cores",
+        "value": "4"
+      },
+      {
+        "label": "Temperature",
+        "value": "58°C"
+      },
+      {
+        "label": "Available Memory",
+        "value": "2997/3986 MB"
+      },
+      {
+        "label": "Data Partition Available Space",
+        "value": "9.1T"
+      },
+      {
+        "label": "Network IP Address",
+        "value": "192.168.1.113"
+      }
+    ],
+    "settings": [
+      {
+        "applies": "reboot",
+        "choices": [
+          {
+            "label": "Maximum 1920x1080",
+            "value": "max-1920x1080"
+          },
+          {
+            "label": "1920x1080 · 60 Hz",
+            "value": "1920x1080.60000"
+          },
+          {
+            "label": "1280x720 · 60 Hz",
+            "value": "1280x720.60000"
+          }
+        ],
+        "description": "The display's resolution and refresh rate. Unset: the highest it supports.",
+        "key": "es.resolution",
+        "kind": "choice",
+        "label": "Video mode",
+        "section": "Display",
+        "value": null
+      },
+      {
+        "applies": "reboot",
+        "choices": [
+          {
+            "label": "HDMI-A-1",
+            "value": "HDMI-A-1"
+          },
+          {
+            "label": "HDMI-A-2",
+            "value": "HDMI-A-2"
+          }
+        ],
+        "description": "The screen to use when several are connected.",
+        "key": "global.videooutput",
+        "kind": "choice",
+        "label": "Video output",
+        "section": "Display",
+        "value": null
+      },
+      {
+        "applies": "reboot",
+        "choices": [
+          {
+            "label": "Normal",
+            "value": "0"
+          },
+          {
+            "label": "90° clockwise",
+            "value": "1"
+          },
+          {
+            "label": "Upside down",
+            "value": "2"
+          },
+          {
+            "label": "90° anticlockwise",
+            "value": "3"
+          }
+        ],
+        "description": "For a screen mounted on its side or upside down.",
+        "key": "display.rotate",
+        "kind": "choice",
+        "label": "Screen rotation",
+        "section": "Display",
+        "value": null
+      },
+      {
+        "applies": "now",
+        "choices": [
+          {
+            "label": "Automatic",
+            "value": "auto"
+          },
+          {
+            "label": "Built-in Audio Digital Stereo (HDMI)",
+            "value": "alsa_output.hdmi-stereo"
+          }
+        ],
+        "description": "Where the sound goes.",
+        "key": "audio.device",
+        "kind": "choice",
+        "label": "Audio output",
+        "section": "Audio",
+        "value": null
+      },
+      {
+        "applies": "restart",
+        "choices": [
+          {
+            "label": "English (US)",
+            "value": "en_US"
+          },
+          {
+            "label": "English (UK)",
+            "value": "en_GB"
+          },
+          {
+            "label": "العربية",
+            "value": "ar_YE"
+          },
+          {
+            "label": "Català",
+            "value": "ca_ES"
+          },
+          {
+            "label": "Čeština",
+            "value": "cs_CZ"
+          },
+          {
+            "label": "Cymraeg",
+            "value": "cy_GB"
+          },
+          {
+            "label": "Deutsch",
+            "value": "de_DE"
+          },
+          {
+            "label": "Ελληνικά",
+            "value": "el_GR"
+          },
+          {
+            "label": "Español",
+            "value": "es_ES"
+          },
+          {
+            "label": "Español (México)",
+            "value": "es_MX"
+          },
+          {
+            "label": "Euskara",
+            "value": "eu_ES"
+          },
+          {
+            "label": "Suomi",
+            "value": "fi_FI"
+          },
+          {
+            "label": "Français",
+            "value": "fr_FR"
+          },
+          {
+            "label": "Galego",
+            "value": "gl_ES"
+          },
+          {
+            "label": "עברית",
+            "value": "he_IL"
+          },
+          {
+            "label": "Magyar",
+            "value": "hu_HU"
+          },
+          {
+            "label": "Bahasa Indonesia",
+            "value": "id_ID"
+          },
+          {
+            "label": "Italiano",
+            "value": "it_IT"
+          },
+          {
+            "label": "日本語",
+            "value": "ja_JP"
+          },
+          {
+            "label": "한국어",
+            "value": "ko_KR"
+          },
+          {
+            "label": "Norsk bokmål",
+            "value": "nb_NO"
+          },
+          {
+            "label": "Nederlands",
+            "value": "nl_NL"
+          },
+          {
+            "label": "Norsk nynorsk",
+            "value": "nn_NO"
+          },
+          {
+            "label": "Occitan",
+            "value": "oc_FR"
+          },
+          {
+            "label": "Polski",
+            "value": "pl_PL"
+          },
+          {
+            "label": "Português (Brasil)",
+            "value": "pt_BR"
+          },
+          {
+            "label": "Português (Portugal)",
+            "value": "pt_PT"
+          },
+          {
+            "label": "Română",
+            "value": "ro_RO"
+          },
+          {
+            "label": "Русский",
+            "value": "ru_RU"
+          },
+          {
+            "label": "Slovenčina",
+            "value": "sk_SK"
+          },
+          {
+            "label": "Svenska",
+            "value": "sv_SE"
+          },
+          {
+            "label": "Türkçe",
+            "value": "tr_TR"
+          },
+          {
+            "label": "Українська",
+            "value": "uk_UA"
+          },
+          {
+            "label": "Tiếng Việt",
+            "value": "vi_VN"
+          },
+          {
+            "label": "简体中文",
+            "value": "zh_CN"
+          },
+          {
+            "label": "正體中文",
+            "value": "zh_TW"
+          }
+        ],
+        "description": "For EmulationStation and the emulators that follow it.",
+        "key": "system.language",
+        "kind": "choice",
+        "label": "Language",
+        "section": "Language & region",
+        "value": "en_US"
+      },
+      {
+        "applies": "now",
+        "choices": [
+          {
+            "label": "UTC",
+            "value": "UTC"
+          },
+          {
+            "label": "America/Argentina/Buenos Aires",
+            "value": "America/Argentina/Buenos_Aires"
+          },
+          {
+            "label": "America/New York",
+            "value": "America/New_York"
+          },
+          {
+            "label": "Europe/Lisbon",
+            "value": "Europe/Lisbon"
+          },
+          {
+            "label": "Europe/Paris",
+            "value": "Europe/Paris"
+          }
+        ],
+        "description": "For the clock and dates.",
+        "key": "system.timezone",
+        "kind": "choice",
+        "label": "Time zone",
+        "section": "Language & region",
+        "value": null
+      },
+      {
+        "applies": "now",
+        "choices": [
+          {
+            "label": "A user-defined custom Layout",
+            "value": "custom"
+          },
+          {
+            "label": "French",
+            "value": "fr"
+          },
+          {
+            "label": "Portuguese",
+            "value": "pt"
+          },
+          {
+            "label": "English (US)",
+            "value": "us"
+          }
+        ],
+        "description": "For a keyboard plugged into the box.",
+        "key": "system.kblayout",
+        "kind": "choice",
+        "label": "Keyboard layout",
+        "section": "Language & region",
+        "value": null
+      },
+      {
+        "applies": "reboot",
+        "choices": [],
+        "description": "Letters, digits and hyphens, up to 63.",
+        "key": "system.hostname",
+        "kind": "text",
+        "label": "Name on the network",
+        "section": "System",
+        "value": null
+      },
+      {
+        "applies": "reboot",
+        "choices": [
+          {
+            "label": "On",
+            "value": "1"
+          },
+          {
+            "label": "Off",
+            "value": "0"
+          }
+        ],
+        "description": "Protects the network shares and SSH with the root password.",
+        "key": "system.security.enabled",
+        "kind": "choice",
+        "label": "Security",
+        "section": "System",
+        "value": null
+      },
+      {
+        "applies": "now",
+        "choices": [
+          {
+            "label": "On",
+            "value": "1"
+          },
+          {
+            "label": "Off",
+            "value": "0"
+          }
+        ],
+        "description": "Look for new Batocera versions.",
+        "key": "updates.enabled",
+        "kind": "choice",
+        "label": "Check for updates",
+        "section": "System",
+        "value": null
+      },
+      {
+        "applies": "reboot",
+        "choices": [
+          {
+            "label": "INTERNAL",
+            "value": "INTERNAL"
+          },
+          {
+            "label": "ANY EXTERNAL",
+            "value": "ANYEXTERNAL"
+          },
+          {
+            "label": "SHARE - 10.9T",
+            "value": "DEV 570aa8a5-b685-4bac-a259-d092c5b3de44"
+          }
+        ],
+        "description": "Where games, saves and settings are kept.",
+        "key": "storage",
+        "kind": "choice",
+        "label": "Storage device",
+        "section": "Storage",
+        "value": "INTERNAL"
+      }
+    ]
   },
   "systems": [
     {

@@ -1,0 +1,2 @@
+auto	auto
+alsa_output.hdmi-stereo	Built-in Audio Digital Stereo (HDMI)

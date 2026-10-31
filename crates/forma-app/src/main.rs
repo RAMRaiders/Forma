@@ -9,6 +9,7 @@ mod options;
 mod permissions;
 mod protocol;
 mod state;
+mod system_settings;
 
 #[cfg(test)]
 mod ipc_tests;
@@ -51,6 +52,9 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::batocera_set,
         options::options_get,
         options::options_set,
+        system_settings::system_info,
+        system_settings::system_settings,
+        system_settings::system_settings_set,
         commands::ra_login,
         commands::ra_logout,
         music::music_sources,

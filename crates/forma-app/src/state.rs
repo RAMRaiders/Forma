@@ -13,6 +13,7 @@ use forma_core::net::{Cache, Http, achievements};
 use forma_core::network::Network;
 use forma_core::options::Options;
 use forma_core::sync::SyncHandle;
+use forma_core::system_settings::SystemSettings;
 use forma_core::themes::Theme;
 use forma_core::thumbs::Thumbnailer;
 use forma_core::{Library, Paths};
@@ -40,6 +41,8 @@ pub struct AppState {
     pub batocera: BatoceraSettings,
     /// Batocera's emulator, core and game options.
     pub options: Options,
+    /// Batocera's system settings.
+    pub system_settings: SystemSettings,
     /// The music player (mpv in the background).
     pub music: Player,
     /// Resized artwork, made in the background.

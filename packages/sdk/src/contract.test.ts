@@ -23,6 +23,8 @@ import type {
   BatoceraSetting,
   OptionItem,
   OptionsPage,
+  InfoItem,
+  SystemSetting,
   MusicSource,
   Radio,
   WifiNetwork,
@@ -213,6 +215,25 @@ describe('contract with the engine', () => {
     }
     const kinds = new Set(pages.flatMap((p) => p.options.map((o) => o.kind)));
     expect(kinds).toEqual(new Set(['choice', 'number', 'text']));
+  });
+
+  it('system settings and information', () => {
+    const info = keys<InfoItem>()('label', 'value');
+    for (const i of data.system.info) expect(sorted(i)).toEqual(info);
+    const setting = keys<SystemSetting>()(
+      'key',
+      'label',
+      'section',
+      'description',
+      'kind',
+      'choices',
+      'value',
+      'applies'
+    );
+    for (const s of data.system.settings) expect(sorted(s)).toEqual(setting);
+    expect(new Set(data.system.settings.map((s) => s.applies))).toEqual(
+      new Set(['now', 'restart', 'reboot'])
+    );
   });
 
   it('the music folder', () => {

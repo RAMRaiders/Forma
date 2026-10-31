@@ -1,0 +1,10 @@
+Model: Raspberry_Pi_5_Model_B_Rev_1_0
+System: Linux 6.12.62
+Architecture: aarch64
+CPU Cores: 4
+Temperature: 58°C
+Available Memory: 2997/3986 MB
+Display Output: 
+Display Refresh Rate: .Hz
+Data Partition Available Space: 9.1T
+Network IP Address: 192.168.1.113

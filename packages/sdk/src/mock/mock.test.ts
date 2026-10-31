@@ -164,6 +164,25 @@ describe('mock backend', () => {
     expect([token.value, token.set]).toEqual([null, true]);
   });
 
+  it('system settings behind system.settings, checked against their choices', async () => {
+    await expect(mockBackend().invoke('system_settings')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ permissions: ['system.settings'] });
+    const info = await b.invoke<{ label: string }[]>('system_info');
+    expect(info[0]!.label).toBe('Batocera');
+    await b.invoke('system_settings_set', { key: 'system.timezone', value: 'Europe/Paris' });
+    await b.invoke('system_settings_set', { key: 'system.hostname', value: 'retro-box' });
+    const all = await b.invoke<{ key: string; value: string | null }[]>('system_settings');
+    expect(all.find((s) => s.key === 'system.timezone')!.value).toBe('Europe/Paris');
+    await expect(
+      b.invoke('system_settings_set', { key: 'system.timezone', value: 'Mars/Olympus' })
+    ).rejects.toMatchObject({ code: 'invalid' });
+    await expect(
+      b.invoke('system_settings_set', { key: 'system.hostname', value: 'my box' })
+    ).rejects.toMatchObject({ code: 'invalid' });
+  });
+
   it('emulator options: levels, inheritance, the emulator choosing the options', async () => {
     const global = { level: 'global' } as const;
     await expect(mockBackend().invoke('options_get', { scope: global })).rejects.toMatchObject({

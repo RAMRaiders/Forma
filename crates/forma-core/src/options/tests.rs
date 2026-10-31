@@ -275,3 +275,16 @@ fn changing_the_emulator_drops_a_core_set_at_the_same_level() {
     assert_eq!(item(&page, "core").value, None);
     assert_eq!(item(&page, "core").default.as_deref(), Some("duckstation"));
 }
+
+#[test]
+fn video_mode_labels_are_tidied() {
+    assert_eq!(
+        video_mode_label("1920x1080 59.939999 Hz"),
+        "1920x1080 · 59.94 Hz"
+    );
+    assert_eq!(
+        video_mode_label("1920x1080 60.000000 Hz"),
+        "1920x1080 · 60 Hz"
+    );
+    assert_eq!(video_mode_label("maximum 1920x1080"), "Maximum 1920x1080");
+}

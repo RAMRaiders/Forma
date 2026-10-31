@@ -21,6 +21,7 @@ pub mod options;
 pub mod paths;
 pub mod scan;
 pub mod sync;
+pub mod system_settings;
 pub mod systems;
 pub mod themes;
 pub mod thumbs;

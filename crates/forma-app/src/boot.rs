@@ -14,6 +14,7 @@ use forma_core::music::{self, Mpv, Player};
 use forma_core::network::{Network, SystemShell};
 use forma_core::options::Options;
 use forma_core::sync::{self, SyncEvent, SyncOptions};
+use forma_core::system_settings::SystemSettings;
 use forma_core::themes::{Theme, discover};
 use forma_core::thumbs::{self, Thumbnailer, Thumbs};
 use forma_core::{Library, Paths};
@@ -71,6 +72,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         http: Box::new(forma_core::net::UreqHttp::default()),
         network: Network::new(Box::new(SystemShell), &paths),
         batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
+        system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
         options: Options::new(
             Box::new(SystemShell),
             &paths.batocera_conf(),

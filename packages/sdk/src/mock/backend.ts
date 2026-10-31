@@ -14,6 +14,8 @@ import type {
   OptionItem,
   OptionsPage,
   OptionsScope,
+  InfoItem,
+  SystemSetting,
   DefaultView,
   EthernetConfig,
   Game,
@@ -57,6 +59,7 @@ interface Snapshot {
   music: { sources: MusicSource[]; radios: Radio[] };
   /** The engine's option pages: `global`, and `system|emulator|core` (empty: not set). */
   options: Record<string, OptionsPage>;
+  system: { info: InfoItem[]; settings: SystemSetting[] };
 }
 
 const snapshot = data as unknown as Snapshot;
@@ -115,6 +118,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const trackTitle = (n: number) => `Track ${n}`;
   const batocera = new Map(snapshot.batocera.map((s) => [s.key, structuredClone(s)]));
   let playing = false;
+  const systemSettings = structuredClone(snapshot.system.settings);
   /** The mock's `batocera.conf`, for emulator options. */
   const conf = new Map<string, string>();
   /** A level's key prefix, then each level it inherits from, as Batocera reads them. */
@@ -374,6 +378,30 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const p = typeof prefix === 'string' ? prefix : '';
       return [...batocera.values()].filter((s) => s.key.startsWith(p)).map((s) => ({ ...s }));
     },
+    system_info: () => {
+      systemAllowed();
+      return structuredClone(snapshot.system.info);
+    },
+    system_settings: () => {
+      systemAllowed();
+      return structuredClone(systemSettings);
+    },
+    system_settings_set: ({ key, value }) => {
+      systemAllowed();
+      const s =
+        systemSettings.find((x) => x.key === key) ??
+        fail('invalid', `\`${String(key)}\` is not a system setting`);
+      const v = typeof value === 'string' ? value.trim() : '';
+      if (v === '' && s.key === 'storage') fail('invalid', 'choose a storage device');
+      const ok =
+        v === '' ||
+        (s.kind === 'text'
+          ? /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(v)
+          : s.choices.some((c) => c.value === v));
+      if (!ok) fail('invalid', `\`${v}\` is not allowed for \`${s.key}\``);
+      s.value = v === '' ? null : v;
+      return null;
+    },
     options_get: ({ scope }) => {
       optionsAllowed();
       return optionsPage(scope as OptionsScope);
@@ -549,6 +577,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
   function batoceraAllowed(): void {
     if (!permissions.has('settings.batocera')) {
       fail('permissionDenied', 'theme `mock` needs the `settings.batocera` permission');
+    }
+  }
+
+  function systemAllowed(): void {
+    if (!permissions.has('system.settings')) {
+      fail('permissionDenied', 'theme `mock` needs the `system.settings` permission');
     }
   }
 

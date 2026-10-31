@@ -35,6 +35,10 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "change Batocera's emulator, core and game options",
     ),
     (
+        "system.settings",
+        "see and change Batocera's system settings: display, audio, language, region, name, security and storage",
+    ),
+    (
         "system.network",
         "see and change the machine's Wi-Fi and Ethernet settings",
     ),

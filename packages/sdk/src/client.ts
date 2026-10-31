@@ -29,6 +29,8 @@ import type {
   BatoceraSetting,
   OptionsPage,
   OptionsScope,
+  InfoItem,
+  SystemSetting,
   WifiJoined,
   WifiNetwork
 } from './types.js';
@@ -274,7 +276,17 @@ export class Forma {
       /** Needs the `system.power` permission. */
       quit: () => invoke<void>('system_quit'),
       restart: () => invoke<void>('system_power', { action: 'restart' }),
-      shutdown: () => invoke<void>('system_power', { action: 'shutdown' })
+      shutdown: () => invoke<void>('system_power', { action: 'shutdown' }),
+      /** What the box is: Batocera's version, model, CPU, memory, storage, address. */
+      info: () => invoke<InfoItem[]>('system_info'),
+      /**
+       * Batocera's system settings, as EmulationStation's System settings menu offers them.
+       * These and `info` need the `system.settings` permission; Batocera only.
+       */
+      settings: () => invoke<SystemSetting[]>('system_settings'),
+      /** Sets one, checked against its choices; `null` unsets it. Some wait for a reboot. */
+      set: (key: string, value: string | null) =>
+        invoke<void>('system_settings_set', { key, value })
     };
   }
 
