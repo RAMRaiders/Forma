@@ -7,6 +7,8 @@
 //!   for images; the original is served until the copy has been made.
 //! - `forma://localhost/ra-media/<path>` serves RetroAchievements badges, icons and avatars,
 //!   fetched once and cached, so showing achievements never needs the `network` permission.
+//! - `forma://localhost/system/splash.html` is Forma's start-up screen, compiled in; next to it,
+//!   `splash.mp4` and `boot-logo.png` are Batocera's own splash files, and nothing else.
 //!
 //! HTML responses carry the Content-Security-Policy that keeps a theme to its own folder and
 //! the origins its manifest declares. Media supports byte ranges, which video seeking needs.
@@ -25,6 +27,19 @@ pub trait Resolver {
     fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf>;
     /// A RetroAchievements media file, fetched and cached if need be.
     fn ra_media(&self, path: &str) -> Option<PathBuf>;
+    /// One of Batocera's splash files (`splash.mp4`, `boot-logo.png`), for the start-up screen.
+    fn splash_file(&self, name: &str) -> Option<PathBuf>;
+}
+
+/// Forma's start-up screen: Batocera's splash, then the theme.
+const SPLASH_PAGE: &str = include_str!("../boot/splash.html");
+
+/// The start-up screen's own policy: its inline script and style, Batocera's splash files.
+const SPLASH_CSP: &str = "default-src 'none'; script-src 'unsafe-inline'; \
+                          style-src 'unsafe-inline'; media-src forma:; img-src forma:";
+
+pub fn splash_url(query: &str) -> String {
+    format!("{ORIGIN}/system/splash.html?{query}")
 }
 
 pub const ORIGIN: &str = "forma://localhost";
@@ -82,6 +97,18 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
             {
                 Some(file) => serve(&file, range, None),
                 None => status(StatusCode::NOT_FOUND, "no such media"),
+            }
+        }
+        (Some("system"), Some("splash.html"), None) => Response::builder()
+            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .header(header::CONTENT_SECURITY_POLICY, SPLASH_CSP)
+            .header("X-Content-Type-Options", "nosniff")
+            .body(SPLASH_PAGE.as_bytes().to_vec())
+            .unwrap_or_default(),
+        (Some("system"), Some(name @ ("splash.mp4" | "boot-logo.png")), None) => {
+            match resolver.splash_file(name) {
+                Some(file) => serve(&file, range, None),
+                None => status(StatusCode::NOT_FOUND, "no splash"),
             }
         }
         _ => status(StatusCode::NOT_FOUND, "not found"),
@@ -270,6 +297,9 @@ mod tests {
         fn ra_media(&self, path: &str) -> Option<PathBuf> {
             (path == "Badge/1.png").then(|| self.media.clone())
         }
+        fn splash_file(&self, name: &str) -> Option<PathBuf> {
+            (name == "splash.mp4").then(|| self.media.clone())
+        }
     }
 
     fn setup() -> (tempfile::TempDir, Fake) {
@@ -297,6 +327,38 @@ mod tests {
             req = req.header(header::RANGE, r);
         }
         respond(fake, &req.body(Vec::new()).unwrap())
+    }
+
+    #[test]
+    fn serves_the_start_up_screen_and_only_batoceras_splash_files() {
+        let (_dir, fake) = setup();
+        let page = get(&fake, "forma://localhost/system/splash.html?next=x", None);
+        assert_eq!(page.status(), StatusCode::OK);
+        assert!(String::from_utf8_lossy(page.body()).contains("<video src=\"splash.mp4\""));
+        let csp = page.headers()[header::CONTENT_SECURITY_POLICY]
+            .to_str()
+            .unwrap();
+        assert!(csp.starts_with("default-src 'none'") && csp.contains("media-src forma:"));
+
+        let video = get(
+            &fake,
+            "forma://localhost/system/splash.mp4",
+            Some("bytes=2-4"),
+        );
+        assert_eq!(video.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(video.body(), b"234");
+        for uri in [
+            "forma://localhost/system/boot-logo.png",
+            "forma://localhost/system/secret.txt",
+            "forma://localhost/system/../secret.txt",
+            "forma://localhost/system/splash.mp4/x",
+        ] {
+            assert_eq!(
+                get(&fake, uri, None).status(),
+                StatusCode::NOT_FOUND,
+                "{uri}"
+            );
+        }
     }
 
     #[test]

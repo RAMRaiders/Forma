@@ -38,7 +38,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libssl-dev libxdo-dev librsvg2-dev \
-            libayatana-appindicator3-dev libudev-dev file patchelf
+            libayatana-appindicator3-dev libudev-dev file patchelf \
+            gstreamer1.0-libav gstreamer1.0-plugins-good
+          # gstreamer1.0-libav: H.264 and AAC, for game preview videos and Batocera's splash
+          # (bundled by bundleMediaFramework; a Pi 5 has no H.264 hardware decoder).
 
       - name: Rust, as rust-toolchain.toml pins it
         run: |

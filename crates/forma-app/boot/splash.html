@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Forma</title>
+    <!--
+      Forma's start-up screen, at the first start after boot: Batocera's own splash animation and
+      version, as Batocera shows them, and below, smaller, the theme that is about to load. Then the
+      theme. Served by Forma (forma://localhost/system/splash.html?…); the query carries the theme's
+      address, the versions and whether to play sound.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        color: #fff;
+        font-family: 'DejaVu Sans', system-ui, sans-serif;
+      }
+
+      main {
+        position: fixed;
+        inset: 0;
+        transition: opacity 400ms ease;
+      }
+
+      main.done {
+        opacity: 0;
+      }
+
+      video,
+      img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      img[hidden],
+      video[hidden] {
+        display: none;
+      }
+
+      .lines {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 6vh;
+        text-align: center;
+        text-shadow: 0 0 0.4vh #000;
+      }
+
+      .batocera {
+        margin: 0;
+        font-size: 3.4vh;
+      }
+
+      .theme {
+        margin: 1vh 0 0;
+        font-size: 1.9vh;
+        color: rgb(255 255 255 / 70%);
+        letter-spacing: 0.04em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <video src="splash.mp4" playsinline preload="auto"></video>
+      <img src="boot-logo.png" alt="" hidden />
+      <div class="lines">
+        <p class="batocera"></p>
+        <p class="theme"></p>
+      </div>
+    </main>
+    <script>
+      const query = new URLSearchParams(location.search);
+      const next = query.get('next') || '';
+      document.querySelector('.batocera').textContent = query.get('batocera') || '';
+      document.querySelector('.theme').textContent = query.get('theme') || '';
+
+      const main = document.querySelector('main');
+      const video = document.querySelector('video');
+      const logo = document.querySelector('img');
+      let leaving = false;
+
+      // To the theme, faded; only from forma:// (the query must not send the window elsewhere).
+      function leave() {
+        if (leaving) return;
+        leaving = true;
+        main.classList.add('done');
+        setTimeout(() => {
+          if (next.startsWith('forma://localhost/theme/')) location.replace(next);
+        }, 400);
+      }
+
+      // No decoder, no file: Batocera's still logo for a moment instead.
+      function still() {
+        video.hidden = true;
+        logo.hidden = false;
+        setTimeout(leave, 3000);
+      }
+
+      video.addEventListener('ended', leave);
+      video.addEventListener('error', still);
+      video.muted = query.get('sound') !== '1';
+      video.play().catch(() => {
+        // Sound refused before any input: play it silent rather than not at all.
+        video.muted = true;
+        video.play().catch(still);
+      });
+      window.addEventListener('keydown', leave);
+      setTimeout(leave, 12000);
+    </script>
+  </body>
+</html>

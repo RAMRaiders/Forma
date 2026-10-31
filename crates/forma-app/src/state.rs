@@ -118,6 +118,10 @@ impl Resolver for AppState {
         })
     }
 
+    fn splash_file(&self, name: &str) -> Option<PathBuf> {
+        Some(PathBuf::from(crate::boot::BATOCERA_SPLASH).join(name)).filter(|f| f.is_file())
+    }
+
     fn ra_media(&self, path: &str) -> Option<PathBuf> {
         let dir = self.paths.cache_dir().join("ra-media");
         achievements::media_file(&*self.http, &dir, path).ok()
