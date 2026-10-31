@@ -10,6 +10,7 @@ use forma_core::batocera::BatoceraSettings;
 use forma_core::hierarchy::load_views;
 use forma_core::input::{self, InputOptions};
 use forma_core::launch::launcher_from_env;
+use forma_core::music::{self, Mpv, Player};
 use forma_core::network::{Network, SystemShell};
 use forma_core::sync::{self, SyncEvent, SyncOptions};
 use forma_core::themes::{Theme, discover};
@@ -57,6 +58,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let selected = library.setting_text(THEME_SETTING)?;
     let current = pick_theme(&themes, selected.as_deref()).unwrap_or_default();
 
+    let music = music_player(&paths, &library);
     app.manage(AppState {
         views: RwLock::new(load_views(&paths)),
         library: Mutex::new(library),
@@ -67,6 +69,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         http: Box::new(forma_core::net::UreqHttp::default()),
         network: Network::new(Box::new(SystemShell), &paths),
         batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
+        music,
         thumbnails: Thumbnailer::spawn(Thumbs::new(
             paths.cache_dir().join("thumbs"),
             thumbs::DEFAULT_MAX_BYTES,
@@ -89,6 +92,8 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         move |event| on_sync(&handle, event),
     );
     *state.sync.lock().unwrap_or_else(PoisonError::into_inner) = Some(sync);
+
+    crate::music::start(app.handle().clone());
 
     let handle = app.handle().clone();
     match input::spawn(InputOptions::default(), move |event| {
@@ -137,6 +142,29 @@ fn reload_if_the_page_dies<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 
 #[cfg(not(target_os = "linux"))]
 fn reload_if_the_page_dies<R: Runtime>(_window: &tauri::WebviewWindow<R>) {}
+
+/// Batocera's own music, played when the music folder has none.
+const BATOCERA_MUSIC: &str = "/usr/share/batocera/music";
+
+/// The music player, at the volume the user left it.
+fn music_player(paths: &Paths, library: &Library) -> Player {
+    let volume = library
+        .setting_text(crate::music::VOLUME_SETTING)
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(crate::music::DEFAULT_VOLUME);
+    let run = paths.forma_dir().join("run");
+    Player::new(
+        music::Library {
+            music: paths.music_dir(),
+            fallback: BATOCERA_MUSIC.into(),
+        },
+        Box::new(Mpv::new(run.join("mpv.sock"))),
+        run,
+        volume,
+    )
+}
 
 /// Loads `theme` in the window and makes it current.
 pub fn show_theme<R: Runtime>(

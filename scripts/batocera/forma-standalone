@@ -34,11 +34,17 @@ wait_for() {
 
 back_to_emulationstation() {
     log "handing the screen back to EmulationStation: $1"
+    stop_music
     # As labwc's autostart starts it.
     # Two lines: backgrounding `cd && nohup …` would leave a copy of this script as its parent.
     cd /userdata
     nohup /usr/bin/emulationstation-standalone > /dev/null 2>&1 &
     exit 0
+}
+
+# Forma's music player (mpv, named by its socket): it must not play on over EmulationStation.
+stop_music() {
+    pkill -f '(^|/)mpv .*forma/run/mpv\.sock' || true
 }
 
 mkdir -p "$(dirname "$LOG")"

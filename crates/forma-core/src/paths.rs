@@ -50,6 +50,11 @@ impl Paths {
         self.userdata.join("system/batocera.conf")
     }
 
+    /// Batocera's music folder: tracks, sub-folders, playlists and `radios.m3u`.
+    pub fn music_dir(&self) -> PathBuf {
+        self.userdata.join("music")
+    }
+
     /// connman's provisioning file, which Batocera links into `/var/lib/connman` at boot.
     pub fn network_config(&self) -> PathBuf {
         self.userdata.join("system/network-connman.config")

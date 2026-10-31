@@ -4,6 +4,7 @@
 mod api;
 mod boot;
 mod commands;
+mod music;
 mod permissions;
 mod protocol;
 mod state;
@@ -49,6 +50,17 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::batocera_set,
         commands::ra_login,
         commands::ra_logout,
+        music::music_sources,
+        music::music_status,
+        music::music_play,
+        music::music_toggle,
+        music::music_next,
+        music::music_previous,
+        music::music_stop,
+        music::music_set_volume,
+        music::music_radios,
+        music::music_add_radio,
+        music::music_remove_radio,
     ]
 }
 
@@ -70,6 +82,7 @@ fn main() {
             });
         })
         .invoke_handler(handlers())
+        .on_window_event(commands::on_window_event)
         .setup(|app| boot::start(app))
         .run(tauri::generate_context!())
         .expect("error while running Forma");

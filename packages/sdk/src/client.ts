@@ -14,9 +14,12 @@ import type {
   InputEvent,
   LaunchRequest,
   MediaKind,
+  MusicSource,
+  MusicStatus,
   NetplayRoom,
   NetworkStatus,
   Page,
+  Radio,
   RaGame,
   RaUser,
   SystemSummary,
@@ -92,6 +95,7 @@ export class Forma {
   readonly netplay;
   readonly network;
   readonly batocera;
+  readonly music;
 
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
@@ -223,6 +227,31 @@ export class Forma {
       settings: (prefix = '') => invoke<BatoceraSetting[]>('batocera_settings', { prefix }),
       /** Sets one; an empty string clears it. Secrets are set by `ra.login`, not here. */
       set: (key: string, value: string) => invoke<void>('batocera_set', { key, value })
+    };
+
+    /**
+     * Forma's music player: the music folder's folders and playlists, and web radios. Forma plays
+     * it (pausing for games); a theme shows it and sends commands. `music:changed` follows every
+     * change, the player moving on to the next track included.
+     */
+    this.music = {
+      sources: () => invoke<MusicSource[]>('music_sources'),
+      status: () => invoke<MusicStatus>('music_status'),
+      /** Plays a source, remembered for the next boot. */
+      play: (source: string, options?: { shuffle?: boolean }) =>
+        invoke<MusicStatus>('music_play', { source, options }),
+      /** Pauses, or resumes. */
+      toggle: () => invoke<MusicStatus>('music_toggle'),
+      next: () => invoke<MusicStatus>('music_next'),
+      previous: () => invoke<MusicStatus>('music_previous'),
+      stop: () => invoke<MusicStatus>('music_stop'),
+      /** 0–100. */
+      setVolume: (volume: number) => invoke<MusicStatus>('music_set_volume', { volume }),
+      radios: () => invoke<Radio[]>('music_radios'),
+      /** Adds a web radio to `radios.m3u`. Needs `music.manage`. */
+      addRadio: (name: string, url: string) => invoke<void>('music_add_radio', { name, url }),
+      /** Needs `music.manage`. */
+      removeRadio: (url: string) => invoke<void>('music_remove_radio', { url })
     };
 
     this.system = {

@@ -2766,6 +2766,34 @@
       "username": "speedrunner"
     }
   ],
+  "music": {
+    "radios": [
+      {
+        "name": "Groove Salad (SomaFM)",
+        "url": "https://ice1.somafm.com/groovesalad-128-mp3"
+      }
+    ],
+    "sources": [
+      {
+        "id": "folder:",
+        "kind": "folder",
+        "name": "Music",
+        "tracks": 1
+      },
+      {
+        "id": "folder:Chiptune",
+        "kind": "folder",
+        "name": "Chiptune",
+        "tracks": 2
+      },
+      {
+        "id": "radio:https://ice1.somafm.com/groovesalad-128-mp3",
+        "kind": "radio",
+        "name": "Groove Salad (SomaFM)",
+        "tracks": 0
+      }
+    ]
+  },
   "network": {
     "status": {
       "ethernet": {

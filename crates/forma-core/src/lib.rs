@@ -14,6 +14,7 @@ pub mod import;
 pub mod input;
 pub mod launch;
 pub mod library;
+pub mod music;
 pub mod net;
 pub mod network;
 pub mod paths;

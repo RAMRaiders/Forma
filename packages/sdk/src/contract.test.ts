@@ -21,6 +21,8 @@ import type {
   RaRecent,
   RaUser,
   BatoceraSetting,
+  MusicSource,
+  Radio,
   WifiNetwork,
   WifiStatus
 } from './types.js';
@@ -183,5 +185,16 @@ describe('contract with the engine', () => {
     const password = data.batocera.find((s) => s.key === 'global.retroachievements.password')!;
     expect(password.value).toBeNull();
     expect(data.batocera.find((s) => s.key === 'global.netplay.relay')!.choices).toContain('nyc');
+  });
+
+  it('the music folder', () => {
+    const source = keys<MusicSource>()('id', 'kind', 'name', 'tracks');
+    for (const s of data.music.sources) expect(sorted(s)).toEqual(source);
+    expect(data.music.sources.map((s) => [s.id, s.tracks])).toEqual([
+      ['folder:', 1],
+      ['folder:Chiptune', 2],
+      ['radio:https://ice1.somafm.com/groovesalad-128-mp3', 0]
+    ]);
+    for (const r of data.music.radios) expect(sorted(r)).toEqual(keys<Radio>()('name', 'url'));
   });
 });

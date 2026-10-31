@@ -32,7 +32,7 @@ pub struct LibraryChanged {
     pub systems: Vec<String>,
 }
 
-fn theme(state: &AppState) -> ApiResult<Theme> {
+pub(crate) fn theme(state: &AppState) -> ApiResult<Theme> {
     state
         .current_theme()
         .ok_or_else(|| ApiError::new(ErrorCode::Internal, "no theme is loaded"))
@@ -382,6 +382,7 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
         },
     );
     set_playing_ui(app, &state, true);
+    state.music.game(true);
 
     let result = state.launcher.run(&prepared.command);
     let (seconds, exit_code, error) = match &result {
@@ -399,6 +400,7 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
     // Not playing first: a delayed hide (see set_playing_ui) must not land after the show.
     state.playing.store(false, Ordering::SeqCst);
     set_playing_ui(app, &state, false);
+    state.music.game(false);
     let _ = app.emit(
         EVENT_GAME_END,
         GameEvent::End {
@@ -426,9 +428,10 @@ fn set_playing_ui<R: Runtime>(app: &AppHandle<R>, state: &AppState, playing: boo
         input.set_paused(playing);
     }
     if playing {
-        // The theme's launch screen stays up while the emulator starts and opens its window over
-        // it; only then does Forma's window go, so it neither draws nor takes focus behind the
-        // game. A game that ends sooner leaves the window as it is.
+        // The theme's launch screen stays up until the emulator's window opens over it and takes
+        // focus (see `on_window_event`); then Forma's window goes, so it neither draws nor takes
+        // input behind the game. An emulator that never takes focus still gets the screen to
+        // itself after LAUNCH_SCREEN. A game that ends sooner leaves the window as it is.
         let app = app.clone();
         std::thread::spawn(move || {
             std::thread::sleep(LAUNCH_SCREEN);
@@ -444,11 +447,25 @@ fn set_playing_ui<R: Runtime>(app: &AppHandle<R>, state: &AppState, playing: boo
     }
 }
 
-/// How long the launch screen shows before Forma's window hides behind the game.
-const LAUNCH_SCREEN: std::time::Duration = std::time::Duration::from_millis(2500);
+/// The longest the launch screen shows, for an emulator that never takes focus.
+const LAUNCH_SCREEN: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// While a game runs, Forma losing focus means the emulator's window has opened over it: the
+/// launch screen has done its job, and the window goes.
+pub fn on_window_event<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEvent) {
+    if let tauri::WindowEvent::Focused(false) = event
+        && window
+            .app_handle()
+            .state::<AppState>()
+            .playing
+            .load(Ordering::SeqCst)
+    {
+        let _ = window.hide();
+    }
+}
 
 /// Runs network work on a blocking thread: a slow service must never stall the UI thread.
-async fn off_thread<R: Runtime, T: Send + 'static>(
+pub(crate) async fn off_thread<R: Runtime, T: Send + 'static>(
     app: AppHandle<R>,
     work: impl FnOnce(&AppState) -> ApiResult<T> + Send + 'static,
 ) -> ApiResult<T> {

@@ -23,6 +23,10 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "change Forma settings beyond the theme's own",
     ),
     (
+        "music.manage",
+        "add and remove web radios in the music folder",
+    ),
+    (
         "settings.batocera",
         "change Batocera's RetroAchievements and netplay settings, and log in to RetroAchievements",
     ),

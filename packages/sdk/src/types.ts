@@ -204,6 +204,7 @@ export interface LibraryChanged {
 }
 
 export interface EventMap {
+  'music:changed': MusicStatus;
   'game:start': GameStart;
   'game:end': GameEnd;
   'library:changed': LibraryChanged;
@@ -366,4 +367,37 @@ export interface BatoceraSetting {
   set: boolean;
   /** The values a choice accepts. */
   choices: string[];
+}
+
+/** Something the music player can play. Its `id` is stable: a theme can remember it. */
+export interface MusicSource {
+  id: string;
+  /** A folder of the music folder (sub-folders included), a playlist file, or a web radio. */
+  kind: 'folder' | 'playlist' | 'radio';
+  name: string;
+  /** 0 for a radio. */
+  tracks: number;
+}
+
+export interface MusicStatus {
+  state: 'stopped' | 'playing' | 'paused';
+  source: MusicSource | null;
+  /** The track, or for a radio the song it announces. */
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  /** Seconds; `null` for a radio's endless stream. */
+  position: number | null;
+  duration: number | null;
+  /** 1-based, of `tracks`. */
+  track: number | null;
+  tracks: number | null;
+  /** 0–100. */
+  volume: number;
+  shuffle: boolean;
+}
+
+export interface Radio {
+  name: string;
+  url: string;
 }

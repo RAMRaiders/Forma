@@ -67,6 +67,15 @@ impl Harness {
             http: Box::new(FixtureHttp),
             network: Network::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
+            music: forma_core::music::Player::new(
+                forma_core::music::Library {
+                    music: paths.music_dir(),
+                    fallback: root.join("no-music"),
+                },
+                Box::new(forma_core::music::Mpv::new(root.join("mpv.sock"))),
+                root.join("run"),
+                60,
+            ),
             thumbnails: forma_core::thumbs::Thumbnailer::spawn(forma_core::thumbs::Thumbs::new(
                 root.join("thumbs"),
                 forma_core::thumbs::DEFAULT_MAX_BYTES,
@@ -369,6 +378,48 @@ fn batocera_settings_need_permission_and_are_refused_outside_batocera() {
         .call("batocera_settings", json!({ "prefix": "" }))
         .unwrap_err();
     assert_eq!(code(&err), "unsupported", "{err}");
+}
+
+#[test]
+fn music_lists_sources_reports_stopped_and_guards_the_radio_list() {
+    let h = Harness::new(&[]);
+    // The fixture's music folder: loose tracks, a sub-folder, and a radio.
+    let sources = h.call("music_sources", json!({})).unwrap();
+    let ids: Vec<&str> = sources
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "folder:",
+            "folder:Chiptune",
+            "radio:https://ice1.somafm.com/groovesalad-128-mp3"
+        ]
+    );
+    let status = h.call("music_status", json!({})).unwrap();
+    assert_eq!(status["state"], "stopped");
+    assert_eq!(status["volume"], 60);
+    let err = h
+        .call(
+            "music_add_radio",
+            json!({ "name": "x", "url": "https://x" }),
+        )
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+
+    let allowed = Harness::new(&["music.manage"]);
+    allowed
+        .call(
+            "music_add_radio",
+            json!({ "name": "Lofi", "url": "https://lofi.example/live" }),
+        )
+        .unwrap();
+    let radios = allowed.call("music_radios", json!({})).unwrap();
+    // Added after the fixture's own radio.
+    assert_eq!(radios[1]["name"], "Lofi");
 }
 
 #[test]

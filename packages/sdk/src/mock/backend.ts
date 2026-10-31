@@ -17,8 +17,11 @@ import type {
   GameEnd,
   GameStart,
   LibraryChanged,
+  MusicSource,
+  MusicStatus,
   NetplayRoom,
   NetworkStatus,
+  Radio,
   RaGame,
   RaUser,
   SystemSummary,
@@ -48,6 +51,7 @@ interface Snapshot {
   lobby: NetplayRoom[];
   network: { status: NetworkStatus; wifi: WifiNetwork[] };
   batocera: BatoceraSetting[];
+  music: { sources: MusicSource[]; radios: Radio[] };
 }
 
 const snapshot = data as unknown as Snapshot;
@@ -74,6 +78,36 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const listeners = new Map<string, Set<Handler>>();
   let defaultView: string | null = null;
   const network = structuredClone(snapshot.network);
+  const radios = structuredClone(snapshot.music.radios);
+  const musicSources = (): MusicSource[] => [
+    ...snapshot.music.sources.filter((s) => s.kind !== 'radio'),
+    ...radios.map((r) => ({
+      id: `radio:${r.url}`,
+      kind: 'radio' as const,
+      name: r.name,
+      tracks: 0
+    }))
+  ];
+  let music: MusicStatus = {
+    state: 'stopped',
+    source: null,
+    title: null,
+    artist: null,
+    album: null,
+    position: null,
+    duration: null,
+    track: null,
+    tracks: null,
+    volume: 60,
+    shuffle: false
+  };
+  /** Changes the mock player, and tells listeners, as Forma does. */
+  const playerSet = (change: Partial<MusicStatus>): MusicStatus => {
+    music = { ...music, ...change };
+    emit('music:changed', structuredClone(music));
+    return structuredClone(music);
+  };
+  const trackTitle = (n: number) => `Track ${n}`;
   const batocera = new Map(snapshot.batocera.map((s) => [s.key, structuredClone(s)]));
   let playing = false;
 
@@ -324,6 +358,71 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (on) Object.assign(on, { value: '0', set: true });
       return null;
     },
+    music_sources: () => musicSources(),
+    music_status: () => structuredClone(music),
+    music_play: ({ source, options }) => {
+      const found =
+        musicSources().find((s) => s.id === source) ??
+        fail('invalid', `nothing to play called \`${String(source)}\``);
+      const radio = found.kind === 'radio';
+      return playerSet({
+        state: 'playing',
+        source: found,
+        title: radio ? 'Live' : trackTitle(1),
+        artist: radio ? found.name : null,
+        position: radio ? null : 0,
+        duration: radio ? null : 180,
+        track: radio ? null : 1,
+        tracks: radio ? null : found.tracks,
+        shuffle: Boolean((options as { shuffle?: boolean } | undefined)?.shuffle)
+      });
+    },
+    music_toggle: () =>
+      music.state === 'stopped'
+        ? structuredClone(music)
+        : playerSet({ state: music.state === 'playing' ? 'paused' : 'playing' }),
+    music_next: () => {
+      if (music.track === null || music.tracks === null) return structuredClone(music);
+      const track = Math.min(music.tracks, music.track + 1);
+      return playerSet({ track, title: trackTitle(track) });
+    },
+    music_previous: () => {
+      if (music.track === null) return structuredClone(music);
+      const track = Math.max(1, music.track - 1);
+      return playerSet({ track, title: trackTitle(track) });
+    },
+    music_stop: () =>
+      playerSet({
+        state: 'stopped',
+        source: null,
+        title: null,
+        artist: null,
+        position: null,
+        duration: null,
+        track: null,
+        tracks: null
+      }),
+    music_set_volume: ({ volume }) =>
+      playerSet({ volume: Math.max(0, Math.min(100, Math.round(Number(volume) || 0))) }),
+    music_radios: () => structuredClone(radios),
+    music_add_radio: ({ name, url }) => {
+      musicManage();
+      const u = typeof url === 'string' ? url.trim() : '';
+      const n = typeof name === 'string' ? name.trim() : '';
+      if (!/^https?:\/\/\S+$/.test(u)) fail('invalid', `${JSON.stringify(u)} is not a web address`);
+      if (!n) fail('invalid', 'a radio needs a name');
+      const at = radios.findIndex((r) => r.url === u);
+      if (at >= 0) radios.splice(at, 1);
+      radios.push({ name: n, url: u });
+      return null;
+    },
+    music_remove_radio: ({ url }) => {
+      musicManage();
+      const at = radios.findIndex((r) => r.url === url);
+      if (at < 0) fail('invalid', `no radio at ${String(url)}`);
+      radios.splice(at, 1);
+      return null;
+    },
     system_quit: () => power(),
     system_power: () => power(),
     launch_game: ({ id }) => {
@@ -353,6 +452,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return null;
     }
   };
+
+  function musicManage(): void {
+    if (!permissions.has('music.manage')) {
+      fail('permissionDenied', 'theme `mock` needs the `music.manage` permission');
+    }
+  }
 
   function batoceraAllowed(): void {
     if (!permissions.has('settings.batocera')) {

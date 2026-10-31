@@ -164,6 +164,30 @@ describe('mock backend', () => {
     expect([token.value, token.set]).toEqual([null, true]);
   });
 
+  it('music: sources, a playing status, events, and radios behind music.manage', async () => {
+    const b = mockBackend({ permissions: ['music.manage'] });
+    const heard: string[] = [];
+    b.listen<{ state: string }>('music:changed', (s) => heard.push(s.state));
+    const sources = await b.invoke<{ id: string }[]>('music_sources');
+    expect(sources.map((s) => s.id)).toContain('folder:Chiptune');
+    const playing = await b.invoke<{ state: string; track: number; tracks: number }>('music_play', {
+      source: 'folder:Chiptune',
+      options: { shuffle: true }
+    });
+    expect([playing.state, playing.track, playing.tracks]).toEqual(['playing', 1, 2]);
+    await b.invoke('music_toggle');
+    await b.invoke('music_set_volume', { volume: 250 });
+    expect(heard).toEqual(['playing', 'paused', 'paused']);
+    expect((await b.invoke<{ volume: number }>('music_status')).volume).toBe(100);
+    await b.invoke('music_add_radio', { name: 'Lofi', url: 'https://lofi.example/live' });
+    expect((await b.invoke<{ id: string }[]>('music_sources')).at(-1)!.id).toBe(
+      'radio:https://lofi.example/live'
+    );
+    await expect(
+      mockBackend().invoke('music_add_radio', { name: 'x', url: 'https://x' })
+    ).rejects.toMatchObject({ code: 'permissionDenied' });
+  });
+
   it('rejects unknown commands instead of answering null', async () => {
     await expect(mockBackend().invoke('rm_rf')).rejects.toMatchObject({ code: 'notFound' });
   });

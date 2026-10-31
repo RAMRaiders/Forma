@@ -8,6 +8,7 @@ use forma_core::batocera::BatoceraSettings;
 use forma_core::hierarchy::ViewCatalog;
 use forma_core::input::InputHandle;
 use forma_core::launch::Launcher;
+use forma_core::music::Player;
 use forma_core::net::{Cache, Http, achievements};
 use forma_core::network::Network;
 use forma_core::sync::SyncHandle;
@@ -36,6 +37,8 @@ pub struct AppState {
     pub network: Network,
     /// Batocera's RetroAchievements and netplay settings.
     pub batocera: BatoceraSettings,
+    /// The music player (mpv in the background).
+    pub music: Player,
     /// Resized artwork, made in the background.
     pub thumbnails: Thumbnailer,
     pub playing: AtomicBool,
