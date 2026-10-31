@@ -3,15 +3,25 @@
 # `batocera-services enable forma` makes Batocera start it at every boot, and
 # `batocera-services disable forma` gives the box back to EmulationStation.
 
+# The app, by executable: this script is itself a process named "forma" while it runs, so
+# `pgrep -x forma` alone would find it.
+BIN=/userdata/system/forma/app/usr/bin/forma
+app_pids() {
+    for pid in $(pgrep -x forma); do
+        [ "$(readlink "/proc/$pid/exe")" = "$BIN" ] && echo "$pid"
+    done
+}
+
 case "$1" in
     start)
         nohup /userdata/system/forma/bin/forma-standalone > /dev/null 2>&1 &
         ;;
     stop)
-        pkill -f /userdata/system/forma/bin/forma-standalone
-        pkill -x forma
+        # Anchored, so it does not match a shell whose command line merely mentions the script.
+        pkill -f '^/bin/bash /userdata/system/forma/bin/forma-standalone'
+        app_pids | xargs -r kill
         ;;
     status)
-        if pgrep -x forma > /dev/null; then echo "Forma is running"; else echo "Forma is not running"; fi
+        if [ -n "$(app_pids)" ]; then echo "Forma is running"; else echo "Forma is not running"; fi
         ;;
 esac

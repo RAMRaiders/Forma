@@ -10,5 +10,5 @@ rm -rf /userdata/system/forma/app /userdata/system/forma/bin
 if [ "${1:-}" = "--purge" ]; then
     rm -rf /userdata/system/forma
 fi
-pgrep -x emulationstation > /dev/null || (cd /userdata && nohup /usr/bin/emulationstation-standalone > /dev/null 2>&1 &)
+pgrep -f '^emulationstation( |$)' > /dev/null || (cd /userdata && nohup /usr/bin/emulationstation-standalone > /dev/null 2>&1 &)
 echo "Forma removed; EmulationStation is back."

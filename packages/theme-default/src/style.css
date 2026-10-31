@@ -66,6 +66,10 @@ main {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  /* Rows keep their content's height and the grid scrolls; left to stretch, a long list
+     squeezes every row to fit, since cards (overflow: hidden) have no minimum height. */
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 1.2rem;
   height: 100%;
   overflow-y: auto;
