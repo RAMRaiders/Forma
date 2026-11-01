@@ -205,6 +205,7 @@ export interface LibraryChanged {
 
 export interface EventMap {
   'music:changed': MusicStatus;
+  'store:progress': StoreProgress;
   'game:start': GameStart;
   'game:end': GameEnd;
   'library:changed': LibraryChanged;
@@ -433,6 +434,37 @@ export interface SystemSetting {
 export interface InfoItem {
   label: string;
   value: string;
+}
+
+/** A package from Batocera's content downloader: a free game, a port, decorations, music. */
+export interface StorePackage {
+  name: string;
+  description: string;
+  /** `sys-<system>` for a system's games, `bezel`, `music`, `ports`, `misc`. */
+  group: string;
+  /** The system a `sys-…` package is for, e.g. `nes`. */
+  system: string | null;
+  version: string;
+  /** Where it comes from: a project or forum page. */
+  url: string | null;
+  packager: string | null;
+  /** In bytes. */
+  downloadSize: number;
+  installedSize: number;
+  /** A picture on store.batocera.org (loading it needs the `network` permission). */
+  previewUrl: string | null;
+  installed: boolean;
+  /** Installed, and the store has a newer version. */
+  update: boolean;
+}
+
+/** While a package installs. */
+export interface StoreProgress {
+  name: string;
+  /** `download`, then `install`. */
+  stage: 'download' | 'install';
+  /** 0–100; while installing it only shows that something is happening. */
+  percent: number;
 }
 
 /** Something the music player can play. Its `id` is stable: a theme can remember it. */

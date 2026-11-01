@@ -72,6 +72,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         http: Box::new(forma_core::net::UreqHttp::default()),
         network: Network::new(Box::new(SystemShell), &paths),
         batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
+        store: forma_core::store::Store::default(),
         system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
         options: Options::new(
             Box::new(SystemShell),

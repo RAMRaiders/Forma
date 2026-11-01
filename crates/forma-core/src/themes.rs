@@ -39,6 +39,10 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "see and change Batocera's system settings: display, audio, language, region, name, security and storage",
     ),
     (
+        "store.manage",
+        "install and remove games, decorations and music from Batocera's content downloader",
+    ),
+    (
         "system.network",
         "see and change the machine's Wi-Fi and Ethernet settings",
     ),

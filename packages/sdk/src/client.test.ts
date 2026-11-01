@@ -72,6 +72,42 @@ describe('calls', () => {
     expect(FormaError.from('text')).toMatchObject({ code: 'internal', message: 'text' });
   });
 
+  it('send the options, system settings and store commands with their arguments', async () => {
+    const sent: [string, unknown][] = [];
+    const backend: Backend = {
+      ...fakeBackend().backend,
+      invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+        sent.push([command, args]);
+        return Promise.resolve((command === 'sdk_api_version' ? SDK_VERSION : null) as T);
+      }
+    };
+    const sdk = await connect({ backend });
+    sent.length = 0;
+    const nes = { level: 'system', system: 'nes' } as const;
+    await sdk.options.get(nes);
+    await sdk.options.set(nes, 'ratio', null);
+    await sdk.system.info();
+    await sdk.system.settings();
+    await sdk.system.set('system.timezone', 'Europe/Lisbon');
+    await sdk.store.list();
+    await sdk.store.refresh();
+    await sdk.store.install('nes-alter-ego');
+    await sdk.store.remove('nes-alter-ego');
+    await sdk.store.update();
+    expect(sent).toEqual([
+      ['options_get', { scope: nes }],
+      ['options_set', { scope: nes, key: 'ratio', value: null }],
+      ['system_info', undefined],
+      ['system_settings', undefined],
+      ['system_settings_set', { key: 'system.timezone', value: 'Europe/Lisbon' }],
+      ['store_list', undefined],
+      ['store_refresh', undefined],
+      ['store_install', { name: 'nes-alter-ego' }],
+      ['store_remove', { name: 'nes-alter-ego' }],
+      ['store_update', undefined]
+    ]);
+  });
+
   it('build media URLs through the backend', async () => {
     const { backend } = fakeBackend();
     const sdk = await connect({ backend });

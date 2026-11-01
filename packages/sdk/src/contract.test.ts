@@ -25,6 +25,7 @@ import type {
   OptionsPage,
   InfoItem,
   SystemSetting,
+  StorePackage,
   MusicSource,
   Radio,
   WifiNetwork,
@@ -234,6 +235,26 @@ describe('contract with the engine', () => {
     expect(new Set(data.system.settings.map((s) => s.applies))).toEqual(
       new Set(['now', 'restart', 'reboot'])
     );
+  });
+
+  it('the content downloader', () => {
+    const pkg = keys<StorePackage>()(
+      'name',
+      'description',
+      'group',
+      'system',
+      'version',
+      'url',
+      'packager',
+      'downloadSize',
+      'installedSize',
+      'previewUrl',
+      'installed',
+      'update'
+    );
+    for (const p of data.store) expect(sorted(p)).toEqual(pkg);
+    expect(data.store.some((p) => p.installed)).toBe(true);
+    expect(data.store.some((p) => p.update)).toBe(true);
   });
 
   it('the music folder', () => {

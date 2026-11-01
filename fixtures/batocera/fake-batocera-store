@@ -1,0 +1,19 @@
+#!/bin/sh
+# Stands in for Batocera's batocera-store in tests and the mock snapshot: answers as it does
+# when run from a program (not a terminal), from the files next to it.
+here="$(dirname "$0")"
+case "$1 $2" in
+  "list "*) cat "$here/batocera-store_list.txt" ;;
+  "refresh "*|"update "*) echo ":: Synchronizing package databases..." ;;
+  "install broken-package")
+    echo "Download error!"
+    exit 1 ;;
+  "install "*)
+    for p in 0 50 100; do echo "[51KB] - 'Amoeba Jump' >>>$p"; done
+    for p in 5 10; do echo "112KB to extract ...>>>$p"; done ;;
+  "remove not-installed")
+    echo "error: target not found: not-installed" >&2
+    exit 1 ;;
+  "remove "*) echo "removing $2..." ;;
+  *) exit 1 ;;
+esac

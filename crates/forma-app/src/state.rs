@@ -12,6 +12,7 @@ use forma_core::music::Player;
 use forma_core::net::{Cache, Http, achievements};
 use forma_core::network::Network;
 use forma_core::options::Options;
+use forma_core::store::Store;
 use forma_core::sync::SyncHandle;
 use forma_core::system_settings::SystemSettings;
 use forma_core::themes::Theme;
@@ -43,6 +44,8 @@ pub struct AppState {
     pub options: Options,
     /// Batocera's system settings.
     pub system_settings: SystemSettings,
+    /// Batocera's content downloader.
+    pub store: Store,
     /// The music player (mpv in the background).
     pub music: Player,
     /// Resized artwork, made in the background.

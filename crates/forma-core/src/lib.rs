@@ -20,6 +20,7 @@ pub mod network;
 pub mod options;
 pub mod paths;
 pub mod scan;
+pub mod store;
 pub mod sync;
 pub mod system_settings;
 pub mod systems;

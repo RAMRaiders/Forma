@@ -85,6 +85,7 @@ Remote origins must be `https://` and need the `network` permission.
 | -------------------- | ------------------------------------------------------------------------------------------- |
 | `system.power`       | Quitting Forma; restart and shutdown                                                        |
 | `system.settings`    | Batocera's system settings: display, audio, language, region, storage (Batocera only)       |
+| `store.manage`       | Installing and removing content from Batocera's content downloader (Batocera only)          |
 | `system.network`     | Seeing and changing Wi-Fi and Ethernet (Batocera only)                                      |
 | `settings.batocera`  | RetroAchievements and netplay settings, and logging in to RetroAchievements (Batocera only) |
 | `settings.emulators` | Emulator, core and game options (Batocera only)                                             |

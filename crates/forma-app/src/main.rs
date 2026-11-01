@@ -9,6 +9,7 @@ mod options;
 mod permissions;
 mod protocol;
 mod state;
+mod store;
 mod system_settings;
 
 #[cfg(test)]
@@ -55,6 +56,11 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         system_settings::system_info,
         system_settings::system_settings,
         system_settings::system_settings_set,
+        store::store_list,
+        store::store_refresh,
+        store::store_install,
+        store::store_remove,
+        store::store_update,
         commands::ra_login,
         commands::ra_logout,
         music::music_sources,

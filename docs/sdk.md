@@ -131,6 +131,7 @@ forma.events.on("library:changed", ({ systems }) => refreshIfShowing(systems));
 forma.events.on("views:changed", () => reloadViewList());
 forma.events.on("game:start", ({ name }) => showLaunching(name));
 forma.events.on("game:end", ({ seconds, error }) => (error ? showError(error) : refresh()));
+forma.events.on("store:progress", ({ name, stage, percent }) => showProgress(name, stage, percent));
 ```
 
 `on` returns a function that unsubscribes.
@@ -198,6 +199,26 @@ Batocera's RetroAchievements and netplay settings (`global.retroachievements.*`,
 `kind` is `bool` (`'0'`/`'1'`), `text`, `port`, `choice` (one of `choices`, e.g. the netplay
 relays or the unlock sounds) or `secret`. A secret's `value` is always `null`: a theme only learns
 whether one is `set`, and sets it through `ra.login`.
+
+## `store`
+
+Batocera's content downloader: free games, ports, decorations (bezels) and music from Batocera's
+package store, as EmulationStation offers them. Through `batocera-store`, so a package installed
+from Forma is installed for EmulationStation too; games land in the ROM folders and show up in the
+library by themselves. EmulationStation themes are left out. Needs the `store.manage`
+permission; Batocera only.
+
+| Method          | Returns                                                                               |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `list()`        | Every package: `name`, `description`, `group`, `system`, sizes, `installed`, `update` |
+| `refresh()`     | Reads the catalogue again from Batocera's server                                      |
+| `install(name)` | Resolves once installed; `store:progress` reports `download`, then `install`          |
+| `remove(name)`  | Uninstalls it                                                                         |
+| `update()`      | Updates every installed package that has a newer version                              |
+
+`group` is `sys-<system>` for a system's games (`system` then names it), or `bezel`, `music`,
+`ports`, `misc`. Sizes are in bytes. One operation runs at a time: another is refused as
+`unsupported` until it ends.
 
 ## `options`
 

@@ -31,6 +31,7 @@ import type {
   OptionsScope,
   InfoItem,
   SystemSetting,
+  StorePackage,
   WifiJoined,
   WifiNetwork
 } from './types.js';
@@ -100,6 +101,7 @@ export class Forma {
   readonly network;
   readonly batocera;
   readonly options;
+  readonly store;
   readonly music;
 
   readonly #backend: Backend;
@@ -232,6 +234,22 @@ export class Forma {
       settings: (prefix = '') => invoke<BatoceraSetting[]>('batocera_settings', { prefix }),
       /** Sets one; an empty string clears it. Secrets are set by `ra.login`, not here. */
       set: (key: string, value: string) => invoke<void>('batocera_set', { key, value })
+    };
+
+    /**
+     * Batocera's content downloader: free games, ports, decorations and music, as
+     * EmulationStation offers them. Needs the `store.manage` permission; Batocera only. One
+     * operation at a time: another is refused as `unsupported` while one runs.
+     */
+    this.store = {
+      list: () => invoke<StorePackage[]>('store_list'),
+      /** Reads the catalogue again from Batocera's server. */
+      refresh: () => invoke<void>('store_refresh'),
+      /** Resolves once installed; `store:progress` reports on the way. */
+      install: (name: string) => invoke<void>('store_install', { name }),
+      remove: (name: string) => invoke<void>('store_remove', { name }),
+      /** Updates every installed package that has a newer version. */
+      update: () => invoke<void>('store_update')
     };
 
     /**

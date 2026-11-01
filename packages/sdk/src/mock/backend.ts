@@ -16,6 +16,7 @@ import type {
   OptionsScope,
   InfoItem,
   SystemSetting,
+  StorePackage,
   DefaultView,
   EthernetConfig,
   Game,
@@ -60,6 +61,7 @@ interface Snapshot {
   /** The engine's option pages: `global`, and `system|emulator|core` (empty: not set). */
   options: Record<string, OptionsPage>;
   system: { info: InfoItem[]; settings: SystemSetting[] };
+  store: StorePackage[];
 }
 
 const snapshot = data as unknown as Snapshot;
@@ -119,6 +121,23 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const batocera = new Map(snapshot.batocera.map((s) => [s.key, structuredClone(s)]));
   let playing = false;
   const systemSettings = structuredClone(snapshot.system.settings);
+  const store = structuredClone(snapshot.store);
+  let storeBusy = false;
+  /** One store operation at a time, as pacman's lock makes it. */
+  const storeWork = async (work: () => Promise<void> | void): Promise<null> => {
+    storeAllowed();
+    if (storeBusy) fail('unsupported', 'the content downloader is busy with another package');
+    storeBusy = true;
+    try {
+      await work();
+    } finally {
+      storeBusy = false;
+    }
+    return null;
+  };
+  const storePackage = (name: unknown): StorePackage =>
+    store.find((p) => p.name === name) ??
+    fail('invalid', `\`${String(name)}\` is not a package name`);
   /** The mock's `batocera.conf`, for emulator options. */
   const conf = new Map<string, string>();
   /** A level's key prefix, then each level it inherits from, as Batocera reads them. */
@@ -382,6 +401,37 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const p = typeof prefix === 'string' ? prefix : '';
       return [...batocera.values()].filter((s) => s.key.startsWith(p)).map((s) => ({ ...s }));
     },
+    store_list: () => {
+      storeAllowed();
+      return structuredClone(store);
+    },
+    store_refresh: () => storeWork(() => {}),
+    store_install: ({ name }) =>
+      storeWork(async () => {
+        const p = storePackage(name);
+        for (const [stage, percent] of [
+          ['download', 0],
+          ['download', 50],
+          ['download', 100],
+          ['install', 50]
+        ] as const) {
+          emit('store:progress', { name: p.name, stage, percent });
+          await new Promise((r) => setTimeout(r, playMs / 10));
+        }
+        p.installed = true;
+        p.update = false;
+      }),
+    store_remove: ({ name }) =>
+      storeWork(() => {
+        const p = storePackage(name);
+        if (!p.installed) fail('network', `the content downloader could not remove: not installed`);
+        p.installed = false;
+        p.update = false;
+      }),
+    store_update: () =>
+      storeWork(() => {
+        for (const p of store) p.update = false;
+      }),
     system_info: () => {
       systemAllowed();
       return structuredClone(snapshot.system.info);
@@ -581,6 +631,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
   function batoceraAllowed(): void {
     if (!permissions.has('settings.batocera')) {
       fail('permissionDenied', 'theme `mock` needs the `settings.batocera` permission');
+    }
+  }
+
+  function storeAllowed(): void {
+    if (!permissions.has('store.manage')) {
+      fail('permissionDenied', 'theme `mock` needs the `store.manage` permission');
     }
   }
 

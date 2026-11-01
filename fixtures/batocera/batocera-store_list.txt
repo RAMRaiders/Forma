@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<packages>
+  <package>
+    <name>NightSlashersXWideAsh_24A</name>
+    <repository>batocera</repository>
+    <available_version>2024.10.17-1</available_version>
+    <description>Night Slashers X Wide-Screen - A 4 player beat-them-up by BonusJZ, updated by Oldyz, Toranks, Life of Finale and the OpenBOR society</description>
+    <url>https://web.archive.org/web/20250829001318/https://www.chronocrash.com/forum/threads/night-slashers-x-variants-help-the-ai-wants-to-me-edition.4206/</url>
+    <packager>Oldyz</packager>
+    <download_size>490102</download_size>
+    <installed_size>579456</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/NightSlashersXWideAsh_24A.png</preview_url>
+    <status version="2024.10.17-1" need_update="false">installed</status>
+    <group>sys-windows</group>
+  </package>
+  <package>
+    <name>atari2600-amoeba-jump</name>
+    <repository>batocera</repository>
+    <available_version>1.4.0-1</available_version>
+    <description>Amoeba Jump - Infinite Jumper with RetroAchievements</description>
+    <url>https://atariage.com/forums/topic/280211-amoeba-jump/</url>
+    <packager>lbrpdx</packager>
+    <download_size>51</download_size>
+    <installed_size>112</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/atari2600-amoeba-jump.png</preview_url>
+    <status>none</status>
+    <group>sys-atari2600</group>
+  </package>
+  <package>
+    <name>bezel-helmet-cropped</name>
+    <repository>batocera</repository>
+    <available_version>1.0.0-1</available_version>
+    <description>Hel Mic&apos;s Helmet bezel, slightly cropped.</description>
+    <url>https://drive.google.com/file/d/1Ul3UdboesplpySmYJHwsQEGv1VGmhBho/view</url>
+    <packager>Atari</packager>
+    <download_size>1281</download_size>
+    <installed_size>1308</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/bezel-helmet-cropped.png</preview_url>
+    <status>none</status>
+    <group>bezel</group>
+  </package>
+  <package>
+    <name>nes-alter-ego</name>
+    <repository>batocera</repository>
+    <available_version>1.0.0-6</available_version>
+    <description>Alter Ego - puzzle game</description>
+    <url>https://www.romhacking.net/homebrew/1/</url>
+    <packager>lbrpdx</packager>
+    <download_size>419</download_size>
+    <installed_size>504</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/nes-alter-ego.png</preview_url>
+    <status>none</status>
+    <group>sys-nes</group>
+  </package>
+  <package>
+    <name>music-omshaie-vol-1</name>
+    <repository>batocera</repository>
+    <available_version>1.0.0-1</available_version>
+    <description>Omshaie songs for Batocera</description>
+    <url>https://www.youtube.com/channel/UCHnYUqppxqi_dwzvJaj-4Uw</url>
+    <packager>lbrpdx</packager>
+    <download_size>23821</download_size>
+    <installed_size>24332</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/music-omshaie-vol-1.png</preview_url>
+    <status>none</status>
+    <group>music</group>
+  </package>
+  <package>
+    <name>ports-cdogs</name>
+    <repository>batocera</repository>
+    <available_version>1.5.0-2</available_version>
+    <description>C-Dogs - A classic top-down shooter with co-op and deathmatch modes.</description>
+    <url>https://github.com/cxong/cdogs-sdl</url>
+    <packager>n2qz</packager>
+    <download_size>31289</download_size>
+    <installed_size>88056</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/ports-cdogs.png</preview_url>
+    <status>none</status>
+    <group>ports</group>
+  </package>
+  <package>
+    <name>n64recomp-launcher</name>
+    <repository>batocera</repository>
+    <available_version>1.64.0-1</available_version>
+    <description>N64 Recomp Launcher application for managing and running N64 recompiled games.</description>
+    <url>https://github.com/SirDiabo/N64RecompLauncher</url>
+    <packager>modhack</packager>
+    <download_size>49443</download_size>
+    <installed_size>110416</installed_size>
+    <arch>x86_64</arch>
+    <preview_url>https://store.batocera.org/thumbnails/n64recomp-launcher.png</preview_url>
+    <status>none</status>
+    <group>sys-ports</group>
+  </package>
+  <package>
+    <name>misc-libretro-cheats</name>
+    <repository>batocera</repository>
+    <available_version>1.10.3-1</available_version>
+    <description>Libretro Cheat Files - enable cheats on libretro emulators</description>
+    <url>https://github.com/libretro/libretro-database/</url>
+    <packager>lbrpdx</packager>
+    <download_size>13289</download_size>
+    <installed_size>162164</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/misc-libretro-cheats.png</preview_url>
+    <status>none</status>
+    <group>misc</group>
+  </package>
+  <package>
+    <name>bezels-koko-aio-immersive</name>
+    <repository>batocera</repository>
+    <available_version>1.6.4-1</available_version>
+    <description>Koko-AIO shader with reflective screen borders and Duimon bezels.</description>
+    <url>https://github.com/kokoko3k/koko-aio-slang/</url>
+    <packager>Duglim</packager>
+    <download_size>215445</download_size>
+    <installed_size>223240</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/bezels-koko-aio-immersive.png</preview_url>
+    <status version="1.6.4-1" need_update="false">installed</status>
+    <group>bezel</group>
+  </package>
+  <package>
+    <name>ikemen-famicom-fighters</name>
+    <repository>batocera</repository>
+    <available_version>1.0.1-1</available_version>
+    <description>Famicom Fighters - fight with your favorite NES/Famicom characters</description>
+    <url>http://mcjimmy.net/famicomfighters.html</url>
+    <packager>lbrpdx</packager>
+    <download_size>82857</download_size>
+    <installed_size>115476</installed_size>
+    <arch>any</arch>
+    <preview_url>https://store.batocera.org/thumbnails/ikemen-famicom-fighters.png</preview_url>
+    <status version="0.9-1" need_update="true">installed</status>
+    <group>sys-ikemen</group>
+  </package>
+  <package>
+    <name>theme-example</name>
+    <repository>batocera</repository>
+    <available_version>1.0-1</available_version>
+    <description>An EmulationStation theme (left out: Forma has its own)</description>
+    <download_size>10</download_size>
+    <installed_size>20</installed_size>
+    <status>none</status>
+    <group>themes</group>
+  </package>
+</packages>

@@ -69,6 +69,7 @@ impl Harness {
             http: Box::new(FixtureHttp),
             network: Network::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
+            store: forma_core::store::Store::default(),
             system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             options: Options::new(
                 Box::new(SystemShell),

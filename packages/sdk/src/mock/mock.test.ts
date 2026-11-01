@@ -164,6 +164,34 @@ describe('mock backend', () => {
     expect([token.value, token.set]).toEqual([null, true]);
   });
 
+  it('content downloader: install with progress, one at a time, then remove', async () => {
+    await expect(mockBackend().invoke('store_list')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ playMs: 20, permissions: ['store.manage'] });
+    type Pkg = { name: string; installed: boolean };
+    const name = 'atari2600-amoeba-jump';
+    const seen: string[] = [];
+    b.listen<{ stage: string; percent: number }>('store:progress', (p) =>
+      seen.push(`${p.stage} ${p.percent}`)
+    );
+    const installing = b.invoke('store_install', { name });
+    await expect(b.invoke('store_remove', { name })).rejects.toMatchObject({
+      code: 'unsupported'
+    });
+    await installing;
+    expect(seen).toEqual(['download 0', 'download 50', 'download 100', 'install 50']);
+    const installed = (await b.invoke<Pkg[]>('store_list')).find((p) => p.name === name)!;
+    expect(installed.installed).toBe(true);
+    await b.invoke('store_remove', { name });
+    expect((await b.invoke<Pkg[]>('store_list')).find((p) => p.name === name)!.installed).toBe(
+      false
+    );
+    await expect(b.invoke('store_install', { name: '--all' })).rejects.toMatchObject({
+      code: 'invalid'
+    });
+  });
+
   it('system settings behind system.settings, checked against their choices', async () => {
     await expect(mockBackend().invoke('system_settings')).rejects.toMatchObject({
       code: 'permissionDenied'
