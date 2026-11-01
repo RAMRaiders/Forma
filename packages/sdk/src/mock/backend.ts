@@ -151,10 +151,14 @@ export function mockBackend(options: MockOptions = {}): Backend {
           .slice(0, -1)
           .map((l) => conf.get(`${l.prefix}.${key}`))
           .find(Boolean) ?? '';
+      // No emulator set: the system's default one, with whatever core is.
+      const base = snapshot.options[`${system}||`];
+      const emulator =
+        chosen('emulator') || (base?.options.find((o) => o.key === 'emulator')?.default ?? '');
       page =
-        snapshot.options[`${system}|${chosen('emulator')}|${chosen('core')}`] ??
-        snapshot.options[`${system}|${chosen('emulator')}|`] ??
-        snapshot.options[`${system}||`];
+        snapshot.options[`${system}|${emulator}|${chosen('core')}`] ??
+        snapshot.options[`${system}|${emulator}|`] ??
+        base;
     }
     const fill = (o: OptionItem): OptionItem => {
       const values = chain.map((l) => conf.get(`${l.prefix}.${o.key}`));

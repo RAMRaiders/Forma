@@ -195,6 +195,12 @@ describe('mock backend', () => {
       b.invoke('options_set', { scope, key, value });
     const item = (page: Page, key: string) => page.options.find((o) => o.key === key)!;
 
+    // A core alone: the default emulator's core, with its own options.
+    const nes = { level: 'system', system: 'nes' } as const;
+    expect((await get(nes)).options.map((o) => o.key)).toContain('fceumm_palette');
+    await set(nes, 'core', 'nestopia');
+    expect((await get(nes)).options.map((o) => o.key)).not.toContain('fceumm_palette');
+
     const psx = { level: 'system', system: 'psx' } as const;
     expect((await get(psx)).options.map((o) => o.key)).toContain('swanstation_pgxp');
     await set(psx, 'emulator', 'duckstation');
