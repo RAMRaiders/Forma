@@ -8,7 +8,7 @@ export interface MenuItem {
 
 /** A simple list overlay driven by up/down/confirm/back: Forma's menu. */
 export class Menu {
-  readonly root = el('div', { class: 'overlay switcher', hidden: '' });
+  readonly root = el('div', { class: 'overlay switcher menu', hidden: '' });
   #items: MenuItem[] = [];
   #rows: HTMLElement[] = [];
   selected = 0;

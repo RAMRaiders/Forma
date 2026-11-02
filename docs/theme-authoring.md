@@ -35,6 +35,53 @@ so you can build without a device.
 | `sdk`         | Caret range of the SDK API the theme needs. A mismatch refuses to load. |
 | `permissions` | Privileged capabilities the theme uses, e.g. `system.power`.            |
 | `resolutions` | Resolutions the theme was designed for. Informational.                  |
+| `settings`    | The theme's own settings, shown in Forma's menu (see below).            |
+
+## Forma's menus, over every theme
+
+**Start** and **Select** belong to Forma. Whatever the theme, Start opens Forma's menu (theme,
+where Forma opens, screen margins, music, RetroAchievements, netplay, network, the content
+downloader, game and system settings, EmulationStation, power) and Select opens its views list.
+A theme never receives those two buttons (F1 and Tab on a keyboard), nor any input while one of
+Forma's menus is open. So a user can always change theme, even from a theme with no menu at all.
+
+Forma's menus are drawn by its shell, a script Forma puts first in every theme page's `<head>`.
+It lives in a closed shadow root at the top of the page: a theme's CSS cannot reach it, and it
+cannot reach the theme's. It acts with Forma's own rights, not the theme's: its menus work
+whatever the theme's `permissions` say.
+
+A theme works with the menus in three ways:
+
+- **What is on screen.** `forma.shell.setContext({ view, system, game })` as the selection
+  moves; the menu then offers options for that game and system, and the views list marks the
+  view shown.
+- **Views.** When the user picks a view in Forma's list, the theme receives `nav:open` with its
+  id and shows it. Forma keeps which view to open with (`nav.defaultView()`).
+- **Its own settings.** Declare them in `theme.json`; Forma's menu shows them under Interface,
+  stores them in the theme's private settings (`forma.settings.get(key)`), and tells the theme
+  of a change with `settings:changed`:
+
+```json
+"settings": [
+  {
+    "key": "board",
+    "label": "Circuit board",
+    "description": "The board behind the screens",
+    "group": "Look",
+    "type": "choice",
+    "choices": [
+      { "value": "on", "label": "On" },
+      { "value": "off", "label": "Off" }
+    ],
+    "default": "on"
+  },
+  { "key": "motion", "label": "Animations", "group": "Look", "type": "toggle", "default": true }
+]
+```
+
+`type` is `toggle` (`true`/`false`) or `choice` (one of `choices`, by `value`). A setting whose
+`default` it cannot take, an empty `choices` or a key listed twice keeps the theme from loading,
+with the reason in Forma's theme list.
 
 ## Where themes live, and installing your own
 
@@ -101,9 +148,13 @@ A theme asking for a permission Forma does not know is not loaded.
 
 ## Starting up
 
-A theme reports that it started by calling `theme_ready` (the SDK does it on start). If the
-selected theme has not done so within 15 seconds, Forma switches to the default theme rather
-than leaving a blank screen.
+Forma's entry screen comes first, whatever the theme: right after the box boots, Batocera's
+animation; then, at every start, RAM Raiders' logo and Forma's. Then the theme loads, under
+Forma's cover (its logo and the theme's name), which lifts once the theme reports that it
+started. `connect()` reports it; a theme that wants the cover up until its first screen is drawn
+connects with `{ deferReady: true }` and calls `forma.ready()` then. If the selected theme has
+not reported within 15 seconds, Forma switches to the default theme rather than leaving a blank
+screen. A theme needs no loading screen of its own for start-up.
 
 ## Developing
 
@@ -128,5 +179,6 @@ each side to keep clear (0–10), read with `settings.getSystem('display.margins
 document.body.style.transform = margins > 0 ? `scale(${1 - (2 * margins) / 100})` : "";
 ```
 
-Fixed overlays live inside the body, so they shrink with it. The default theme offers the
-setting under Interface → Screen margins.
+Fixed overlays live inside the body, so they shrink with it. Forma's menu sets it (Start →
+Interface → Screen margins), and tells the theme with `settings:changed`
+(`{ scope: "system", key: "display.margins", value }`).

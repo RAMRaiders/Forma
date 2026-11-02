@@ -37,7 +37,7 @@ const KEEP_CAPS = new Set([
 ]);
 
 /** `GAME ASPECT RATIO` as `Game aspect ratio`; `AI`, `4K`, `N64` and the like stay. */
-function sentence(label: string): string {
+export function sentence(label: string): string {
   if (label !== label.toUpperCase()) return label;
   const words = label.split(/(\s+|[/(),.&-])/);
   let first = true;

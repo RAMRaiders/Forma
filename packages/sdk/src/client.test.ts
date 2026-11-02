@@ -35,6 +35,21 @@ describe('connect', () => {
     expect(calls).toEqual(['sdk_api_version', 'theme_ready']);
   });
 
+  it('can leave reporting ready to the theme, for once its first screen is drawn', async () => {
+    const { backend, calls } = fakeBackend('1.4.0');
+    const sdk = await connect({ backend, deferReady: true });
+    expect(calls).toEqual(['sdk_api_version']);
+    await sdk.ready();
+    expect(calls).toEqual(['sdk_api_version', 'theme_ready']);
+  });
+
+  it('tells Forma’s menu what is on screen', async () => {
+    const { backend, calls } = fakeBackend('1.4.0');
+    const sdk = await connect({ backend });
+    await sdk.shell.setContext({ view: 'systems', game: { id: 1, name: 'Zelda' } });
+    expect(calls).toContain('shell_set_context');
+  });
+
   it('refuses a host with another major version, before reporting ready', async () => {
     const { backend, calls } = fakeBackend('2.0.0');
     await expect(connect({ backend })).rejects.toMatchObject({ code: 'incompatible' });

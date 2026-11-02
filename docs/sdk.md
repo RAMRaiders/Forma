@@ -37,18 +37,20 @@ const forma = await connect();
 ```
 
 `connect()` checks that Forma speaks a compatible SDK version (it rejects with code
-`incompatible` otherwise), then reports the theme as started. A theme that never connects is
-replaced by the default theme after 15 seconds.
+`incompatible` otherwise), then reports the theme as started, which lifts Forma's cover. A theme
+that never reports is replaced by the default theme after 15 seconds. With `deferReady`, the
+theme reports itself, with `forma.ready()`, e.g. once its first screen is drawn.
 
 Outside Forma, in a plain browser, `connect()` uses a **mock**: the real engine's answers for
 the repository's fixture library, with favourites, settings and play stats kept in memory and
 placeholder images for media. `forma.backendKind` says which one you got.
 
-| Option     | Default          | Meaning                                            |
-| ---------- | ---------------- | -------------------------------------------------- |
-| `keyboard` | `true`           | Deliver arrows, Enter, Escape… as input events too |
-| `mock`     | `{}`             | `{ playMs, permissions }` for the mock             |
-| `backend`  | Tauri, else mock | A custom backend, for tests                        |
+| Option       | Default          | Meaning                                            |
+| ------------ | ---------------- | -------------------------------------------------- |
+| `keyboard`   | `true`           | Deliver arrows, Enter, Escape… as input events too |
+| `deferReady` | `false`          | Leave reporting started to `forma.ready()`         |
+| `mock`       | `{}`             | `{ playMs, permissions }` for the mock             |
+| `backend`    | Tauri, else mock | A custom backend, for tests                        |
 
 ## `library`
 
@@ -124,6 +126,20 @@ Each event has an `action` (`up`, `down`, `left`, `right`, `confirm`, `back`, `w
 `button` (`south`, `east`… or `null` for sticks and keys), `pressed`, and `repeat` for
 held directions.
 
+Start and Select (F1 and Tab on a keyboard) are Forma's: they open its menu and views list, and
+never reach the theme. While one of Forma's menus is open, no input reaches the theme.
+
+## `shell`
+
+Forma's own menus, over every theme (see [Theme authoring](theme-authoring.md)).
+
+| Method                | Does                                                                     |
+| --------------------- | ------------------------------------------------------------------------ |
+| `setContext(context)` | Tells the menu what is on screen: `{ view, system, game }`, each or null |
+
+`system` is `{ name, fullname }`, `game` is `{ id, name }`. The menu offers options for them
+(Start → "Super Metroid options…") and marks `view` in the views list.
+
 ## `events`
 
 ```ts
@@ -132,7 +148,13 @@ forma.events.on("views:changed", () => reloadViewList());
 forma.events.on("game:start", ({ name }) => showLaunching(name));
 forma.events.on("game:end", ({ seconds, error }) => (error ? showError(error) : refresh()));
 forma.events.on("store:progress", ({ name, stage, percent }) => showProgress(name, stage, percent));
+forma.events.on("nav:open", ({ view }) => open(view)); // picked in Forma's views list
+forma.events.on("settings:changed", ({ scope, key, value }) => apply(scope, key, value));
 ```
+
+`settings:changed` follows a change made in Forma's menu: one of the theme's own settings
+(`scope: "theme"`, declared in `theme.json`) or one of Forma's (`scope: "system"`, e.g.
+`display.margins`).
 
 `on` returns a function that unsubscribes.
 

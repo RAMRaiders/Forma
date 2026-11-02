@@ -53,6 +53,8 @@ export class Shell {
   #home: string | null = null;
   #confirming: { id: string; until: number } | null = null;
   #wasOpen = false;
+  /** Which settings page is open, for the events that redraw it. */
+  #pageKind: string | null = null;
   /** A game is running: the shell stays shut. */
   playing = false;
 
@@ -64,6 +66,10 @@ export class Shell {
     const changed = () => this.#changed();
     this.#page = new Page(notify, changed);
     this.#network = new NetworkScreen(forma, notify, changed);
+    // What plays moves on by itself: the music page follows.
+    forma.events.on('music:changed', () => {
+      if (this.#page.open && this.#pageKind === 'music') void this.#page.refresh();
+    });
     this.root.append(
       this.#menu.root,
       this.#switcher.root,
@@ -262,6 +268,7 @@ export class Shell {
     const page = this.#page;
     const show = (title: string, build: Parameters<Page['show']>[1]) => {
       m.close();
+      this.#pageKind = id;
       void page.show(title, build);
       this.#changed();
     };

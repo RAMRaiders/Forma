@@ -15,6 +15,11 @@
 - **forma-app** is deliberately thin: a fullscreen window, the `forma://theme` and
   `forma://media` protocols, one command per SDK call, and the permission check in front of
   each privileged command.
+- **The shell** (`packages/shell`) is Forma's own UI over the theme: the entry cover, the Start
+  menu and the Select views list. Forma puts its script first in every theme page, in a closed
+  shadow root. Start and Select go to it, never to the theme, and so does all input while it has
+  a menu open. It claims a token once per page load, before any theme script runs, and its calls
+  carry it, so they are checked as Forma's, not against the theme's permissions.
 - **@ramraiders/forma-sdk** is the only API themes use. It is versioned (`theme.json` declares
   `"sdk": "^1"`) and ships a mock backend so themes can be built in a normal browser.
 

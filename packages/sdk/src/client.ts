@@ -45,11 +45,18 @@ export interface ConnectOptions {
   mock?: MockOptions;
   /** Deliver arrow keys, Enter, Escape… as input events too. Default `true`. */
   keyboard?: boolean;
+  /**
+   * Hold Forma's cover (its logo, over the theme while it loads) until the theme calls
+   * `forma.ready()`, e.g. once its first screen is drawn, rather than lifting it as soon as
+   * `connect()` resolves. Default `false`.
+   */
+  deferReady?: boolean;
 }
 
 /**
  * Connects to Forma: checks the host speaks a compatible SDK version, then tells it the theme
- * has started (a theme that never does is replaced by the default one).
+ * has started (a theme that never does is replaced by the default one), unless `deferReady`
+ * leaves that to `forma.ready()`.
  */
 export async function connect(options: ConnectOptions = {}): Promise<Forma> {
   let backend = options.backend;
@@ -71,7 +78,7 @@ export async function connect(options: ConnectOptions = {}): Promise<Forma> {
     );
   }
   const sdk = new Forma(backend, host, options.keyboard ?? true);
-  await call(backend, 'theme_ready');
+  if (!options.deferReady) await sdk.ready();
   return sdk;
 }
 
@@ -318,6 +325,14 @@ export class Forma {
       set: (key: string, value: string | null) =>
         invoke<void>('system_settings_set', { key, value })
     };
+  }
+
+  /**
+   * Tells Forma the theme has started: its cover lifts, and the theme is not replaced. `connect()`
+   * does it, unless asked to wait (`deferReady`). Calling it again does no harm.
+   */
+  ready(): Promise<void> {
+    return call<void>(this.#backend, 'theme_ready');
   }
 
   #attachInput(keyboard: boolean): void {
