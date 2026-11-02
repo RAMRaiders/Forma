@@ -10,7 +10,7 @@ import { Forma, FormaError, keyToInput } from '@ramraiders/forma-sdk';
 import { listen } from '@tauri-apps/api/event';
 
 import { shellBackend, tauriInvoke } from './backend.js';
-import { Cover } from './cover.js';
+import { Cover, coverInfo } from './cover.js';
 import { type ShellInfo, Shell } from './shell.js';
 import css from './style.css?inline';
 
@@ -20,6 +20,8 @@ const COVER_MAX_MS = 16_000;
 function start(): void {
   const invoke = tauriInvoke();
   if (!invoke) return;
+  // Read while this script runs: it is the current one only now.
+  const info = coverInfo(document.currentScript);
   const claim = invoke('shell_claim') as Promise<string>;
 
   const host = document.createElement('forma-shell');
@@ -31,7 +33,7 @@ function start(): void {
   const shadow = host.attachShadow({ mode: 'closed' });
   const style = document.createElement('style');
   style.textContent = css;
-  const cover = new Cover();
+  const cover = new Cover(info);
   shadow.append(style, cover.root);
   // `<head>` is still being parsed: the document element is all there is.
   document.documentElement.append(host);
@@ -43,7 +45,7 @@ function start(): void {
   };
   document.addEventListener('DOMContentLoaded', keepLast, { once: true });
 
-  void listen('shell:theme-ready', () => cover.hide());
+  void listen('shell:theme-ready', () => cover.ready());
   setTimeout(() => cover.hide(), COVER_MAX_MS);
 
   claim
@@ -61,9 +63,6 @@ function start(): void {
         setThemeSetting: (key, value) => call('shell_set_theme_setting', { key, value })
       });
       shadow.append(shell.root);
-      call<ShellInfo>('shell_info')
-        .then((info) => (cover.theme = `${info.theme.name} ${info.theme.version}`.trim()))
-        .catch(() => {});
 
       forma.input.on((e) => shell.input(e));
       forma.events.on('game:start', () => {

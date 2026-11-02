@@ -148,13 +148,15 @@ A theme asking for a permission Forma does not know is not loaded.
 
 ## Starting up
 
-Forma's entry screen comes first, whatever the theme: right after the box boots, Batocera's
-animation; then, at every start, RAM Raiders' logo and Forma's. Then the theme loads, under
-Forma's cover (its logo and the theme's name), which lifts once the theme reports that it
-started. `connect()` reports it; a theme that wants the cover up until its first screen is drawn
-connects with `{ deferReady: true }` and calls `forma.ready()` then. If the selected theme has
-not reported within 15 seconds, Forma switches to the default theme rather than leaving a blank
-screen. A theme needs no loading screen of its own for start-up.
+Forma's entry screen comes first, whatever the theme. When Forma starts, Batocera's boot image;
+then Forma's logo and a loader, with Batocera's, Forma's and the theme's versions in a corner.
+It covers the theme page while it loads (and again on a theme switch), and goes once the theme
+reports that it started. `connect()` reports it; a theme that wants the cover up until its first
+screen is drawn connects with `{ deferReady: true }` and calls `forma.ready()` then. A theme
+needs no loading screen of its own for start-up.
+
+If a theme page has not reported within 30 seconds of starting to load, Forma shows the default
+theme instead, for this session only: the user's choice of theme is kept for the next start.
 
 ## Developing
 

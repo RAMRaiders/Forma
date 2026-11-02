@@ -21,7 +21,6 @@ use forma_core::{Library, Paths};
 use tauri::{App, AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 use crate::commands::{EVENT_LIBRARY_CHANGED, EVENT_VIEWS_CHANGED, LibraryChanged, entry_url};
-use crate::protocol::splash_url;
 use crate::state::{AppState, DEFAULT_THEME, THEME_SETTING, pick_theme};
 
 static PROCESS_START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
@@ -41,8 +40,9 @@ pub fn since_start() -> Duration {
 /// Present on every Batocera install, and nowhere else.
 const BATOCERA_VERSION_FILE: &str = "/usr/share/batocera/batocera.version";
 
-/// How long a theme has to call `theme_ready` before Forma falls back to the default theme.
-const READY_TIMEOUT: Duration = Duration::from_secs(15);
+/// How long a theme page has, from when it starts loading, to call `theme_ready` before Forma
+/// falls back to the default theme. Generous: a Raspberry Pi still busy booting is slow.
+const READY_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let paths = Paths::from_env();
@@ -119,9 +119,8 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let url = match state.available_theme(&current) {
-        Some(theme) => WebviewUrl::CustomProtocol(
-            startup_url(&state, &theme, perf_url(entry_url(&theme))).parse()?,
-        ),
+        // Straight to the theme: Forma's cover in its page is the entry screen.
+        Some(theme) => WebviewUrl::CustomProtocol(perf_url(entry_url(&theme)).parse()?),
         // No theme can load: the bundled boot page explains instead of showing nothing.
         None => WebviewUrl::App("index.html".into()),
     };
@@ -129,10 +128,11 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         .title("Forma")
         .inner_size(1280.0, 720.0)
         .fullscreen(fullscreen())
+        // Dark from the first frame: no white flash before the cover is drawn.
+        .background_color(tauri::window::Color(4, 6, 12, 255))
         .build()?;
     reload_if_the_page_dies(&window);
 
-    watch_ready(app.handle().clone());
     #[cfg(debug_assertions)]
     reload_on_theme_change(app.handle().clone());
     Ok(())
@@ -160,25 +160,19 @@ fn reload_if_the_page_dies<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 #[cfg(not(target_os = "linux"))]
 fn reload_if_the_page_dies<R: Runtime>(_window: &tauri::WebviewWindow<R>) {}
 
-/// Batocera's splash files: its boot animation (`splash.mp4`) and logo.
+/// Batocera's splash files: its boot image (`boot-logo.png`, and `boot-logo-4x3.png`).
 pub const BATOCERA_SPLASH: &str = "/usr/share/batocera/splash";
+/// Batocera's logo as EmulationStation shows it, for the corner of Forma's cover.
+pub const BATOCERA_LOGO: &str = "/usr/share/emulationstation/resources/splash_batocera.svg";
 
-/// The start-up screen shows only this soon after boot: at the first start, not when Forma is
-/// restarted later.
-const SPLASH_WITHIN: Duration = Duration::from_secs(180);
-
-/// Where the window opens: Forma's entry screen, which then loads `theme_url`. Right after the
-/// box boots it starts with Batocera's own animation; every time, RAM Raiders' and Forma's logos
-/// follow, with the theme and its version, and Forma's and Batocera's versions.
-/// `FORMA_SPLASH=0` opens the theme straight away; `FORMA_SPLASH=1` plays Batocera's animation
-/// too (if there is one), for development.
-fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
-    let has_video = Path::new(BATOCERA_SPLASH).join("splash.mp4").is_file();
-    let video = match std::env::var("FORMA_SPLASH").as_deref() {
-        Ok("0") => return theme_url,
-        Ok("1") => has_video,
-        _ => state.on_batocera && uptime().is_some_and(|u| u < SPLASH_WITHIN) && has_video,
-    };
+/// What Forma's cover shows over a theme page while it loads: at the first page since Forma
+/// started, Batocera's boot image first; then Forma's logo and loader, with Batocera's, Forma's
+/// and the theme's versions in a corner. `FORMA_SPLASH=0` leaves the boot image out.
+pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
+    let first = !state.shell.boot_done.swap(true, Ordering::SeqCst);
+    let boot = first
+        && std::env::var("FORMA_SPLASH").as_deref() != Ok("0")
+        && Path::new(BATOCERA_SPLASH).join("boot-logo.png").is_file();
     // As Batocera's own splash subtitles it: "43.1 2026/05/29".
     let batocera = std::fs::read_to_string(BATOCERA_VERSION_FILE)
         .ok()
@@ -191,26 +185,16 @@ fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
             ))
         })
         .unwrap_or_default();
-    let name = theme
-        .manifest
-        .as_ref()
-        .map_or(theme.id.as_str(), |m| m.name.as_str());
-    let version = theme.manifest.as_ref().map_or("", |m| m.version.as_str());
-    let line = format!("{name} {version}");
-    let margins = screen_margins(state);
-    let sound = forma_core::net::batocera_conf(&state.paths.batocera_conf())
-        .get("splash.screen.sound")
-        .is_none_or(|v| v != "0");
-    splash_url(&format!(
-        "next={}&batocera={}&theme={}&forma={}&sound={}&margins={}&video={}",
-        query_value(&theme_url),
-        query_value(batocera.trim()),
-        query_value(line.trim()),
-        query_value(env!("CARGO_PKG_VERSION")),
-        u8::from(sound),
-        margins,
-        u8::from(video)
-    ))
+    let theme = state.current_theme().map_or_else(String::new, |t| {
+        t.manifest
+            .map_or(t.id.clone(), |m| format!("{} {}", m.name, m.version))
+    });
+    crate::shell::CoverInfo {
+        boot,
+        batocera: batocera.trim().to_owned(),
+        theme: theme.trim().to_owned(),
+        margins: screen_margins(state),
+    }
 }
 
 /// The Forma setting every theme shares for a TV that cuts the picture's edges (overscan): how
@@ -225,25 +209,6 @@ fn screen_margins(state: &AppState) -> u8 {
         .flatten()
         .and_then(|v| v.trim().parse::<f64>().ok())
         .map_or(0, |m| m.clamp(0.0, 10.0).round() as u8)
-}
-
-/// Time since the system booted (`/proc/uptime`).
-fn uptime() -> Option<Duration> {
-    let text = std::fs::read_to_string("/proc/uptime").ok()?;
-    let secs: f64 = text.split_whitespace().next()?.parse().ok()?;
-    Some(Duration::from_secs_f64(secs))
-}
-
-/// Percent-encoding for a query value.
-fn query_value(text: &str) -> String {
-    text.bytes()
-        .map(|b| match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                (b as char).to_string()
-            }
-            _ => format!("%{b:02X}"),
-        })
-        .collect()
 }
 
 /// Batocera's own music, played when the music folder has none.
@@ -287,7 +252,6 @@ pub fn show_theme<R: Runtime>(
         .parse()
         .map_err(|e| format!("{e}"))?;
     window.navigate(url).map_err(|e| e.to_string())?;
-    watch_ready(app.clone());
     Ok(())
 }
 
@@ -309,12 +273,14 @@ fn fullscreen() -> bool {
     }
 }
 
-/// Falls back to the default theme if the current one never reports ready.
-fn watch_ready<R: Runtime>(app: AppHandle<R>) {
+/// A theme page started loading: falls back to the default theme if it never reports ready.
+/// Counted from the page, not from Forma's start, and dropped once another page loads.
+pub fn watch_ready<R: Runtime>(app: AppHandle<R>) {
+    let page = app.state::<AppState>().shell.page();
     std::thread::spawn(move || {
         std::thread::sleep(READY_TIMEOUT);
         let state = app.state::<AppState>();
-        if state.theme_ready.load(Ordering::SeqCst) {
+        if state.shell.page() != page || state.shell.page_ready() {
             return;
         }
         let Some(current) = state.current_theme() else {

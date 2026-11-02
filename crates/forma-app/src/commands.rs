@@ -56,6 +56,7 @@ pub fn sdk_api_version() -> &'static str {
 /// replaced by the default one instead of leaving a blank screen.
 #[tauri::command]
 pub fn theme_ready<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) {
+    state.shell.set_page_ready();
     let _ = app.emit(crate::shell::EVENT_THEME_READY, ());
     // Only the first report is start-up; later ones are theme switches and reloads.
     if !state.theme_ready.swap(true, Ordering::SeqCst) {

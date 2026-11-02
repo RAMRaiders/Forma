@@ -137,7 +137,15 @@ impl Resolver for AppState {
     }
 
     fn splash_file(&self, name: &str) -> Option<PathBuf> {
-        Some(PathBuf::from(crate::boot::BATOCERA_SPLASH).join(name)).filter(|f| f.is_file())
+        let file = match name {
+            "batocera-logo.svg" => PathBuf::from(crate::boot::BATOCERA_LOGO),
+            _ => PathBuf::from(crate::boot::BATOCERA_SPLASH).join(name),
+        };
+        Some(file).filter(|f| f.is_file())
+    }
+
+    fn cover(&self) -> crate::shell::CoverInfo {
+        crate::boot::cover_info(self)
     }
 
     fn ra_media(&self, path: &str) -> Option<PathBuf> {

@@ -103,11 +103,15 @@ fn main() {
         })
         .invoke_handler(handlers())
         .on_page_load(|webview, payload| {
-            // A new page in the window: the shell it brings claims a new token.
+            // A new page in the window: the shell it brings claims a new token, and a theme page
+            // has its time to report ready from now.
             if payload.event() == tauri::webview::PageLoadEvent::Started
                 && let Some(state) = webview.try_state::<AppState>()
             {
                 state.shell.new_page();
+                if payload.url().path().starts_with("/theme/") {
+                    boot::watch_ready(webview.app_handle().clone());
+                }
             }
         })
         .on_window_event(commands::on_window_event)

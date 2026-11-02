@@ -17,7 +17,7 @@
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, PoisonError};
 
 use forma_core::input::{Action, InputEvent};
@@ -52,14 +52,34 @@ pub struct ShellState {
     open: AtomicBool,
     /// What the theme says is on screen (`forma.shell.setContext`).
     context: Mutex<Value>,
+    /// Counts page loads, so a watcher can tell its page is gone.
+    page: AtomicU64,
+    /// This page's theme has called `theme_ready`.
+    page_ready: AtomicBool,
+    /// Batocera's boot image has been shown: only on the first page since Forma started.
+    pub boot_done: AtomicBool,
 }
 
 impl ShellState {
     /// A new page is loading: a new token, unclaimed, and nothing open.
     pub fn new_page(&self) {
         *self.token.lock().unwrap_or_else(PoisonError::into_inner) = (fresh_token(), false);
+        self.page.fetch_add(1, Ordering::SeqCst);
+        self.page_ready.store(false, Ordering::SeqCst);
         self.open.store(false, Ordering::SeqCst);
         *self.context.lock().unwrap_or_else(PoisonError::into_inner) = Value::Null;
+    }
+
+    pub fn page(&self) -> u64 {
+        self.page.load(Ordering::SeqCst)
+    }
+
+    pub fn page_ready(&self) -> bool {
+        self.page_ready.load(Ordering::SeqCst)
+    }
+
+    pub fn set_page_ready(&self) {
+        self.page_ready.store(true, Ordering::SeqCst);
     }
 
     /// The token, the first time it is asked for on this page.
@@ -339,12 +359,45 @@ pub fn deliver<R: Runtime>(app: &AppHandle<R>, event: &InputEvent) {
     let _ = app.emit(name, event);
 }
 
+/// What the shell's cover shows while a theme page loads, handed to it on its script tag so it
+/// can draw at once, before any call to Forma.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CoverInfo {
+    /// Batocera's boot image first (the first page since Forma started).
+    pub boot: bool,
+    /// Batocera's version, e.g. `43.1 2026/05/29`.
+    pub batocera: String,
+    /// The theme and its version, e.g. `Cyber 0.2.0`.
+    pub theme: String,
+    /// Screen margins for a TV's overscan, in percent per side.
+    pub margins: u8,
+}
+
 /// The script tag that brings the shell into a theme page, first thing in its `<head>`, so it
 /// runs (and claims its token) before any of the theme's scripts.
-pub const SHELL_TAG: &str = "<script src=\"forma://localhost/shell/shell.js\"></script>";
+pub fn shell_tag(cover: &CoverInfo) -> String {
+    format!(
+        "<script src=\"forma://localhost/shell/shell.js\" data-boot=\"{}\" \
+         data-batocera=\"{}\" data-forma=\"{}\" data-theme=\"{}\" data-margins=\"{}\"></script>",
+        u8::from(cover.boot),
+        attribute(&cover.batocera),
+        attribute(env!("CARGO_PKG_VERSION")),
+        attribute(&cover.theme),
+        cover.margins
+    )
+}
+
+/// Text made safe inside a double-quoted HTML attribute.
+fn attribute(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
 
 /// `html` with the shell's script tag inserted.
-pub fn inject(html: &str) -> String {
+pub fn inject(html: &str, cover: &CoverInfo) -> String {
+    let tag = shell_tag(cover);
     let lower = html.to_ascii_lowercase();
     let at = lower
         .find("<head")
@@ -355,9 +408,9 @@ pub fn inject(html: &str) -> String {
                 .and_then(|i| lower[i..].find('>').map(|j| i + j + 1))
         })
         .unwrap_or(0);
-    let mut out = String::with_capacity(html.len() + SHELL_TAG.len());
+    let mut out = String::with_capacity(html.len() + tag.len());
     out.push_str(&html[..at]);
-    out.push_str(SHELL_TAG);
+    out.push_str(&tag);
     out.push_str(&html[at..]);
     out
 }
@@ -415,16 +468,36 @@ mod tests {
 
     #[test]
     fn the_shell_goes_first_in_the_head() {
+        let cover = CoverInfo::default();
+        let tag = shell_tag(&cover);
         assert_eq!(
-            inject("<!doctype html><html lang=\"en\"><HEAD data-x><title>t</title></HEAD>"),
-            format!(
-                "<!doctype html><html lang=\"en\"><HEAD data-x>{SHELL_TAG}<title>t</title></HEAD>"
-            )
+            inject(
+                "<!doctype html><html lang=\"en\"><HEAD data-x><title>t</title></HEAD>",
+                &cover
+            ),
+            format!("<!doctype html><html lang=\"en\"><HEAD data-x>{tag}<title>t</title></HEAD>")
         );
         assert_eq!(
-            inject("<html><body>x</body></html>"),
-            format!("<html>{SHELL_TAG}<body>x</body></html>")
+            inject("<html><body>x</body></html>", &cover),
+            format!("<html>{tag}<body>x</body></html>")
         );
-        assert_eq!(inject("<p>x</p>"), format!("{SHELL_TAG}<p>x</p>"));
+        assert_eq!(inject("<p>x</p>", &cover), format!("{tag}<p>x</p>"));
+    }
+
+    #[test]
+    fn the_cover_gets_what_it_shows_on_the_tag_escaped() {
+        let tag = shell_tag(&CoverInfo {
+            boot: true,
+            batocera: "43.1 2026/05/29".into(),
+            theme: "Neon \"<b>\" 2".into(),
+            margins: 3,
+        });
+        assert!(tag.contains("data-boot=\"1\""), "{tag}");
+        assert!(tag.contains("data-batocera=\"43.1 2026/05/29\""), "{tag}");
+        assert!(
+            tag.contains("data-theme=\"Neon &quot;&lt;b&gt;&quot; 2\""),
+            "{tag}"
+        );
+        assert!(tag.contains("data-margins=\"3\""), "{tag}");
     }
 }

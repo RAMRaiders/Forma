@@ -1,35 +1,103 @@
 import { el } from './ui/dom.js';
 
+/** What Forma puts on the shell's script tag for the cover (`CoverInfo` in forma-app). */
+export interface CoverInfo {
+  /** Batocera's boot image first: the first page since Forma started. */
+  boot: boolean;
+  batocera: string;
+  forma: string;
+  theme: string;
+  /** Screen margins for a TV's overscan, percent per side. */
+  margins: number;
+}
+
+/** How long Batocera's boot image stays before Forma's screen. */
+const BOOT_MS = 2000;
+
+const SYSTEM = 'forma://localhost/system/';
+
+/** The cover's details from the shell's own script tag; defaults if there are none. */
+export function coverInfo(script: HTMLOrSVGScriptElement | null): CoverInfo {
+  const data = script instanceof HTMLElement ? script.dataset : {};
+  return {
+    boot: data.boot === '1',
+    batocera: data.batocera ?? '',
+    forma: data.forma ?? '',
+    theme: data.theme ?? '',
+    margins: Math.min(10, Math.max(0, Number(data.margins) || 0))
+  };
+}
+
 /**
- * Forma's entry cover: its logo while the theme loads, so what follows Forma's start-up screen
- * (or a theme switch) is Forma, never a blank page or the theme's half-drawn first frame. It
- * matches the last frame of the start-up screen, and fades once the theme says it is ready.
+ * Forma's entry screen, over the theme page while it loads, whatever the theme. On the first
+ * page since Forma started, Batocera's boot image; then Forma's logo and a loader, with
+ * Batocera's, Forma's and the theme's versions in a corner. It goes, at once, when the theme
+ * reports ready (and not before the boot image has had its time). Nothing moves but the loader.
  */
 export class Cover {
-  readonly root = el(
-    'div',
-    { class: 'cover', role: 'status', 'aria-label': 'Starting' },
-    el('img', { class: 'mark', src: 'forma://localhost/system/forma-logo.svg', alt: '' }),
-    el('p', { class: 'word' }, 'FORMA'),
-    el('p', { class: 'theme' }),
-    el('div', { class: 'bar', 'aria-hidden': 'true' }, el('span', {}))
-  );
+  readonly root: HTMLElement;
+  #ready = false;
+  #booting: boolean;
   #gone = false;
 
-  /** The theme about to show, under the logo. */
-  set theme(line: string) {
-    const p = this.root.querySelector('.theme');
-    if (p) p.textContent = line;
+  constructor(info: CoverInfo) {
+    const versions = el(
+      'ul',
+      { class: 'versions' },
+      info.batocera ? line(`${SYSTEM}batocera-logo.svg`, 'Batocera', info.batocera) : null,
+      line(`${SYSTEM}forma-logo.svg`, 'Forma', info.forma),
+      info.theme ? line(null, 'Theme', info.theme) : null
+    );
+    const forma = el(
+      'div',
+      { class: 'forma' },
+      el('img', { class: 'mark', src: `${SYSTEM}forma-logo.svg`, alt: 'Forma' }),
+      el('div', { class: 'bar', role: 'progressbar', 'aria-label': 'Loading' }, el('span', {})),
+      versions
+    );
+    // Keep clear of the edges a TV cuts off, as themes do with the same setting.
+    versions.style.setProperty('--margin', `${info.margins}vh`);
+    this.root = el('div', { class: 'cover' }, forma);
+
+    this.#booting = info.boot;
+    if (info.boot) {
+      const wide = typeof window === 'undefined' || window.innerWidth / window.innerHeight > 1.5;
+      const image = el('img', {
+        class: 'boot',
+        src: `${SYSTEM}${wide ? 'boot-logo.png' : 'boot-logo-4x3.png'}`,
+        alt: 'Batocera'
+      });
+      // No 4:3 image on this box: the wide one, cropped to fit.
+      if (!wide) image.addEventListener('error', () => (image.src = `${SYSTEM}boot-logo.png`));
+      this.root.append(image);
+      setTimeout(() => {
+        image.remove();
+        this.#booting = false;
+        if (this.#ready) this.hide();
+      }, BOOT_MS);
+    }
   }
 
-  /** Fades away; safe to call more than once. */
+  /** The theme is ready: the cover goes, once the boot image has had its time. */
+  ready(): void {
+    this.#ready = true;
+    if (!this.#booting) this.hide();
+  }
+
+  /** Gone, whatever is showing; safe to call more than once. */
   hide(): void {
     if (this.#gone) return;
     this.#gone = true;
-    this.root.classList.add('gone');
-    const remove = () => this.root.remove();
-    this.root.addEventListener('transitionend', remove, { once: true });
-    // No transition to end (reduced motion, a hidden page): gone anyway.
-    setTimeout(remove, 800);
+    this.root.remove();
   }
+}
+
+function line(logo: string | null, name: string, version: string): HTMLElement {
+  return el(
+    'li',
+    {},
+    logo ? el('img', { src: logo, alt: '' }) : el('span', { class: 'dot' }),
+    el('span', { class: 'name' }, name),
+    el('span', { class: 'version' }, version)
+  );
 }

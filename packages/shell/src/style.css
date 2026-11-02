@@ -34,53 +34,41 @@
   display: none !important;
 }
 
-/* ---- Entry cover: the last frame of Forma's start-up screen ---------------------------- */
+/* ---- Entry cover: Batocera's boot image, then Forma's logo, a loader and the versions ----- */
 
 .cover {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 2.2vh;
   background: radial-gradient(ellipse at 50% 45%, #0a1a2e 0%, var(--bg) 70%);
-  text-align: center;
-  transition: opacity 450ms ease;
   pointer-events: auto;
 }
 
-.cover.gone {
-  opacity: 0;
-  pointer-events: none;
+.cover .boot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.cover .forma {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 5vh;
 }
 
 .cover .mark {
-  height: 22vh;
-  filter: drop-shadow(0 0 2.4vh rgb(34 228 255 / 35%));
-}
-
-.cover .word {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 6vh;
-  font-weight: 700;
-  letter-spacing: 0.5em;
-  margin-right: -0.5em;
-  color: #e8fbff;
-}
-
-.cover .theme {
-  margin: 1vh 0 0;
-  min-height: 1.3em;
-  font-size: 2.6vh;
-  letter-spacing: 0.06em;
-  color: var(--cyan);
+  height: 24vh;
+  filter: drop-shadow(0 0 2.4vh rgb(34 228 255 / 30%));
 }
 
 .cover .bar {
-  width: 24vh;
-  height: 0.35vh;
-  margin-top: 1vh;
+  width: 26vh;
+  height: 0.5vh;
   border-radius: 1vh;
   background: rgb(34 228 255 / 15%);
   overflow: hidden;
@@ -101,6 +89,48 @@
   to {
     transform: translateX(340%);
   }
+}
+
+.cover .versions {
+  position: absolute;
+  right: calc(4vh + var(--margin, 0vh));
+  bottom: calc(4vh + var(--margin, 0vh));
+  display: grid;
+  gap: 1.2vh;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 2vh;
+}
+
+.cover .versions li {
+  display: grid;
+  grid-template-columns: 3vh auto auto;
+  align-items: center;
+  gap: 1.2vh;
+}
+
+.cover .versions img {
+  width: 3vh;
+  height: 3vh;
+  object-fit: contain;
+}
+
+.cover .versions .dot {
+  justify-self: center;
+  width: 1.2vh;
+  height: 1.2vh;
+  border-radius: 0.3vh;
+  background: var(--accent);
+}
+
+.cover .versions .name {
+  color: var(--muted);
+}
+
+.cover .versions .version {
+  color: var(--fg);
+  font-family: var(--mono);
 }
 
 /* ---- Menus ------------------------------------------------------------------------------ */
@@ -377,8 +407,7 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   .overlay,
-  .switcher .panel,
-  .cover .bar span {
+  .switcher .panel {
     animation: none;
   }
 }

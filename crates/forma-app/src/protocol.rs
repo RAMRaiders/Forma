@@ -7,9 +7,9 @@
 //!   for images; the original is served until the copy has been made.
 //! - `forma://localhost/ra-media/<path>` serves RetroAchievements badges, icons and avatars,
 //!   fetched once and cached, so showing achievements never needs the `network` permission.
-//! - `forma://localhost/system/splash.html` is Forma's start-up screen, with `forma-logo.svg` and
-//!   `ram-raiders.png`, all compiled in; next to them, `splash.mp4` and `boot-logo.png` are
-//!   Batocera's own splash files, and nothing else.
+//! - `forma://localhost/system/forma-logo.svg` is Forma's logo, compiled in; next to it,
+//!   `boot-logo.png`, `boot-logo-4x3.png` (Batocera's boot image) and `batocera-logo.svg`
+//!   (Batocera's logo) are Batocera's own files, and nothing else. Forma's cover shows them.
 //! - `forma://localhost/shell/shell.js` is Forma's shell, which every theme page gets first in its
 //!   `<head>`: Forma's menus over the theme (see `shell.rs`).
 //!
@@ -30,27 +30,17 @@ pub trait Resolver {
     fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf>;
     /// A RetroAchievements media file, fetched and cached if need be.
     fn ra_media(&self, path: &str) -> Option<PathBuf>;
-    /// One of Batocera's splash files (`splash.mp4`, `boot-logo.png`), for the start-up screen.
+    /// One of Batocera's files for Forma's cover: `boot-logo.png`, `boot-logo-4x3.png`,
+    /// `batocera-logo.svg`.
     fn splash_file(&self, name: &str) -> Option<PathBuf>;
+    /// What Forma's cover shows on the theme page being served.
+    fn cover(&self) -> crate::shell::CoverInfo;
     /// A file of Forma's shell (`shell.js`), the menus drawn over every theme.
     fn shell_file(&self, name: &str) -> Option<PathBuf>;
 }
 
-/// Forma's start-up screen: Batocera's splash, then the theme.
-const SPLASH_PAGE: &str = include_str!("../boot/splash.html");
-/// Forma's logo, for the start-up screen.
+/// Forma's logo, for its cover.
 const LOGO: &str = include_str!("../boot/forma-logo.svg");
-/// RAM Raiders' logo, for the start-up screen.
-const RAM_RAIDERS: &[u8] = include_bytes!("../boot/ram-raiders.png");
-
-/// The start-up screen's own policy: its inline script and style, Batocera's splash files.
-const SPLASH_CSP: &str = "default-src 'none'; script-src 'unsafe-inline'; \
-                          style-src 'unsafe-inline'; connect-src forma:; media-src blob:; \
-                          img-src forma:";
-
-pub fn splash_url(query: &str) -> String {
-    format!("{ORIGIN}/system/splash.html?{query}")
-}
 
 pub const ORIGIN: &str = "forma://localhost";
 
@@ -90,7 +80,7 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
             let rel = rest.filter(|r| !r.is_empty()).unwrap_or("index.html");
             match inside(&dir, rel) {
                 Some(file) if mime_type(&file).starts_with("text/html") => {
-                    serve_page(&file, &csp(&remote))
+                    serve_page(&file, &csp(&remote), &resolver.cover())
                 }
                 Some(file) => serve(&file, None, None),
                 None => status(StatusCode::NOT_FOUND, "not found"),
@@ -112,43 +102,33 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
                 None => status(StatusCode::NOT_FOUND, "no such media"),
             }
         }
-        (Some("system"), Some("splash.html"), None) => Response::builder()
-            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-            .header(header::CONTENT_SECURITY_POLICY, SPLASH_CSP)
-            .header("X-Content-Type-Options", "nosniff")
-            // The logo inline, so its blocks can move one by one.
-            .body(SPLASH_PAGE.replace("<!--forma-logo-->", LOGO).into_bytes())
-            .unwrap_or_default(),
         (Some("system"), Some("forma-logo.svg"), None) => Response::builder()
             .header(header::CONTENT_TYPE, "image/svg+xml")
             .header("X-Content-Type-Options", "nosniff")
             .body(LOGO.as_bytes().to_vec())
             .unwrap_or_default(),
-        (Some("system"), Some("ram-raiders.png"), None) => Response::builder()
-            .header(header::CONTENT_TYPE, "image/png")
-            .header("X-Content-Type-Options", "nosniff")
-            .body(RAM_RAIDERS.to_vec())
-            .unwrap_or_default(),
         (Some("shell"), Some(name), None) => match resolver.shell_file(name) {
             Some(file) => serve(&file, None, None),
             None => status(StatusCode::NOT_FOUND, "no such shell file"),
         },
-        (Some("system"), Some(name @ ("splash.mp4" | "boot-logo.png")), None) => {
-            match resolver.splash_file(name) {
-                Some(file) => serve(&file, range, None),
-                None => status(StatusCode::NOT_FOUND, "no splash"),
-            }
-        }
+        (
+            Some("system"),
+            Some(name @ ("boot-logo.png" | "boot-logo-4x3.png" | "batocera-logo.svg")),
+            None,
+        ) => match resolver.splash_file(name) {
+            Some(file) => serve(&file, None, None),
+            None => status(StatusCode::NOT_FOUND, "no splash"),
+        },
         _ => status(StatusCode::NOT_FOUND, "not found"),
     }
 }
 
 /// A theme's page, with Forma's shell brought in first, under the theme's policy.
-fn serve_page(file: &Path, csp: &str) -> Response<Vec<u8>> {
+fn serve_page(file: &Path, csp: &str, cover: &crate::shell::CoverInfo) -> Response<Vec<u8>> {
     let Ok(html) = std::fs::read_to_string(file) else {
         return status(StatusCode::INTERNAL_SERVER_ERROR, "unreadable");
     };
-    let body = crate::shell::inject(&html).into_bytes();
+    let body = crate::shell::inject(&html, cover).into_bytes();
     Response::builder()
         .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
         .header(header::CACHE_CONTROL, "no-cache")
@@ -346,7 +326,13 @@ mod tests {
             (path == "Badge/1.png").then(|| self.media.clone())
         }
         fn splash_file(&self, name: &str) -> Option<PathBuf> {
-            (name == "splash.mp4").then(|| self.media.clone())
+            (name == "boot-logo.png").then(|| self.media.clone())
+        }
+        fn cover(&self) -> crate::shell::CoverInfo {
+            crate::shell::CoverInfo {
+                theme: "Neon 1".into(),
+                ..Default::default()
+            }
         }
         fn shell_file(&self, name: &str) -> Option<PathBuf> {
             (name == "shell.js").then(|| self.media.clone())
@@ -381,37 +367,20 @@ mod tests {
     }
 
     #[test]
-    fn serves_the_start_up_screen_and_only_batoceras_splash_files() {
+    fn serves_formas_logo_and_only_batoceras_own_files() {
         let (_dir, fake) = setup();
-        let page = get(&fake, "forma://localhost/system/splash.html?next=x", None);
-        assert_eq!(page.status(), StatusCode::OK);
-        let html = String::from_utf8_lossy(page.body());
-        assert!(html.contains("fetch('splash.mp4')"));
-        assert!(
-            html.contains("<svg") && html.contains("ram-raiders.png"),
-            "both logos"
-        );
-        let csp = page.headers()[header::CONTENT_SECURITY_POLICY]
-            .to_str()
-            .unwrap();
-        assert!(csp.starts_with("default-src 'none'") && csp.contains("media-src blob:"));
-
         let logo = get(&fake, "forma://localhost/system/forma-logo.svg", None);
         assert_eq!(logo.headers()[header::CONTENT_TYPE], "image/svg+xml");
         assert!(String::from_utf8_lossy(logo.body()).contains("aria-label=\"Forma\""));
-
-        let video = get(
-            &fake,
-            "forma://localhost/system/splash.mp4",
-            Some("bytes=2-4"),
-        );
-        assert_eq!(video.status(), StatusCode::PARTIAL_CONTENT);
-        assert_eq!(video.body(), b"234");
+        let boot = get(&fake, "forma://localhost/system/boot-logo.png", None);
+        assert_eq!(boot.status(), StatusCode::OK);
         for uri in [
-            "forma://localhost/system/boot-logo.png",
+            "forma://localhost/system/splash.html",
+            "forma://localhost/system/splash.mp4",
+            "forma://localhost/system/batocera-logo.svg",
             "forma://localhost/system/secret.txt",
             "forma://localhost/system/../secret.txt",
-            "forma://localhost/system/splash.mp4/x",
+            "forma://localhost/system/boot-logo.png/x",
         ] {
             assert_eq!(
                 get(&fake, uri, None).status(),
@@ -428,7 +397,13 @@ mod tests {
         assert_eq!(page.status(), StatusCode::OK);
         assert_eq!(
             String::from_utf8_lossy(page.body()),
-            format!("{}<!doctype html>", crate::shell::SHELL_TAG),
+            format!(
+                "{}<!doctype html>",
+                crate::shell::shell_tag(&crate::shell::CoverInfo {
+                    theme: "Neon 1".into(),
+                    ..Default::default()
+                })
+            ),
             "Forma's shell comes first"
         );
         assert_eq!(
@@ -458,13 +433,10 @@ mod tests {
     }
 
     #[test]
-    fn serves_the_shell_and_ram_raiders_logo() {
+    fn serves_the_shell() {
         let (_dir, fake) = setup();
         let shell = get(&fake, "forma://localhost/shell/shell.js", None);
         assert_eq!(shell.status(), StatusCode::OK);
-        let logo = get(&fake, "forma://localhost/system/ram-raiders.png", None);
-        assert_eq!(logo.headers()[header::CONTENT_TYPE], "image/png");
-        assert!(logo.body().starts_with(b"\x89PNG"));
         for uri in [
             "forma://localhost/shell/other.js",
             "forma://localhost/shell/../theme/neon/index.html",
