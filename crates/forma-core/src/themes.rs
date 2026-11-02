@@ -71,8 +71,78 @@ pub struct ThemeManifest {
     /// `https://` origins the theme may load from. Requires the `network` permission.
     #[serde(default)]
     pub remote: Vec<String>,
+    /// What the user can set from Forma's menu (Start → Interface), for the theme to follow.
+    #[serde(default)]
+    pub settings: Vec<ThemeSetting>,
     #[serde(rename = "$schema", default, skip_serializing)]
     pub schema: Option<String>,
+}
+
+impl ThemeManifest {
+    /// A manifest for a theme that has none, so Forma's menu still has a name to show.
+    pub fn unnamed(id: &str) -> Self {
+        Self {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            version: String::new(),
+            entry: default_entry(),
+            sdk: String::new(),
+            permissions: Vec::new(),
+            hierarchy: None,
+            resolutions: Vec::new(),
+            remote: Vec::new(),
+            settings: Vec::new(),
+            schema: None,
+        }
+    }
+}
+
+/// One of a theme's own settings, which Forma's menu shows and sets. The theme reads it with
+/// `forma.settings.get(key)` and hears of changes through the `settings:changed` event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ThemeSetting {
+    pub key: String,
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// A heading the menu groups settings under, e.g. `Look`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    #[serde(rename = "type")]
+    pub kind: SettingKind,
+    /// For a `choice`: the values it can take, in order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub choices: Vec<SettingChoice>,
+    pub default: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SettingKind {
+    /// On or off: `true` or `false`.
+    Toggle,
+    /// One of `choices`, by its value (a string).
+    Choice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingChoice {
+    pub value: String,
+    pub label: String,
+}
+
+impl ThemeSetting {
+    /// Whether `value` is one this setting can take.
+    pub fn accepts(&self, value: &serde_json::Value) -> bool {
+        match self.kind {
+            SettingKind::Toggle => value.is_boolean(),
+            SettingKind::Choice => value
+                .as_str()
+                .is_some_and(|v| self.choices.iter().any(|c| c.value == v)),
+        }
+    }
 }
 
 fn default_entry() -> String {
@@ -208,6 +278,7 @@ fn check(m: &ThemeManifest, dir: &Path) -> Result<(), String> {
             "remote origin `{bad}` must look like https://example.com"
         ));
     }
+    check_settings(&m.settings)?;
     let entry = Path::new(&m.entry);
     if entry.is_absolute()
         || entry
@@ -221,6 +292,30 @@ fn check(m: &ThemeManifest, dir: &Path) -> Result<(), String> {
     }
     if !dir.join(entry).is_file() {
         return Err(format!("entry `{}` does not exist", m.entry));
+    }
+    Ok(())
+}
+
+fn check_settings(settings: &[ThemeSetting]) -> Result<(), String> {
+    for (i, s) in settings.iter().enumerate() {
+        if s.key.is_empty() || s.key.len() > 100 {
+            return Err("a setting's key must be 1–100 characters".to_owned());
+        }
+        if settings[..i].iter().any(|o| o.key == s.key) {
+            return Err(format!("setting `{}` is listed twice", s.key));
+        }
+        match s.kind {
+            SettingKind::Choice if s.choices.is_empty() => {
+                return Err(format!("setting `{}` has no choices", s.key));
+            }
+            SettingKind::Toggle if !s.choices.is_empty() => {
+                return Err(format!("setting `{}` is a toggle: no choices", s.key));
+            }
+            _ => {}
+        }
+        if !s.accepts(&s.default) {
+            return Err(format!("setting `{}` has a default it cannot take", s.key));
+        }
     }
     Ok(())
 }
@@ -304,6 +399,48 @@ mod tests {
         let theme = load(dir.path(), ThemeOrigin::User);
         assert!(theme.unavailable.unwrap().contains("needs SDK ^2"));
         assert!(theme.manifest.is_some(), "the manifest is still shown");
+    }
+
+    #[test]
+    fn a_theme_declares_settings_for_formas_menu() {
+        let settings = r#", "settings": [
+            { "key": "board", "label": "Board", "group": "Look", "type": "choice",
+              "choices": [{ "value": "on", "label": "On" }, { "value": "off", "label": "Off" }],
+              "default": "on" },
+            { "key": "motion", "label": "Animations", "type": "toggle", "default": true }
+        ]"#;
+        assert_eq!(reason(settings), None);
+        let dir = tempfile::tempdir().unwrap();
+        write_theme(dir.path(), &manifest(settings));
+        let m = load(dir.path(), ThemeOrigin::User).manifest.unwrap();
+        let [board, motion] = &m.settings[..] else {
+            panic!("two settings")
+        };
+        assert!(board.accepts(&serde_json::json!("off")));
+        assert!(!board.accepts(&serde_json::json!("dim")));
+        assert!(motion.accepts(&serde_json::json!(false)));
+        assert!(!motion.accepts(&serde_json::json!("false")));
+
+        let r = |extra: &str| reason(extra).unwrap();
+        assert!(
+            r(r#", "settings": [{ "key": "a", "label": "A", "type": "choice", "choices": [], "default": "x" }]"#)
+                .contains("no choices")
+        );
+        assert!(
+            r(r#", "settings": [{ "key": "a", "label": "A", "type": "toggle", "default": "on" }]"#)
+                .contains("default it cannot take")
+        );
+        assert!(
+            r(
+                r#", "settings": [{ "key": "a", "label": "A", "type": "toggle", "default": true },
+                                { "key": "a", "label": "B", "type": "toggle", "default": true }]"#
+            )
+            .contains("listed twice")
+        );
+        assert!(
+            r(r#", "settings": [{ "key": "a", "label": "A", "type": "slider", "default": 1 }]"#)
+                .contains("theme.json")
+        );
     }
 
     #[test]

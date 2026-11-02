@@ -87,6 +87,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const settings = new Map<string, unknown>();
   const listeners = new Map<string, Set<Handler>>();
   let defaultView: string | null = null;
+  let shellContext: unknown = null;
   const network = structuredClone(snapshot.network);
   const radios = structuredClone(snapshot.music.radios);
   const musicSources = (): MusicSource[] => [
@@ -300,6 +301,22 @@ export function mockBackend(options: MockOptions = {}): Backend {
         fail('notFound', `no view ${JSON.stringify(id)}`);
       }
       defaultView = (id as string | null) ?? null;
+      return null;
+    },
+    shell_set_context: ({ context }) => {
+      shellContext = context ?? null;
+      return null;
+    },
+    // Forma's menu, as the mock plays it: a test can pick a view or change a setting as the
+    // user would, and the theme hears of it.
+    shell_open_view: ({ view }) => {
+      emit('nav:open', { view });
+      return null;
+    },
+    shell_info: () => ({ context: shellContext }),
+    shell_set_theme_setting: ({ key, value }) => {
+      settings.set(settingKey(String(key), 'theme'), value);
+      emit('settings:changed', { scope: 'theme', key, value });
       return null;
     },
     settings_get: ({ key, scope }) => settings.get(settingKey(String(key), scope)) ?? null,

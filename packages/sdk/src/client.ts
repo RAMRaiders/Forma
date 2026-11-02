@@ -22,6 +22,7 @@ import type {
   Radio,
   RaGame,
   RaUser,
+  ShellContext,
   SystemSummary,
   ThemeInfo,
   Unsubscribe,
@@ -103,6 +104,7 @@ export class Forma {
   readonly options;
   readonly store;
   readonly music;
+  readonly shell;
 
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
@@ -288,6 +290,16 @@ export class Forma {
       addRadio: (name: string, url: string) => invoke<void>('music_add_radio', { name, url }),
       /** Needs `music.manage`. */
       removeRadio: (url: string) => invoke<void>('music_remove_radio', { url })
+    };
+
+    /**
+     * Forma's own menus, drawn over every theme: Start (the menu) and Select (views). Those two
+     * buttons are Forma's and never reach the theme. A theme tells the menu what is on screen,
+     * and follows `nav:open` and `settings:changed`.
+     */
+    this.shell = {
+      /** What the theme shows now. Call it as the selection moves; it costs one small call. */
+      setContext: (context: ShellContext) => invoke<void>('shell_set_context', { context })
     };
 
     this.system = {

@@ -95,6 +95,8 @@ impl Harness {
             ready_file: Some(root.join("forma.ready")),
             on_batocera: false,
             input: Mutex::new(None),
+            shell: crate::shell::ShellState::default(),
+            shell_dir: None,
             sync: Mutex::new(None),
             paths,
         };
@@ -125,6 +127,23 @@ impl Harness {
     }
 
     fn call_from(&self, url: &str, cmd: &str, args: Value) -> Result<Value, Value> {
+        self.call_with(url, cmd, args, Default::default())
+    }
+
+    /// A call from Forma's shell, carrying `token`.
+    fn call_as_shell(&self, token: &str, cmd: &str, args: Value) -> Result<Value, Value> {
+        let mut headers = tauri::http::HeaderMap::new();
+        headers.insert(crate::shell::SHELL_HEADER, token.parse().unwrap());
+        self.call_with(PAGE, cmd, args, headers)
+    }
+
+    fn call_with(
+        &self,
+        url: &str,
+        cmd: &str,
+        args: Value,
+        headers: tauri::http::HeaderMap,
+    ) -> Result<Value, Value> {
         get_ipc_response(
             &self.window,
             InvokeRequest {
@@ -133,7 +152,7 @@ impl Harness {
                 error: CallbackFn(1),
                 url: url.parse().unwrap(),
                 body: InvokeBody::Json(args),
-                headers: Default::default(),
+                headers,
                 invoke_key: INVOKE_KEY.into(),
             },
         )
@@ -557,4 +576,119 @@ fn the_netplay_lobby_is_matched_to_local_games() {
         .clone();
     assert_eq!(rooms[0]["localGameId"], mario);
     assert_eq!(rooms[1]["localGameId"], Value::Null);
+}
+
+#[test]
+fn the_shell_claims_its_token_once_and_then_may_do_what_forma_offers() {
+    // A theme with no permissions at all: Forma's menu still works over it.
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    assert_eq!(
+        code(&h.call("shell_claim", json!({})).unwrap_err()),
+        "permissionDenied"
+    );
+
+    let err = h
+        .call_as_shell(token, "system_power", json!({ "action": "shutdown" }))
+        .unwrap_err();
+    assert_eq!(
+        code(&err),
+        "unsupported",
+        "past the permission, refused off Batocera"
+    );
+    let err = h
+        .call_as_shell("guess", "system_power", json!({ "action": "shutdown" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+
+    h.call_as_shell(
+        token,
+        "settings_set",
+        json!({ "key": "display.margins", "value": 3, "scope": "system" }),
+    )
+    .unwrap();
+    assert_eq!(
+        h.call(
+            "settings_get",
+            json!({ "key": "display.margins", "scope": "system" })
+        )
+        .unwrap_err()["code"],
+        "permissionDenied",
+        "the theme itself still cannot"
+    );
+    assert_eq!(
+        h.call_as_shell(
+            token,
+            "settings_get",
+            json!({ "key": "display.margins", "scope": "system" })
+        )
+        .unwrap(),
+        3
+    );
+
+    // Only the shell opens its menu, or reads what it needs.
+    assert_eq!(
+        code(
+            &h.call("shell_set_open", json!({ "open": true }))
+                .unwrap_err()
+        ),
+        "permissionDenied"
+    );
+    assert_eq!(
+        code(&h.call("shell_info", json!({})).unwrap_err()),
+        "permissionDenied"
+    );
+    h.call_as_shell(token, "shell_set_open", json!({ "open": true }))
+        .unwrap();
+}
+
+#[test]
+fn the_theme_tells_the_shell_what_is_selected() {
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let context =
+        json!({ "view": "systems", "system": { "name": "snes", "fullname": "Super Nintendo" } });
+    h.call("shell_set_context", json!({ "context": context }))
+        .unwrap();
+    let info = h.call_as_shell(token, "shell_info", json!({})).unwrap();
+    assert_eq!(info["context"], context);
+    assert_eq!(info["theme"]["id"], "default");
+    assert_eq!(info["theme"]["settings"], json!([]));
+    assert_eq!(
+        code(
+            &h.call("shell_set_context", json!({ "context": 3 }))
+                .unwrap_err()
+        ),
+        "invalid"
+    );
+}
+
+#[test]
+fn the_shell_opens_a_view_in_the_theme() {
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let opened = Arc::new(Mutex::new(None));
+    let seen = opened.clone();
+    h.window.listen_any(crate::shell::EVENT_NAV_OPEN, move |e| {
+        *seen.lock().unwrap() = Some(e.payload().to_owned());
+    });
+    h.call_as_shell(token, "shell_open_view", json!({ "view": "genre" }))
+        .unwrap();
+    assert_eq!(
+        opened.lock().unwrap().as_deref(),
+        Some(r#"{"view":"genre"}"#)
+    );
+    assert_eq!(
+        code(
+            &h.call_as_shell(token, "shell_open_view", json!({ "view": "nope" }))
+                .unwrap_err()
+        ),
+        "notFound"
+    );
 }

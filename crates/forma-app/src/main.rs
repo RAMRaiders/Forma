@@ -8,6 +8,7 @@ mod music;
 mod options;
 mod permissions;
 mod protocol;
+mod shell;
 mod state;
 mod store;
 mod system_settings;
@@ -74,6 +75,12 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         music::music_radios,
         music::music_add_radio,
         music::music_remove_radio,
+        shell::shell_claim,
+        shell::shell_set_open,
+        shell::shell_set_context,
+        shell::shell_info,
+        shell::shell_set_theme_setting,
+        shell::shell_open_view,
     ]
 }
 
@@ -95,6 +102,14 @@ fn main() {
             });
         })
         .invoke_handler(handlers())
+        .on_page_load(|webview, payload| {
+            // A new page in the window: the shell it brings claims a new token.
+            if payload.event() == tauri::webview::PageLoadEvent::Started
+                && let Some(state) = webview.try_state::<AppState>()
+            {
+                state.shell.new_page();
+            }
+        })
         .on_window_event(commands::on_window_event)
         .setup(|app| boot::start(app))
         .run(tauri::generate_context!())

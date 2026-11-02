@@ -4,12 +4,15 @@
     <meta charset="UTF-8" />
     <title>Forma</title>
     <!--
-      Forma's start-up screen, at the first start after boot, in two parts:
-      1. Batocera's own splash animation, on its own.
-      2. Forma's screen: its logo, the theme about to load and its version, and Forma's and
-         Batocera's versions; then the theme.
-      Served by Forma (forma://localhost/system/splash.html?…); the query carries the theme's
-      address, the versions and whether to play sound.
+      Forma's entry screen, whatever the theme, in up to three parts:
+      1. Batocera's own splash animation, on its own (only right after the box boots).
+      2. RAM Raiders: the logo powers on like a CRT, glitches once, and powers off.
+      3. Forma: its blocks fly in and lock into the F, the last one in its accent colour, then
+         the name, the theme about to load and the versions.
+      Then the theme loads, under Forma's shell, whose cover holds this last frame until the
+      theme is ready. Served by Forma (forma://localhost/system/splash.html?…); the query carries
+      the theme's address, the versions, whether to play Batocera's video and with sound.
+      Only transforms, opacity and small clip-paths move, so a Raspberry Pi keeps up.
     -->
     <style>
       html,
@@ -46,7 +49,225 @@
         object-fit: contain;
       }
 
-      /* Forma's screen. */
+      /* ---- RAM Raiders ------------------------------------------------------------------ */
+
+      .raiders {
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: 4vh;
+        background:
+          radial-gradient(ellipse at 50% 45%, rgb(120 40 200 / 22%) 0%, transparent 55%),
+          radial-gradient(ellipse at 50% 60%, rgb(0 255 170 / 10%) 0%, transparent 60%), #05060f;
+      }
+
+      /* A faint CRT: scanlines over everything, still. */
+      .raiders::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(
+          to bottom,
+          rgb(0 0 0 / 0%) 0 2px,
+          rgb(0 0 0 / 22%) 2px 3px
+        );
+        pointer-events: none;
+      }
+
+      .crt {
+        position: relative;
+        width: 46vh;
+        height: 46vh;
+      }
+
+      .crt img {
+        width: 100%;
+        height: 100%;
+        border-radius: 9%;
+        box-shadow:
+          0 0 4vh rgb(150 60 255 / 45%),
+          0 0 12vh rgb(0 255 170 / 18%);
+        animation:
+          power-on 900ms cubic-bezier(0.2, 0.9, 0.2, 1) 250ms both,
+          glitch 380ms steps(1) 1500ms,
+          power-off 520ms cubic-bezier(0.7, 0, 0.9, 0.4) 2650ms forwards;
+      }
+
+      /* The beam: a line of light across the middle, before the picture opens from it. */
+      .beam {
+        position: absolute;
+        left: -6%;
+        right: -6%;
+        top: 50%;
+        height: 0.5vh;
+        margin-top: -0.25vh;
+        border-radius: 1vh;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          #b8fff0 20%,
+          #fff 50%,
+          #b8fff0 80%,
+          transparent
+        );
+        box-shadow: 0 0 3vh 0.6vh rgb(120 255 220 / 70%);
+        transform: scaleX(0);
+        animation:
+          beam-on 380ms ease-out both,
+          beam-fade 380ms ease-in 650ms forwards,
+          beam-off 520ms ease-in 2650ms forwards;
+      }
+
+      /* A sweep of light down the picture once it is on. */
+      .sweep {
+        position: absolute;
+        inset: 0;
+        border-radius: 9%;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .sweep::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 30%;
+        background: linear-gradient(to bottom, transparent, rgb(140 255 230 / 18%), transparent);
+        transform: translateY(-110%);
+        animation: sweep 1100ms ease-in-out 1050ms both;
+      }
+
+      .presents {
+        margin: 0;
+        font-family: 'DejaVu Sans Mono', monospace;
+        font-size: 2.2vh;
+        letter-spacing: 1.2em;
+        margin-right: -1.2em;
+        color: rgb(200 255 240 / 80%);
+        text-transform: uppercase;
+        animation:
+          presents 900ms ease-out 1300ms both,
+          fade-out 400ms ease-in 2550ms forwards;
+      }
+
+      @keyframes beam-on {
+        from {
+          transform: scaleX(0);
+          opacity: 0;
+        }
+        to {
+          transform: scaleX(1);
+          opacity: 1;
+        }
+      }
+
+      @keyframes beam-fade {
+        to {
+          opacity: 0;
+        }
+      }
+
+      @keyframes beam-off {
+        0% {
+          opacity: 1;
+          transform: scaleX(1);
+        }
+        60% {
+          opacity: 1;
+          transform: scaleX(0.6);
+        }
+        100% {
+          opacity: 0;
+          transform: scaleX(0);
+        }
+      }
+
+      @keyframes power-on {
+        0% {
+          clip-path: inset(49.5% 0 49.5% 0);
+          filter: brightness(4) saturate(0);
+        }
+        45% {
+          clip-path: inset(0 0 0 0);
+          filter: brightness(2.2) saturate(0.4);
+        }
+        100% {
+          clip-path: inset(0 0 0 0);
+          filter: none;
+        }
+      }
+
+      /* Two bad frames, like a signal catching: offsets and a colour shift. */
+      @keyframes glitch {
+        0% {
+          transform: translate(-1.2vh, 0) skewX(-4deg);
+          filter: hue-rotate(70deg) contrast(1.4);
+          clip-path: inset(12% 0 58% 0);
+        }
+        20% {
+          transform: translate(1.4vh, 0);
+          filter: hue-rotate(-60deg);
+          clip-path: inset(48% 0 20% 0);
+        }
+        40% {
+          transform: translate(-0.6vh, 0);
+          filter: none;
+          clip-path: inset(0 0 0 0);
+        }
+        60% {
+          transform: translate(0.8vh, 0) skewX(3deg);
+          filter: hue-rotate(40deg) brightness(1.4);
+          clip-path: inset(70% 0 6% 0);
+        }
+        80%,
+        100% {
+          transform: none;
+          filter: none;
+          clip-path: inset(0 0 0 0);
+        }
+      }
+
+      /* CRT off: the picture squeezes to a line, brightens, and goes. */
+      @keyframes power-off {
+        0% {
+          transform: none;
+          filter: none;
+        }
+        55% {
+          transform: scale(1.02, 0.012);
+          filter: brightness(5) saturate(0);
+        }
+        100% {
+          transform: scale(0, 0.012);
+          filter: brightness(6) saturate(0);
+        }
+      }
+
+      @keyframes sweep {
+        to {
+          transform: translateY(380%);
+        }
+      }
+
+      @keyframes presents {
+        from {
+          opacity: 0;
+          letter-spacing: 2.4em;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes fade-out {
+        to {
+          opacity: 0;
+        }
+      }
+
+      /* ---- Forma ------------------------------------------------------------------------ */
+
       .forma {
         display: grid;
         place-content: center;
@@ -57,44 +278,122 @@
       }
 
       .mark {
+        position: relative;
         height: 22vh;
       }
 
-      .mark rect {
-        animation: settle 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      .mark svg {
+        height: 100%;
+        overflow: visible;
+        filter: drop-shadow(0 0 2.4vh rgb(34 228 255 / 35%));
       }
 
+      /* Each block flies in from its own direction, spinning, and settles into the F. */
+      .mark rect {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: block-in 720ms cubic-bezier(0.18, 0.9, 0.25, 1.15) both;
+      }
+
+      .mark rect:nth-of-type(1) {
+        --from: translate(-220%, -160%) rotate(-140deg);
+        animation-delay: 0ms;
+      }
       .mark rect:nth-of-type(2) {
-        animation-delay: 70ms;
+        --from: translate(60%, -260%) rotate(110deg);
+        animation-delay: 80ms;
       }
       .mark rect:nth-of-type(3) {
-        animation-delay: 140ms;
+        --from: translate(-300%, 20%) rotate(-90deg);
+        animation-delay: 160ms;
       }
       .mark rect:nth-of-type(4) {
-        animation-delay: 210ms;
+        --from: translate(-240%, 140%) rotate(160deg);
+        animation-delay: 240ms;
       }
       .mark rect:nth-of-type(5) {
-        animation-delay: 280ms;
+        --from: translate(260%, 120%) rotate(-120deg);
+        animation-delay: 320ms;
       }
       .mark rect:nth-of-type(6) {
-        animation-delay: 350ms;
-      }
-      .mark rect:nth-of-type(7) {
-        animation-delay: 460ms;
+        --from: translate(-120%, 300%) rotate(90deg);
+        animation-delay: 400ms;
       }
 
-      @keyframes settle {
+      /* The accent block: it drops in last, from above, and locks with a flash. */
+      .mark rect.accent {
+        animation:
+          drop 560ms cubic-bezier(0.5, 0, 0.75, 0) 620ms both,
+          lock 420ms ease-out 1180ms;
+      }
+
+      .ring {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 29.2%;
+        aspect-ratio: 1;
+        border: 0.4vh solid #ff2e88;
+        border-radius: 22%;
+        opacity: 0;
+        animation: ring 650ms ease-out 1180ms;
+      }
+
+      @keyframes block-in {
         from {
+          transform: var(--from);
           opacity: 0;
-          transform: translateY(-14px);
+        }
+        35% {
+          opacity: 1;
         }
         to {
-          opacity: 1;
           transform: none;
+          opacity: 1;
+        }
+      }
+
+      @keyframes drop {
+        from {
+          transform: translateY(-420%);
+          opacity: 0;
+        }
+        30% {
+          opacity: 1;
+        }
+        to {
+          transform: none;
+          opacity: 1;
+        }
+      }
+
+      @keyframes lock {
+        0% {
+          transform: scale(1.18, 0.82);
+          filter: brightness(2.2);
+        }
+        55% {
+          transform: scale(0.95, 1.05);
+        }
+        100% {
+          transform: none;
+          filter: none;
+        }
+      }
+
+      @keyframes ring {
+        from {
+          opacity: 0.9;
+          transform: scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: scale(2.4);
         }
       }
 
       .word {
+        display: flex;
         margin: 0;
         font-family: 'DejaVu Sans Mono', monospace;
         font-size: 6vh;
@@ -104,11 +403,47 @@
         color: #e8fbff;
       }
 
+      .word span {
+        display: inline-block;
+        animation: letter 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      .word span:nth-child(1) {
+        animation-delay: 1250ms;
+      }
+      .word span:nth-child(2) {
+        animation-delay: 1310ms;
+      }
+      .word span:nth-child(3) {
+        animation-delay: 1370ms;
+      }
+      .word span:nth-child(4) {
+        animation-delay: 1430ms;
+      }
+      .word span:nth-child(5) {
+        animation-delay: 1490ms;
+      }
+
+      @keyframes letter {
+        from {
+          opacity: 0;
+          transform: translateY(1.2vh);
+          filter: blur(0.6vh);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+          filter: none;
+        }
+      }
+
       .theme {
         margin: 1vh 0 0;
+        min-height: 1.3em;
         font-size: 2.6vh;
         color: #22e4ff;
         letter-spacing: 0.06em;
+        animation: rise 500ms ease-out 1650ms both;
       }
 
       .versions {
@@ -116,6 +451,14 @@
         font-size: 1.7vh;
         color: rgb(223 246 255 / 55%);
         letter-spacing: 0.04em;
+        animation: rise 500ms ease-out 1750ms both;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(0.8vh);
+        }
       }
 
       .bar {
@@ -125,13 +468,14 @@
         border-radius: 1vh;
         background: rgb(34 228 255 / 15%);
         overflow: hidden;
+        animation: rise 400ms ease-out 1800ms both;
       }
 
       .bar span {
         display: block;
         width: 30%;
         height: 100%;
-        background: #22e4ff;
+        background: linear-gradient(135deg, #22e4ff, #3b6dff);
         animation: scan 1.2s ease-in-out infinite;
       }
 
@@ -145,21 +489,33 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .mark rect,
-        .bar span {
-          animation: none;
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          animation-delay: 0ms !important;
         }
       }
     </style>
   </head>
   <body>
-    <section class="batocera">
+    <section class="batocera" hidden>
       <video playsinline preload="auto"></video>
       <img class="still" src="boot-logo.png" alt="" hidden />
     </section>
+    <section class="raiders" hidden>
+      <div class="crt">
+        <img src="ram-raiders.png" alt="RAM Raiders" />
+        <div class="sweep"></div>
+        <div class="beam"></div>
+      </div>
+      <p class="presents">presents</p>
+    </section>
     <section class="forma" hidden>
-      <img class="mark" src="forma-logo.svg" alt="" />
-      <p class="word">FORMA</p>
+      <div class="mark"><!--forma-logo--><span class="ring"></span></div>
+      <p class="word" aria-label="Forma">
+        <span>F</span><span>O</span><span>R</span><span>M</span><span>A</span>
+      </p>
       <p class="theme"></p>
       <p class="versions"></p>
       <div class="bar"><span></span></div>
@@ -180,59 +536,91 @@
       ]
         .filter(Boolean)
         .join('  ·  ');
+      // The accent block is the one whose fill is the accent gradient.
+      document.querySelector('.mark rect[fill]')?.classList.add('accent');
 
-      const first = document.querySelector('.batocera');
-      const second = document.querySelector('.forma');
+      const batoceraPart = document.querySelector('.batocera');
+      const raiders = document.querySelector('.raiders');
+      const formaPart = document.querySelector('.forma');
       const video = document.querySelector('video');
       const still = document.querySelector('.still');
-      let stage = 1;
+      /** RAM Raiders' part, to the end of its power-off. */
+      const RAIDERS_MS = 3200;
+      /** Forma's part, once its blocks and name are in. */
+      const FORMA_MS = 2600;
+      let stage = 0;
+      let timer;
 
-      // Batocera's part done: Forma's screen, then the theme.
-      function formaScreen() {
-        if (stage !== 1) return;
-        stage = 2;
-        video.pause();
-        first.classList.add('gone');
-        second.hidden = false;
-        setTimeout(theme, 2200);
+      function after(ms, then) {
+        clearTimeout(timer);
+        timer = setTimeout(then, ms);
       }
 
-      // To the theme, faded; only to a theme on forma:// (the query must not send it elsewhere).
-      function theme() {
-        if (stage === 3) return;
-        stage = 3;
-        second.classList.add('gone');
-        setTimeout(() => {
-          if (next.startsWith('forma://localhost/theme/')) location.replace(next);
-        }, 400);
+      // 1. Batocera's animation, when asked for.
+      function batoceraScreen() {
+        stage = 1;
+        batoceraPart.hidden = false;
+        video.addEventListener('ended', raidersScreen);
+        video.addEventListener('error', noVideo);
+        video.muted = query.get('sound') !== '1';
+        // From a blob: WebKitGTK's media player (GStreamer) loads only http(s) and blob URLs, so
+        // the video straight from forma:// fails as an unsupported format.
+        fetch('splash.mp4')
+          .then((response) => (response.ok ? response.blob() : Promise.reject(response.status)))
+          .then((blob) => {
+            video.src = URL.createObjectURL(blob);
+            return video.play().catch(() => {
+              // Sound refused before any input: play it silent rather than not at all.
+              video.muted = true;
+              return video.play();
+            });
+          })
+          .catch(noVideo);
+        after(12000, raidersScreen);
       }
 
       // No decoder, no file: Batocera's still logo for a moment instead.
       function noVideo() {
         video.hidden = true;
         still.hidden = false;
-        setTimeout(formaScreen, 2000);
+        after(2000, raidersScreen);
       }
 
-      video.addEventListener('ended', formaScreen);
-      video.addEventListener('error', noVideo);
-      video.muted = query.get('sound') !== '1';
-      // From a blob: WebKitGTK's media player (GStreamer) loads only http(s) and blob URLs, so
-      // the video straight from forma:// fails as an unsupported format.
-      fetch('splash.mp4')
-        .then((response) => (response.ok ? response.blob() : Promise.reject(response.status)))
-        .then((blob) => {
-          video.src = URL.createObjectURL(blob);
-          return video.play().catch(() => {
-            // Sound refused before any input: play it silent rather than not at all.
-            video.muted = true;
-            return video.play();
-          });
-        })
-        .catch(noVideo);
-      // A key skips ahead: the video to Forma's screen, Forma's screen to the theme.
-      window.addEventListener('keydown', () => (stage === 1 ? formaScreen() : theme()));
-      setTimeout(formaScreen, 12000);
+      // 2. RAM Raiders.
+      function raidersScreen() {
+        if (stage >= 2) return;
+        stage = 2;
+        video.pause();
+        batoceraPart.classList.add('gone');
+        raiders.hidden = false;
+        after(RAIDERS_MS, formaScreen);
+      }
+
+      // 3. Forma.
+      function formaScreen() {
+        if (stage >= 3) return;
+        stage = 3;
+        raiders.classList.add('gone');
+        formaPart.hidden = false;
+        after(FORMA_MS, theme);
+      }
+
+      // To the theme, with no fade: the shell's cover in the theme page shows this same frame
+      // until the theme is ready. Only to a theme on forma:// (the query must not send it
+      // elsewhere).
+      function theme() {
+        if (stage >= 4) return;
+        stage = 4;
+        clearTimeout(timer);
+        if (next.startsWith('forma://localhost/theme/')) location.replace(next);
+      }
+
+      // A key skips ahead to the next part.
+      window.addEventListener('keydown', () =>
+        stage === 1 ? raidersScreen() : stage === 2 ? formaScreen() : theme()
+      );
+      if (query.get('video') === '1') batoceraScreen();
+      else raidersScreen();
     </script>
   </body>
 </html>

@@ -53,10 +53,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Build the AppImage, with the default theme as a resource
+      - name: Build the AppImage, with the default theme and the shell as resources
         run: >-
           npx tauri build --bundles appimage --config
-          '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../packages/theme-default/dist":"themes/default"}}}'
+          '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../packages/theme-default/dist":"themes/default","../../packages/shell/dist":"shell"}}}'
 
       - uses: actions/upload-artifact@v4
         with:

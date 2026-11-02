@@ -27,8 +27,9 @@ ENV APPIMAGE_EXTRACT_AND_RUN=1
 WORKDIR /src
 COPY . .
 RUN npm ci
-# The bundled default theme ships as a resource at themes/default, where Forma looks for it.
-RUN npx tauri build --bundles appimage --config '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../packages/theme-default/dist":"themes/default"}}}'
+# The bundled default theme ships as a resource at themes/default, and Forma's shell (its menus
+# over every theme) at shell, where Forma looks for them.
+RUN npx tauri build --bundles appimage --config '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../packages/theme-default/dist":"themes/default","../../packages/shell/dist":"shell"}}}'
 
 FROM scratch
 COPY --from=build /src/target/release/bundle/appimage/*.AppImage /

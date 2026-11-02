@@ -19,6 +19,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use crate::api::{ApiError, ApiResult, ErrorCode};
 use crate::permissions::{self, Scope};
 use crate::protocol::{RA_MEDIA_PREFIX, media_url, theme_url};
+use crate::shell::Caller;
 use crate::state::{AppState, THEME_SETTING};
 
 pub const EVENT_INPUT: &str = "input";
@@ -54,7 +55,8 @@ pub fn sdk_api_version() -> &'static str {
 /// Called by the SDK once the theme has started, so a theme that fails to boot can be
 /// replaced by the default one instead of leaving a blank screen.
 #[tauri::command]
-pub fn theme_ready(state: State<'_, AppState>) {
+pub fn theme_ready<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) {
+    let _ = app.emit(crate::shell::EVENT_THEME_READY, ());
     // Only the first report is start-up; later ones are theme switches and reloads.
     if !state.theme_ready.swap(true, Ordering::SeqCst) {
         let id = state.current_theme().map(|t| t.id).unwrap_or_default();
@@ -202,25 +204,43 @@ pub fn nav_set_default_view(state: State<'_, AppState>, id: Option<String>) -> A
 #[tauri::command]
 pub fn settings_get(
     state: State<'_, AppState>,
+    caller: Caller,
     key: String,
     scope: Option<Scope>,
 ) -> ApiResult<Option<Value>> {
-    let key = permissions::setting_key(&theme(&state)?, scope.unwrap_or(Scope::Theme), &key)?;
+    let key = permissions::setting_key(
+        &theme(&state)?,
+        scope.unwrap_or(Scope::Theme),
+        &key,
+        caller.shell,
+    )?;
     let raw = state.library().setting(&key)?;
     // Values are stored as JSON; a value written outside the SDK is returned as a string.
     Ok(raw.map(|r| serde_json::from_str(&r).unwrap_or(Value::String(r))))
 }
 
 #[tauri::command]
-pub fn settings_set(
+pub fn settings_set<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
+    caller: Caller,
     key: String,
     value: Option<Value>,
     scope: Option<Scope>,
 ) -> ApiResult<()> {
-    let key = permissions::setting_key(&theme(&state)?, scope.unwrap_or(Scope::Theme), &key)?;
-    let json = value.map(|v| v.to_string());
-    Ok(state.library().set_setting(&key, json.as_deref())?)
+    let scope = scope.unwrap_or(Scope::Theme);
+    let stored = permissions::setting_key(&theme(&state)?, scope, &key, caller.shell)?;
+    let json = value.as_ref().map(Value::to_string);
+    state.library().set_setting(&stored, json.as_deref())?;
+    // A change made in Forma's menu: the theme follows it (screen margins, say).
+    if caller.shell {
+        let scope = match scope {
+            Scope::Theme => "theme",
+            Scope::System => "system",
+        };
+        crate::shell::settings_changed(&app, scope, &key, &value.unwrap_or(Value::Null));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -299,8 +319,12 @@ pub fn input_controllers(state: State<'_, AppState>) -> Vec<Controller> {
 
 /// Quits Forma. On Batocera, the service then hands the screen back to EmulationStation.
 #[tauri::command]
-pub fn system_quit<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) -> ApiResult<()> {
-    permissions::require(&theme(&state)?, permissions::SYSTEM_POWER)?;
+pub fn system_quit<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    caller: Caller,
+) -> ApiResult<()> {
+    caller.require(&state, permissions::SYSTEM_POWER)?;
     app.exit(0);
     Ok(())
 }
@@ -311,8 +335,8 @@ pub fn system_quit<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) ->
 /// Batocera it is refused: Forma must not power off a
 /// development machine because a theme asked it to.
 #[tauri::command]
-pub fn system_power(state: State<'_, AppState>, action: String) -> ApiResult<()> {
-    permissions::require(&theme(&state)?, permissions::SYSTEM_POWER)?;
+pub fn system_power(state: State<'_, AppState>, caller: Caller, action: String) -> ApiResult<()> {
+    caller.require(&state, permissions::SYSTEM_POWER)?;
     let args: &[&str] = match action.as_str() {
         "restart" => &["-r", "now"],
         "shutdown" => &["-P", "-h", "now"],
@@ -477,7 +501,7 @@ pub(crate) async fn off_thread<R: Runtime, T: Send + 'static>(
 /// The user's RetroAchievements profile. Read-only: unlocking happens in RetroArch.
 #[tauri::command]
 pub async fn ra_user<R: Runtime>(app: AppHandle<R>) -> ApiResult<Fetched<achievements::RaUser>> {
-    off_thread(app, |state| {
+    off_thread(app, move |state| {
         // Read the account, then let go of the library before going to the network.
         let account = achievements::account(&state.library(), &state.paths)?;
         Ok(achievements::user(
@@ -526,7 +550,7 @@ pub async fn ra_game<R: Runtime>(
 pub async fn netplay_lobby<R: Runtime>(
     app: AppHandle<R>,
 ) -> ApiResult<Fetched<Vec<netplay::Room>>> {
-    off_thread(app, |state| {
+    off_thread(app, move |state| {
         let mut rooms = netplay::lobby(&*state.http, &state.http_cache())?;
         // The library is locked only for the name match, never across the request.
         netplay::match_local(&mut rooms.data, &state.library())?;
@@ -536,8 +560,8 @@ pub async fn netplay_lobby<R: Runtime>(
 }
 
 /// Network settings run Batocera's own tools: refused anywhere else, as power is.
-fn network_allowed(state: &AppState) -> ApiResult<()> {
-    permissions::require(&theme(state)?, permissions::SYSTEM_NETWORK)?;
+fn network_allowed(state: &AppState, caller: Caller) -> ApiResult<()> {
+    caller.require(state, permissions::SYSTEM_NETWORK)?;
     if !state.on_batocera {
         return Err(ApiError::new(
             ErrorCode::Unsupported,
@@ -549,9 +573,12 @@ fn network_allowed(state: &AppState) -> ApiResult<()> {
 
 /// The wired and Wi-Fi connections, and what is saved for each.
 #[tauri::command]
-pub async fn network_status<R: Runtime>(app: AppHandle<R>) -> ApiResult<NetworkStatus> {
-    off_thread(app, |state| {
-        network_allowed(state)?;
+pub async fn network_status<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+) -> ApiResult<NetworkStatus> {
+    off_thread(app, move |state| {
+        network_allowed(state, caller)?;
         Ok(state.network.status()?)
     })
     .await
@@ -559,9 +586,12 @@ pub async fn network_status<R: Runtime>(app: AppHandle<R>) -> ApiResult<NetworkS
 
 /// Wi-Fi networks in range. Takes a few seconds: it scans first.
 #[tauri::command]
-pub async fn network_wifi_scan<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<WifiNetwork>> {
-    off_thread(app, |state| {
-        network_allowed(state)?;
+pub async fn network_wifi_scan<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+) -> ApiResult<Vec<WifiNetwork>> {
+    off_thread(app, move |state| {
+        network_allowed(state, caller)?;
         Ok(state.network.wifi_scan()?)
     })
     .await
@@ -571,11 +601,12 @@ pub async fn network_wifi_scan<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<W
 #[tauri::command]
 pub async fn network_wifi_join<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     ssid: String,
     passphrase: Option<String>,
 ) -> ApiResult<Joined> {
     off_thread(app, move |state| {
-        network_allowed(state)?;
+        network_allowed(state, caller)?;
         Ok(state.network.wifi_join(&ssid, passphrase.as_deref())?)
     })
     .await
@@ -584,10 +615,11 @@ pub async fn network_wifi_join<R: Runtime>(
 #[tauri::command]
 pub async fn network_wifi_set_enabled<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     enabled: bool,
 ) -> ApiResult<()> {
     off_thread(app, move |state| {
-        network_allowed(state)?;
+        network_allowed(state, caller)?;
         Ok(state.network.wifi_set_enabled(enabled)?)
     })
     .await
@@ -598,18 +630,19 @@ pub async fn network_wifi_set_enabled<R: Runtime>(
 #[tauri::command]
 pub async fn network_ethernet_configure<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     config: EthernetConfig,
 ) -> ApiResult<()> {
     off_thread(app, move |state| {
-        network_allowed(state)?;
+        network_allowed(state, caller)?;
         Ok(state.network.ethernet_configure(&config)?)
     })
     .await
 }
 
 /// Batocera's settings belong to Batocera's tools: refused anywhere else, as power is.
-fn batocera_allowed(state: &AppState) -> ApiResult<()> {
-    permissions::require(&theme(state)?, permissions::SETTINGS_BATOCERA)?;
+fn batocera_allowed(state: &AppState, caller: Caller) -> ApiResult<()> {
+    caller.require(state, permissions::SETTINGS_BATOCERA)?;
     if !state.on_batocera {
         return Err(ApiError::new(
             ErrorCode::Unsupported,
@@ -622,19 +655,24 @@ fn batocera_allowed(state: &AppState) -> ApiResult<()> {
 /// Batocera's RetroAchievements or netplay settings (`prefix`, e.g. `global.netplay`). Secrets
 /// only say whether they are set.
 #[tauri::command]
-pub fn batocera_settings(state: State<'_, AppState>, prefix: String) -> ApiResult<Vec<Setting>> {
-    batocera_allowed(&state)?;
+pub fn batocera_settings(
+    state: State<'_, AppState>,
+    caller: Caller,
+    prefix: String,
+) -> ApiResult<Vec<Setting>> {
+    batocera_allowed(&state, caller)?;
     Ok(state.batocera.get(&prefix))
 }
 
 #[tauri::command]
 pub async fn batocera_set<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     key: String,
     value: String,
 ) -> ApiResult<()> {
     off_thread(app, move |state| {
-        batocera_allowed(state)?;
+        batocera_allowed(state, caller)?;
         Ok(state.batocera.set(&key, &value)?)
     })
     .await
@@ -645,11 +683,12 @@ pub async fn batocera_set<R: Runtime>(
 #[tauri::command]
 pub async fn ra_login<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     username: String,
     password: String,
 ) -> ApiResult<String> {
     off_thread(app, move |state| {
-        batocera_allowed(state)?;
+        batocera_allowed(state, caller)?;
         Ok(state
             .batocera
             .ra_login(&*state.http, &username, &password)?)
@@ -658,9 +697,9 @@ pub async fn ra_login<R: Runtime>(
 }
 
 #[tauri::command]
-pub async fn ra_logout<R: Runtime>(app: AppHandle<R>) -> ApiResult<()> {
-    off_thread(app, |state| {
-        batocera_allowed(state)?;
+pub async fn ra_logout<R: Runtime>(app: AppHandle<R>, caller: Caller) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        batocera_allowed(state, caller)?;
         Ok(state.batocera.ra_logout()?)
     })
     .await

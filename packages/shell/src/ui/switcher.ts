@@ -17,7 +17,7 @@ export class Switcher {
     return this.#views[this.selected];
   }
 
-  show(views: ViewInfo[], current: string, home: string | null): void {
+  show(views: ViewInfo[], current: string | null, home: string | null): void {
     this.#views = views;
     this.selected = Math.max(
       0,

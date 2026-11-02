@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "identifier": "com.ramraiders.forma",
   "build": {
-    "beforeDevCommand": "npm run build --workspace @forma/theme-default -- --watch",
-    "beforeBuildCommand": "npm run build --workspace @forma/theme-default",
+    "beforeDevCommand": "npm run build --workspace @forma/shell && npm run build --workspace @forma/theme-default -- --watch",
+    "beforeBuildCommand": "npm run build --workspace @forma/shell && npm run build --workspace @forma/theme-default",
     "frontendDist": "boot"
   },
   "app": {

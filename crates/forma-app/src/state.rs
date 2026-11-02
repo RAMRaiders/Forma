@@ -58,6 +58,10 @@ pub struct AppState {
     /// Running on Batocera: power and network settings go to its own tools.
     pub on_batocera: bool,
     pub input: Mutex<Option<InputHandle>>,
+    /// Forma's shell in the theme's page: its token, whether it has a menu open, the context.
+    pub shell: crate::shell::ShellState,
+    /// Where the shell's files are (`shell.js`).
+    pub shell_dir: Option<PathBuf>,
     pub sync: Mutex<Option<SyncHandle>>,
 }
 
@@ -125,6 +129,11 @@ impl Resolver for AppState {
             Some(w) if image => self.thumbnails.file_for(&source, w),
             _ => source,
         })
+    }
+
+    fn shell_file(&self, name: &str) -> Option<PathBuf> {
+        let dir = self.shell_dir.as_ref()?;
+        crate::protocol::inside_dir(dir, name)
     }
 
     fn splash_file(&self, name: &str) -> Option<PathBuf> {

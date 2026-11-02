@@ -204,6 +204,10 @@ export interface LibraryChanged {
 }
 
 export interface EventMap {
+  /** The user picked a view in Forma's views list (Select): show it. */
+  'nav:open': NavOpen;
+  /** A setting changed in Forma's menu: one of the theme's own, or Forma's (`display.margins`). */
+  'settings:changed': SettingsChanged;
   'music:changed': MusicStatus;
   'store:progress': StoreProgress;
   'game:start': GameStart;
@@ -214,6 +218,30 @@ export interface EventMap {
 }
 
 export type Unsubscribe = () => void;
+
+/**
+ * What the theme shows now, for Forma's menu: its entries for the selected game or system
+ * ("Super Mario World options…") and the views list's "Showing" mark follow it.
+ */
+export interface ShellContext {
+  /** The view on screen. */
+  view?: string | null;
+  /** The selected system, or the system of the selected game. */
+  system?: { name: string; fullname: string } | null;
+  /** The selected game. */
+  game?: { id: number; name: string } | null;
+}
+
+export interface NavOpen {
+  view: string;
+}
+
+export interface SettingsChanged {
+  /** `theme` for the theme's own settings (declared in `theme.json`), `system` for Forma's. */
+  scope: 'theme' | 'system';
+  key: string;
+  value: unknown;
+}
 
 /** An answer from an online service, and whether it is fresh. */
 export interface Fetched<T> {

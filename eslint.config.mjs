@@ -44,7 +44,11 @@ export default tseslint.config(
 
   /* The SDK and themes run in the WebView, not in Node. */
   {
-    files: ['packages/sdk/src/**/*.ts', 'packages/theme-*/src/**/*.ts'],
+    files: [
+      'packages/sdk/src/**/*.ts',
+      'packages/theme-*/src/**/*.ts',
+      'packages/shell/src/**/*.ts'
+    ],
     languageOptions: { globals: { ...globals.browser } }
   },
 

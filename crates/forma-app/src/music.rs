@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 use crate::api::ApiResult;
 use crate::commands::off_thread;
 use crate::permissions;
+use crate::shell::Caller;
 use crate::state::AppState;
 
 pub const EVENT_MUSIC_CHANGED: &str = "music:changed";
@@ -120,20 +121,25 @@ pub async fn music_radios<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<Radio>
 #[tauri::command]
 pub async fn music_add_radio<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     name: String,
     url: String,
 ) -> ApiResult<()> {
     off_thread(app, move |state| {
-        permissions::require(&crate::commands::theme(state)?, permissions::MUSIC_MANAGE)?;
+        caller.require(state, permissions::MUSIC_MANAGE)?;
         Ok(state.music.library().add_radio(&name, &url)?)
     })
     .await
 }
 
 #[tauri::command]
-pub async fn music_remove_radio<R: Runtime>(app: AppHandle<R>, url: String) -> ApiResult<()> {
+pub async fn music_remove_radio<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    url: String,
+) -> ApiResult<()> {
     off_thread(app, move |state| {
-        permissions::require(&crate::commands::theme(state)?, permissions::MUSIC_MANAGE)?;
+        caller.require(state, permissions::MUSIC_MANAGE)?;
         Ok(state.music.library().remove_radio(&url)?)
     })
     .await

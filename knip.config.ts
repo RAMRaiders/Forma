@@ -14,6 +14,10 @@ export default {
       entry: ['src/index.ts', 'src/mock/index.ts'],
       project: ['src/**/*.ts']
     },
+    'packages/shell': {
+      entry: ['src/main.ts'],
+      project: ['src/**/*.ts']
+    },
     'packages/theme-default': {
       entry: ['index.html'],
       project: ['src/**/*.ts']

@@ -9,8 +9,9 @@ use serde::Deserialize;
 use tauri::{AppHandle, Runtime};
 
 use crate::api::{ApiError, ApiResult, ErrorCode};
-use crate::commands::{off_thread, theme};
+use crate::commands::off_thread;
 use crate::permissions;
+use crate::shell::Caller;
 use crate::state::AppState;
 
 /// Where an option is set, as a theme names it: a game by its id.
@@ -22,8 +23,8 @@ pub enum OptionsScope {
     Game { game: i64 },
 }
 
-fn allowed(state: &AppState) -> ApiResult<()> {
-    permissions::require(&theme(state)?, permissions::SETTINGS_EMULATORS)?;
+fn allowed(state: &AppState, caller: Caller) -> ApiResult<()> {
+    caller.require(state, permissions::SETTINGS_EMULATORS)?;
     if !state.on_batocera {
         return Err(ApiError::new(
             ErrorCode::Unsupported,
@@ -69,10 +70,11 @@ fn resolve(state: &AppState, scope: OptionsScope) -> ApiResult<(Scope, Option<Sy
 #[tauri::command]
 pub async fn options_get<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     scope: OptionsScope,
 ) -> ApiResult<OptionsPage> {
     off_thread(app, move |state| {
-        allowed(state)?;
+        allowed(state, caller)?;
         let (scope, system) = resolve(state, scope)?;
         Ok(state.options.page(&scope, system.as_ref())?)
     })
@@ -83,12 +85,13 @@ pub async fn options_get<R: Runtime>(
 #[tauri::command]
 pub async fn options_set<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     scope: OptionsScope,
     key: String,
     value: Option<String>,
 ) -> ApiResult<()> {
     off_thread(app, move |state| {
-        allowed(state)?;
+        allowed(state, caller)?;
         let (scope, system) = resolve(state, scope)?;
         Ok(state
             .options

@@ -6,7 +6,7 @@ export interface MenuItem {
   description?: string;
 }
 
-/** A simple list overlay driven by up/down/confirm/back: the system menu. */
+/** A simple list overlay driven by up/down/confirm/back: Forma's menu. */
 export class Menu {
   readonly root = el('div', { class: 'overlay switcher', hidden: '' });
   #items: MenuItem[] = [];
@@ -25,7 +25,7 @@ export class Menu {
     return this.#items.length;
   }
 
-  show(title: string, items: MenuItem[]): void {
+  show(title: string, items: MenuItem[], subtitle?: string): void {
     this.#items = items;
     this.#rows = items.map((i) =>
       el(
@@ -40,6 +40,7 @@ export class Menu {
         'div',
         { class: 'panel' },
         el('h2', {}, title),
+        subtitle ? el('p', { class: 'note' }, subtitle) : null,
         el('ul', { role: 'listbox' }, ...this.#rows)
       )
     );
@@ -51,6 +52,8 @@ export class Menu {
     this.#rows[this.selected]?.classList.remove('selected');
     this.selected = index;
     this.#rows[index]?.classList.add('selected');
+    // The menu is taller than a small screen: the selection scrolls into view.
+    this.#rows[index]?.scrollIntoView({ block: 'nearest' });
   }
 
   close(): void {

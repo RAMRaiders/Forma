@@ -5,12 +5,13 @@ use forma_core::system_settings::{InfoItem, SystemSetting};
 use tauri::{AppHandle, Runtime};
 
 use crate::api::{ApiError, ApiResult, ErrorCode};
-use crate::commands::{off_thread, theme};
+use crate::commands::off_thread;
 use crate::permissions;
+use crate::shell::Caller;
 use crate::state::AppState;
 
-fn allowed(state: &AppState) -> ApiResult<()> {
-    permissions::require(&theme(state)?, permissions::SYSTEM_SETTINGS)?;
+fn allowed(state: &AppState, caller: Caller) -> ApiResult<()> {
+    caller.require(state, permissions::SYSTEM_SETTINGS)?;
     if !state.on_batocera {
         return Err(ApiError::new(
             ErrorCode::Unsupported,
@@ -21,18 +22,24 @@ fn allowed(state: &AppState) -> ApiResult<()> {
 }
 
 #[tauri::command]
-pub async fn system_info<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<InfoItem>> {
-    off_thread(app, |state| {
-        allowed(state)?;
+pub async fn system_info<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+) -> ApiResult<Vec<InfoItem>> {
+    off_thread(app, move |state| {
+        allowed(state, caller)?;
         Ok(state.system_settings.info())
     })
     .await
 }
 
 #[tauri::command]
-pub async fn system_settings<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<SystemSetting>> {
-    off_thread(app, |state| {
-        allowed(state)?;
+pub async fn system_settings<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+) -> ApiResult<Vec<SystemSetting>> {
+    off_thread(app, move |state| {
+        allowed(state, caller)?;
         Ok(state.system_settings.get())
     })
     .await
@@ -42,11 +49,12 @@ pub async fn system_settings<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<Sys
 #[tauri::command]
 pub async fn system_settings_set<R: Runtime>(
     app: AppHandle<R>,
+    caller: Caller,
     key: String,
     value: Option<String>,
 ) -> ApiResult<()> {
     off_thread(app, move |state| {
-        allowed(state)?;
+        allowed(state, caller)?;
         Ok(state.system_settings.set(&key, value.as_deref())?)
     })
     .await

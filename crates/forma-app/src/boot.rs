@@ -20,9 +20,7 @@ use forma_core::thumbs::{self, Thumbnailer, Thumbs};
 use forma_core::{Library, Paths};
 use tauri::{App, AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
-use crate::commands::{
-    EVENT_INPUT, EVENT_LIBRARY_CHANGED, EVENT_VIEWS_CHANGED, LibraryChanged, entry_url,
-};
+use crate::commands::{EVENT_LIBRARY_CHANGED, EVENT_VIEWS_CHANGED, LibraryChanged, entry_url};
 use crate::protocol::splash_url;
 use crate::state::{AppState, DEFAULT_THEME, THEME_SETTING, pick_theme};
 
@@ -62,6 +60,10 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let current = pick_theme(&themes, selected.as_deref()).unwrap_or_default();
 
     let music = music_player(&paths, &library);
+    let shell_dir = shell_dir(app.handle());
+    if shell_dir.is_none() {
+        eprintln!("forma: the shell (shell.js) is missing: no Start menu over themes");
+    }
     app.manage(AppState {
         views: RwLock::new(load_views(&paths)),
         library: Mutex::new(library),
@@ -90,6 +92,8 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         ready_file: std::env::var_os("FORMA_READY_FILE").map(PathBuf::from),
         on_batocera: Path::new(BATOCERA_VERSION_FILE).is_file(),
         input: Mutex::new(None),
+        shell: crate::shell::ShellState::default(),
+        shell_dir,
         sync: Mutex::new(None),
         paths: paths.clone(),
     });
@@ -108,7 +112,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
 
     let handle = app.handle().clone();
     match input::spawn(InputOptions::default(), move |event| {
-        let _ = handle.emit(EVENT_INPUT, event);
+        crate::shell::deliver(&handle, &event);
     }) {
         Ok(input) => *state.input.lock().unwrap_or_else(PoisonError::into_inner) = Some(input),
         Err(e) => eprintln!("forma: no gamepad input: {e}"),
@@ -163,23 +167,18 @@ pub const BATOCERA_SPLASH: &str = "/usr/share/batocera/splash";
 /// restarted later.
 const SPLASH_WITHIN: Duration = Duration::from_secs(180);
 
-/// Where the window opens: Forma's start-up screen (Batocera's animation, then Forma's logo with
-/// the theme and its version, and Forma's and Batocera's versions), which then loads `theme_url`;
-/// or the theme straight away.
-/// `FORMA_SPLASH=1|0` forces it either way, for development.
+/// Where the window opens: Forma's entry screen, which then loads `theme_url`. Right after the
+/// box boots it starts with Batocera's own animation; every time, RAM Raiders' and Forma's logos
+/// follow, with the theme and its version, and Forma's and Batocera's versions.
+/// `FORMA_SPLASH=0` opens the theme straight away; `FORMA_SPLASH=1` plays Batocera's animation
+/// too (if there is one), for development.
 fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
-    let wanted = match std::env::var("FORMA_SPLASH").as_deref() {
-        Ok("1") => true,
-        Ok("0") => false,
-        _ => {
-            state.on_batocera
-                && uptime().is_some_and(|u| u < SPLASH_WITHIN)
-                && Path::new(BATOCERA_SPLASH).join("splash.mp4").is_file()
-        }
+    let has_video = Path::new(BATOCERA_SPLASH).join("splash.mp4").is_file();
+    let video = match std::env::var("FORMA_SPLASH").as_deref() {
+        Ok("0") => return theme_url,
+        Ok("1") => has_video,
+        _ => state.on_batocera && uptime().is_some_and(|u| u < SPLASH_WITHIN) && has_video,
     };
-    if !wanted {
-        return theme_url;
-    }
     // As Batocera's own splash subtitles it: "43.1 2026/05/29".
     let batocera = std::fs::read_to_string(BATOCERA_VERSION_FILE)
         .ok()
@@ -203,13 +202,14 @@ fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
         .get("splash.screen.sound")
         .is_none_or(|v| v != "0");
     splash_url(&format!(
-        "next={}&batocera={}&theme={}&forma={}&sound={}&margins={}",
+        "next={}&batocera={}&theme={}&forma={}&sound={}&margins={}&video={}",
         query_value(&theme_url),
         query_value(batocera.trim()),
         query_value(line.trim()),
         query_value(env!("CARGO_PKG_VERSION")),
         u8::from(sound),
-        margins
+        margins,
+        u8::from(video)
     ))
 }
 
@@ -355,6 +355,20 @@ fn on_sync(app: &AppHandle, event: SyncEvent) {
             eprintln!("forma: {}: {}", w.file.display(), w.message);
         }
     }
+}
+
+/// Forma's shell (`shell.js`): `<resources>/shell` in a packaged build; in development,
+/// `packages/shell/dist` built from this repository.
+fn shell_dir(app: &AppHandle) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(resources) = app.path().resource_dir() {
+        candidates.push(resources.join("shell"));
+    }
+    #[cfg(debug_assertions)]
+    candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/shell/dist"));
+    candidates
+        .into_iter()
+        .find(|d| d.join("shell.js").is_file())
 }
 
 /// Bundled themes: `<resources>/themes/*` in a packaged build; in development, every
