@@ -256,6 +256,10 @@ li.selected .badge {
   color: var(--cyan);
 }
 
+.page li.info.selected .name {
+  color: #fff;
+}
+
 .page .adjust {
   font-size: 0.75em;
   color: var(--muted);
@@ -337,7 +341,9 @@ li.selected .badge {
   display: flex;
   justify-content: flex-end;
   gap: 1.4em;
-  padding: 0.8em 2.4em 1.2em;
+  padding: 2.2em 2.4em 1.2em;
+  /* Over the theme's own hints, which say nothing while Forma's menu is open. */
+  background: linear-gradient(to bottom, transparent, rgb(2 4 10 / 96%) 55%);
   color: var(--muted);
   pointer-events: none;
 }
