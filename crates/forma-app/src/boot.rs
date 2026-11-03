@@ -170,7 +170,8 @@ pub const BATOCERA_SPLASH: &str = "/usr/share/batocera/splash";
 pub const BATOCERA_LOGO: &str = "/usr/share/emulationstation/resources/splash_batocera.svg";
 
 /// What Forma's cover shows over a theme page while it loads: Forma's logo and loader, with
-/// Batocera's, Forma's and the theme's versions in a corner.
+/// Batocera's, Forma's and the theme's versions in a corner. Batocera shows the same picture at
+/// the next boot ([`crate::splash`]).
 pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
     // As Batocera's own splash subtitles it: "43.1 2026/05/29".
     let batocera = std::fs::read_to_string(BATOCERA_VERSION_FILE)
@@ -188,11 +189,14 @@ pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
         t.manifest
             .map_or(t.id.clone(), |m| format!("{} {}", m.name, m.version))
     });
-    crate::shell::CoverInfo {
+    let info = crate::shell::CoverInfo {
         batocera: batocera.trim().to_owned(),
         theme: theme.trim().to_owned(),
         margins: screen_margins(state),
-    }
+    };
+    // The next boot shows the same, as Batocera's boot picture.
+    crate::splash::refresh(&info);
+    info
 }
 
 /// The Forma setting every theme shares for a TV that cuts the picture's edges (overscan): how

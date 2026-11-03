@@ -12,6 +12,7 @@ mod permissions;
 mod protocol;
 mod ra_match;
 mod shell;
+mod splash;
 mod state;
 mod status;
 mod store;
