@@ -378,11 +378,9 @@ li.selected .badge {
   display: flex;
   align-items: center;
   gap: 0.8em;
-  padding: 0.3em 0.8em;
-  border: 1px solid var(--line);
-  border-radius: 2em;
-  background: rgb(4 6 12 / 72%);
   color: var(--fg);
+  /* No bubble: the icons stand alone, a shadow keeping them clear of any theme. */
+  filter: drop-shadow(0 0 0.25em rgb(0 0 0 / 80%));
   font-size: 0.85em;
   line-height: 1;
   pointer-events: none;
@@ -440,26 +438,15 @@ li.selected .badge {
 }
 
 .status .net {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.4em;
   color: var(--cyan);
 }
 
-.status .net .word {
-  font-size: 0.85em;
-  color: var(--fg);
-}
-
-.status .net-none,
-.status .net-none .word {
+.status .net-none {
   color: var(--muted);
 }
 
 /* Connected, but the internet does not answer. */
-.status .net.offline,
-.status .net.offline .word {
+.status .net.offline {
   color: #ffb547;
 }
 
