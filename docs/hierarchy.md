@@ -117,6 +117,7 @@ Hidden games and games whose file is missing never appear in any view.
 | `systems`             | System, then games: the EmulationStation layout               |
 | `manufacturer-system` | Manufacturer, then system, then games                         |
 | `genre`               | Genres across all systems, largest first                      |
+| `all`                 | Every game from every system, A to Z                          |
 | `favorites`           | Favourite games from every system                             |
 | `recent`              | The last 50 games played                                      |
 | `home`                | A menu of favourites, recents, systems, manufacturers, genres |

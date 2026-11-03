@@ -329,7 +329,7 @@ fn the_boot_view_can_be_chosen_from_the_ui() {
         "manufacturer-system"
     );
     let views = h.call("nav_views", json!({})).unwrap();
-    assert_eq!(views.as_array().unwrap().len(), 6);
+    assert_eq!(views.as_array().unwrap().len(), 7);
 }
 
 #[test]

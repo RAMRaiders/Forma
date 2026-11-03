@@ -1,0 +1,8 @@
+{
+  "id": "all",
+  "name": "All games",
+  "description": "Every game in the library, from every system, A to Z.",
+  "root": {
+    "games": { "sort": "name" }
+  }
+}

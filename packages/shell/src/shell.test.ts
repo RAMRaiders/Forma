@@ -22,7 +22,7 @@ function start(
   views: string[] | null = null
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.4.0', false);
+  const forma = new Forma(backend, '1.4.1', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];

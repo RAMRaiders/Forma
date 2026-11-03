@@ -381,7 +381,7 @@ export class Shell {
 }
 
 /** The views the theme shows: those it lists in its theme.json, else all of them. */
-export function themeViews<V extends { id: string }>(views: V[], info: ShellInfo | null): V[] {
+function themeViews<V extends { id: string }>(views: V[], info: ShellInfo | null): V[] {
   const only = info?.theme.views;
   return only ? views.filter((v) => only.includes(v.id)) : views;
 }

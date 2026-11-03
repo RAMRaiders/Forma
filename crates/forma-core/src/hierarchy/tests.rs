@@ -50,6 +50,7 @@ fn every_bundled_view_parses() {
             "systems",
             "manufacturer-system",
             "genre",
+            "all",
             "favorites",
             "recent",
             "home"
@@ -123,6 +124,16 @@ fn groups_sorted_by_count_keep_unknown_last() {
             g("", "Unknown", 5),
         ]
     );
+}
+
+#[test]
+fn every_game_in_one_list_a_to_z() {
+    let lib = library();
+    let all = games(&browse(&lib, &bundled("all"), &[]));
+    let mut sorted = all.clone();
+    sorted.sort_by_key(|n| n.to_lowercase());
+    assert!(all.len() > 1, "{all:?}");
+    assert_eq!(all, sorted);
 }
 
 #[test]

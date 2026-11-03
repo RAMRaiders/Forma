@@ -19,6 +19,7 @@ const BUNDLED: &[(&str, &str)] = &[
         include_str!("views/manufacturer-system.json"),
     ),
     ("genre.json", include_str!("views/genre.json")),
+    ("all.json", include_str!("views/all.json")),
     ("favorites.json", include_str!("views/favorites.json")),
     ("recent.json", include_str!("views/recent.json")),
     ("home.json", include_str!("views/home.json")),
