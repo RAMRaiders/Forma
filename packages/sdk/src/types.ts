@@ -219,6 +219,8 @@ export interface EventMap {
   'store:progress': StoreProgress;
   /** While `forma.bluetooth.pair()` looks for pads: what Batocera is doing. */
   'bluetooth:pairing': BluetoothPairing;
+  /** While `forma.updates.install()` runs. */
+  'updates:progress': UpdateProgress;
   'game:start': GameStart;
   'game:end': GameEnd;
   'library:changed': LibraryChanged;
@@ -544,6 +546,23 @@ export interface StoreProgress {
   stage: 'download' | 'install';
   /** 0–100; while installing it only shows that something is happening. */
   percent: number;
+}
+
+/** The box's Batocera and the newest on Batocera's update server for it. */
+export interface UpdateCheck {
+  /** The version the box runs, e.g. `43.1`. */
+  current: string;
+  latest: string;
+  /** `stable`, `unstable` or `butterfly` (Batocera's `updates.type`). */
+  channel: string;
+  /** `latest` is not what the box runs. */
+  available: boolean;
+}
+
+/** While an update installs: Batocera's word on it, and how far when it says. */
+export interface UpdateProgress {
+  message: string;
+  percent: number | null;
 }
 
 /** A Bluetooth device Batocera has paired and trusts. */

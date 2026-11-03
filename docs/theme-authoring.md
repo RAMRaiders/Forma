@@ -158,6 +158,7 @@ Remote origins must be `https://` and need the `network` permission.
 | `system.settings`    | Batocera's system settings: display, audio, language, region, storage (Batocera only)       |
 | `store.manage`       | Installing and removing content from Batocera's content downloader (Batocera only)          |
 | `system.network`     | Seeing and changing Wi-Fi and Ethernet (Batocera only)                                      |
+| `system.update`      | Checking for and installing Batocera updates (Batocera only)                                |
 | `system.controllers` | Seeing, pairing, connecting and forgetting Bluetooth controllers (Batocera only)            |
 | `settings.batocera`  | RetroAchievements and netplay settings, and logging in to RetroAchievements (Batocera only) |
 | `settings.emulators` | Emulator, core and game options (Batocera only)                                             |

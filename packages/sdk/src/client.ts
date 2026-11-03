@@ -37,7 +37,8 @@ import type {
   WifiJoined,
   WifiNetwork,
   BluetoothDevice,
-  BluetoothStatus
+  BluetoothStatus,
+  UpdateCheck
 } from './types.js';
 import { SDK_VERSION, satisfies } from './version.js';
 
@@ -111,6 +112,7 @@ export class Forma {
   readonly netplay;
   readonly network;
   readonly bluetooth;
+  readonly updates;
   readonly batocera;
   readonly options;
   readonly store;
@@ -257,6 +259,20 @@ export class Forma {
       disconnect: (address: string) => invoke<void>('bluetooth_disconnect', { address }),
       /** Unpairs a device; it has to be paired again to be used. */
       forget: (address: string) => invoke<void>('bluetooth_forget', { address })
+    };
+
+    /**
+     * Batocera's own updates, as EmulationStation's Updates menu has them. Needs the
+     * `system.update` permission; Batocera only. Nothing updates unless `install` is called.
+     */
+    this.updates = {
+      /** The box's version and the newest for its board and channel. */
+      check: () => invoke<UpdateCheck>('updates_check'),
+      /**
+       * Downloads (gigabytes) and unpacks the update; it takes effect after a reboot.
+       * `updates:progress` reports on the way.
+       */
+      install: () => invoke<void>('updates_install')
     };
 
     /**

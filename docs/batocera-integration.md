@@ -49,6 +49,18 @@ with its token (the emulators use the token; RetroArch clears the password). The
 one of `none`, `nyc`, `madrid`, `montreal`, `saopaulo` or `custom` (with
 `global.netplay.customserver`).
 
+## Updates
+
+System settings → Batocera updates (`forma.updates` in the SDK, `system.update` permission)
+does what EmulationStation's Updates menu does:
+
+- **Check:** `https://updates.batocera.org/<board>/<channel>/last/batocera.version` against
+  `/usr/share/batocera/batocera.version`. The board is `/boot/boot/batocera.board` (`rpi4`
+  downloads `rpi464`, as `batocera-upgrade` does), the channel `updates.type`, the server
+  `updates.url` when set.
+- **Install:** `batocera-upgrade`, only after the user confirms on a second page. Its
+  `… >>> 13%` lines become progress. The box restarts when the user chooses.
+
 ## Controllers
 
 The menu's Controllers screen (`forma.bluetooth` in the SDK, `system.controllers` permission)

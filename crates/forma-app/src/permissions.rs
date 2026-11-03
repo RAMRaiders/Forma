@@ -16,6 +16,7 @@ pub const SETTINGS_EMULATORS: &str = "settings.emulators";
 pub const SYSTEM_SETTINGS: &str = "system.settings";
 pub const STORE_MANAGE: &str = "store.manage";
 pub const SYSTEM_CONTROLLERS: &str = "system.controllers";
+pub const SYSTEM_UPDATE: &str = "system.update";
 
 pub fn require(theme: &Theme, permission: &str) -> ApiResult<()> {
     if theme.has_permission(permission) {

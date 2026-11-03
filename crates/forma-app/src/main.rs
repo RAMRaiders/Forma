@@ -14,6 +14,7 @@ mod state;
 mod status;
 mod store;
 mod system_settings;
+mod updates;
 
 #[cfg(test)]
 mod ipc_tests;
@@ -65,6 +66,8 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         bluetooth::bluetooth_connect,
         bluetooth::bluetooth_disconnect,
         bluetooth::bluetooth_forget,
+        updates::updates_check,
+        updates::updates_install,
         store::store_list,
         store::store_refresh,
         store::store_install,

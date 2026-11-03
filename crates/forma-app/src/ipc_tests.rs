@@ -412,6 +412,18 @@ fn bluetooth_needs_permission_and_is_refused_outside_batocera() {
 }
 
 #[test]
+fn updates_need_permission_and_are_refused_outside_batocera() {
+    let h = Harness::new(&[]);
+    for cmd in ["updates_check", "updates_install"] {
+        let err = h.call(cmd, json!({})).unwrap_err();
+        assert_eq!(code(&err), "permissionDenied", "{cmd}");
+    }
+    let allowed = Harness::new(&["system.update"]);
+    let err = allowed.call("updates_install", json!({})).unwrap_err();
+    assert_eq!(code(&err), "unsupported", "{err}");
+}
+
+#[test]
 fn batocera_settings_need_permission_and_are_refused_outside_batocera() {
     let h = Harness::new(&[]);
     for (cmd, args) in [

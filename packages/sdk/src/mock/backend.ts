@@ -134,6 +134,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   let playing = false;
   const systemSettings = structuredClone(snapshot.system.settings);
   const store = structuredClone(snapshot.store);
+  const updates = { current: '43.1', latest: '44', channel: 'stable' };
   /** Two pads paired, one of them on. */
   const bluetooth: { enabled: boolean; devices: BluetoothDevice[] } = {
     enabled: true,
@@ -380,6 +381,21 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return fetched(game);
     },
     netplay_lobby: () => fetched(snapshot.lobby),
+    updates_check: () => {
+      updatesAllowed();
+      return { ...updates, available: updates.latest !== updates.current };
+    },
+    updates_install: async () => {
+      updatesAllowed();
+      if (updates.latest === updates.current) fail('unsupported', 'Batocera is up to date');
+      for (const percent of [0, 50, 100]) {
+        emit('updates:progress', { message: 'Downloading', percent });
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      emit('updates:progress', { message: 'Extracting files', percent: null });
+      updates.current = updates.latest;
+      return null;
+    },
     bluetooth_status: () => {
       bluetoothAllowed();
       return {
@@ -732,6 +748,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
   function optionsAllowed(): void {
     if (!permissions.has('settings.emulators')) {
       fail('permissionDenied', 'theme `mock` needs the `settings.emulators` permission');
+    }
+  }
+
+  function updatesAllowed(): void {
+    if (!permissions.has('system.update')) {
+      fail('permissionDenied', 'theme `mock` needs the `system.update` permission');
     }
   }
 

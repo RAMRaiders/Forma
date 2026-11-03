@@ -2,7 +2,7 @@
  * The SDK API version this package speaks. Kept in lockstep with `SDK_API_VERSION` in
  * `forma-core`: the host reports its version and the SDK refuses a mismatch up front.
  */
-export const SDK_VERSION = '1.8.0';
+export const SDK_VERSION = '1.9.0';
 
 function parse(version: string): [number, number, number] | null {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version.trim());

@@ -5,6 +5,7 @@ import type {
   OptionsScope,
   SystemSetting
 } from '@ramraiders/forma-sdk';
+import { updatesScreen } from './updates.js';
 
 import type { Page, Row } from './page.js';
 
@@ -205,6 +206,11 @@ export function systemSettingsScreen(forma: Forma, page: Page): () => Promise<Ro
           page.push('About this box', async () =>
             (await forma.system.info()).map((i) => ({ label: i.label, detail: i.value }))
           )
+      },
+      {
+        label: 'Batocera updates…',
+        detail: 'See if there is a newer Batocera, and install it',
+        run: () => page.push('Batocera updates', updatesScreen(forma, page))
       }
     ];
     let section = '';

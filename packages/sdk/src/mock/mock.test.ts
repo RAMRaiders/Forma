@@ -199,6 +199,34 @@ describe('mock backend', () => {
     });
   });
 
+  it('Batocera updates: checks, and installs only when asked', async () => {
+    await expect(mockBackend().invoke('updates_check')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ permissions: ['system.update'] });
+    type Check = { current: string; latest: string; available: boolean };
+    expect(await b.invoke<Check>('updates_check')).toMatchObject({
+      current: '43.1',
+      available: true
+    });
+    const seen: string[] = [];
+    b.listen<{ message: string; percent: number | null }>('updates:progress', (p) =>
+      seen.push(`${p.message} ${p.percent ?? '-'}`)
+    );
+    await b.invoke('updates_install');
+    expect(seen).toEqual([
+      'Downloading 0',
+      'Downloading 50',
+      'Downloading 100',
+      'Extracting files -'
+    ]);
+    expect(await b.invoke<Check>('updates_check')).toMatchObject({
+      current: '44',
+      available: false
+    });
+    await expect(b.invoke('updates_install')).rejects.toMatchObject({ code: 'unsupported' });
+  });
+
   it('the volume is a number from 0 to 100', async () => {
     const b = mockBackend({ permissions: ['system.settings'] });
     type Setting = { key: string; kind: string; value: string | null };

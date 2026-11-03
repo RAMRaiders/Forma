@@ -317,6 +317,21 @@ connman, so the connection drops for a few seconds; read `status()` again after 
 answers from recorded connman output, has a cable plugged in, and refuses the password
 `wrong-password`.
 
+## `updates`
+
+Batocera's own updates, as EmulationStation's Updates menu has them. Both need the
+`system.update` permission and answer `unsupported` anywhere but Batocera.
+
+| Method      | Returns                                                                                  |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| `check()`   | `{ current, latest, channel, available }`, from Batocera's update server for this board  |
+| `install()` | Downloads and unpacks the update with `batocera-upgrade`; it takes effect after a reboot |
+
+`install` takes a long while (gigabytes) and never runs unless called: ask the user first.
+`updates:progress` carries `{ message, percent }` on the way; `percent` is `null` when Batocera
+does not say. A second `install` while one runs is refused as `unsupported`. The mock offers
+43.1 → 44.
+
 ## `bluetooth`
 
 Bluetooth controllers, through Batocera's own `batocera-bluetooth`, as EmulationStation's

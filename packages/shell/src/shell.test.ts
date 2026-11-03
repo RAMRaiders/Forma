@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.8.0', false);
+  const forma = new Forma(backend, '1.9.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -560,5 +560,28 @@ describe('Forma’s settings pages', () => {
     await vi.waitFor(() => expect(text('.page li.selected .description')[0]).toBe('Connected'));
     await press('north');
     await vi.waitFor(() => expect(rows()).not.toContain('PLAYSTATION(R)3 Controller'));
+  });
+
+  it('Batocera updates: the versions, then the update only after asking twice', async () => {
+    const { press, text, openMenu } = start(['system.settings', 'system.update']);
+    await openMenu('System settings…');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(rows()).toContain('Batocera updates…'));
+    while (selected() !== 'Batocera updates…') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Update to Batocera 44…'));
+    expect(text('.page li[role=option] .description').slice(0, 2)).toEqual([
+      'Batocera 43.1',
+      'Batocera 44'
+    ]);
+    while (selected() !== 'Update to Batocera 44…') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Update to Batocera 44?']));
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(text('.toast')[0]).toBe('Batocera 44 installed: restart to use it')
+    );
+    await vi.waitFor(() => expect(rows()).toEqual(['Installed', 'Restart now']));
   });
 });

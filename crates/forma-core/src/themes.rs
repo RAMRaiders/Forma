@@ -50,6 +50,7 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "system.controllers",
         "see, pair, connect and forget Bluetooth controllers",
     ),
+    ("system.update", "check for and install Batocera updates"),
     (
         "network",
         "load content from the internet (the origins listed in `remote`)",
