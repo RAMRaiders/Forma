@@ -107,6 +107,16 @@ connection, marked when the internet does not answer. Restyle it through
 `status-nintendo`, `status-generic`) and `::part(status-network)`; or draw it yourself with
 `"draws": ["status"]`, from `forma.status.get()` and `status:changed`.
 
+### What a game just earned
+
+RetroArch shows its own pop-up for each achievement while the game runs. Afterwards, Forma
+asks RetroAchievements what the session earned and shows a card for 12 seconds: the game, up to
+four achievements with their badges and points, the points in all, and the user's progress in
+the game. Restyle it through `forma-shell::part(unlocks)`, `::part(unlock)` and
+`::part(unlock-badge)`; or draw it yourself with `"draws": ["achievements"]`, from `ra:unlocked`
+(`{ gameId, game, unlocked, points }`). It needs the game's RetroAchievements id and the web API
+key; a session that earned nothing sends nothing.
+
 ## Where themes live, and installing your own
 
 - Bundled themes ship with Forma: **Cyber**, the default, at the version pinned in

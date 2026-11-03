@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Backend } from '../backend.js';
 import type {
   BluetoothDevice,
+  RaSession,
   Browse,
   Game,
   GameEnd,
@@ -102,6 +103,19 @@ describe('mock backend', () => {
     const after = await b.invoke<Game>('library_game', { id: zelda.id });
     expect(after.playCount).toBe(1);
     expect(after.gameTime).toBe(3);
+  });
+
+  it('after a game RetroAchievements knows, says what the session unlocked', async () => {
+    vi.useFakeTimers();
+    const b = mockBackend({ playMs: 1000 });
+    const sessions: RaSession[] = [];
+    b.listen<RaSession>('ra:unlocked', (e) => sessions.push(e));
+    await b.invoke('launch_game', { id: 2 });
+    vi.advanceTimersByTime(1000);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]!.unlocked.map((a) => a.title)).toEqual(['Princess Toadstool']);
+    expect(sessions[0]!.game.earned).toBe(3);
+    expect(sessions[0]!.points).toBe(sessions[0]!.unlocked[0]!.points);
   });
 
   it('network settings: permission, scan, join as Batocera does with a cable in', async () => {

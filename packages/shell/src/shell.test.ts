@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.10.0', false);
+  const forma = new Forma(backend, '1.11.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -596,5 +596,57 @@ describe('Forma’s settings pages', () => {
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Games matched']));
     expect(text('.page li[role=option] .description')[0]).toBe('3 of 4 matched · 1 not found');
+  });
+
+  it('after a game, shows what it earned on RetroAchievements, and goes when another starts', async () => {
+    const { text, shell } = start([]);
+    const achievement = {
+      id: 1,
+      title: 'Warp Zone',
+      description: 'Find a warp pipe',
+      points: 10,
+      badge: null,
+      earnedAt: '2026-11-03 10:00:00',
+      earnedHardcoreAt: null
+    };
+    await shell.showUnlocks({
+      gameId: 2,
+      game: {
+        raGameId: 1446,
+        title: 'Super Mario Bros.',
+        console: 'NES',
+        icon: null,
+        achievementCount: 4,
+        earned: 3,
+        earnedHardcore: 0,
+        completion: 0.75,
+        achievements: []
+      },
+      unlocked: [achievement, { ...achievement, id: 2, title: 'Princess', points: 25 }],
+      points: 35
+    });
+    expect(text('.unlocks .kicker')).toEqual(['2 achievements unlocked']);
+    expect(text('.unlocks .title')).toEqual(['Warp Zone', 'Princess']);
+    expect(text('.unlocks .total')).toEqual(['+35 points']);
+    expect(text('.unlocks .progress')).toEqual(['3 of 4 · 75%']);
+    shell.playing = true;
+    await shell.showUnlocks({
+      gameId: 2,
+      game: {
+        raGameId: 1,
+        title: 'x',
+        console: '',
+        icon: null,
+        achievementCount: 1,
+        earned: 1,
+        earnedHardcore: 0,
+        completion: 1,
+        achievements: []
+      },
+      unlocked: [achievement],
+      points: 10
+    });
+    // Not over a game: the card still shows the first session.
+    expect(text('.unlocks .kicker')).toEqual(['2 achievements unlocked']);
   });
 });

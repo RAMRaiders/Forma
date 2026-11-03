@@ -223,6 +223,11 @@ export interface EventMap {
   'updates:progress': UpdateProgress;
   'game:start': GameStart;
   'game:end': GameEnd;
+  /**
+   * Shortly after `game:end`: the RetroAchievements the session earned, when it earned any.
+   * Forma's shell shows them, unless the theme draws them (`"draws": ["achievements"]`).
+   */
+  'ra:unlocked': RaSession;
   'library:changed': LibraryChanged;
   'views:changed': null;
   input: InputEvent;
@@ -332,6 +337,18 @@ export interface RaGame {
   /** 0.0–1.0. */
   completion: number;
   achievements: RaAchievement[];
+}
+
+/** What a play session earned on RetroAchievements. */
+export interface RaSession {
+  /** Forma's game id. */
+  gameId: number;
+  /** The game's progress now, after the session. */
+  game: RaGame;
+  /** Earned during the session, in the order they were earned. */
+  unlocked: RaAchievement[];
+  /** Their points. */
+  points: number;
 }
 
 export interface RaAchievement {

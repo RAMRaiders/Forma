@@ -2,6 +2,7 @@ import type {
   Forma,
   InputEvent,
   MusicSong,
+  RaSession,
   ShellContext,
   StatusBar,
   ViewInfo
@@ -23,6 +24,7 @@ import {
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
 import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
+import { UnlocksView } from './ui/unlocks.js';
 import { controllersScreen } from './ui/controllers.js';
 import { Switcher } from './ui/switcher.js';
 
@@ -75,6 +77,8 @@ export class Shell {
   #songTimer: ReturnType<typeof setTimeout> | undefined;
   /** Controllers and the connection, in the top-right corner. */
   readonly #status = new StatusView();
+  /** After a game: what it earned on RetroAchievements. */
+  readonly #unlocks = new UnlocksView();
   #playing = false;
   /** The menu entry the open page, network screen or views list came from: B goes back to it. */
   #returnTo: number | null = null;
@@ -109,6 +113,8 @@ export class Shell {
       if (this.#page.open && this.#pageKind === 'music') void this.#page.refresh();
     });
     forma.events.on('music:song', (song) => void this.announce(song));
+    forma.events.on('ra:unlocked', (session) => void this.showUnlocks(session));
+    forma.events.on('game:start', () => this.#unlocks.hide());
     forma.events.on('status:changed', (status) => void this.showStatus(status));
     forma.status
       .get()
@@ -135,6 +141,7 @@ export class Shell {
       this.#hints,
       this.#status.root,
       this.#song,
+      this.#unlocks.root,
       this.#toast
     );
   }
@@ -147,6 +154,14 @@ export class Shell {
       return;
     }
     this.#status.show(status);
+  }
+
+  /** A session's achievements, unless the theme draws them or another game already runs. */
+  async showUnlocks(session: RaSession): Promise<void> {
+    if (this.playing) return;
+    const info = this.#info ?? (await this.#loadInfo());
+    if (info?.theme.draws?.includes('achievements')) return;
+    this.#unlocks.show(session);
   }
 
   /** A new song: shown for its time, unless the theme draws it or a game is running. */

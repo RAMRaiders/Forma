@@ -498,6 +498,133 @@ li.selected .badge {
   font-size: 0.9em;
 }
 
+/* ---- What a game just earned ----------------------------------------------------------- */
+
+.unlocks {
+  position: fixed;
+  bottom: calc(5.5em + var(--margin, 0vh));
+  left: 50%;
+  width: min(36em, 80vw);
+  transform: translateX(-50%);
+  padding: 1.1em 1.4em 1em;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 2);
+  /* Solid: the theme's tiles must not show through the words. */
+  background: #0b111d;
+  box-shadow: 0 0.8em 2.4em rgb(0 0 0 / 60%);
+  animation: rise 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.unlocks header {
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  margin-bottom: 0.8em;
+}
+
+.unlocks .icon {
+  width: 3em;
+  height: 3em;
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.unlocks .words {
+  display: grid;
+  min-width: 0;
+}
+
+.unlocks .kicker {
+  color: #ffd166;
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.unlocks .game {
+  overflow: hidden;
+  font-size: 1.15em;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unlocks ul {
+  display: grid;
+  gap: 0.55em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.unlocks li {
+  display: grid;
+  grid-template-columns: 2.6em 1fr auto;
+  align-items: center;
+  gap: 0.8em;
+}
+
+.unlocks .badge {
+  width: 2.6em;
+  height: 2.6em;
+  border-radius: 0.4em;
+  background: var(--card);
+}
+
+.unlocks .title,
+.unlocks .description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unlocks .description {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.unlocks .points {
+  color: #ffd166;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.unlocks .more {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.unlocks footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4em 1em;
+  margin-top: 0.9em;
+  font-size: 0.9em;
+}
+
+.unlocks .total {
+  color: #ffd166;
+  font-weight: 700;
+}
+
+.unlocks .progress {
+  color: var(--muted);
+}
+
+.unlocks .bar {
+  flex-basis: 100%;
+  height: 0.3em;
+  border-radius: 0.2em;
+  background: linear-gradient(
+    to right,
+    #ffd166 calc(var(--done, 0) * 100%),
+    var(--card) calc(var(--done, 0) * 100%)
+  );
+}
+
 /* ---- Hints and toast -------------------------------------------------------------------- */
 
 .hints {
@@ -545,7 +672,8 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .overlay,
   .switcher .panel,
-  .song {
+  .song,
+  .unlocks {
     animation: none;
   }
 }

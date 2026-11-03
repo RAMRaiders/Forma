@@ -175,13 +175,78 @@ pub fn game(
     ra_game_id: i64,
     media: &str,
 ) -> Result<Fetched<RaGame>> {
+    game_as_of(http, cache, account, ra_game_id, media, MAX_AGE)
+}
+
+/// What a play session earned: the achievements unlocked since it started.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RaSession {
+    /// Forma's game id.
+    pub game_id: i64,
+    pub game: RaGame,
+    /// Earned during the session, in the order they were earned.
+    pub unlocked: Vec<RaAchievement>,
+    /// Their points.
+    pub points: i64,
+}
+
+/// Unlocks happen in RetroArch, which tells RetroAchievements at once; Forma asks afterwards,
+/// fresh (never from the cache), for what was earned since `since`. A minute of slack covers a
+/// box clock a little off from RetroAchievements'. `None` when offline: an old answer cannot
+/// say what was just earned.
+pub fn session(
+    http: &dyn Http,
+    cache: &Cache,
+    account: &Account,
+    game_id: i64,
+    ra_game_id: i64,
+    media: &str,
+    since: std::time::SystemTime,
+) -> Result<Option<RaSession>> {
+    let fetched = game_as_of(http, cache, account, ra_game_id, media, Duration::ZERO)?;
+    if fetched.stale {
+        return Ok(None);
+    }
+    let from = crate::time::iso_utc(since - Duration::from_secs(60)).replace('T', " ");
+    let earned = |a: &RaAchievement| {
+        [&a.earned_at, &a.earned_hardcore_at]
+            .into_iter()
+            .flatten()
+            .any(|at| at.as_str() >= from.as_str())
+    };
+    let mut unlocked: Vec<RaAchievement> = fetched
+        .data
+        .achievements
+        .iter()
+        .filter(|a| earned(a))
+        .cloned()
+        .collect();
+    unlocked.sort_by(|a, b| a.earned_at.cmp(&b.earned_at));
+    let points = unlocked.iter().map(|a| a.points).sum();
+    Ok(Some(RaSession {
+        game_id,
+        game: fetched.data,
+        unlocked,
+        points,
+    }))
+}
+
+fn game_as_of(
+    http: &dyn Http,
+    cache: &Cache,
+    account: &Account,
+    ra_game_id: i64,
+    media: &str,
+    max_age: Duration,
+) -> Result<Fetched<RaGame>> {
     let url = format!(
         "{API}/API_GetGameInfoAndUserProgress.php?g={ra_game_id}&u={}&y={}",
         encode(&account.username),
         encode(&account.api_key)
     );
     let key = format!("ra-game-{ra_game_id}-{}", account.username);
-    fetch(http, cache, &key, &url, MAX_AGE, |body| {
+    fetch(http, cache, &key, &url, max_age, |body| {
         let raw: GameRaw = serde_json::from_slice(body).map_err(|e| e.to_string())?;
         let mut achievements: Vec<(i64, RaAchievement)> = raw
             .achievements
@@ -414,6 +479,62 @@ mod tests {
         FakeHttp::default()
             .fixture("API_GetUserSummary", "ra-user.json")
             .fixture("API_GetGameInfoAndUserProgress", "ra-game.json")
+    }
+
+    #[test]
+    fn a_session_is_what_was_earned_since_it_started_and_is_never_cached() {
+        let (_, account) = configured();
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().into());
+        let http = http();
+        let at = |text: &str| {
+            // "2026-10-29 20:11:02" in the fixture.
+            let (date, time) = text.split_once(' ').unwrap();
+            let [y, m, d]: [i64; 3] = date
+                .split('-')
+                .map(|n| n.parse().unwrap())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
+            let [h, mi, s]: [u64; 3] = time
+                .split(':')
+                .map(|n| n.parse().unwrap())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
+            // Days from the civil date (Howard Hinnant's inverse).
+            let y = if m <= 2 { y - 1 } else { y };
+            let era = y.div_euclid(400);
+            let yoe = y - era * 400;
+            let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+            let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
+            std::time::UNIX_EPOCH
+                + Duration::from_secs(days as u64 * 86_400 + h * 3600 + mi * 60 + s)
+        };
+        let earned: Vec<String> = {
+            let g = game(&http, &cache, &account, 1446, PREFIX).unwrap().data;
+            g.achievements
+                .iter()
+                .filter_map(|a| a.earned_at.clone())
+                .collect()
+        };
+        let first = earned.iter().min().unwrap().clone();
+        let s = session(&http, &cache, &account, 7, 1446, PREFIX, at(&first))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            s.unlocked.len(),
+            earned.len(),
+            "all earned at or after the start"
+        );
+        assert_eq!(s.game_id, 7);
+        assert_eq!(s.points, s.unlocked.iter().map(|a| a.points).sum::<i64>());
+        let later = at(earned.iter().max().unwrap()) + Duration::from_secs(120);
+        let none = session(&http, &cache, &account, 7, 1446, PREFIX, later)
+            .unwrap()
+            .unwrap();
+        assert!(none.unlocked.is_empty());
+        assert_eq!(http.calls(), 3, "a session always asks again");
     }
 
     #[test]

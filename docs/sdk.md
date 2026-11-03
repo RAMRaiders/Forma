@@ -148,6 +148,8 @@ forma.events.on("library:changed", ({ systems }) => refreshIfShowing(systems));
 forma.events.on("views:changed", () => reloadViewList());
 forma.events.on("game:start", ({ name }) => showLaunching(name));
 forma.events.on("game:end", ({ seconds, error }) => (error ? showError(error) : refresh()));
+// A few seconds later, if the session earned any RetroAchievements:
+forma.events.on("ra:unlocked", ({ game, unlocked, points }) => celebrate(game, unlocked, points));
 forma.events.on("store:progress", ({ name, stage, percent }) => showProgress(name, stage, percent));
 forma.events.on("nav:open", ({ view }) => open(view)); // picked in Forma's views list
 forma.events.on("settings:changed", ({ scope, key, value }) => apply(scope, key, value));

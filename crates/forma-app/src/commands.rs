@@ -3,7 +3,7 @@
 //! `forma://` URLs.
 
 use std::sync::atomic::Ordering;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use forma_core::batocera::Setting;
 use forma_core::hierarchy::{Browse, DEFAULT_VIEW_SETTING, Listing, Origin, Page};
@@ -27,6 +27,8 @@ pub const EVENT_LIBRARY_CHANGED: &str = "library:changed";
 pub const EVENT_VIEWS_CHANGED: &str = "views:changed";
 pub const EVENT_GAME_START: &str = "game:start";
 pub const EVENT_GAME_END: &str = "game:end";
+/// After a game: the achievements its session earned (`RaSession`), when it earned any.
+pub const EVENT_RA_UNLOCKED: &str = "ra:unlocked";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LibraryChanged {
@@ -411,6 +413,7 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
     );
     set_playing_ui(app, &state, true);
     state.music.game(true);
+    let started = SystemTime::now();
 
     let result = state.launcher.run(&prepared.command);
     let (seconds, exit_code, error) = match &result {
@@ -444,6 +447,58 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
             systems: vec![game.system.clone()],
         },
     );
+    if result.is_ok() && seconds >= MIN_SESSION.as_secs() {
+        report_unlocks(app, game.id, started);
+    }
+}
+
+/// Shorter than this, nothing could have been earned: no question to RetroAchievements.
+const MIN_SESSION: Duration = Duration::from_secs(10);
+
+/// Asks RetroAchievements what the session earned, shortly after it ends and once more a
+/// little later (an unlock sent as the emulator closed can take a moment), and emits
+/// `ra:unlocked` with it. Quiet without an RA id for the game, an account, or a connection.
+fn report_unlocks<R: Runtime>(app: &AppHandle<R>, game_id: i64, started: SystemTime) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let (ra_id, account) = {
+            let lib = state.library();
+            let Some(ra_id) = lib.game(game_id).ok().flatten().and_then(|g| g.ra_game_id) else {
+                return;
+            };
+            let Ok(account) = achievements::account(&lib, &state.paths) else {
+                return;
+            };
+            (ra_id, account)
+        };
+        for wait in [3, 20] {
+            std::thread::sleep(Duration::from_secs(wait));
+            // Another game started meanwhile: its own end will ask.
+            if state.playing.load(Ordering::SeqCst) {
+                return;
+            }
+            match achievements::session(
+                &*state.http,
+                &state.http_cache(),
+                &account,
+                game_id,
+                ra_id,
+                RA_MEDIA_PREFIX,
+                started,
+            ) {
+                Ok(Some(session)) if !session.unlocked.is_empty() => {
+                    let _ = app.emit(EVENT_RA_UNLOCKED, &session);
+                    return;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("forma: achievements after the game: {e}");
+                    return;
+                }
+            }
+        }
+    });
 }
 
 fn set_playing_ui<R: Runtime>(app: &AppHandle<R>, state: &AppState, playing: bool) {

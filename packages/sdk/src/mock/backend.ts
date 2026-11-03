@@ -10,6 +10,7 @@ import type { Backend } from '../backend.js';
 import { type ErrorCode, FormaError } from '../errors.js';
 import type {
   BluetoothDevice,
+  RaSession,
   Browse,
   BatoceraSetting,
   OptionItem,
@@ -724,6 +725,23 @@ export function mockBackend(options: MockOptions = {}): Backend {
           error: null
         } satisfies GameEnd);
         emit('library:changed', { systems: [game.system] } satisfies LibraryChanged);
+        // A game RetroAchievements knows: the session earned what was still locked.
+        const ra = snapshot.ra.games[String(game.id)];
+        const locked = ra?.achievements.filter((x) => x.earnedAt === null) ?? [];
+        if (ra && locked.length) {
+          const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+          const unlocked = locked.map((x) => ({ ...x, earnedAt: now }));
+          emit('ra:unlocked', {
+            gameId: game.id,
+            game: {
+              ...ra,
+              earned: ra.earned + unlocked.length,
+              completion: (ra.earned + unlocked.length) / Math.max(1, ra.achievementCount)
+            },
+            unlocked,
+            points: unlocked.reduce((n, x) => n + x.points, 0)
+          } satisfies RaSession);
+        }
       }, playMs);
       return null;
     }
