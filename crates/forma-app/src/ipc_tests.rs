@@ -725,3 +725,22 @@ fn the_shell_opens_a_view_in_the_theme() {
         "notFound"
     );
 }
+
+#[test]
+fn ra_matches_reports_each_ra_system_of_the_library() {
+    let h = Harness::new(&[]);
+    let report = h.call("ra_matches", json!({})).unwrap();
+    assert_eq!(report["running"], false);
+    let systems = report["systems"].as_array().unwrap();
+    let nes = systems.iter().find(|s| s["system"] == "nes").unwrap();
+    assert!(nes["games"].as_i64().unwrap() > 0);
+    // The fixture imports one hash and its id; the worker has not run.
+    assert_eq!(
+        (nes["hashed"].as_i64(), nes["matched"].as_i64()),
+        (Some(1), Some(1))
+    );
+    assert!(
+        systems.iter().all(|s| s["system"] != "ports"),
+        "no RA console"
+    );
+}

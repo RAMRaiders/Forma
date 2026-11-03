@@ -111,6 +111,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
 
     crate::music::start(app.handle().clone());
     crate::status::start(app.handle().clone());
+    crate::ra_match::start(app.handle().clone());
 
     let handle = app.handle().clone();
     match input::spawn(InputOptions::default(), move |event| {
@@ -319,6 +320,7 @@ fn on_sync(app: &AppHandle, event: SyncEvent) {
     match event {
         SyncEvent::Refreshed(report) => {
             if !report.changed_systems.is_empty() {
+                crate::ra_match::systems_changed(&report.changed_systems);
                 let _ = app.emit(
                     EVENT_LIBRARY_CHANGED,
                     LibraryChanged {

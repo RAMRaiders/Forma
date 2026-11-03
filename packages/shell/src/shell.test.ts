@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.9.0', false);
+  const forma = new Forma(backend, '1.10.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -583,5 +583,18 @@ describe('Forma’s settings pages', () => {
       expect(text('.toast')[0]).toBe('Batocera 44 installed: restart to use it')
     );
     await vi.waitFor(() => expect(rows()).toEqual(['Installed', 'Restart now']));
+  });
+
+  it('RetroAchievements: how many games are matched, per system', async () => {
+    const { press, text, openMenu } = start(['settings.batocera', 'settings.system']);
+    await openMenu('RetroAchievements…');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(rows()).toContain('Games matched'));
+    while (selected() !== 'Games matched') await press('down');
+    expect(text('.page li.selected .description')[0]).toBe('4 of 7');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Games matched']));
+    expect(text('.page li[role=option] .description')[0]).toBe('3 of 4 matched · 1 not found');
   });
 });

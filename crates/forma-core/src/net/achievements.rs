@@ -22,6 +22,9 @@ pub const API_KEY_SETTING: &str = "ra.apiKey";
 const API: &str = "https://retroachievements.org/API";
 const MEDIA: &str = "https://media.retroachievements.org";
 const MAX_AGE: Duration = Duration::from_secs(300);
+/// RetroAchievements' list of a console's games and hashes changes when games are added: a
+/// week is fresh enough, and each console is one request.
+const HASHES_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 3600);
 
 #[derive(Clone)]
 pub struct Account {
@@ -217,6 +220,49 @@ pub fn game(
     })
 }
 
+/// Every hash RetroAchievements knows for a console's games (those with achievements), lower
+/// case, to the RA game id: what a computed hash is looked up in.
+pub fn hash_index(
+    http: &dyn Http,
+    cache: &Cache,
+    account: &Account,
+    console: u32,
+) -> Result<Fetched<HashMap<String, i64>>> {
+    let url = format!(
+        "{API}/API_GetGameList.php?i={console}&h=1&f=1&y={}",
+        encode(&account.api_key)
+    );
+    fetch(
+        http,
+        cache,
+        &format!("ra-hashes-{console}"),
+        &url,
+        HASHES_MAX_AGE,
+        |body| {
+            let games: Vec<GameListRaw> =
+                serde_json::from_slice(body).map_err(|e| e.to_string())?;
+            Ok(games
+                .into_iter()
+                .filter_map(|g| Some((g.id?, g.hashes)))
+                .flat_map(|(id, hashes)| {
+                    hashes
+                        .into_iter()
+                        .map(move |h| (h.to_ascii_lowercase(), id))
+                })
+                .collect())
+        },
+    )
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct GameListRaw {
+    #[serde(rename = "ID", default, deserialize_with = "lenient::int")]
+    id: Option<i64>,
+    #[serde(default)]
+    hashes: Vec<String>,
+}
+
 /// A file from RetroAchievements' media server (badges, icons, avatars), cached on disk so it
 /// is fetched once and shown offline afterwards. `path` is what follows the host, e.g.
 /// `Badge/04913.png`; anything else is refused.
@@ -368,6 +414,20 @@ mod tests {
         FakeHttp::default()
             .fixture("API_GetUserSummary", "ra-user.json")
             .fixture("API_GetGameInfoAndUserProgress", "ra-game.json")
+    }
+
+    #[test]
+    fn hashes_index_a_consoles_games_in_lower_case() {
+        let (_, account) = configured();
+        let dir = tempfile::tempdir().unwrap();
+        let http = FakeHttp::default().fixture("API_GetGameList", "ra-game-list.json");
+        let index = hash_index(&http, &Cache::new(dir.path().into()), &account, 7)
+            .unwrap()
+            .data;
+        assert_eq!(index.len(), 3);
+        assert_eq!(index["811b027eaf99c2def7b933c5208636de"], 1446);
+        assert_eq!(index["a12d74c73a0481599a5d832361d168f4"], 1, "a string ID");
+        assert!(http.calls.lock().unwrap()[0].contains("i=7&h=1&f=1"));
     }
 
     #[test]

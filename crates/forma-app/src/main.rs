@@ -9,6 +9,7 @@ mod music;
 mod options;
 mod permissions;
 mod protocol;
+mod ra_match;
 mod shell;
 mod state;
 mod status;
@@ -47,6 +48,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::launch_game,
         commands::ra_user,
         commands::ra_game,
+        ra_match::ra_matches,
         commands::netplay_lobby,
         commands::network_status,
         commands::network_wifi_scan,

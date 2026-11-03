@@ -8,6 +8,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# ROM identification and RetroAchievements hashes (rcheevos), vendored: vendor/romdex/PINNED.
+romdex = { path = "../../vendor/romdex/crates/romdex" }
 gilrs.workspace = true
 image.workspace = true
 notify.workspace = true

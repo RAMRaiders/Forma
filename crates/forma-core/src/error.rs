@@ -40,6 +40,10 @@ pub enum Error {
 
     #[error("library database: {0}")]
     Db(#[from] rusqlite::Error),
+
+    /// Identifying ROMs (romdex): its hash cache, or a file it could not read.
+    #[error("identifying games: {0}")]
+    Identify(#[from] romdex::Error),
 }
 
 impl Error {

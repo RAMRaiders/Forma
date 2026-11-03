@@ -155,6 +155,15 @@ only shows progress, through the Web API, which needs the user's **web API key**
 the account password for RetroArch, not that key. It is the Forma setting `ra.apiKey`; the
 username comes from `global.retroachievements.username` unless `ra.username` overrides it.
 
+**Matching games (#41).** Forma links [romdex](https://github.com/RAMRaiders/romdex), vendored in
+`vendor/romdex` at the commit in `PINNED` (`scripts/pin-romdex.sh` updates it), which hashes ROMs
+with rcheevos' own code, archives and discs included. After start-up, a background thread hashes
+one system at a time, waiting while a game runs; its cache (`romdex.sqlite` in
+`/userdata/system/forma`) keeps path, size and time, so after the first pass only changed files
+are read (11 minutes for 12,000 cartridge and arcade games on a Pi 5 the first time, 2 seconds
+after). Hashes are matched through `API_GetGameList.php?i=<console>&h=1&f=1`, once per console a
+week, when the web API key is set. CHD discs are not hashed yet (romdex R2).
+
 The netplay lobby is read from `lobby.libretro.com`. Answers from both are cached under
 `/userdata/system/forma/cache/`, and served marked stale when offline.
 

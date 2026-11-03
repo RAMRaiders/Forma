@@ -38,7 +38,8 @@ import type {
   WifiNetwork,
   BluetoothDevice,
   BluetoothStatus,
-  UpdateCheck
+  UpdateCheck,
+  RaMatches
 } from './types.js';
 import { SDK_VERSION, satisfies } from './version.js';
 
@@ -208,6 +209,12 @@ export class Forma {
       user: () => invoke<Fetched<RaUser>>('ra_user'),
       /** A local game's achievements and the user's progress in it. */
       game: (id: number) => invoke<Fetched<RaGame>>('ra_game', { id }),
+      /**
+       * How much of the library is matched to RetroAchievements, per system. Forma hashes games
+       * in the background as rcheevos does (never while a game runs) and matches them once a
+       * web API key is set; until then, `matched` counts only imported ids.
+       */
+      matches: () => invoke<RaMatches>('ra_matches'),
       /**
        * Logs in to RetroAchievements and saves the account (and the token the emulators use) in
        * Batocera's settings, as EmulationStation does. Resolves with the user name; rejects with

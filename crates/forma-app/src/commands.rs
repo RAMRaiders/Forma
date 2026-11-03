@@ -233,6 +233,9 @@ pub fn settings_set<R: Runtime>(
     let stored = permissions::setting_key(&theme(&state)?, scope, &key, caller.shell)?;
     let json = value.as_ref().map(Value::to_string);
     state.library().set_setting(&stored, json.as_deref())?;
+    if stored == achievements::API_KEY_SETTING || stored == achievements::USERNAME_SETTING {
+        crate::ra_match::account_changed();
+    }
     // A change made in Forma's menu: the theme follows it (screen margins, say).
     if caller.shell {
         let scope = match scope {
@@ -690,9 +693,11 @@ pub async fn ra_login<R: Runtime>(
 ) -> ApiResult<String> {
     off_thread(app, move |state| {
         batocera_allowed(state, caller)?;
-        Ok(state
+        let name = state
             .batocera
-            .ra_login(&*state.http, &username, &password)?)
+            .ra_login(&*state.http, &username, &password)?;
+        crate::ra_match::account_changed();
+        Ok(name)
     })
     .await
 }

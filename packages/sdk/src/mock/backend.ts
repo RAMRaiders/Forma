@@ -370,6 +370,14 @@ export function mockBackend(options: MockOptions = {}): Backend {
       controllers: [{ player: 1, name: 'Xbox 360 Controller', kind: 'xbox' }],
       network: { kind: 'ethernet', internet: true }
     }),
+    ra_matches: () => ({
+      running: false,
+      systems: [
+        { system: 'nes', games: 4, hashed: 4, matched: 3 },
+        { system: 'snes', games: 2, hashed: 2, matched: 1 },
+        { system: 'psx', games: 1, hashed: 0, matched: 0 }
+      ]
+    }),
     ra_user: () => {
       raConfigured();
       return fetched(snapshot.ra.user);

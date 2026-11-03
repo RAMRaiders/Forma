@@ -1,6 +1,6 @@
 {
   "name": "@ramraiders/forma-sdk",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "The public API Forma themes and custom interfaces use to control the frontend.",
   "license": "Apache-2.0",
   "type": "module",

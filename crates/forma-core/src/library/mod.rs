@@ -4,6 +4,7 @@
 //! per source in `game_field`, and the winning value is materialised onto the `game` row, so a
 //! re-import from `gamelist.xml` can never overwrite what the user set in Forma.
 
+mod computed;
 mod imports;
 mod refresh;
 mod schema;
@@ -19,11 +20,14 @@ use crate::error::{Error, Result};
 use crate::field;
 use crate::systems::System;
 
+pub use computed::RaMatch;
 pub use refresh::RefreshReport;
 
 /// Where a field value came from. A higher variant wins.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Source {
+    /// Worked out by Forma: RetroAchievements hashes and matches.
+    Forma = 0,
     Gamelist = 1,
     Import = 2,
     User = 3,

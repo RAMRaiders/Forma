@@ -548,6 +548,24 @@ export interface StoreProgress {
   percent: number;
 }
 
+/** How much of one system is matched to RetroAchievements. */
+export interface RaMatch {
+  system: string;
+  /** Games on disk. */
+  games: number;
+  /** With a RetroAchievements hash: computed by Forma (rcheevos), or imported. */
+  hashed: number;
+  /** With a RetroAchievements game id, so `ra.game()` works for them. */
+  matched: number;
+}
+
+export interface RaMatches {
+  /** Forma is hashing or matching now: the numbers are still growing. */
+  running: boolean;
+  /** Each system RetroAchievements supports that has games. */
+  systems: RaMatch[];
+}
+
 /** The box's Batocera and the newest on Batocera's update server for it. */
 export interface UpdateCheck {
   /** The version the box runs, e.g. `43.1`. */

@@ -150,6 +150,21 @@ function playingDetail(status: MusicStatus): string {
 const RA = 'global.retroachievements';
 
 /** RetroAchievements: the account, and what Batocera's RetroArch does with it. */
+/** Per system: how many games RetroAchievements is known for. */
+async function matchRows(forma: Forma): Promise<Row[]> {
+  const [matches, systems] = await Promise.all([
+    forma.ra.matches(),
+    forma.library.systems().catch(() => [])
+  ]);
+  const name = new Map(systems.map((s) => [s.name, s.fullname]));
+  return [...matches.systems]
+    .sort((a, b) => b.games - a.games)
+    .map((s) => ({
+      label: name.get(s.system) ?? s.system,
+      detail: `${s.matched} of ${s.games} matched${s.hashed > s.matched ? ` · ${s.hashed - s.matched} not found` : ''}`
+    }));
+}
+
 export function retroAchievementsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
   return async () => {
     const all = await forma.batocera.settings(RA);
@@ -206,8 +221,18 @@ export function retroAchievementsScreen(forma: Forma, page: Page): () => Promise
     }
     const sound = get(`${RA}.sound`);
     if (sound) rows.push(choiceRow(forma, page, sound, 'Unlock sound', (v) => v ?? 'none'));
+    const matches = await forma.ra.matches().catch(() => null);
+    if (matches) {
+      const sum = (k: 'games' | 'matched') => matches.systems.reduce((n, s) => n + s[k], 0);
+      rows.push({
+        heading: 'Forma',
+        label: 'Games matched',
+        detail: `${sum('matched').toLocaleString()} of ${sum('games').toLocaleString()}${matches.running ? ' · still looking' : ''}`,
+        run: () => page.push('Games matched', () => matchRows(forma))
+      });
+    }
     rows.push({
-      heading: 'Forma',
+      heading: matches ? undefined : 'Forma',
       label: 'Web API key',
       detail: apiKey
         ? 'Set (for your profile and progress in Forma)'

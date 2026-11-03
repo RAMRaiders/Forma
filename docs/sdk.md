@@ -200,10 +200,11 @@ Values are any JSON. `set(key, null)` removes a setting.
 
 RetroAchievements, read-only: unlocking happens inside RetroArch, which Batocera already logs in.
 
-| Method     | Returns                                                       |
-| ---------- | ------------------------------------------------------------- |
-| `user()`   | The user's profile, points, rank and recently played games    |
-| `game(id)` | A local game's achievements and progress (`id` is Forma's id) |
+| Method      | Returns                                                       |
+| ----------- | ------------------------------------------------------------- |
+| `user()`    | The user's profile, points, rank and recently played games    |
+| `game(id)`  | A local game's achievements and progress (`id` is Forma's id) |
+| `matches()` | Per system: games, hashed, matched to RetroAchievements       |
 
 ```ts
 const { data, stale } = await forma.ra.game(game.id);
@@ -220,7 +221,13 @@ with `stale: true`. Badge, icon and avatar URLs are served by Forma itself, so a
 They need the user's **web API key** (retroachievements.org → Settings → Keys) in the Forma
 setting `ra.apiKey`; without it they reject with `notConfigured` and a message saying so. The
 username defaults to the one Batocera logs in with. `game()` rejects with `notFound` when no
-RetroAchievements id is known for the game yet (matching by hash arrives in Milestone 2).
+RetroAchievements id is known for the game yet.
+
+Forma finds the ids itself: in the background it hashes every game on a system RetroAchievements
+supports, as rcheevos does, and looks each hash up in RetroAchievements' list of that console's
+games. Hashing reads a file again only when it changes, never runs while a game does, and the
+lists are cached for a week. Ids and hashes from an import file win over these. `matches()`
+says how far it got (`running` while it works); the mock reports three systems.
 
 ### Logging in
 
