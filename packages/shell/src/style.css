@@ -49,6 +49,18 @@
   background: transparent;
 }
 
+/* The picture under it has the logo, the versions and the loader's track already: drawn twice,
+   by two renderers, they never lined up exactly and the letters looked doubled. Kept in the
+   layout (hidden, not gone), so the moving part of the loader stays where the picture's is. */
+.cover.see-through .mark,
+.cover.see-through .versions {
+  visibility: hidden;
+}
+
+.cover.see-through .bar {
+  background: transparent;
+}
+
 .cover.see-through .glow {
   animation:
     cover-glow-in 900ms ease-out both,
