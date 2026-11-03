@@ -143,12 +143,22 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         // No theme can load: the bundled boot page explains instead of showing nothing.
         None => WebviewUrl::App("index.html".into()),
     };
+    // On Batocera the boot picture is on the screen under the window (forma-standalone puts it
+    // there): the window starts see-through, so it stays in view until the page draws its
+    // cover, the same picture, instead of a blank window. Elsewhere, dark from the first frame:
+    // no white flash before the cover is drawn.
+    let see_through = state.on_batocera && crate::splash::drawn();
     let window = WebviewWindowBuilder::new(app, "main", url)
         .title("Forma")
         .inner_size(1280.0, 720.0)
         .fullscreen(fullscreen())
-        // Dark from the first frame: no white flash before the cover is drawn.
-        .background_color(tauri::window::Color(4, 6, 12, 255))
+        .transparent(see_through)
+        .background_color(tauri::window::Color(
+            4,
+            6,
+            12,
+            if see_through { 0 } else { 255 },
+        ))
         .build()?;
     reload_if_the_page_dies(&window);
 

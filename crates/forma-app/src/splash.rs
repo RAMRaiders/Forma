@@ -32,6 +32,11 @@ const LOGO: &str = include_str!("../boot/forma-logo.svg");
 /// What was drawn last in this process, so a page load that changes nothing costs nothing.
 static DRAWN: Mutex<Option<String>> = Mutex::new(None);
 
+/// The boot picture is there, for the screen under Forma's window while it starts.
+pub fn drawn() -> bool {
+    Path::new(SPLASH_DIR).join(PICTURE).is_file()
+}
+
 /// Draws the boot picture for `cover` in the background, if it changed. Only on Batocera.
 pub fn refresh(cover: &CoverInfo) {
     if cover.batocera.is_empty() || !Path::new(SPLASH_DIR).is_dir() {

@@ -42,6 +42,7 @@ wait_for() {
 
 back_to_emulationstation() {
     log "handing the screen back to EmulationStation: $1"
+    drop_backdrop
     stop_music
     # As labwc's autostart starts it.
     # Two lines: backgrounding `cd && nohup …` would leave a copy of this script as its parent.
@@ -58,6 +59,19 @@ stop_music() {
 mkdir -p "$(dirname "$LOG")"
 [ -x "$APP" ] || { log "no Forma at $APP; EmulationStation stays"; exit 1; }
 wait_for 60 wlr-randr || { log "no Wayland compositor; EmulationStation stays"; exit 1; }
+# Forma's boot picture (what Batocera showed while booting) under everything, from the moment
+# the compositor is up until Forma is ready: no black screen while Forma loads, and Forma's
+# window starts see-through over it.
+PICTURE=/userdata/splash/forma.png
+backdrop=
+if [ -s "$PICTURE" ] && command -v swaybg > /dev/null; then
+    swaybg -i "$PICTURE" -m fill > /dev/null 2>&1 &
+    backdrop=$!
+fi
+drop_backdrop() {
+    [ -n "$backdrop" ] && kill "$backdrop" 2> /dev/null
+    backdrop=
+}
 # At boot, EmulationStation's loop starts around the same time as this service: wait for it,
 # or it would start on top of Forma. Later (a restart from the menu or by hand) it is not
 # running because Forma replaced it, and waiting would only leave the screen black.
@@ -88,6 +102,8 @@ while true; do
         sleep 0.1
         ticks=$(( ticks - 1 ))
     done
+    # Ready: the picture can go once the cover has faded over the theme.
+    [ -e "$READY" ] && (sleep 2; kill "$backdrop" 2> /dev/null) &
     if [ ! -e "$READY" ] && kill -0 "$pid" 2> /dev/null; then
         log "Forma did not become ready within ${READY_TIMEOUT}s"
         pkill -x forma
