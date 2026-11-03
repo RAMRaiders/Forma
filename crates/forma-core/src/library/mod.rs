@@ -38,6 +38,8 @@ pub enum Source {
 
 pub struct Library {
     pub(crate) conn: Connection,
+    /// The last recommendations, until the library changes (see `recommend.rs`).
+    pub(crate) recommended: std::sync::Mutex<Option<recommend::Cached>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -103,7 +105,10 @@ impl Library {
     fn init(mut conn: Connection, path: &Path) -> Result<Self> {
         schema::configure(&conn)?;
         schema::migrate(&mut conn, path)?;
-        Ok(Self { conn })
+        Ok(Self {
+            conn,
+            recommended: std::sync::Mutex::default(),
+        })
     }
 
     /// Systems with at least one visible game, in definition order.

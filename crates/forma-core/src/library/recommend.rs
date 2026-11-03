@@ -31,6 +31,12 @@ const SAME_GENRE: f64 = 0.9;
 /// Only the best this many are spread out: enough for any list, cheap to re-rank.
 const POOL: usize = 600;
 
+/// One answer, and what the library was when it was given.
+pub(crate) struct Cached {
+    key: (u64, i64, String),
+    ids: Vec<i64>,
+}
+
 #[derive(Default)]
 struct Profile {
     genre: HashMap<String, f64>,
@@ -132,6 +138,31 @@ impl Library {
         params: &[Value],
         limit: usize,
     ) -> Result<Vec<i64>> {
+        // Any write to the library, here or by another connection, makes a new answer.
+        let version: i64 = self
+            .conn
+            .query_row("PRAGMA data_version", [], |r| r.get(0))?;
+        let key = (
+            self.conn.total_changes(),
+            version,
+            format!("{conds} {params:?} {limit}"),
+        );
+        let mut cache = self
+            .recommended
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(c) = cache.as_ref().filter(|c| c.key == key) {
+            return Ok(c.ids.clone());
+        }
+        let ids = self.recommend(conds, params, limit)?;
+        *cache = Some(Cached {
+            key,
+            ids: ids.clone(),
+        });
+        Ok(ids)
+    }
+
+    fn recommend(&self, conds: &str, params: &[Value], limit: usize) -> Result<Vec<i64>> {
         let profile = self.taste()?;
         let mut stmt = self.conn.prepare(&format!(
             "SELECT g.id, g.rating, g.system, g.genre, g.developer, g.release_year, g.players_max,
