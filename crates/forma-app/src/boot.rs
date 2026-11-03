@@ -193,19 +193,11 @@ fn reload_if_the_page_dies<R: Runtime>(_window: &tauri::WebviewWindow<R>) {}
 /// Batocera's splash files: its boot image (`boot-logo.png`), whose joystick emblem marks
 /// Batocera's version on Forma's cover.
 pub const BATOCERA_SPLASH: &str = "/usr/share/batocera/splash";
-/// The same, as Batocera's read-only system has them: Forma's boot picture takes the boot
-/// image's place in the live system ([`crate::splash`]), and the emblem is Batocera's own.
-const BATOCERA_SPLASH_ORIGINAL: &str = "/overlay/base/usr/share/batocera/splash";
-
-/// One of Batocera's own splash files, from its read-only system when that is to hand.
+/// One of Batocera's own splash files.
 pub fn batocera_splash_file(name: &str) -> PathBuf {
-    let original = Path::new(BATOCERA_SPLASH_ORIGINAL).join(name);
-    if original.is_file() {
-        original
-    } else {
-        Path::new(BATOCERA_SPLASH).join(name)
-    }
+    Path::new(BATOCERA_SPLASH).join(name)
 }
+
 /// Batocera's logo as EmulationStation shows it, for the corner of Forma's cover.
 pub const BATOCERA_LOGO: &str = "/usr/share/emulationstation/resources/splash_batocera.svg";
 

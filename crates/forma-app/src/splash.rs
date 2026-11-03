@@ -1,18 +1,15 @@
-//! Forma's boot picture: what Batocera shows while the box starts, in place of its own logo
-//! and video, so the box shows Forma from the start.
+//! Forma's boot picture: what Batocera shows while the box starts, after its own logo, in
+//! place of its video, so the box shows Forma's screen from there until Forma is up.
 //!
 //! It is a picture of Forma's entry screen: its logo, with Batocera's, Forma's and the theme's
 //! versions in the corner, laid out as the shell's cover lays them out, so the box goes from the
 //! picture to Forma's own screen without a jump. It is drawn again (with Batocera's
-//! `rsvg-convert`) whenever what it shows changes: a new version, another theme. It goes:
+//! `rsvg-convert`) whenever what it shows changes: a new version, another theme. It goes to
+//! `/userdata/splash/forma.png`: Batocera shows the user's own picture from there in place of
+//! its splash video (its `S28splash`), and the folder survives Batocera's updates. Then
+//! `forma-standalone` keeps it on screen under Forma's see-through window until the UI is up.
 //!
-//! - to `/userdata/splash/forma.png`: Batocera shows the user's own picture from there in place
-//!   of its splash video (its `S28splash`); the folder survives Batocera's updates;
-//! - in place of Batocera's boot logo, which it draws before `/userdata` is mounted, through
-//!   `forma-boot-picture` (a saved overlay, as Batocera's own tools make; an update drops it,
-//!   and Forma puts it back at its next start).
-//!
-//! `scripts/batocera/uninstall.sh` takes both away, and Batocera's logo and video come back.
+//! `scripts/batocera/uninstall.sh` takes it away, and Batocera's video comes back.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -23,10 +20,6 @@ use crate::shell::CoverInfo;
 /// Where Batocera looks for the user's own boot pictures.
 const SPLASH_DIR: &str = "/userdata/splash";
 const PICTURE: &str = "forma.png";
-/// Puts the picture in place of Batocera's boot logo.
-const BOOT_PICTURE_TOOL: &str = "/userdata/system/forma/bin/forma-boot-picture";
-/// Batocera's saved overlay, which holds the boot logo's replacement.
-const OVERLAY: &str = "/boot/boot/overlay";
 const LOGO: &str = include_str!("../boot/forma-logo.svg");
 
 /// What was drawn last in this process, so a page load that changes nothing costs nothing.
@@ -71,12 +64,7 @@ pub fn refresh(cover: &CoverInfo) {
 fn draw(svg: &str, out: &Path, width: u32, height: u32) -> Result<(), String> {
     let source = PathBuf::from("/userdata/system/forma/boot-picture.svg");
     if out.is_file() && std::fs::read_to_string(&source).is_ok_and(|s| s == svg) {
-        // Drawn already; after a Batocera update the boot logo needs it again.
-        return if Path::new(OVERLAY).exists() {
-            Ok(())
-        } else {
-            replace_boot_logo(out)
-        };
+        return Ok(());
     }
     if let Some(dir) = source.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -102,27 +90,11 @@ fn draw(svg: &str, out: &Path, width: u32, height: u32) -> Result<(), String> {
         let _ = std::fs::remove_file(&partial);
         return Err(format!("rsvg-convert: {status}"));
     }
-    std::fs::rename(&partial, out).map_err(|e| e.to_string())?;
-    replace_boot_logo(out)
-}
-
-fn replace_boot_logo(picture: &Path) -> Result<(), String> {
-    if !Path::new(BOOT_PICTURE_TOOL).is_file() {
-        return Ok(());
-    }
-    let status = system_command(BOOT_PICTURE_TOOL)
-        .arg(picture)
-        .status()
-        .map_err(|e| format!("forma-boot-picture: {e}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("forma-boot-picture: {status}"))
-    }
+    std::fs::rename(&partial, out).map_err(|e| e.to_string())
 }
 
 /// A command of Batocera's own, without Forma's environment: Forma's bundled libraries
-/// (`LD_LIBRARY_PATH` from its AppImage) break Batocera's programs, `mount` among them.
+/// (`LD_LIBRARY_PATH` from its AppImage) break Batocera's programs.
 fn system_command(program: &str) -> Command {
     let mut command = Command::new(program);
     command

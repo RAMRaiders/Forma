@@ -85,8 +85,16 @@ export class Cover {
     // Forma's UI is up the moment the theme is: the fade is only for show.
     if (this.#ready) this.onStarted();
     if (!fade) return this.root.remove();
-    this.root.classList.add('leaving');
-    setTimeout(() => this.root.remove(), FADE_MS);
+    // The page is shown first, and the cover fades off it only once it has been drawn: a Pi
+    // takes a moment to draw a page that was hidden, and the screen went dark meanwhile.
+    const frame = (then: () => void) =>
+      typeof requestAnimationFrame === 'function' ? requestAnimationFrame(() => then()) : then();
+    frame(() =>
+      frame(() => {
+        this.root.classList.add('leaving');
+        setTimeout(() => this.root.remove(), FADE_MS);
+      })
+    );
   }
 }
 

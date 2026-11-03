@@ -44,6 +44,9 @@ describe('Forma’s cover', () => {
     cover.onStarted = started;
     cover.ready();
     expect(started).toHaveBeenCalledOnce();
+    // Two frames for the page under it to be drawn, then the fade.
+    expect(cover.root.classList.contains('leaving')).toBe(false);
+    vi.advanceTimersByTime(40);
     expect(cover.root.classList.contains('leaving')).toBe(true);
     vi.advanceTimersByTime(300);
     expect(cover.root.isConnected).toBe(false);

@@ -6,10 +6,7 @@ set -u
 batocera-services disable forma
 batocera-services stop forma
 rm -f /userdata/system/services/forma
-# Forma's boot picture: Batocera's own logo and video come back at boot.
-if [ -x /userdata/system/forma/bin/forma-boot-picture ]; then
-    /userdata/system/forma/bin/forma-boot-picture --remove || echo "could not restore Batocera's boot logo"
-fi
+# Forma's boot picture: Batocera's own video comes back at boot.
 rm -f /userdata/splash/forma.png /userdata/system/forma/boot-picture.svg
 rm -rf /userdata/system/forma/app /userdata/system/forma/bin
 if [ "${1:-}" = "--purge" ]; then
