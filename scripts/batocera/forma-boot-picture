@@ -12,6 +12,8 @@
 # one if there is none, and changes nothing else in it. A Batocera update drops the overlay;
 # Forma puts the picture back at its next start.
 set -eu
+# Batocera's root shell makes files private (umask 077); the system's are not.
+umask 022
 
 OVERLAY=/boot/boot/overlay
 SPLASH=usr/share/batocera/splash
@@ -57,7 +59,14 @@ if [ ! -e "$OVERLAY" ]; then
 else
     mount -o rw "$OVERLAY" "$mnt"
 fi
-mkdir -p "$mnt/$SPLASH"
-cp "$picture" "$mnt/$SPLASH/boot-logo.png.part"
+# Each folder as the system has it (rwxr-xr-x): an overlay's folder stands in for the system's,
+# permissions and all, and a private /usr locks out every service not run as root.
+dir="$mnt"
+for part in ${SPLASH//\// }; do
+    dir="$dir/$part"
+    mkdir -p "$dir"
+    chmod 755 "$dir"
+done
+install -m 644 "$picture" "$mnt/$SPLASH/boot-logo.png.part"
 mv "$mnt/$SPLASH/boot-logo.png.part" "$mnt/$SPLASH/boot-logo.png"
-cp "$mnt/$SPLASH/boot-logo.png" "$mnt/$SPLASH/boot-logo-4x3.png"
+install -m 644 "$mnt/$SPLASH/boot-logo.png" "$mnt/$SPLASH/boot-logo-4x3.png"
