@@ -34,12 +34,22 @@ pub fn open_cache(paths: &Paths) -> Result<HashCache> {
     Ok(HashCache::open(&file)?)
 }
 
-/// The systems RetroAchievements supports, as romdex reads them from Batocera's systems.
+/// Formats rcheevos cannot hash yet: reading them (whole disc images, gigabytes each) would
+/// find nothing. CHD comes with romdex R2.
+const NOT_HASHABLE: &[&str] = &[".chd"];
+
+/// The systems RetroAchievements supports, as romdex reads them from Batocera's systems,
+/// without the formats rcheevos cannot hash yet.
 pub fn targets(paths: &Paths) -> Vec<Target> {
     let (targets, _) = romdex::batocera::targets(&paths.userdata, &paths.systems_cfg);
     targets
         .into_iter()
         .filter(|t| romdex::ra::console_for(&t.system).is_some())
+        .map(|mut t| {
+            t.extensions.retain(|e| !NOT_HASHABLE.contains(&e.as_str()));
+            t
+        })
+        .filter(|t| !t.extensions.is_empty())
         .collect()
 }
 
@@ -130,6 +140,10 @@ mod tests {
             .into_iter()
             .find(|t| t.system == "nes")
             .expect("nes has an RA console");
+        assert!(
+            targets(&paths).iter().all(|t| !t.accepts("Disc.chd")),
+            "no CHD yet"
+        );
         let mut cache = romdex::cache::Cache::in_memory().unwrap();
         let (hashes, report) = hash_system(&nes, &mut cache).unwrap();
         assert_eq!(report.ra_hashed, hashes.len());
