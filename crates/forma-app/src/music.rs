@@ -161,31 +161,50 @@ pub fn start<R: Runtime>(app: AppHandle<R>) {
         }
         let conf = forma_core::net::batocera_conf(&state.paths.batocera_conf());
         if conf.get("audio.bgmusic").is_some_and(|v| v == "1") && state.on_batocera {
-            let (saved, shuffle) = {
-                let lib = state.library();
-                (
-                    lib.setting_text(SOURCE_SETTING).ok().flatten(),
-                    lib.setting_text(SHUFFLE_SETTING)
-                        .ok()
-                        .flatten()
-                        .is_none_or(|s| s == "true"),
-                )
-            };
-            let sources = state.music.library().sources();
-            let pick = saved
-                .filter(|id| sources.iter().any(|s| &s.id == id))
-                .or_else(|| sources.iter().find(|s| s.tracks > 0).map(|s| s.id.clone()));
-            if let Some(id) = pick {
-                match state.music.play(&id, shuffle) {
-                    Ok(status) => {
-                        let _ = app.emit(EVENT_MUSIC_CHANGED, &status);
-                    }
-                    Err(e) => eprintln!("forma: background music: {e}"),
-                }
-            }
+            menu_music(&app, true);
         }
         watch(&app);
     });
+}
+
+/// Batocera's menu music (`audio.bgmusic`) turned on or off: plays what was last chosen (else
+/// the first folder with songs), or stops.
+pub fn menu_music<R: Runtime>(app: &AppHandle<R>, on: bool) {
+    let state = app.state::<AppState>();
+    if !on {
+        match state.music.stop() {
+            Ok(status) => {
+                let _ = app.emit(EVENT_MUSIC_CHANGED, &status);
+            }
+            Err(e) => eprintln!("forma: background music: {e}"),
+        }
+        return;
+    }
+    if state.music.status().is_ok_and(|s| s.source.is_some()) {
+        return;
+    }
+    let (saved, shuffle) = {
+        let lib = state.library();
+        (
+            lib.setting_text(SOURCE_SETTING).ok().flatten(),
+            lib.setting_text(SHUFFLE_SETTING)
+                .ok()
+                .flatten()
+                .is_none_or(|s| s == "true"),
+        )
+    };
+    let sources = state.music.library().sources();
+    let pick = saved
+        .filter(|id| sources.iter().any(|s| &s.id == id))
+        .or_else(|| sources.iter().find(|s| s.tracks > 0).map(|s| s.id.clone()));
+    if let Some(id) = pick {
+        match state.music.play(&id, shuffle) {
+            Ok(status) => {
+                let _ = app.emit(EVENT_MUSIC_CHANGED, &status);
+            }
+            Err(e) => eprintln!("forma: background music: {e}"),
+        }
+    }
 }
 
 /// A new song started: for the theme (or Forma's shell) to show, for `seconds`.

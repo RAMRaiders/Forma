@@ -199,6 +199,22 @@ describe('mock backend', () => {
     });
   });
 
+  it('the volume is a number from 0 to 100', async () => {
+    const b = mockBackend({ permissions: ['system.settings'] });
+    type Setting = { key: string; kind: string; value: string | null };
+    await b.invoke('system_settings_set', { key: 'audio.volume', value: '75' });
+    const all = await b.invoke<Setting[]>('system_settings');
+    expect(all.find((s) => s.key === 'audio.volume')).toMatchObject({
+      kind: 'number',
+      value: '75'
+    });
+    for (const value of ['101', 'loud']) {
+      await expect(
+        b.invoke('system_settings_set', { key: 'audio.volume', value })
+      ).rejects.toMatchObject({ code: 'invalid' });
+    }
+  });
+
   it('system settings behind system.settings, checked against their choices', async () => {
     await expect(mockBackend().invoke('system_settings')).rejects.toMatchObject({
       code: 'permissionDenied'
@@ -239,6 +255,10 @@ describe('mock backend', () => {
     ]);
     await b.invoke('bluetooth_set_enabled', { enabled: false });
     expect(await b.invoke('bluetooth_status')).toEqual({ enabled: false, devices: [] });
+    await expect(b.invoke('bluetooth_pair')).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(b.invoke('bluetooth_connect', { address: 'nope' })).rejects.toMatchObject({
+      code: 'invalid'
+    });
   });
 
   it('emulator options: levels, inheritance, the emulator choosing the options', async () => {

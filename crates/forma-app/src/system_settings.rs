@@ -53,9 +53,15 @@ pub async fn system_settings_set<R: Runtime>(
     key: String,
     value: Option<String>,
 ) -> ApiResult<()> {
+    let handle = app.clone();
     off_thread(app, move |state| {
         allowed(state, caller)?;
-        Ok(state.system_settings.set(&key, value.as_deref())?)
+        state.system_settings.set(&key, value.as_deref())?;
+        // Menu music follows at once, as ES's does.
+        if key == "audio.bgmusic" {
+            crate::music::menu_music(&handle, value.as_deref() == Some("1"));
+        }
+        Ok(())
     })
     .await
 }

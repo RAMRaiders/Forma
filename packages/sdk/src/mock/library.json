@@ -1,5 +1,5 @@
 {
-  "apiVersion": "1.7.0",
+  "apiVersion": "1.8.0",
   "batocera": [
     {
       "choices": [],
@@ -6149,7 +6149,10 @@
         "key": "es.resolution",
         "kind": "choice",
         "label": "Video mode",
+        "max": null,
+        "min": null,
         "section": "Display",
+        "step": null,
         "value": null
       },
       {
@@ -6168,7 +6171,10 @@
         "key": "global.videooutput",
         "kind": "choice",
         "label": "Video output",
+        "max": null,
+        "min": null,
         "section": "Display",
+        "step": null,
         "value": null
       },
       {
@@ -6195,7 +6201,10 @@
         "key": "display.rotate",
         "kind": "choice",
         "label": "Screen rotation",
+        "max": null,
+        "min": null,
         "section": "Display",
+        "step": null,
         "value": null
       },
       {
@@ -6214,7 +6223,45 @@
         "key": "audio.device",
         "kind": "choice",
         "label": "Audio output",
+        "max": null,
+        "min": null,
         "section": "Audio",
+        "step": null,
+        "value": null
+      },
+      {
+        "applies": "now",
+        "choices": [],
+        "description": "The whole system's volume, games included.",
+        "key": "audio.volume",
+        "kind": "number",
+        "label": "Volume",
+        "max": 100,
+        "min": 0,
+        "section": "Audio",
+        "step": 5,
+        "value": null
+      },
+      {
+        "applies": "now",
+        "choices": [
+          {
+            "label": "On",
+            "value": "1"
+          },
+          {
+            "label": "Off",
+            "value": "0"
+          }
+        ],
+        "description": "Music from the music folder while in the menus.",
+        "key": "audio.bgmusic",
+        "kind": "choice",
+        "label": "Menu music",
+        "max": null,
+        "min": null,
+        "section": "Audio",
+        "step": null,
         "value": null
       },
       {
@@ -6369,7 +6416,10 @@
         "key": "system.language",
         "kind": "choice",
         "label": "Language",
+        "max": null,
+        "min": null,
         "section": "Language & region",
+        "step": null,
         "value": "en_US"
       },
       {
@@ -6400,7 +6450,10 @@
         "key": "system.timezone",
         "kind": "choice",
         "label": "Time zone",
+        "max": null,
+        "min": null,
         "section": "Language & region",
+        "step": null,
         "value": null
       },
       {
@@ -6427,7 +6480,10 @@
         "key": "system.kblayout",
         "kind": "choice",
         "label": "Keyboard layout",
+        "max": null,
+        "min": null,
         "section": "Language & region",
+        "step": null,
         "value": null
       },
       {
@@ -6437,7 +6493,10 @@
         "key": "system.hostname",
         "kind": "text",
         "label": "Name on the network",
+        "max": null,
+        "min": null,
         "section": "System",
+        "step": null,
         "value": null
       },
       {
@@ -6456,7 +6515,10 @@
         "key": "system.security.enabled",
         "kind": "choice",
         "label": "Security",
+        "max": null,
+        "min": null,
         "section": "System",
+        "step": null,
         "value": null
       },
       {
@@ -6475,7 +6537,10 @@
         "key": "updates.enabled",
         "kind": "choice",
         "label": "Check for updates",
+        "max": null,
+        "min": null,
         "section": "System",
+        "step": null,
         "value": null
       },
       {
@@ -6498,7 +6563,10 @@
         "key": "storage",
         "kind": "choice",
         "label": "Storage device",
+        "max": null,
+        "min": null,
         "section": "Storage",
+        "step": null,
         "value": "INTERNAL"
       }
     ]

@@ -228,6 +228,9 @@ describe('contract with the engine', () => {
       'description',
       'kind',
       'choices',
+      'min',
+      'max',
+      'step',
       'value',
       'applies'
     );

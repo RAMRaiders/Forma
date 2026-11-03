@@ -496,8 +496,13 @@ export interface SystemSetting {
   /** `Display`, `Audio`, `Language & region`, `System` or `Storage`. */
   section: string;
   description: string;
-  kind: 'choice' | 'text';
+  /** One of `choices`, a whole number from `min` to `max` by `step` (the volume), or text. */
+  kind: 'choice' | 'number' | 'text';
   choices: OptionChoice[];
+  /** For a `number`; `null` otherwise. */
+  min: number | null;
+  max: number | null;
+  step: number | null;
   /** `null` when unset: Batocera's default applies. */
   value: string | null;
   /** When a change takes effect: at once, after Forma restarts, or after a reboot. */

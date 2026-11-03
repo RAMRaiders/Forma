@@ -532,7 +532,9 @@ export function mockBackend(options: MockOptions = {}): Backend {
         v === '' ||
         (s.kind === 'text'
           ? /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(v)
-          : s.choices.some((c) => c.value === v));
+          : s.kind === 'number'
+            ? /^\d+$/.test(v) && Number(v) >= (s.min ?? 0) && Number(v) <= (s.max ?? 100)
+            : s.choices.some((c) => c.value === v));
       if (!ok) fail('invalid', `\`${v}\` is not allowed for \`${s.key}\``);
       s.value = v === '' ? null : v;
       return null;

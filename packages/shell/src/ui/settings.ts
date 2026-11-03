@@ -225,7 +225,18 @@ export function systemSettingsScreen(forma: Forma, page: Page): () => Promise<Ro
         detail: `${now}${APPLIES[s.applies]}`
       };
       section = s.section;
-      if (s.kind === 'text') {
+      if (s.kind === 'number') {
+        // Left and right step it and stop at the ends: no jump from loudest to silent.
+        const min = s.min ?? 0;
+        const max = s.max ?? 100;
+        const step = s.step ?? 1;
+        const now = Number(s.value ?? max);
+        row.detail = `${s.value ?? 'Default'}${s.key === 'audio.volume' && s.value ? '%' : ''}`;
+        row.adjust = (dir) => {
+          const next = Math.min(max, Math.max(min, Math.round(now / step) * step + dir * step));
+          return next === now ? undefined : set(String(next)).then(() => page.refresh());
+        };
+      } else if (s.kind === 'text') {
         row.run = async () => {
           const typed = await page.ask({ title: s.label, value: s.value ?? '' });
           if (typed !== null) await save(typed.trim() || null);

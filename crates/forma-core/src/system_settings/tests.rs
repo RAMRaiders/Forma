@@ -117,6 +117,7 @@ fn setting_runs_batoceras_tool_then_saves_the_value() {
         .unwrap();
     s.set("system.kblayout", Some("fr")).unwrap();
     s.set("display.rotate", Some("2")).unwrap();
+    s.set("audio.volume", Some("75")).unwrap();
     s.set("storage", Some("DEV 570aa8a5-b685-4bac-a259-d092c5b3de44"))
         .unwrap();
     let ran = shell.ran.lock().unwrap().clone();
@@ -135,6 +136,8 @@ fn setting_runs_batoceras_tool_then_saves_the_value() {
             "batocera-keyboard set fr nodeadkeys",
             "batocera-settings-set system.kblayout fr",
             "batocera-settings-set display.rotate 2",
+            "batocera-audio setSystemVolume 75",
+            "batocera-settings-set audio.volume 75",
             "batocera-config storage DEV 570aa8a5-b685-4bac-a259-d092c5b3de44",
         ]
     );
@@ -149,10 +152,26 @@ fn values_are_checked_and_unsetting_comments_the_key_out() {
     assert!(s.set("system.hostname", Some("-box")).is_err());
     assert!(s.set("system.password", Some("x")).is_err());
     assert!(s.set("storage", None).is_err());
+    assert!(s.set("audio.volume", Some("101")).is_err());
+    assert!(s.set("audio.volume", Some("-5")).is_err());
     s.set("system.hostname", Some("retro-box")).unwrap();
     s.set("es.resolution", None).unwrap();
     assert_eq!(
         std::fs::read_to_string(dir.path().join("batocera.conf")).unwrap(),
         "#es.resolution=1280x720.60000\n"
     );
+}
+
+#[test]
+fn the_volume_is_a_number_from_batocera_conf() {
+    let (s, _, _dir) = settings("audio.volume=60\naudio.bgmusic=1\n");
+    let all = s.get();
+    let volume = get(&all, "audio.volume");
+    assert_eq!(volume.kind, "number");
+    assert_eq!(
+        (volume.min, volume.max, volume.step),
+        (Some(0), Some(100), Some(5))
+    );
+    assert_eq!(volume.value.as_deref(), Some("60"));
+    assert_eq!(values(get(&all, "audio.bgmusic")), ["1", "0"]);
 }
