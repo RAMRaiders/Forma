@@ -144,7 +144,10 @@ fn appends_overrides_and_netplay() {
     let host = LaunchRequest {
         emulator: Some("libretro".into()),
         core: Some("mesen".into()),
-        netplay: Some(Netplay::Host { port: Some(55435) }),
+        netplay: Some(Netplay::Host {
+            port: Some(55435),
+            password: None,
+        }),
     };
     let args = prepare(&lib, &paths, zelda, &host, &[])
         .unwrap()
@@ -175,6 +178,9 @@ fn appends_overrides_and_netplay() {
         netplay: Some(Netplay::Client {
             host: "192.168.1.20".into(),
             port: 55435,
+            password: None,
+            session: None,
+            spectate: false,
         }),
         ..LaunchRequest::default()
     };
@@ -211,9 +217,96 @@ fn a_launch_request_reads_from_sdk_json() {
         req.netplay,
         Some(Netplay::Client {
             host: "h".into(),
-            port: 1
+            port: 1,
+            password: None,
+            session: None,
+            spectate: false,
         })
     );
+}
+
+#[test]
+fn joins_through_a_relay_with_a_password_and_refuses_odd_words() {
+    let (_dir, paths, lib) = setup();
+    let zelda = id_of(&lib, "zelda");
+    let join = |host: &str, password: &str, session: &str, spectate| LaunchRequest {
+        netplay: Some(Netplay::Client {
+            host: host.into(),
+            port: 55435,
+            password: Some(password.into()),
+            session: Some(session.into()),
+            spectate,
+        }),
+        ..LaunchRequest::default()
+    };
+    let args = prepare(
+        &lib,
+        &paths,
+        zelda,
+        &join("relay.example", "s3cret", "abc123", true),
+        &[],
+    )
+    .unwrap()
+    .command
+    .args;
+    let tail: Vec<&str> = args
+        .iter()
+        .rev()
+        .take(10)
+        .rev()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        tail,
+        [
+            "-netplaymode",
+            "spectator",
+            "-netplayip",
+            "relay.example",
+            "-netplayport",
+            "55435",
+            "-netplaypass",
+            "s3cret",
+            "-netplaysession",
+            "abc123"
+        ]
+    );
+    for (host, password, session) in [
+        ("-emulator", "p", "s"),
+        ("h; reboot", "p", "s"),
+        ("h", "two words", "s"),
+        ("h", "-core", "s"),
+        ("h", "p", "a\nb"),
+    ] {
+        assert!(
+            prepare(
+                &lib,
+                &paths,
+                zelda,
+                &join(host, password, session, false),
+                &[]
+            )
+            .is_err(),
+            "{host} {password} {session}"
+        );
+    }
+    let host = LaunchRequest {
+        netplay: Some(Netplay::Host {
+            port: None,
+            password: Some("pw".into()),
+        }),
+        ..LaunchRequest::default()
+    };
+    let args = prepare(&lib, &paths, zelda, &host, &[])
+        .unwrap()
+        .command
+        .args;
+    assert!(args.ends_with(&[
+        "-netplaymode".into(),
+        "host".into(),
+        "-netplaypass".into(),
+        "pw".into()
+    ]));
 }
 
 #[test]

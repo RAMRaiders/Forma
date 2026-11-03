@@ -120,4 +120,53 @@ describe('the SDK surface', () => {
     const unset = await connect({ backend: mockBackend({ ra: false }), keyboard: false });
     await expect(unset.ra.user()).rejects.toMatchObject({ code: 'notConfigured' });
   });
+
+  it('netplay: filters rooms, finds the local network, joins and hosts', async () => {
+    const backend = mockBackend({ playMs: 0 });
+    const launched: unknown[] = [];
+    const invoke = backend.invoke.bind(backend);
+    backend.invoke = <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+      if (cmd === 'launch_game') launched.push(args);
+      return invoke<T>(cmd, args);
+    };
+    const forma = await connect({ backend, keyboard: false });
+    const all = (await forma.netplay.lobby()).data;
+    expect(all).toHaveLength(2);
+    const mine = (await forma.netplay.lobby({ owned: true, joinable: true, open: true })).data;
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.core).toBe('fceumm');
+    expect((await forma.netplay.lobby({ coreName: 'snes9x' })).data).toHaveLength(1);
+    expect((await forma.netplay.lobby({ maxPingMs: 50 })).data[0]!.pingMs).toBe(30);
+    expect((await forma.netplay.lobby({ maxPingMs: 10 })).data).toHaveLength(0);
+
+    const [lan] = await forma.netplay.lan();
+    expect(lan).toMatchObject({ lan: true, join: { host: '192.168.1.50' } });
+
+    await forma.netplay.join(mine[0]!, { password: 'pw' });
+    expect(launched.at(-1)).toEqual({
+      id: mine[0]!.localGameId,
+      request: {
+        emulator: 'libretro',
+        core: 'fceumm',
+        netplay: { mode: 'client', host: '192.0.2.10', port: 55435, password: 'pw' }
+      }
+    });
+    // The relayed room: not on this box, and its core is missing.
+    const relayed = all.find((r) => r.join?.session)!;
+    await expect(forma.netplay.join(relayed)).rejects.toMatchObject({ code: 'notFound' });
+    await expect(forma.netplay.join({ ...relayed, localGameId: 1 })).rejects.toMatchObject({
+      code: 'unsupported'
+    });
+    await expect(
+      forma.netplay.join({ ...relayed, localGameId: 1, core: 'snes9x', join: null })
+    ).rejects.toMatchObject({ code: 'unsupported' });
+    await new Promise((r) => setTimeout(r, 5));
+    await forma.netplay.join({ ...relayed, localGameId: 1, core: 'snes9x' }, { spectate: true });
+    expect(launched.at(-1)).toMatchObject({
+      request: { netplay: { mode: 'client', session: 'a1b2c3d4e5', spectate: true } }
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    await forma.netplay.host(1);
+    expect(launched.at(-1)).toEqual({ id: 1, request: { netplay: { mode: 'host' } } });
+  });
 });

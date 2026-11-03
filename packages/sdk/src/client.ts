@@ -17,6 +17,7 @@ import type {
   MusicSource,
   MusicStatus,
   NetplayRoom,
+  RoomFilter,
   NetworkStatus,
   Page,
   Radio,
@@ -227,8 +228,53 @@ export class Forma {
     };
 
     this.netplay = {
-      /** Open rooms, joinable first, each matched to a local game where possible. */
-      lobby: () => invoke<Fetched<NetplayRoom[]>>('netplay_lobby')
+      /** Open rooms, joinable first, each matched to a local game and core where possible. */
+      lobby: (filter?: RoomFilter) => invoke<Fetched<NetplayRoom[]>>('netplay_lobby', { filter }),
+      /** RetroArch hosts on the local network; takes a second or two to listen. */
+      lan: (filter?: RoomFilter) => invoke<NetplayRoom[]>('netplay_lan', { filter }),
+      /**
+       * Joins a room: starts the local game with the room's core, connected to the host or its
+       * relay. Fails without a local game, an installed core, or a way in.
+       */
+      join: (room: NetplayRoom, options: { password?: string; spectate?: boolean } = {}) => {
+        if (room.localGameId === null) {
+          return Promise.reject(new FormaError('notFound', `${room.gameName} is not on this box`));
+        }
+        if (room.core === null) {
+          return Promise.reject(
+            new FormaError('unsupported', `the ${room.coreName} core is not installed`)
+          );
+        }
+        if (room.join === null) {
+          return Promise.reject(new FormaError('unsupported', 'this room gives no way in'));
+        }
+        return invoke<void>('launch_game', {
+          id: room.localGameId,
+          request: {
+            emulator: 'libretro',
+            core: room.core,
+            netplay: {
+              mode: 'client',
+              host: room.join.host,
+              port: room.join.port,
+              ...(room.join.session ? { session: room.join.session } : {}),
+              ...(options.password ? { password: options.password } : {}),
+              ...(options.spectate ? { spectate: true } : {})
+            }
+          } satisfies LaunchRequest
+        });
+      },
+      /** Hosts a game: others join it from the lobby or the local network. */
+      host: (id: number, options: { password?: string } = {}) =>
+        invoke<void>('launch_game', {
+          id,
+          request: {
+            netplay: {
+              mode: 'host',
+              ...(options.password ? { password: options.password } : {})
+            }
+          } satisfies LaunchRequest
+        })
     };
 
     /** The box's Wi-Fi and Ethernet. Needs the `system.network` permission; Batocera only. */

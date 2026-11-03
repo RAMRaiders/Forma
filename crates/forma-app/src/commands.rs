@@ -608,14 +608,44 @@ pub async fn ra_game<R: Runtime>(
 #[tauri::command]
 pub async fn netplay_lobby<R: Runtime>(
     app: AppHandle<R>,
+    filter: Option<netplay::RoomFilter>,
 ) -> ApiResult<Fetched<Vec<netplay::Room>>> {
     off_thread(app, move |state| {
         let mut rooms = netplay::lobby(&*state.http, &state.http_cache())?;
-        // The library is locked only for the name match, never across the request.
-        netplay::match_local(&mut rooms.data, &state.library())?;
+        rooms.data = rooms_for_here(state, rooms.data, &filter.unwrap_or_default())?;
         Ok(rooms)
     })
     .await
+}
+
+/// How long hosts on the local network get to answer.
+const LAN_WAIT: Duration = Duration::from_millis(1500);
+
+/// RetroArch hosts on the local network, as its own "Refresh netplay host list" finds them.
+#[tauri::command]
+pub async fn netplay_lan<R: Runtime>(
+    app: AppHandle<R>,
+    filter: Option<netplay::RoomFilter>,
+) -> ApiResult<Vec<netplay::Room>> {
+    off_thread(app, move |state| {
+        let rooms = netplay::discover_lan(LAN_WAIT);
+        Ok(rooms_for_here(state, rooms, &filter.unwrap_or_default())?)
+    })
+    .await
+}
+
+/// Matches rooms to this box's games and cores, then filters them.
+fn rooms_for_here(
+    state: &AppState,
+    mut rooms: Vec<netplay::Room>,
+    filter: &netplay::RoomFilter,
+) -> forma_core::Result<Vec<netplay::Room>> {
+    static CORES: std::sync::OnceLock<netplay::Cores> = std::sync::OnceLock::new();
+    // The library is locked only for the name match, never across a request.
+    netplay::match_local(&mut rooms, &state.library())?;
+    netplay::match_cores(&mut rooms, CORES.get_or_init(netplay::Cores::batocera));
+    filter.apply(&mut rooms, &netplay::tcp_ping);
+    Ok(rooms)
 }
 
 /// Network settings run Batocera's own tools: refused anywhere else, as power is.

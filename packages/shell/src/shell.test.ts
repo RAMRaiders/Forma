@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.11.0', false);
+  const forma = new Forma(backend, '1.12.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -420,6 +420,48 @@ describe('Forma’s settings pages', () => {
     await press('left');
     await vi.waitFor(() => expect(rows()).toContain('Custom server'));
     expect(text('.page li.selected .description')).toEqual(['Custom server']);
+  });
+
+  it('netplay on: hosts the selected game, lists rooms for your games, joins one', async () => {
+    const { shell, press, text, openMenu, forma, backend } = start(['settings.batocera'], {
+      game: { id: 2, name: 'Super Mario Bros.' }
+    });
+    await forma.batocera.set('global.netplay', '1');
+    const launches: unknown[] = [];
+    const invoke = backend.invoke.bind(backend);
+    backend.invoke = <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+      if (cmd === 'launch_game') launches.push(args);
+      return invoke<T>(cmd, args);
+    };
+    await openMenu('Netplay…');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(rows()[0]).toBe('Host Super Mario Bros.'));
+    expect(rows().slice(1, 3)).toEqual(['Rooms online…', 'On this network…']);
+    expect(text('.page li.heading')).toEqual(['Play', 'Settings']);
+
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Rooms online']));
+    await vi.waitFor(() => expect(rows()).toContain('Super Mario Bros. (World)'));
+    expect(rows()).toHaveLength(2);
+    // Every room: the one this box cannot join says why.
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toHaveLength(3));
+    expect(text('.page li[role=option] .description').at(-1)).toContain('Not on this box');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toHaveLength(2));
+    await press('down');
+    expect(selected()).toBe('Super Mario Bros. (World)');
+    expect(text('.page li.selected .description')).toEqual(['Kirby_Fan · FCEUmm · 30 ms']);
+    await press('confirm');
+    await vi.waitFor(() => expect(launches).toHaveLength(1));
+    expect(launches[0]).toMatchObject({
+      id: 2,
+      request: { core: 'fceumm', netplay: { mode: 'client', host: '192.0.2.10' } }
+    });
+    // The game starts: the page goes.
+    await vi.waitFor(() => expect(shell.open).toBe(false));
   });
 
   it('game settings: global options, a choice cycled, a page of its own and back', async () => {

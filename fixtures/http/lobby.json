@@ -41,6 +41,7 @@
       "port": "55435",
       "mitm_ip": "198.51.100.200",
       "mitm_port": 55436,
+      "mitm_session": "a1b2c3d4e5",
       "host_method": 3,
       "has_password": true,
       "has_spectate_password": false,

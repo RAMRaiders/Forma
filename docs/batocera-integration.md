@@ -164,6 +164,15 @@ are read (11 minutes for 12,000 cartridge and arcade games on a Pi 5 the first t
 after). Hashes are matched through `API_GetGameList.php?i=<console>&h=1&f=1`, once per console a
 week, when the web API key is set. CHD discs are not hashed yet (romdex R2).
 
+**Netplay (#43, #44).** Forma launches through Batocera's launcher as EmulationStation does:
+`-netplaymode host|client|spectator`, `-netplayip`, `-netplayport`, `-netplaypass` and, for a room
+behind a relay (`host_method` 3), the relay's address and `-netplaysession`. Joining picks the
+installed core whose `.info` `corename` (in `/usr/share/libretro/info`) is the room's core name,
+with `-emulator libretro`. Nickname, relay and port stay Batocera's `global.netplay.*`. Rooms on
+the local network are found with RetroArch's own discovery: a `RANQ` broadcast to UDP 55435,
+answered by every host not behind a relay with its `ad_packet` (`netplay_frontend.c`, RetroArch
+1.22).
+
 The netplay lobby is read from `lobby.libretro.com`. Answers from both are cached under
 `/userdata/system/forma/cache/`, and served marked stale when offline.
 

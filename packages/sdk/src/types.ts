@@ -105,8 +105,27 @@ export interface DefaultView {
   notes: string[];
 }
 
+/**
+ * Netplay, through Batocera's launcher. Nickname, relay and the host's own port come from
+ * Batocera's netplay settings. Usually built by `forma.netplay.join()` and `host()`.
+ */
 export type Netplay =
-  { mode: 'host'; port?: number } | { mode: 'client'; host: string; port: number };
+  | {
+      mode: 'host';
+      port?: number;
+      /** Players must give it to join. One word, no quotes. */
+      password?: string;
+    }
+  | {
+      mode: 'client';
+      host: string;
+      port: number;
+      password?: string;
+      /** A relay's session for the room, when joining through a relay. */
+      session?: string;
+      /** Watch instead of play. */
+      spectate?: boolean;
+    };
 
 export interface LaunchRequest {
   /** Overrides Batocera's configured emulator/core for this launch only. */
@@ -382,8 +401,30 @@ export interface NetplayRoom {
   hasSpectatePassword: boolean;
   connectable: boolean;
   created: string | null;
-  /** The local game with the same name, when there is one. */
+  /** Found on the local network (`forma.netplay.lan()`), not in the lobby. */
+  lan: boolean;
+  /** Where to connect: the host, or its relay with the room's session. `null`: no way in. */
+  join: { host: string; port: number; session: string | null } | null;
+  /** The local game with the same name or CRC, when there is one. */
   localGameId: number | null;
+  /** The installed core that can join it (e.g. `fceumm`), when there is one. */
+  core: string | null;
+  /** How long connecting took, when measured (`maxPingMs`). */
+  pingMs: number | null;
+}
+
+/** Which rooms `forma.netplay.lobby()` and `lan()` keep. */
+export interface RoomFilter {
+  /** Only rooms playing a game on this box. */
+  owned?: boolean;
+  /** Only rooms an installed core can join. */
+  joinable?: boolean;
+  /** Only rooms without a password. */
+  open?: boolean;
+  /** Only rooms with this core (the room's name for it, e.g. `FCEUmm`), any case. */
+  coreName?: string;
+  /** Only rooms answering within this many milliseconds; measures each room's ping. */
+  maxPingMs?: number;
 }
 
 /** The box's own connections. Needs the `system.network` permission; Batocera only. */

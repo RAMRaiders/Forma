@@ -609,6 +609,17 @@ fn the_netplay_lobby_is_matched_to_local_games() {
         .clone();
     assert_eq!(rooms[0]["localGameId"], mario);
     assert_eq!(rooms[1]["localGameId"], Value::Null);
+    assert_eq!(
+        rooms[1]["join"]["session"], "a1b2c3d4e5",
+        "through its relay"
+    );
+
+    let owned = h
+        .call("netplay_lobby", json!({ "filter": { "owned": true } }))
+        .unwrap();
+    let owned = owned["data"].as_array().unwrap();
+    assert_eq!(owned.len(), 1);
+    assert_eq!(owned[0]["localGameId"], mario);
 }
 
 #[test]

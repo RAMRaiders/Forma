@@ -105,7 +105,9 @@ const deeper = await forma.nav.browse(page.view, [...page.path, page.listing.ite
 | `game(id, request?)` | Resolves once started; `game:start` and `game:end` follow |
 
 `request` may override the emulator or core, or start netplay:
-`{ netplay: { mode: 'host' } }`, `{ netplay: { mode: 'client', host, port } }`. While a game
+`{ netplay: { mode: 'host', password? } }`,
+`{ netplay: { mode: 'client', host, port, password?, session?, spectate? } }`; `netplay.join()`
+and `host()` build these. While a game
 runs the window is hidden and input is paused. A second launch meanwhile rejects with `busy`.
 
 ## `input`
@@ -299,13 +301,23 @@ page of its own (`DECORATIONS`). `flags` say what the emulator supports (`netpla
 
 ## `netplay`
 
-| Method    | Returns                                                                |
-| --------- | ---------------------------------------------------------------------- |
-| `lobby()` | Open rooms on the libretro lobby, joinable first, as `{ data, stale }` |
+| Method                   | Returns                                                                |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `lobby(filter?)`         | Open rooms on the libretro lobby, joinable first, as `{ data, stale }` |
+| `lan(filter?)`           | RetroArch hosts on the local network (listens for 1.5 s)               |
+| `join(room, options?)`   | Starts the local game with the room's core, connected to it            |
+| `host(gameId, options?)` | Starts a game others can join                                          |
 
-Each room has `localGameId` when a local game has the same name, so a theme can offer to join
-with `launch.game(room.localGameId, { netplay: { mode: 'client', host: room.host, port: room.port } })`.
-Hosting and joining from the default theme arrive in Milestone 2.
+Each room says what this box needs to join it: `localGameId` (the local game with the same name
+or CRC), `core` (the installed core RetroArch calls `coreName`) and `join` (the host, or its relay
+with the room's `session`). `join()` rejects when one is missing; `options` are `password` and
+`spectate`. `filter` keeps rooms that are `owned`, `joinable`, `open` (no password), of one
+`coreName`, or answering within `maxPingMs` (which measures `pingMs`, a TCP connect to the host
+or relay, for up to 40 rooms). LAN discovery is RetroArch's own (`RANQ` broadcast to UDP 55435);
+hosts behind a relay do not answer it.
+
+Forma's shell offers all of this on its Netplay page: hosting the selected game, rooms online
+(those for your games by default) and rooms on this network.
 
 ## `network`
 

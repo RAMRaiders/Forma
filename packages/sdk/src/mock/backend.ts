@@ -11,6 +11,7 @@ import { type ErrorCode, FormaError } from '../errors.js';
 import type {
   BluetoothDevice,
   RaSession,
+  RoomFilter,
   Browse,
   BatoceraSetting,
   OptionItem,
@@ -389,7 +390,19 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (!game) fail('notFound', `no RetroAchievements id is known for game ${String(id)} yet`);
       return fetched(game);
     },
-    netplay_lobby: () => fetched(snapshot.lobby),
+    netplay_lobby: ({ filter }) => fetched(rooms(snapshot.lobby, filter as RoomFilter | undefined)),
+    // A host next door: the lobby's first room, found on the local network.
+    netplay_lan: ({ filter }) =>
+      rooms(
+        snapshot.lobby.slice(0, 1).map((r) => ({
+          ...r,
+          id: -1,
+          lan: true,
+          host: '192.168.1.50',
+          join: { host: '192.168.1.50', port: r.port ?? 55435, session: null }
+        })),
+        filter as RoomFilter | undefined
+      ),
     updates_check: () => {
       updatesAllowed();
       return { ...updates, available: updates.latest !== updates.current };
@@ -746,6 +759,20 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return null;
     }
   };
+
+  /** As Forma filters rooms; every ping is 30 ms. */
+  function rooms(all: NetplayRoom[], filter: RoomFilter = {}): NetplayRoom[] {
+    return all
+      .filter(
+        (r) =>
+          (!filter.owned || r.localGameId !== null) &&
+          (!filter.joinable || (r.core !== null && r.join !== null)) &&
+          (!filter.open || !r.hasPassword) &&
+          (!filter.coreName || r.coreName.toLowerCase() === filter.coreName.toLowerCase())
+      )
+      .map((r) => (filter.maxPingMs === undefined ? r : { ...r, pingMs: 30 }))
+      .filter((r) => filter.maxPingMs === undefined || (r.pingMs ?? Infinity) <= filter.maxPingMs);
+  }
 
   function musicManage(): void {
     if (!permissions.has('music.manage')) {

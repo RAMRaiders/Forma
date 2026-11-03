@@ -1,5 +1,6 @@
 import type { BatoceraSetting, Forma, MusicSource, MusicStatus } from '@ramraiders/forma-sdk';
 
+import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
 
 /** Music: what plays, the controls, and everything there is to play. */
@@ -261,8 +262,12 @@ const RELAYS: Record<string, string> = {
 
 const NP = 'global.netplay';
 
-/** Netplay: on or off, how others see and reach this box. */
-export function netplayScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+/** Netplay: hosting and joining, then on or off and how others see and reach this box. */
+export function netplayScreen(
+  forma: Forma,
+  page: Page,
+  game: { id: number; name: string } | null = null
+): () => Promise<Row[]> {
   return async () => {
     const all = await forma.batocera.settings(NP);
     const get = (key: string) => all.find((s) => s.key === key);
@@ -289,7 +294,11 @@ export function netplayScreen(forma: Forma, page: Page): () => Promise<Row[]> {
         : [];
     const relay = get(`${NP}.relay`);
     return [
-      switchRow(forma, page, get(NP), 'Netplay', 'Play online with others, through RetroArch'),
+      ...(get(NP)?.value === '1' ? playRows(forma, page, game) : []),
+      {
+        ...switchRow(forma, page, get(NP), 'Netplay', 'Play online with others, through RetroArch'),
+        heading: 'Settings'
+      },
       ...text(get(`${NP}.nickname`), 'Nickname', 'Not set: how others see you'),
       ...text(get(`${NP}.port`), 'Port', '55435', 'address'),
       ...(relay

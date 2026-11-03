@@ -114,7 +114,14 @@ export class Shell {
     });
     forma.events.on('music:song', (song) => void this.announce(song));
     forma.events.on('ra:unlocked', (session) => void this.showUnlocks(session));
-    forma.events.on('game:start', () => this.#unlocks.hide());
+    forma.events.on('game:start', () => {
+      this.#unlocks.hide();
+      // A game started from a page (netplay): the page goes with Forma's window.
+      if (this.#page.open) {
+        this.#page.close();
+        this.#changed();
+      }
+    });
     forma.events.on('status:changed', (status) => void this.showStatus(status));
     forma.status
       .get()
@@ -453,7 +460,7 @@ export class Shell {
       case 'ra':
         return show('RetroAchievements', retroAchievementsScreen(this.forma, page));
       case 'netplay':
-        return show('Netplay', netplayScreen(this.forma, page));
+        return show('Netplay', netplayScreen(this.forma, page, context.game ?? null));
       default:
     }
     // Power actions need a second press soon after: a stray A must not shut down.

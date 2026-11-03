@@ -1,5 +1,5 @@
 {
-  "apiVersion": "1.11.0",
+  "apiVersion": "1.12.0",
   "batocera": [
     {
       "choices": [],
@@ -2922,6 +2922,7 @@
   "lobby": [
     {
       "connectable": true,
+      "core": "fceumm",
       "coreName": "FCEUmm",
       "coreVersion": "(SVN) 7d2f0b6",
       "country": "pt",
@@ -2933,7 +2934,14 @@
       "hasSpectatePassword": false,
       "host": "192.0.2.10",
       "id": 7123401,
+      "join": {
+        "host": "192.0.2.10",
+        "port": 55435,
+        "session": null
+      },
+      "lan": false,
       "localGameId": 2,
+      "pingMs": null,
       "port": 55435,
       "relayHost": null,
       "relayPort": null,
@@ -2942,6 +2950,7 @@
     },
     {
       "connectable": false,
+      "core": null,
       "coreName": "Snes9x",
       "coreVersion": "1.63",
       "country": "br",
@@ -2953,7 +2962,14 @@
       "hasSpectatePassword": false,
       "host": "198.51.100.7",
       "id": 7123455,
+      "join": {
+        "host": "198.51.100.200",
+        "port": 55436,
+        "session": "a1b2c3d4e5"
+      },
+      "lan": false,
       "localGameId": null,
+      "pingMs": null,
       "port": 55435,
       "relayHost": "198.51.100.200",
       "relayPort": 55436,

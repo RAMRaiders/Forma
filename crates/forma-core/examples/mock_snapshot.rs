@@ -80,6 +80,11 @@ fn snapshot() -> String {
     }
     let mut rooms = netplay::lobby(&FixtureHttp, &cache).expect("lobby").data;
     netplay::match_local(&mut rooms, &lib).expect("match");
+    // As on a box with FCEUmm installed and Snes9x not.
+    netplay::match_cores(
+        &mut rooms,
+        &netplay::Cores::from_pairs([("FCEUmm", "fceumm")]),
+    );
 
     // The box's network: recorded `connmanctl` answers, through the same parsers.
     let network = Network::new(Box::new(FixtureShell), &paths);
