@@ -1,7 +1,7 @@
 {
   "id": "cyber",
-  "version": "0.7.10",
-  "commit": "ba2f29977b027469aaa7e33790b5343bcdf5d0e3",
-  "file": "cyber-0.7.10.tar.gz",
-  "sha256": "295b6a5ed5e5088de65760756cda2ac3fec81200f4ed4ea105ac84d9e70bcafb"
+  "version": "0.7.11",
+  "commit": "c7b0afeb29a4c032f51be15077054148061072f3",
+  "file": "cyber-0.7.11.tar.gz",
+  "sha256": "82c93981b0b7c2f455451fe19a1aaa1303d7459bb0716c37bd5d73cecfa6cfac"
 }
