@@ -346,6 +346,14 @@ impl Conds {
             self.sql.push("g.favorite = ?".into());
             self.params.push(Value::Integer(i64::from(favorite)));
         }
+        if let Some(collection) = &f.collection {
+            self.sql.push(
+                "EXISTS (SELECT 1 FROM collection_game cg WHERE cg.collection = ?
+                 AND cg.path = s.rom_path || '/' || g.path)"
+                    .into(),
+            );
+            self.params.push(Value::Text(collection.clone()));
+        }
         if let Some(played) = f.played {
             self.sql.push(
                 if played {

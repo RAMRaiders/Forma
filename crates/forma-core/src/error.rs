@@ -34,6 +34,10 @@ pub enum Error {
     #[error("{0}")]
     Unsupported(String),
 
+    /// Something asked for by name or id that is not there (a collection, a game).
+    #[error("{0}")]
+    NotFound(String),
+
     /// A view or a path into it that cannot be resolved.
     #[error("{0}")]
     View(String),

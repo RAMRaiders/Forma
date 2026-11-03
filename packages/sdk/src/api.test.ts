@@ -169,4 +169,38 @@ describe('the SDK surface', () => {
     await forma.netplay.host(1);
     expect(launched.at(-1)).toEqual({ id: 1, request: { netplay: { mode: 'host' } } });
   });
+
+  it('collections: made, filled, browsed in their view, and deleted', async () => {
+    const forma = await sdk();
+    const changed: string[] = [];
+    forma.events.on('views:changed', () => changed.push('views'));
+    expect(await forma.collections.list()).toEqual([{ name: 'Couch co-op', games: 2 }]);
+    const [zelda] = await forma.library.search('zelda');
+    expect(await forma.collections.create('  RPGs ')).toBe('RPGs');
+    await expect(forma.collections.create('rpgs')).rejects.toMatchObject({ code: 'invalid' });
+    await expect(forma.collections.create('a/b')).rejects.toMatchObject({ code: 'invalid' });
+    await forma.collections.add('rpgs', zelda!.id);
+    expect(await forma.collections.of(zelda!.id)).toContain('RPGs');
+
+    const root = await forma.nav.browse('collections', []);
+    expect(root.listing).toMatchObject({
+      kind: 'branches',
+      items: [
+        { id: 'couch-co-op', name: 'Couch co-op', gameCount: 2 },
+        { id: 'rpgs', name: 'RPGs', gameCount: 1 }
+      ]
+    });
+    const rpgs = await forma.nav.browse('collections', ['rpgs']);
+    expect(rpgs.trail).toEqual([{ key: 'rpgs', label: 'RPGs' }]);
+    expect(rpgs.listing).toMatchObject({ kind: 'games', total: 1 });
+
+    await forma.collections.remove('RPGs', zelda!.id);
+    expect(await forma.collections.of(zelda!.id)).not.toContain('RPGs');
+    await forma.collections.delete('Couch co-op');
+    await forma.collections.delete('RPGs');
+    await expect(forma.collections.delete('RPGs')).rejects.toMatchObject({ code: 'notFound' });
+    const none = await forma.nav.browse('collections', []);
+    expect(none.listing).toMatchObject({ kind: 'games', total: 0 });
+    await vi.waitFor(() => expect(changed.length).toBeGreaterThanOrEqual(5));
+  });
 });

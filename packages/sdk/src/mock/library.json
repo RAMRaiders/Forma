@@ -1,5 +1,5 @@
 {
-  "apiVersion": "1.12.0",
+  "apiVersion": "1.13.0",
   "batocera": [
     {
       "choices": [],
@@ -332,6 +332,16 @@
       "path": [],
       "trail": [],
       "view": "all"
+    },
+    "[\"collections\"]": {
+      "listing": {
+        "items": [],
+        "kind": "games",
+        "total": 0
+      },
+      "path": [],
+      "trail": [],
+      "view": "collections"
     },
     "[\"favorites\"]": {
       "listing": {
@@ -6670,6 +6680,12 @@
       "description": "A menu: favourites, recents, and the library by system, manufacturer or genre.",
       "id": "home",
       "name": "Home",
+      "origin": "bundled"
+    },
+    {
+      "description": "Your own lists of games.",
+      "id": "collections",
+      "name": "Collections",
       "origin": "bundled"
     }
   ]

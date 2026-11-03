@@ -41,6 +41,7 @@ impl From<forma_core::Error> for ApiError {
         let code = match &e {
             E::Launch(_) => ErrorCode::Launch,
             E::View(_) | E::Invalid(_) => ErrorCode::Invalid,
+            E::NotFound(_) => ErrorCode::NotFound,
             E::Unsupported(_) => ErrorCode::Unsupported,
             E::Network(_) => ErrorCode::Network,
             E::NotConfigured(_) => ErrorCode::NotConfigured,

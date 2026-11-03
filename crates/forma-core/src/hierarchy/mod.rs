@@ -122,6 +122,8 @@ pub(crate) struct Filter {
     pub favorite: Option<bool>,
     /// Played at least once (`true`) or never (`false`).
     pub played: Option<bool>,
+    /// In the user's collection of this name (any case).
+    pub collection: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -297,6 +299,7 @@ fn merge(outer: Filter, inner: Filter) -> Filter {
         players: inner.players.or(outer.players),
         favorite: inner.favorite.or(outer.favorite),
         played: inner.played.or(outer.played),
+        collection: inner.collection.or(outer.collection),
     }
 }
 

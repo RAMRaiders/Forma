@@ -1,6 +1,7 @@
 use super::*;
-use crate::library::Library;
+use crate::library::{Collection, Library};
 use crate::test_support::{fixture_copy, fixture_paths};
+use catalog::collections_view;
 
 fn library() -> Library {
     let mut lib = Library::open_in_memory().unwrap();
@@ -53,7 +54,8 @@ fn every_bundled_view_parses() {
             "all",
             "favorites",
             "recent",
-            "home"
+            "home",
+            "collections"
         ]
     );
 }
@@ -375,4 +377,91 @@ fn the_boot_view_setting_is_stored_with_the_library() {
     );
     lib.set_setting(DEFAULT_VIEW_SETTING, None).unwrap();
     assert_eq!(lib.setting(DEFAULT_VIEW_SETTING).unwrap(), None);
+}
+
+#[test]
+fn collections_are_emulationstations_files_and_a_view_of_their_own() {
+    let (_dir, paths) = fixture_copy();
+    let mut lib = Library::open_in_memory().unwrap();
+    lib.refresh(&paths).unwrap();
+    let id = |q: &str| lib.search(q, 1).unwrap()[0].id;
+    let (mario, zelda) = (id("super mario"), id("zelda"));
+
+    // One made in EmulationStation: a full path per line, one for a game no longer here.
+    let dir = paths.collections_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    let rom = |game: i64| {
+        let g = lib.game(game).unwrap().unwrap();
+        let system = lib.launch_target(game).unwrap().unwrap().1;
+        format!("{}/{}", system.rom_path.display(), g.path)
+    };
+    let (mario_rom, zelda_rom) = (rom(mario), rom(zelda));
+    let zelda_name = lib.game(zelda).unwrap().unwrap().name;
+    std::fs::write(
+        dir.join("custom-Couch Co-op.cfg"),
+        format!("{mario_rom}\n/userdata/roms/nes/Gone.nes\n\n"),
+    )
+    .unwrap();
+    lib.refresh(&paths).unwrap();
+    assert_eq!(
+        lib.collections().unwrap(),
+        [Collection {
+            name: "Couch Co-op".into(),
+            games: 1
+        }]
+    );
+    assert_eq!(lib.collections_of(mario).unwrap(), ["Couch Co-op"]);
+
+    // Made, filled and emptied from Forma: the file says the same.
+    lib.create_collection(&paths, " RPGs ").unwrap();
+    assert!(
+        lib.create_collection(&paths, "rpgs").is_err(),
+        "names are free of case"
+    );
+    lib.set_in_collection(&paths, "rpgs", zelda, true).unwrap();
+    lib.set_in_collection(&paths, "Couch Co-op", zelda, true)
+        .unwrap();
+    lib.set_in_collection(&paths, "Couch Co-op", zelda, true)
+        .unwrap();
+    let file = std::fs::read_to_string(dir.join("custom-Couch Co-op.cfg")).unwrap();
+    assert_eq!(
+        file,
+        format!("{mario_rom}\n/userdata/roms/nes/Gone.nes\n{zelda_rom}\n")
+    );
+    assert_eq!(lib.collections_of(zelda).unwrap(), ["Couch Co-op", "RPGs"]);
+
+    let view = collections_view(&["Couch Co-op".into(), "RPGs".into()]);
+    let root = browse(&lib, &view, &[]);
+    let Listing::Branches { items } = &root.listing else {
+        panic!("{root:?}")
+    };
+    let ids: Vec<(&str, i64)> = items
+        .iter()
+        .map(|b| (b.id.as_str(), b.game_count))
+        .collect();
+    assert_eq!(ids, [("couch-co-op", 2), ("rpgs", 1)]);
+    assert_eq!(games(&browse(&lib, &view, &["rpgs"])), [zelda_name]);
+    assert_eq!(
+        load_views(&paths).get("collections").unwrap().root,
+        view.root,
+        "from the files"
+    );
+
+    lib.set_in_collection(&paths, "Couch Co-op", mario, false)
+        .unwrap();
+    assert_eq!(lib.collections_of(mario).unwrap(), Vec::<String>::new());
+    lib.delete_collection(&paths, "rpgs").unwrap();
+    assert!(!dir.join("custom-RPGs.cfg").exists());
+    assert!(lib.delete_collection(&paths, "rpgs").is_err());
+    for bad in ["", "a/b", "..", ".hidden", &"x".repeat(65)] {
+        assert!(lib.create_collection(&paths, bad).is_err(), "{bad:?}");
+    }
+    assert!(
+        lib.set_in_collection(&paths, "Couch Co-op", 99_999, true)
+            .is_err()
+    );
+
+    // None at all: the view is an empty list, not an error.
+    let empty = collections_view(&[]);
+    assert!(games(&browse(&lib, &empty, &[])).is_empty());
 }

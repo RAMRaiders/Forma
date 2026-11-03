@@ -108,7 +108,8 @@
         "year": { "$ref": "#/$defs/range" },
         "players": { "$ref": "#/$defs/range" },
         "favorite": { "type": "boolean" },
-        "played": { "type": "boolean" }
+        "played": { "type": "boolean" },
+        "collection": { "type": "string" }
       }
     }
   }

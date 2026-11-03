@@ -99,6 +99,16 @@ export interface Browse {
   listing: Listing;
 }
 
+/**
+ * One of the user's collections: EmulationStation's custom collections, so they carry over.
+ * Browse them in the `collections` view: a branch per collection, its games by name.
+ */
+export interface Collection {
+  name: string;
+  /** Its games on the box now. */
+  games: number;
+}
+
 export interface DefaultView {
   id: string | null;
   /** Why a preferred view was passed over, if one was. */

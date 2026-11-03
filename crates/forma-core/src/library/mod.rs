@@ -4,6 +4,7 @@
 //! per source in `game_field`, and the winning value is materialised onto the `game` row, so a
 //! re-import from `gamelist.xml` can never overwrite what the user set in Forma.
 
+mod collections;
 mod computed;
 mod imports;
 mod refresh;
@@ -20,6 +21,7 @@ use crate::error::{Error, Result};
 use crate::field;
 use crate::systems::System;
 
+pub use collections::Collection;
 pub use computed::RaMatch;
 pub use refresh::RefreshReport;
 

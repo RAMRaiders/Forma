@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use super::{View, parse_view};
+use super::{Branch, Filter, GamesSpec, Node, NodeKind, View, parse_view};
 use crate::error::Warning;
 use crate::paths::Paths;
 
@@ -59,6 +59,11 @@ pub fn load_views(paths: &Paths) -> ViewCatalog {
         }
     }
 
+    catalog.views.push(ViewEntry {
+        view: collections_view(&collection_names(paths)),
+        origin: Origin::Bundled,
+    });
+
     let mut files: Vec<PathBuf> = std::fs::read_dir(paths.views_dir())
         .map(|entries| {
             entries
@@ -104,6 +109,84 @@ pub fn load_views(paths: &Paths) -> ViewCatalog {
         }
     }
     catalog
+}
+
+/// The collections' names, from their files (see `library/collections.rs`), as EmulationStation
+/// names them: `custom-<name>.cfg`.
+fn collection_names(paths: &Paths) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(paths.collections_dir())
+        .map(|entries| {
+            entries
+                .flatten()
+                .filter_map(|e| {
+                    let file = e.file_name().to_string_lossy().into_owned();
+                    let name = file.strip_prefix("custom-")?.strip_suffix(".cfg")?.trim();
+                    (!name.is_empty() && !name.starts_with('.')).then(|| name.to_owned())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort_by_key(|n| n.to_lowercase());
+    names
+}
+
+/// `collections`: a branch per collection, its games by name. Made from the collections there
+/// are, so it changes when they do; with none yet, it is an empty list of games.
+pub(crate) fn collections_view(names: &[String]) -> View {
+    let games = |collection: Option<String>| Node {
+        filter: Filter {
+            collection,
+            ..Filter::default()
+        },
+        kind: NodeKind::Games(GamesSpec::default()),
+    };
+    let mut branches: Vec<Branch> = Vec::new();
+    for name in names {
+        let base = slug(name);
+        let mut id = base.clone();
+        let mut n = 2;
+        while branches.iter().any(|b| b.id == id) {
+            id = format!("{base}-{n}");
+            n += 1;
+        }
+        branches.push(Branch {
+            id,
+            name: name.clone(),
+            child: games(Some(name.clone())),
+        });
+    }
+    View {
+        id: "collections".into(),
+        name: "Collections".into(),
+        description: Some("Your own lists of games.".into()),
+        root: if branches.is_empty() {
+            // Matches nothing: no collection has an empty name.
+            games(Some(String::new()))
+        } else {
+            Node {
+                filter: Filter::default(),
+                kind: NodeKind::Branches(branches),
+            }
+        },
+    }
+}
+
+/// A branch id from a name: lower-case letters and digits, dashes between.
+fn slug(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.chars().flat_map(char::to_lowercase) {
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+        } else if !out.ends_with('-') && !out.is_empty() {
+            out.push('-');
+        }
+    }
+    let out = out.trim_end_matches('-').to_owned();
+    if out.is_empty() {
+        "collection".into()
+    } else {
+        out
+    }
 }
 
 impl ViewCatalog {

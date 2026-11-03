@@ -38,6 +38,7 @@ import type {
   WifiJoined,
   WifiNetwork,
   BluetoothDevice,
+  Collection,
   BluetoothStatus,
   UpdateCheck,
   RaMatches
@@ -112,6 +113,7 @@ export class Forma {
   readonly system;
   readonly ra;
   readonly netplay;
+  readonly collections;
   readonly network;
   readonly bluetooth;
   readonly updates;
@@ -225,6 +227,24 @@ export class Forma {
         invoke<string>('ra_login', { username, password }),
       /** Forgets the account and turns achievements off. Needs `settings.batocera`. */
       logout: () => invoke<void>('ra_logout')
+    };
+
+    /**
+     * The user's own lists of games, as EmulationStation keeps them; browse them in the
+     * `collections` view. Like favourites, they need no permission. Names are any case.
+     */
+    this.collections = {
+      list: () => invoke<Collection[]>('collections_list'),
+      /** The collections a game is in. */
+      of: (gameId: number) => invoke<string[]>('collections_of', { gameId }),
+      /** Resolves with the name as kept (trimmed). */
+      create: (name: string) => invoke<string>('collections_create', { name }),
+      /** The collection goes; its games stay in the library. */
+      delete: (name: string) => invoke<void>('collections_delete', { name }),
+      add: (name: string, gameId: number) =>
+        invoke<void>('collections_set', { name, gameId, member: true }),
+      remove: (name: string, gameId: number) =>
+        invoke<void>('collections_set', { name, gameId, member: false })
     };
 
     this.netplay = {

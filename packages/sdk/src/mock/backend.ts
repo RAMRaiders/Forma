@@ -10,9 +10,10 @@ import type { Backend } from '../backend.js';
 import { type ErrorCode, FormaError } from '../errors.js';
 import type {
   BluetoothDevice,
+  Browse,
+  Collection,
   RaSession,
   RoomFilter,
-  Browse,
   BatoceraSetting,
   OptionItem,
   OptionsPage,
@@ -286,8 +287,103 @@ export function mockBackend(options: MockOptions = {}): Backend {
     return `theme.mock.${key}`;
   };
 
+  // The user's collections, by name: one to start with, as a box with EmulationStation's.
+  const collections = new Map<string, number[]>([
+    [
+      'Couch co-op',
+      [...games.values()]
+        .filter((g) => !g.hidden)
+        .slice(0, 2)
+        .map((g) => g.id)
+    ]
+  ]);
+  const collection = (name: unknown): string =>
+    [...collections.keys()].find((n) => n.toLowerCase() === String(name).trim().toLowerCase()) ??
+    fail('notFound', `no collection called ${String(name)}`);
+  const slug = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'collection';
+  const sortedCollections = () =>
+    [...collections.keys()].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  const collectionsChanged = (system?: string) => {
+    emit('views:changed', null);
+    if (system) emit('library:changed', { systems: [system] } satisfies LibraryChanged);
+  };
+  /** The `collections` view, from the collections there are now. */
+  const browseCollections = (path: string[]): Browse => {
+    const names = sortedCollections();
+    const inIt = (name: string) =>
+      (collections.get(name) ?? [])
+        .map((id) => games.get(id))
+        .filter((g): g is Game => g !== undefined && !g.hidden)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    if (path.length === 0) {
+      return {
+        view: 'collections',
+        path,
+        trail: [],
+        listing: names.length
+          ? {
+              kind: 'branches',
+              items: names.map((n) => ({ id: slug(n), name: n, gameCount: inIt(n).length }))
+            }
+          : { kind: 'games', items: [], total: 0 }
+      };
+    }
+    const name =
+      names.find((n) => slug(n) === path[0]) ??
+      fail('invalid', 'no such path in view `collections`');
+    const items = inIt(name);
+    return {
+      view: 'collections',
+      path,
+      trail: [{ key: path[0]!, label: name }],
+      listing: { kind: 'games', items, total: items.length }
+    };
+  };
+
   const commands: Record<string, (args: Record<string, unknown>) => unknown> = {
     sdk_api_version: () => snapshot.apiVersion,
+    collections_list: (): Collection[] =>
+      sortedCollections().map((name) => ({
+        name,
+        games: (collections.get(name) ?? []).filter((id) => games.has(id)).length
+      })),
+    collections_of: ({ gameId }) =>
+      sortedCollections().filter((n) => collections.get(n)?.includes(gameId as number)),
+    collections_create: ({ name }) => {
+      const trimmed = String(name).trim();
+      if (
+        !trimmed ||
+        trimmed.length > 64 ||
+        /[/\\:*?"<>|]/.test(trimmed) ||
+        trimmed.startsWith('.')
+      ) {
+        fail('invalid', `\`${trimmed}\` cannot be a collection's name`);
+      }
+      if ([...collections.keys()].some((n) => n.toLowerCase() === trimmed.toLowerCase())) {
+        fail('invalid', `there is already a collection called ${trimmed}`);
+      }
+      collections.set(trimmed, []);
+      collectionsChanged();
+      return trimmed;
+    },
+    collections_delete: ({ name }) => {
+      collections.delete(collection(name));
+      collectionsChanged();
+      return null;
+    },
+    collections_set: ({ name, gameId, member }) => {
+      const key = collection(name);
+      const game =
+        games.get(gameId as number) ?? fail('notFound', `no game with id ${String(gameId)}`);
+      const ids = (collections.get(key) ?? []).filter((id) => id !== game.id);
+      collections.set(key, member ? [...ids, game.id] : ids);
+      collectionsChanged(game.system);
+      return null;
+    },
     theme_ready: () => null,
     library_systems: () => snapshot.systems,
     library_game: ({ id }) => {
@@ -317,6 +413,13 @@ export function mockBackend(options: MockOptions = {}): Backend {
     nav_browse: ({ view, path, page }) => {
       if (!snapshot.views.some((v) => v.id === view))
         fail('notFound', `no view \`${String(view)}\``);
+      if (view === 'collections') {
+        return paginate(
+          browseCollections((path as string[] | undefined) ?? []),
+          page as { offset: number; limit: number } | undefined,
+          present
+        );
+      }
       const key = JSON.stringify([view, ...((path as string[] | undefined) ?? [])]);
       const found =
         snapshot.browse[key] ?? fail('invalid', `no such path in view \`${String(view)}\``);

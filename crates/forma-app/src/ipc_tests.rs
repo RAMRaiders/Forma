@@ -330,7 +330,11 @@ fn the_boot_view_can_be_chosen_from_the_ui() {
         "manufacturer-system"
     );
     let views = h.call("nav_views", json!({})).unwrap();
-    assert_eq!(views.as_array().unwrap().len(), 7);
+    assert_eq!(
+        views.as_array().unwrap().len(),
+        8,
+        "the bundled ones and collections"
+    );
 }
 
 #[test]
@@ -620,6 +624,53 @@ fn the_netplay_lobby_is_matched_to_local_games() {
     let owned = owned["data"].as_array().unwrap();
     assert_eq!(owned.len(), 1);
     assert_eq!(owned[0]["localGameId"], mario);
+}
+
+#[test]
+fn collections_are_made_filled_and_browsed_by_any_theme() {
+    let h = Harness::new(&[]);
+    let mario = h
+        .call("library_search", json!({ "query": "super mario" }))
+        .unwrap()[0]["id"]
+        .clone();
+    assert_eq!(h.call("collections_list", json!({})).unwrap(), json!([]));
+    assert_eq!(
+        h.call("collections_create", json!({ "name": "Couch co-op" }))
+            .unwrap(),
+        "Couch co-op"
+    );
+    h.call(
+        "collections_set",
+        json!({ "name": "couch CO-OP", "gameId": mario, "member": true }),
+    )
+    .unwrap();
+    assert_eq!(
+        h.call("collections_list", json!({})).unwrap(),
+        json!([{ "name": "Couch co-op", "games": 1 }])
+    );
+    assert_eq!(
+        h.call("collections_of", json!({ "gameId": mario }))
+            .unwrap(),
+        json!(["Couch co-op"])
+    );
+    let page = h
+        .call(
+            "nav_browse",
+            json!({ "view": "collections", "path": ["couch-co-op"] }),
+        )
+        .unwrap();
+    assert_eq!(page["listing"]["items"][0]["id"], mario);
+    let err = h
+        .call("collections_create", json!({ "name": "a/b" }))
+        .unwrap_err();
+    assert_eq!(err["code"], "invalid");
+    let err = h
+        .call("collections_delete", json!({ "name": "nope" }))
+        .unwrap_err();
+    assert_eq!(err["code"], "notFound");
+    h.call("collections_delete", json!({ "name": "Couch co-op" }))
+        .unwrap();
+    assert_eq!(h.call("collections_list", json!({})).unwrap(), json!([]));
 }
 
 #[test]

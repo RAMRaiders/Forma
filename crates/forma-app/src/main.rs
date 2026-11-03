@@ -4,6 +4,7 @@
 mod api;
 mod bluetooth;
 mod boot;
+mod collections;
 mod commands;
 mod music;
 mod options;
@@ -51,6 +52,11 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         ra_match::ra_matches,
         commands::netplay_lobby,
         commands::netplay_lan,
+        collections::collections_list,
+        collections::collections_of,
+        collections::collections_create,
+        collections::collections_delete,
+        collections::collections_set,
         commands::network_status,
         commands::network_wifi_scan,
         commands::network_wifi_join,

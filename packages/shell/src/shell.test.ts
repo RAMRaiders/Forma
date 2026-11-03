@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.12.0', false);
+  const forma = new Forma(backend, '1.13.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -220,6 +220,7 @@ describe('Forma’s shell', () => {
     expect(text('.switcher h2')).toEqual(['Forma 0.0.0']);
     expect(text('.switcher .note')).toEqual(['Neon 2.0.0']);
     expect(text('.switcher li .name')).toEqual([
+      'Collections…',
       'Views…',
       'Interface…',
       'Music…',
@@ -257,7 +258,7 @@ describe('Forma’s shell', () => {
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 11; i++) await press('down');
+    for (let i = 0; i < 12; i++) await press('down');
     expect(text('.switcher li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
@@ -283,6 +284,7 @@ describe('Forma’s shell', () => {
   it('switches theme, and sets the theme’s own settings, from Interface', async () => {
     const { press, text, settings, forma } = start(['settings.system']);
     await press('start');
+    await press('down');
     await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Interface']));
@@ -325,7 +327,7 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 6; i++) await press('down');
+    for (let i = 0; i < 7; i++) await press('down');
     expect(text('.switcher li.selected .name')).toEqual(['Network…']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');
@@ -482,6 +484,39 @@ describe('Forma’s settings pages', () => {
     await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Super Mario Bros. (World)'));
+  });
+
+  it('collections: puts the selected game in one, makes one with it, deletes on a second Y', async () => {
+    const { press, text, openMenu, forma } = start([], {
+      game: { id: 2, name: 'Super Mario Bros.' }
+    });
+    await openMenu('Collections…');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await vi.waitFor(() => expect(rows()[0]).toMatch(/^Couch co-op: /));
+    const was = rows()[0]!;
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()[0]).not.toBe(was));
+    const inIt = rows()[0] === 'Couch co-op: In';
+    expect((await forma.collections.of(2)).includes('Couch co-op')).toBe(inIt);
+
+    // New collection…: typed on the keyboard, with the game in it.
+    await press('down');
+    expect(text('.page li.selected .name')).toEqual(['New collection…']);
+    await press('confirm');
+    expect(text('.keyboard h2')).toEqual(['Name of the collection']);
+    for (const key of 'Zz') window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+    await press('start');
+    await vi.waitFor(() => expect(rows()).toContain('Zz: In'));
+    expect(text('.toast')[0]).toBe('Added Super Mario Bros. to Zz');
+
+    // Y once warns, Y again deletes.
+    while (text('.page li.selected .name')[0] !== 'Zz: In') await press('up');
+    await press('north');
+    expect(text('.toast')[0]).toBe('Press Y again to delete Zz');
+    expect(rows()).toContain('Zz: In');
+    await press('north');
+    await vi.waitFor(() => expect(rows()).not.toContain('Zz: In'));
+    expect((await forma.collections.list()).map((c) => c.name)).toEqual(['Couch co-op']);
   });
 
   it('game settings: global options, a choice cycled, a page of its own and back', async () => {

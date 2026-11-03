@@ -25,6 +25,7 @@ import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
 import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
 import { UnlocksView } from './ui/unlocks.js';
+import { collectionsScreen } from './ui/collections.js';
 import { controllersScreen } from './ui/controllers.js';
 import { Switcher } from './ui/switcher.js';
 
@@ -288,6 +289,11 @@ export class Shell {
             }
           ]
         : []),
+      {
+        id: 'collections',
+        label: 'Collections…',
+        description: game ? `Put ${game.name} in your own lists` : 'Your own lists of games'
+      },
       ...(info?.theme.views && info.theme.views.length <= 1
         ? []
         : [{ id: 'views', label: 'Views…', description: 'Organise the library another way' }]),
@@ -461,6 +467,11 @@ export class Shell {
         return show('RetroAchievements', retroAchievementsScreen(this.forma, page));
       case 'netplay':
         return show('Netplay', netplayScreen(this.forma, page, context.game ?? null));
+      case 'collections':
+        return show(
+          'Collections',
+          collectionsScreen(this.forma, page, (m) => this.notify(m), context.game ?? null)
+        );
       default:
     }
     // Power actions need a second press soon after: a stray A must not shut down.

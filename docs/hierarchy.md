@@ -107,6 +107,11 @@ Every condition in a filter must hold. Filters on nested nodes add up.
 | `year`, `players`                                                                 | A range: `{ "min": 1985, "max": 1995 }`, either end open |
 | `favorite`                                                                        | `true` or `false`                                        |
 | `played`                                                                          | `true`: played at least once. `false`: never played      |
+| `collection`                                                                      | In the user's collection of this name; case-insensitive  |
+
+Forma also makes a `collections` view from the user's collections: a branch per collection
+(its id is the name in lower case, dashes between words), its games by name. With no
+collection yet, it is an empty list of games.
 
 Hidden games and games whose file is missing never appear in any view.
 

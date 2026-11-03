@@ -83,6 +83,7 @@ impl Library {
         let tx = self.conn.transaction()?;
         super::imports::apply(&tx, paths, added, &mut report)?;
         tx.commit()?;
+        self.load_collections(paths)?;
         Ok(report)
     }
 }

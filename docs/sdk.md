@@ -319,6 +319,27 @@ hosts behind a relay do not answer it.
 Forma's shell offers all of this on its Netplay page: hosting the selected game, rooms online
 (those for your games by default) and rooms on this network.
 
+## `collections`
+
+The user's own lists of games, kept as EmulationStation keeps its custom collections
+(`configs/emulationstation/collections/custom-<name>.cfg`, a game's full path per line). So
+collections made in EmulationStation carry over, and Forma's show there too. Like favourites,
+they need no permission. Names are matched in any case.
+
+| Method                 | Returns                                                  |
+| ---------------------- | -------------------------------------------------------- |
+| `list()`               | `{ name, games }[]`, by name; `games` counts those here  |
+| `of(gameId)`           | The names of the collections a game is in                |
+| `create(name)`         | The name as kept (trimmed); `invalid` if taken or unsafe |
+| `delete(name)`         | Deletes the collection; its games stay in the library    |
+| `add(name, gameId)`    | Puts a game in a collection                              |
+| `remove(name, gameId)` | Takes it out                                             |
+
+Browse them in the `collections` view: `nav.browse('collections', [])` lists one branch per
+collection, `nav.browse('collections', [id])` its games. Every change sends `views:changed`.
+Forma's shell has a Collections page in its Start menu: with a game selected, it puts that game
+in or out of each collection.
+
 ## `network`
 
 The box's own Wi-Fi and Ethernet. Every method needs the `system.network` permission and
