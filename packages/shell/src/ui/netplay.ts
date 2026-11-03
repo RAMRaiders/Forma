@@ -1,4 +1,5 @@
 import type { Forma, NetplayRoom, RoomFilter } from '@ramraiders/forma-sdk';
+import { FormaError } from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
 
@@ -56,7 +57,6 @@ function lobbyPage(forma: Forma, page: Page): () => Promise<Row[]> {
   let everything = false;
   return async () => {
     const filter: RoomFilter = everything ? {} : { owned: true, maxPingMs: MAX_PING_MS };
-    const { data, stale } = await forma.netplay.lobby(filter);
     const toggle: Row = {
       label: everything ? 'Showing: every room' : 'Showing: rooms for your games',
       detail: everything
@@ -67,6 +67,21 @@ function lobbyPage(forma: Forma, page: Page): () => Promise<Row[]> {
         return page.refresh();
       }
     };
+    let fetched;
+    try {
+      fetched = await forma.netplay.lobby(filter);
+    } catch (error) {
+      // The lobby is down or the box offline, with nothing saved: say so, and try again on A.
+      return [
+        toggle,
+        {
+          label: 'The lobby does not answer',
+          detail: `${FormaError.from(error).message}. A: try again`,
+          run: () => page.run('Asking…', async () => {})
+        }
+      ];
+    }
+    const { data, stale } = fetched;
     return [
       toggle,
       ...(stale ? [{ label: 'Offline: rooms from a moment ago' }] : []),

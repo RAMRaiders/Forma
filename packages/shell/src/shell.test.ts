@@ -464,6 +464,26 @@ describe('Forma’s settings pages', () => {
     await vi.waitFor(() => expect(shell.open).toBe(false));
   });
 
+  it('netplay: with the lobby down, rooms online says so and tries again', async () => {
+    const { press, text, openMenu, forma, backend } = start(['settings.batocera']);
+    await forma.batocera.set('global.netplay', '1');
+    const invoke = backend.invoke.bind(backend);
+    let down = true;
+    backend.invoke = <T>(cmd: string, args?: Record<string, unknown>): Promise<T> =>
+      cmd === 'netplay_lobby' && down
+        ? Promise.reject(new Error('lobby.libretro.com unreachable'))
+        : invoke<T>(cmd, args);
+    await openMenu('Netplay…');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await vi.waitFor(() => expect(rows()[0]).toBe('Rooms online…'));
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('The lobby does not answer'));
+    down = false;
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Super Mario Bros. (World)'));
+  });
+
   it('game settings: global options, a choice cycled, a page of its own and back', async () => {
     const { press, text, openMenu } = start(['settings.emulators']);
     await openMenu('Game settings…');
