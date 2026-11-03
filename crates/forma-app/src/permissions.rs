@@ -87,6 +87,7 @@ mod tests {
                 resolutions: vec![],
                 remote: vec![],
                 settings: vec![],
+                views: None,
                 schema: None,
             }),
             unavailable: None,

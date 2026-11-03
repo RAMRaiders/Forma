@@ -241,6 +241,8 @@ pub struct ShellTheme {
     pub version: String,
     /// What the theme lets the user set from Forma's menu, with the values now.
     pub settings: Vec<ThemeSettingValue>,
+    /// The only views the theme shows, if it says (`views` in its theme.json).
+    pub views: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -291,6 +293,7 @@ pub fn shell_info(state: State<'_, AppState>, caller: Caller) -> ApiResult<Shell
             name: manifest.name,
             version: manifest.version,
             settings,
+            views: manifest.views,
         },
         forma_version: env!("CARGO_PKG_VERSION"),
     })

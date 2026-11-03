@@ -74,6 +74,9 @@ pub struct ThemeManifest {
     /// What the user can set from Forma's menu (Start → Interface), for the theme to follow.
     #[serde(default)]
     pub settings: Vec<ThemeSetting>,
+    /// The only views (by id) the theme shows the library in: Forma's views list and its
+    /// "Start on" setting keep to them. Absent, every view.
+    pub views: Option<Vec<String>>,
     #[serde(rename = "$schema", default, skip_serializing)]
     pub schema: Option<String>,
 }
@@ -92,6 +95,7 @@ impl ThemeManifest {
             resolutions: Vec::new(),
             remote: Vec::new(),
             settings: Vec::new(),
+            views: None,
             schema: None,
         }
     }

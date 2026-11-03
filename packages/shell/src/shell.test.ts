@@ -16,7 +16,11 @@ beforeEach(() => {
   document.body.innerHTML = '';
 });
 
-function start(permissions: string[] = [], context: ShellContext = {}) {
+function start(
+  permissions: string[] = [],
+  context: ShellContext = {},
+  views: string[] | null = null
+) {
   const backend = mockBackend({ playMs: 50, permissions });
   const forma = new Forma(backend, '1.4.0', false);
   const open: boolean[] = [];
@@ -40,7 +44,8 @@ function start(permissions: string[] = [], context: ShellContext = {}) {
         value: 'on'
       },
       { key: 'motion', label: 'Animations', type: 'toggle', default: true, value: true }
-    ]
+    ],
+    views
   };
   const shell = new Shell(forma, {
     info: () => Promise.resolve({ context, theme, formaVersion: '0.0.0' }),
@@ -83,6 +88,19 @@ function start(permissions: string[] = [], context: ShellContext = {}) {
 }
 
 describe('Forma’s shell', () => {
+  it('keeps to the views a theme says it shows: one, and there is nothing to pick', async () => {
+    const { press, text, shell, openMenu } = start([], {}, ['systems']);
+    await press('start');
+    expect(text('.switcher li .name')).not.toContain('Views…');
+    await press('back');
+    await press('select');
+    expect(text('.toast')).toEqual(['Neon shows the library one way']);
+    expect(shell.open).toBe(false);
+    await openMenu('Interface…');
+    await vi.waitFor(() => expect(text('.page li .name').length).toBeGreaterThan(0));
+    expect(text('.page li .name').some((n) => n.startsWith('Start on'))).toBe(false);
+  });
+
   it('opens its menu on Start, over any theme, and tells Forma input is its own', async () => {
     const { press, text, open, shell } = start();
     await press('confirm');

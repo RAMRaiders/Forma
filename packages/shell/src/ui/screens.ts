@@ -299,8 +299,8 @@ export interface ThemeSettingValue {
 }
 
 export interface InterfaceHooks {
-  /** The theme's declared settings, with their values now. */
-  themeSettings: () => Promise<ThemeSettingValue[]>;
+  /** The theme's declared settings, with their values now, and the only views it shows. */
+  theme: () => Promise<{ settings: ThemeSettingValue[]; views: string[] | null }>;
   setThemeSetting: (key: string, value: unknown) => Promise<void>;
 }
 
@@ -320,13 +320,15 @@ export function interfaceScreen(
     values[(values.indexOf(now) + step + values.length) % values.length]!;
 
   return async () => {
-    const [themes, views, home, margins, settings] = await Promise.all([
+    const [themes, allViews, home, margins, theme] = await Promise.all([
       forma.themes.list(),
       forma.nav.views(),
       forma.nav.defaultView(),
       forma.settings.getSystem<number>(MARGINS_SETTING).catch(() => null),
-      hooks.themeSettings()
+      hooks.theme()
     ]);
+    const { settings } = theme;
+    const views = theme.views ? allViews.filter((v) => theme.views!.includes(v.id)) : allViews;
     const rows: Row[] = themes.map((t, i) => ({
       heading: i === 0 ? 'Theme' : undefined,
       label: `${t.name ?? t.id}${t.version ? ` ${t.version}` : ''}`,
@@ -347,12 +349,15 @@ export function interfaceScreen(
     const startOn = home.id ?? 'systems';
     const pickView = (step: -1 | 1) =>
       page.run('Saving…', () => forma.nav.setDefaultView(cycle(viewIds, startOn, step)));
-    rows.push({
-      label: `Start on: ${views.find((v) => v.id === startOn)?.name ?? startOn}`,
-      detail: 'The view Forma opens on',
-      adjust: pickView,
-      run: () => pickView(1)
-    });
+    // A theme that shows the library one way has nothing to start on but that.
+    if (views.length > 1) {
+      rows.push({
+        label: `Start on: ${views.find((v) => v.id === startOn)?.name ?? startOn}`,
+        detail: 'The view Forma opens on',
+        adjust: pickView,
+        run: () => pickView(1)
+      });
+    }
 
     const now = typeof margins === 'number' ? Math.min(10, Math.max(0, Math.round(margins))) : 0;
     const nudge = (step: -1 | 1) =>

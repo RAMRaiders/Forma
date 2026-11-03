@@ -20,7 +20,14 @@ import { Switcher } from './ui/switcher.js';
 /** What `shell_info` answers: the theme's context and its settings. */
 export interface ShellInfo {
   context: ShellContext | null;
-  theme: { id: string; name: string; version: string; settings: ThemeSettingValue[] };
+  theme: {
+    id: string;
+    name: string;
+    version: string;
+    settings: ThemeSettingValue[];
+    /** The only views the theme shows, if it says; else every view. */
+    views?: string[] | null;
+  };
   formaVersion: string;
 }
 
@@ -162,7 +169,9 @@ export class Shell {
             }
           ]
         : []),
-      { id: 'views', label: 'Views…', description: 'Organise the library another way' },
+      ...(info?.theme.views && info.theme.views.length <= 1
+        ? []
+        : [{ id: 'views', label: 'Views…', description: 'Organise the library another way' }]),
       {
         id: 'interface',
         label: 'Interface…',
@@ -216,9 +225,14 @@ export class Shell {
         this.forma.nav.defaultView(),
         this.#loadInfo()
       ]);
-      this.#views = views;
+      const offered = themeViews(views, info);
+      if (offered.length <= 1) {
+        // The theme shows the library one way only: nothing to pick.
+        return this.notify(`${info?.theme.name ?? 'This theme'} shows the library one way`);
+      }
+      this.#views = offered;
       this.#home = home.id;
-      this.#switcher.show(views, info?.context?.view ?? null, home.id);
+      this.#switcher.show(offered, info?.context?.view ?? null, home.id);
       this.#changed();
     } catch (error) {
       this.notify(FormaError.from(error).message);
@@ -302,7 +316,10 @@ export class Shell {
         return show(
           'Interface',
           interfaceScreen(this.forma, page, {
-            themeSettings: async () => (await this.#loadInfo())?.theme.settings ?? [],
+            theme: async () => {
+              const info = await this.#loadInfo();
+              return { settings: info?.theme.settings ?? [], views: info?.theme.views ?? null };
+            },
             setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value)
           })
         );
@@ -361,4 +378,10 @@ export class Shell {
       ...hints.map(([button, label]) => el('span', { class: 'hint' }, el('kbd', {}, button), label))
     );
   }
+}
+
+/** The views the theme shows: those it lists in its theme.json, else all of them. */
+export function themeViews<V extends { id: string }>(views: V[], info: ShellInfo | null): V[] {
+  const only = info?.theme.views;
+  return only ? views.filter((v) => only.includes(v.id)) : views;
 }

@@ -36,6 +36,7 @@ so you can build without a device.
 | `permissions` | Privileged capabilities the theme uses, e.g. `system.power`.            |
 | `resolutions` | Resolutions the theme was designed for. Informational.                  |
 | `settings`    | The theme's own settings, shown in Forma's menu (see below).            |
+| `views`       | The only views the theme shows, by id, e.g. `["systems"]`. Absent, all. |
 
 ## Forma's menus, over every theme
 
@@ -82,6 +83,9 @@ A theme works with the menus in three ways:
 `type` is `toggle` (`true`/`false`) or `choice` (one of `choices`, by `value`). A setting whose
 `default` it cannot take, an empty `choices` or a key listed twice keeps the theme from loading,
 with the reason in Forma's theme list.
+
+A theme that shows the library only some ways lists them in `views`. Forma's views list (Select)
+and its "Start on" setting then keep to them; with one view, Forma offers no choice at all.
 
 ## Where themes live, and installing your own
 
