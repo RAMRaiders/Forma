@@ -529,6 +529,8 @@ fn recommended_is_unplayed_games_like_the_ones_played() {
         items.iter().all(|g| !played.contains(&g.id)),
         "played games are not recommended"
     );
+    // Asked again with nothing changed: the kept answer, the same page.
+    assert_eq!(browse(&lib, &view, &[]), page);
     let left: i64 = lib
         .conn
         .query_row(
