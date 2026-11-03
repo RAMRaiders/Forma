@@ -96,24 +96,32 @@
   right: calc(4vh + var(--margin, 0vh));
   bottom: calc(4vh + var(--margin, 0vh));
   display: grid;
-  gap: 1.2vh;
+  grid-template-columns: 3vh auto auto;
+  align-items: center;
+  gap: 1.2vh 1.4vh;
   margin: 0;
   padding: 0;
   list-style: none;
   font-size: 2vh;
 }
 
+/* One row per line, its three parts in the list's shared columns, so the versions align. */
 .cover .versions li {
-  display: grid;
-  grid-template-columns: 3vh auto auto;
-  align-items: center;
-  gap: 1.2vh;
+  display: contents;
 }
 
 .cover .versions img {
   width: 3vh;
   height: 3vh;
   object-fit: contain;
+}
+
+/* Batocera's joystick emblem, cut from its boot image (its SVG logo is a full splash). */
+.cover .versions .batocera {
+  width: 3vh;
+  height: 3vh;
+  border-radius: 0.6vh;
+  background: url('forma://localhost/system/boot-logo.png') 50% 37.5% / 266.67% auto no-repeat;
 }
 
 .cover .versions .dot {

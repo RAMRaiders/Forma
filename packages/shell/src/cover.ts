@@ -47,9 +47,9 @@ export class Cover {
     const versions = el(
       'ul',
       { class: 'versions' },
-      info.batocera ? line(`${SYSTEM}batocera-logo.svg`, 'Batocera', info.batocera) : null,
-      line(`${SYSTEM}forma-logo.svg`, 'Forma', info.forma),
-      info.theme ? line(null, 'Theme', info.theme) : null
+      info.batocera ? line(el('span', { class: 'batocera' }), 'Batocera', info.batocera) : null,
+      line(el('img', { src: `${SYSTEM}forma-logo.svg`, alt: '' }), 'Forma', info.forma),
+      info.theme ? line(el('span', { class: 'dot' }), 'Theme', info.theme) : null
     );
     const forma = el(
       'div',
@@ -95,11 +95,11 @@ export class Cover {
   }
 }
 
-function line(logo: string | null, name: string, version: string): HTMLElement {
+function line(logo: HTMLElement, name: string, version: string): HTMLElement {
   return el(
     'li',
     {},
-    logo ? el('img', { src: logo, alt: '' }) : el('span', { class: 'dot' }),
+    logo,
     el('span', { class: 'name' }, name),
     el('span', { class: 'version' }, version)
   );
