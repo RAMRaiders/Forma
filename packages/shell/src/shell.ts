@@ -64,6 +64,8 @@ export class Shell {
    */
   readonly #song = el('div', { class: 'song', part: 'now-playing', role: 'status', hidden: '' });
   #songTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The menu entry the open page, network screen or views list came from: B goes back to it. */
+  #returnTo: number | null = null;
   #info: ShellInfo | null = null;
   #views: ViewInfo[] = [];
   #home: string | null = null;
@@ -125,21 +127,26 @@ export class Shell {
     if (this.playing) return;
     if (!this.open) {
       if (!e.pressed || e.repeat) return;
+      // Opened afresh: nothing to go back to.
+      this.#returnTo = null;
       if (e.action === 'start') void this.#openMenu();
       else if (e.action === 'select') void this.#openViews();
       return;
     }
     // Start shuts whatever is open, from anywhere, unless the keyboard is typing.
     if (e.pressed && !e.repeat && e.action === 'start' && !this.#typing()) {
+      this.#returnTo = null;
       this.#closeAll();
       return;
     }
     if (this.#page.open) {
       this.#page.input(e);
+      if (!this.#page.open) return this.#backToMenu(e);
       return this.#changed();
     }
     if (this.#network.open) {
       this.#network.input(e);
+      if (!this.#network.open) return this.#backToMenu(e);
       return this.#changed();
     }
     if (!e.pressed) return;
@@ -175,7 +182,18 @@ export class Shell {
     return this.#info;
   }
 
-  async #openMenu(): Promise<void> {
+  /**
+   * A page opened from the menu just closed: B (back) brings the menu back, on the entry it was
+   * opened from, rather than shutting everything.
+   */
+  #backToMenu(e: InputEvent): void {
+    const at = this.#returnTo;
+    this.#returnTo = null;
+    if (e.action === 'back' && at !== null) return void this.#openMenu(at);
+    this.#changed();
+  }
+
+  async #openMenu(at = 0): Promise<void> {
     this.#confirming = null;
     const info = await this.#loadInfo();
     const context = info?.context ?? {};
@@ -245,6 +263,7 @@ export class Shell {
       items,
       info ? `${info.theme.name} ${info.theme.version}`.trim() : undefined
     );
+    this.#menu.select(Math.min(at, items.length - 1));
     this.#changed();
   }
 
@@ -291,6 +310,10 @@ export class Shell {
       });
     } else if (e.action === 'back' || e.action === 'select') {
       s.close();
+      // Opened from the menu: B goes back to it; Select, like Start, just shuts.
+      const at = this.#returnTo;
+      this.#returnTo = null;
+      if (e.action === 'back' && at !== null) return void this.#openMenu(at);
       this.#changed();
     }
   }
@@ -308,6 +331,7 @@ export class Shell {
     }
     if (e.action !== 'confirm' || !m.item) return;
     const id = m.item.id;
+    this.#returnTo = m.selected;
     const context = this.#info?.context ?? {};
     const page = this.#page;
     const show = (title: string, build: Parameters<Page['show']>[1]) => {

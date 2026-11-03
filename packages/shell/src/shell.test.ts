@@ -90,6 +90,33 @@ function start(
 }
 
 describe('Forma’s shell', () => {
+  it('goes back to its menu on B from a page, on the entry it came from', async () => {
+    const { press, text, shell, openMenu } = start(['settings.system']);
+    await openMenu('Music…');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Music']));
+    await press('back');
+    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Music…']));
+    expect(shell.open).toBe(true);
+    // B in the menu itself closes it.
+    await press('back');
+    expect(shell.open).toBe(false);
+  });
+
+  it('goes back to its menu on B from the network screen and the views list', async () => {
+    const { press, text, shell, openMenu } = start(['system.network']);
+    await openMenu('Network…');
+    await press('back');
+    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Network…']));
+    await press('back');
+    await openMenu('Views…');
+    await vi.waitFor(() => expect(shell.open).toBe(true));
+    await press('back');
+    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Views…']));
+    // Start shuts everything, wherever it is.
+    await press('start');
+    expect(shell.open).toBe(false);
+  });
+
   it('shows each new song for the time Forma’s setting says, then hides it', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
@@ -399,6 +426,8 @@ describe('Forma’s settings pages', () => {
     await press('right');
     await vi.waitFor(() => expect(text('.page li.selected .description')).toEqual(['nestopia']));
     expect(rows()).not.toContain('Palette');
+    // B back to the menu, B again to close it.
+    await press('back');
     await press('back');
 
     // A game of the NES selected in the theme: its core is the system's.
