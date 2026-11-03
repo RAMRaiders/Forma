@@ -28,6 +28,26 @@ batocera-services start forma                          # take over now, or reboo
 - `./uninstall.sh` disables the service and removes the program; `--purge` removes Forma's data
   too. Gamelists are never written; network settings are, as below.
 
+### What the AppImage carries
+
+Batocera has no WebKitGTK, so Forma brings the runtime Tauri needs: the AppImage bundles
+WebKitGTK 4.1 and JavaScriptCore with the GTK libraries they need, and GStreamer with its base
+and good plugins for video previews and the start-up animation. The libraries come from the
+build machine's Ubuntu 22.04 packages (`ubuntu-22.04-arm` for the Pi).
+
+| Measured on the Pi 5 (aarch64)       | Size   |
+| ------------------------------------ | ------ |
+| The AppImage                         | 130 MB |
+| Unpacked in `/userdata/system/forma` | 382 MB |
+| WebKitGTK and JavaScriptCore         | 115 MB |
+| GStreamer plugins                    | 19 MB  |
+
+**Licences.** WebKitGTK and JavaScriptCore are LGPL-2+ and BSD-2-Clause, with parts under
+Apache-2.0 and AFL-2.0; GStreamer and its plugins are LGPL-2+ and LGPL-2.1+. They are
+dynamically linked, unmodified, and each package's Debian `copyright` file ships in the
+AppImage's `usr/share/doc`, so the LGPL's terms (the user can replace the libraries) are met by
+the AppImage's layout itself.
+
 ## What Forma reads
 
 | Batocera file                                                | Used for                               |
