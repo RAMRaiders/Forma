@@ -58,6 +58,8 @@ pub struct ShellState {
     page_ready: AtomicBool,
     /// Batocera's boot image has been shown: only on the first page since Forma started.
     pub boot_done: AtomicBool,
+    /// The entry cover has gone over a started theme: the UI is up, and music may start.
+    pub ui_started: AtomicBool,
 }
 
 impl ShellState {
@@ -192,6 +194,15 @@ pub fn shell_claim(state: State<'_, AppState>) -> ApiResult<String> {
 pub fn shell_set_open(state: State<'_, AppState>, caller: Caller, open: bool) -> ApiResult<()> {
     caller.shell_only()?;
     state.shell.open.store(open, Ordering::SeqCst);
+    Ok(())
+}
+
+/// The shell's entry cover has gone, over a theme that reported ready: Forma is up. Background
+/// music waits for this (see `music::start`).
+#[tauri::command]
+pub fn shell_started(state: State<'_, AppState>, caller: Caller) -> ApiResult<()> {
+    caller.shell_only()?;
+    state.shell.ui_started.store(true, Ordering::SeqCst);
     Ok(())
 }
 

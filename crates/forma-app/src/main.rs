@@ -77,6 +77,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         music::music_remove_radio,
         shell::shell_claim,
         shell::shell_set_open,
+        shell::shell_started,
         shell::shell_set_context,
         shell::shell_info,
         shell::shell_set_theme_setting,

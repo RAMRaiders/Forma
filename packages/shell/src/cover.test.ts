@@ -39,8 +39,20 @@ describe('Forma’s cover', () => {
     expect(text).toEqual(['Batocera43.1 2026/05/29', 'Forma0.1.0', 'ThemeCyber 0.2.0']);
     expect(cover.root.querySelector('.boot')).toBeNull();
     expect(cover.root.querySelector('[role=progressbar]')).not.toBeNull();
+    const started = vi.fn();
+    cover.onStarted = started;
     cover.ready();
     expect(cover.root.isConnected).toBe(false);
+    expect(started).toHaveBeenCalledOnce();
+  });
+
+  it('does not report the UI started when it goes over a theme that never started', () => {
+    const cover = new Cover(info);
+    const started = vi.fn();
+    cover.onStarted = started;
+    cover.hide();
+    cover.ready();
+    expect(started).not.toHaveBeenCalled();
   });
 
   it('shows Batocera’s boot image first, and stays until it has had its time', () => {

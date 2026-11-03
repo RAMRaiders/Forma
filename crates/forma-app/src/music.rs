@@ -2,7 +2,8 @@
 //! its own: start the last playlist at boot when Batocera's background music is on, and tell
 //! themes when what plays changes, mpv moving on to the next track included.
 
-use std::time::Duration;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
 
 use forma_core::music::{Radio, Source, Status};
 use serde::Deserialize;
@@ -145,11 +146,19 @@ pub async fn music_remove_radio<R: Runtime>(
     .await
 }
 
+/// The longest music waits at boot for the UI to be up, should the shell never say so.
+const UI_WAIT: Duration = Duration::from_secs(60);
+
 /// At boot: with Batocera's background music on, the last source (else the first there is)
-/// starts, then a watcher tells themes whenever what plays changes.
+/// starts once the UI is up (the entry screen gone, over a started theme), then a watcher tells
+/// themes whenever what plays changes.
 pub fn start<R: Runtime>(app: AppHandle<R>) {
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
+        let since = Instant::now();
+        while !state.shell.ui_started.load(Ordering::SeqCst) && since.elapsed() < UI_WAIT {
+            std::thread::sleep(Duration::from_millis(100));
+        }
         let conf = forma_core::net::batocera_conf(&state.paths.batocera_conf());
         if conf.get("audio.bgmusic").is_some_and(|v| v == "1") && state.on_batocera {
             let (saved, shuffle) = {

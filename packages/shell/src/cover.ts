@@ -42,6 +42,8 @@ export class Cover {
   #ready = false;
   #booting: boolean;
   #gone = false;
+  /** Called once the cover has gone over a ready theme: Forma's UI is up. */
+  onStarted: () => void = () => {};
 
   constructor(info: CoverInfo) {
     const versions = el(
@@ -92,6 +94,7 @@ export class Cover {
     if (this.#gone) return;
     this.#gone = true;
     this.root.remove();
+    if (this.#ready) this.onStarted();
   }
 }
 

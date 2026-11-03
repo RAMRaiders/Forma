@@ -51,6 +51,8 @@ function start(): void {
   claim
     .then(async (token) => {
       const backend = shellBackend(invoke, token);
+      // Forma holds the background music until its UI is up.
+      cover.onStarted = () => void backend.invoke('shell_started').catch(() => {});
       const forma = new Forma(backend, await backend.invoke<string>('sdk_api_version'), false);
       const call = <T>(command: string, args?: Record<string, unknown>) =>
         backend.invoke<T>(command, args).catch((error: unknown) => {
