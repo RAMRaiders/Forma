@@ -79,7 +79,7 @@ fn draw(svg: &str, out: &Path, width: u32, height: u32) -> Result<(), String> {
     std::fs::write(&source, svg).map_err(|e| e.to_string())?;
     // Drawn aside, then moved in: Batocera never finds half a picture at boot.
     let partial = out.with_extension("png.part");
-    let status = Command::new("rsvg-convert")
+    let status = system_command("rsvg-convert")
         .args([
             "-w",
             &width.to_string(),
@@ -105,7 +105,7 @@ fn replace_boot_logo(picture: &Path) -> Result<(), String> {
     if !Path::new(BOOT_PICTURE_TOOL).is_file() {
         return Ok(());
     }
-    let status = Command::new(BOOT_PICTURE_TOOL)
+    let status = system_command(BOOT_PICTURE_TOOL)
         .arg(picture)
         .status()
         .map_err(|e| format!("forma-boot-picture: {e}"))?;
@@ -114,6 +114,17 @@ fn replace_boot_logo(picture: &Path) -> Result<(), String> {
     } else {
         Err(format!("forma-boot-picture: {status}"))
     }
+}
+
+/// A command of Batocera's own, without Forma's environment: Forma's bundled libraries
+/// (`LD_LIBRARY_PATH` from its AppImage) break Batocera's programs, `mount` among them.
+fn system_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    command
+        .env_clear()
+        .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+        .env("HOME", "/userdata/system");
+    command
 }
 
 /// The screen's size, as Batocera's own boot image script reads it; 1920×1080 if unknown.
