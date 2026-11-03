@@ -31,7 +31,7 @@ fixtures/userdata/themes-forma/
 
 .DS_Store
 
-# The pinned themes, unpacked (scripts/unpack-themes.sh).
+# The pinned themes, downloaded and unpacked (scripts/fetch-themes.sh).
 /build/
 
 # Spike AppImages (scripts/spike/build-appimage.sh).

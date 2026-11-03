@@ -202,10 +202,13 @@ version of a theme that was standing in for one, else Cyber, else the plain Defa
 
 ## Developing
 
-To ship a new Cyber with Forma, commit it in its repository and pin it here:
-`scripts/pin-cyber.sh ../forma-theme-cyber` packs its build reproducibly into
-`themes/cyber/` and records the version, commit and checksum in `lock.json`. The build
-(`scripts/unpack-themes.sh`) refuses an archive whose checksum differs.
+Cyber is not kept in this repository. The build (`scripts/fetch-themes.sh`, run by
+`npm run dev` and the AppImage workflow) downloads the release of RAMRaiders/forma-theme-cyber
+pinned in `themes/cyber/lock.json`, refuses an archive whose checksum differs and unpacks it
+into `build/themes/cyber`. To ship a new Cyber with Forma, release it from its repository
+(`scripts/release.sh` there), then pin it here: `scripts/pin-cyber.sh <version>` records the
+version, commit and checksum in `lock.json`. Fetching needs `gh` signed in to an account that
+can read the Cyber repository; CI uses the `CYBER_TOKEN` secret.
 
 `npm run dev` builds the default theme, starts Forma against the fixture library with the
 mock launcher, and rebuilds on every change. In development the window reloads by itself when

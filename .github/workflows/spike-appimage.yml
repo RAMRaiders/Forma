@@ -53,8 +53,18 @@ jobs:
 
       - run: npm ci
 
-      # Cyber at the version in themes/cyber/lock.json, refused if its checksum differs.
-      - run: scripts/unpack-themes.sh
+      # Cyber, downloaded from its repository's release at the version in themes/cyber/lock.json
+      # and refused if its checksum differs. That repository is private, so this needs the
+      # CYBER_TOKEN secret: a fine-grained token with Contents: read on forma-theme-cyber.
+      - name: Fetch the pinned themes
+        env:
+          GH_TOKEN: ${{ secrets.CYBER_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Set the CYBER_TOKEN secret (Contents: read on RAMRaiders/forma-theme-cyber)"
+            exit 1
+          fi
+          scripts/fetch-themes.sh
 
       - name: Build the AppImage, with Cyber, the default theme and the shell as resources
         run: >-
