@@ -88,6 +88,7 @@ mod tests {
                 remote: vec![],
                 settings: vec![],
                 views: None,
+                draws: vec![],
                 schema: None,
             }),
             unavailable: None,

@@ -150,7 +150,14 @@ forma.events.on("game:end", ({ seconds, error }) => (error ? showError(error) : 
 forma.events.on("store:progress", ({ name, stage, percent }) => showProgress(name, stage, percent));
 forma.events.on("nav:open", ({ view }) => open(view)); // picked in Forma's views list
 forma.events.on("settings:changed", ({ scope, key, value }) => apply(scope, key, value));
+forma.events.on("music:song", ({ title, artist, seconds }) => showSong(title, artist, seconds));
 ```
+
+`music:song` comes when a new song starts (not on a resume): its title without the file's
+extension, its artist (from its tags, else from an `Artist - Title` file name), and how long to
+show it, Forma's setting (Start → Music → Show each new song, 8 seconds unless changed; at 0 the
+event never comes). Forma's shell shows it; a theme that wants its own look either restyles the
+shell's (below) or draws it itself, declaring `"draws": ["nowPlaying"]` in `theme.json`.
 
 `settings:changed` follows a change made in Forma's menu: one of the theme's own settings
 (`scope: "theme"`, declared in `theme.json`) or one of Forma's (`scope: "system"`, e.g.

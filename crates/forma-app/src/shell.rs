@@ -243,6 +243,8 @@ pub struct ShellTheme {
     pub settings: Vec<ThemeSettingValue>,
     /// The only views the theme shows, if it says (`views` in its theme.json).
     pub views: Option<Vec<String>>,
+    /// What the theme draws itself (`draws` in its theme.json): the shell leaves those to it.
+    pub draws: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -294,6 +296,7 @@ pub fn shell_info(state: State<'_, AppState>, caller: Caller) -> ApiResult<Shell
             version: manifest.version,
             settings,
             views: manifest.views,
+            draws: manifest.draws,
         },
         forma_version: env!("CARGO_PKG_VERSION"),
     })

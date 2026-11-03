@@ -369,6 +369,53 @@ li.selected .badge {
   background: var(--accent);
 }
 
+/* ---- The song that just started ---------------------------------------------------------- */
+
+.song {
+  position: fixed;
+  top: 2.4em;
+  right: 2.4em;
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  max-width: 40vw;
+  padding: 0.75em 1.3em;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 2);
+  background: var(--panel);
+  box-shadow: 0 0.6em 1.6em rgb(0 0 0 / 50%);
+  animation: rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.song .note {
+  font-size: 1.6em;
+  background: var(--accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.song .words {
+  display: grid;
+  min-width: 0;
+}
+
+.song .title,
+.song .artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song .title {
+  font-weight: 700;
+}
+
+.song .artist {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
 /* ---- Hints and toast -------------------------------------------------------------------- */
 
 .hints {
@@ -415,7 +462,8 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   .overlay,
-  .switcher .panel {
+  .switcher .panel,
+  .song {
     animation: none;
   }
 }

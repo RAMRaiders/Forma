@@ -19,10 +19,11 @@ beforeEach(() => {
 function start(
   permissions: string[] = [],
   context: ShellContext = {},
-  views: string[] | null = null
+  views: string[] | null = null,
+  draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.4.1', false);
+  const forma = new Forma(backend, '1.5.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -45,7 +46,8 @@ function start(
       },
       { key: 'motion', label: 'Animations', type: 'toggle', default: true, value: true }
     ],
-    views
+    views,
+    draws
   };
   const shell = new Shell(forma, {
     info: () => Promise.resolve({ context, theme, formaVersion: '0.0.0' }),
@@ -84,10 +86,57 @@ function start(
     expect(text('.menu li.selected .name')).toEqual([label]);
     await press('confirm');
   };
-  return { shell, root, press, text, forma, open, opened, settings, openMenu };
+  return { shell, root, press, text, forma, open, opened, settings, openMenu, backend };
 }
 
 describe('Forma’s shell', () => {
+  it('shows each new song for the time Forma’s setting says, then hides it', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const { shell, root } = start();
+      const song = root.querySelector<HTMLElement>('.song')!;
+      expect(song.getAttribute('part')).toBe('now-playing');
+      await shell.announce({ title: 'Angry Again', artist: 'Megadeth', seconds: 8 });
+      expect(song.hidden).toBe(false);
+      expect(song.querySelector('.title')?.textContent).toBe('Angry Again');
+      expect(song.querySelector('.artist')?.textContent).toBe('Megadeth');
+      vi.advanceTimersByTime(7900);
+      expect(song.hidden).toBe(false);
+      vi.advanceTimersByTime(200);
+      expect(song.hidden).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves the song to a theme that draws it, and shows none over a game', async () => {
+    const drawn = start([], {}, null, ['nowPlaying']);
+    await drawn.shell.announce({ title: 'Toxicity', artist: null, seconds: 8 });
+    expect(drawn.root.querySelector<HTMLElement>('.song')!.hidden).toBe(true);
+
+    const plain = start();
+    plain.shell.playing = true;
+    await plain.shell.announce({ title: 'Toxicity', artist: null, seconds: 8 });
+    expect(plain.root.querySelector<HTMLElement>('.song')!.hidden).toBe(true);
+  });
+
+  it('sets how long a new song shows, from the music page', async () => {
+    const { press, text, openMenu, forma } = start(['settings.system']);
+    await openMenu('Music…');
+    await vi.waitFor(() => expect(text('.page li .name')).toContain('Show each new song'));
+    for (let i = 0; i < 30 && text('.page li.selected .name')[0] !== 'Show each new song'; i++) {
+      await press('down');
+    }
+    expect(text('.page li.selected .description')).toEqual(['For 8 seconds']);
+    await press('right');
+    await vi.waitFor(() =>
+      expect(text('.page li.selected .description')).toEqual(['For 10 seconds'])
+    );
+    expect(await forma.settings.getSystem('music.songSeconds')).toBe(10);
+    for (let i = 0; i < 6; i++) await press('left');
+    await vi.waitFor(() => expect(text('.page li.selected .description')).toEqual(['Off']));
+  });
+
   it('keeps to the views a theme says it shows: one, and there is nothing to pick', async () => {
     const { press, text, shell, openMenu } = start([], {}, ['systems']);
     await press('start');
@@ -248,8 +297,8 @@ describe('Forma’s settings pages', () => {
     expect(rows()[0]).toBe('Nothing playing');
     expect(text('.page li.heading')).toEqual(['Folders and playlists', 'Web radios']);
 
-    // Down to Chiptune: Nothing playing, Volume, Shuffle, Music, Chiptune.
-    for (let i = 0; i < 4; i++) await press('down');
+    // Down to Chiptune: Nothing playing, Volume, Shuffle, Show each new song, Music, Chiptune.
+    for (let i = 0; i < 5; i++) await press('down');
     expect(text('.page li.selected .name')).toEqual(['Chiptune']);
     await press('confirm');
     await vi.waitFor(() => expect(rows()[0]).toBe('Track 1'));

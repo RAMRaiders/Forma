@@ -77,6 +77,10 @@ pub struct ThemeManifest {
     /// The only views (by id) the theme shows the library in: Forma's views list and its
     /// "Start on" setting keep to them. Absent, every view.
     pub views: Option<Vec<String>>,
+    /// What the theme draws itself, in its own style, instead of Forma's shell drawing it:
+    /// `nowPlaying` (the song that just started, `music:song`). What happens stays Forma's.
+    #[serde(default)]
+    pub draws: Vec<String>,
     #[serde(rename = "$schema", default, skip_serializing)]
     pub schema: Option<String>,
 }
@@ -96,6 +100,7 @@ impl ThemeManifest {
             remote: Vec::new(),
             settings: Vec::new(),
             views: None,
+            draws: Vec::new(),
             schema: None,
         }
     }

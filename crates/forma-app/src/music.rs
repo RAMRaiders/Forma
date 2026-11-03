@@ -5,8 +5,8 @@
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-use forma_core::music::{Radio, Source, Status};
-use serde::Deserialize;
+use forma_core::music::{PlayState, Radio, Source, Status};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::api::ApiResult;
@@ -188,7 +188,56 @@ pub fn start<R: Runtime>(app: AppHandle<R>) {
     });
 }
 
-/// mpv moves on by itself (the next track, a radio's next song): every second, compare.
+/// A new song started: for the theme (or Forma's shell) to show, for `seconds`.
+pub const EVENT_MUSIC_SONG: &str = "music:song";
+/// Forma's setting for how long a new song is shown, in seconds; 0 shows none.
+pub const SONG_SECONDS_SETTING: &str = "music.songSeconds";
+const SONG_SECONDS_DEFAULT: u32 = 8;
+const SONG_SECONDS_MAX: u32 = 60;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicSong {
+    pub title: String,
+    pub artist: Option<String>,
+    /// How long to show it: Forma's setting (Start → Music).
+    pub seconds: u32,
+}
+
+/// The song `now` starts, if it is a new one since `last`: playing, with a title, and not the
+/// same song as before (a resume after a pause is not new).
+fn new_song(last: Option<&Status>, now: &Status, seconds: u32) -> Option<MusicSong> {
+    if seconds == 0 || now.state != PlayState::Playing {
+        return None;
+    }
+    let title = now.title.clone()?;
+    let same = last.is_some_and(|l| {
+        l.title == now.title
+            && l.artist == now.artist
+            && l.track == now.track
+            && l.source == now.source
+    });
+    (!same).then(|| MusicSong {
+        title,
+        artist: now.artist.clone(),
+        seconds,
+    })
+}
+
+fn song_seconds(state: &AppState) -> u32 {
+    state
+        .library()
+        .setting_text(SONG_SECONDS_SETTING)
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .map_or(SONG_SECONDS_DEFAULT, |s| {
+            s.clamp(0.0, f64::from(SONG_SECONDS_MAX)).round() as u32
+        })
+}
+
+/// mpv moves on by itself (the next track, a radio's next song): every second, compare. A new
+/// song is announced too, for as long as Forma's setting says.
 fn watch<R: Runtime>(app: &AppHandle<R>) {
     let mut last: Option<Status> = None;
     loop {
@@ -199,7 +248,51 @@ fn watch<R: Runtime>(app: &AppHandle<R>) {
         };
         if last.as_ref().is_none_or(|l| !l.same_moment(&now)) {
             let _ = app.emit(EVENT_MUSIC_CHANGED, &now);
+            if let Some(song) = new_song(last.as_ref(), &now, song_seconds(&state)) {
+                let _ = app.emit(EVENT_MUSIC_SONG, &song);
+            }
             last = Some(now);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn status(title: Option<&str>, state: PlayState) -> Status {
+        Status {
+            state,
+            source: None,
+            title: title.map(str::to_owned),
+            artist: Some("Megadeth".into()),
+            album: None,
+            position: None,
+            duration: None,
+            track: Some(1),
+            tracks: Some(9),
+            volume: 60,
+            shuffle: false,
+        }
+    }
+
+    #[test]
+    fn a_new_song_is_announced_once_and_not_on_resume() {
+        let first = status(Some("Angry Again"), PlayState::Playing);
+        assert_eq!(
+            new_song(None, &first, 8),
+            Some(MusicSong {
+                title: "Angry Again".into(),
+                artist: Some("Megadeth".into()),
+                seconds: 8
+            })
+        );
+        let paused = status(Some("Angry Again"), PlayState::Paused);
+        assert_eq!(new_song(Some(&first), &paused, 8), None);
+        assert_eq!(new_song(Some(&paused), &first, 8), None, "a resume");
+        let next = status(Some("Symphony of Destruction"), PlayState::Playing);
+        assert!(new_song(Some(&first), &next, 8).is_some());
+        assert_eq!(new_song(Some(&first), &next, 0), None, "shown for 0 s: off");
+        assert_eq!(new_song(None, &status(None, PlayState::Playing), 8), None);
     }
 }

@@ -37,6 +37,7 @@ so you can build without a device.
 | `resolutions` | Resolutions the theme was designed for. Informational.                  |
 | `settings`    | The theme's own settings, shown in Forma's menu (see below).            |
 | `views`       | The only views the theme shows, by id, e.g. `["systems"]`. Absent, all. |
+| `draws`       | What the theme draws itself instead of Forma, e.g. `["nowPlaying"]`.    |
 
 ## Forma's menus, over every theme
 
@@ -86,6 +87,17 @@ with the reason in Forma's theme list.
 
 A theme that shows the library only some ways lists them in `views`. Forma's views list (Select)
 and its "Start on" setting then keep to them; with one view, Forma offers no choice at all.
+
+### The song that just started
+
+When a new song starts, Forma's shell shows its title and artist for the time set in Forma's
+menu (Start → Music). When and for how long are Forma's; how it looks can be the theme's:
+
+- restyle Forma's card from the theme's CSS, through its parts:
+  `forma-shell::part(now-playing)`, `::part(song-title)`, `::part(song-artist)`,
+  `::part(song-note)`;
+- or draw it entirely: `"draws": ["nowPlaying"]` in `theme.json`, then show
+  `music:song` (`{ title, artist, seconds }`) and hide it after `seconds`.
 
 ## Where themes live, and installing your own
 

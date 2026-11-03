@@ -1,4 +1,4 @@
-import type { Forma, InputEvent, ShellContext, ViewInfo } from '@ramraiders/forma-sdk';
+import type { Forma, InputEvent, MusicSong, ShellContext, ViewInfo } from '@ramraiders/forma-sdk';
 import { FormaError } from '@ramraiders/forma-sdk';
 
 import { moveList } from './logic/nav.js';
@@ -27,6 +27,8 @@ export interface ShellInfo {
     settings: ThemeSettingValue[];
     /** The only views the theme shows, if it says; else every view. */
     views?: string[] | null;
+    /** What the theme draws itself (`nowPlaying`): the shell leaves it to the theme. */
+    draws?: string[];
   };
   formaVersion: string;
 }
@@ -55,6 +57,13 @@ export class Shell {
   readonly #hints = el('footer', { class: 'hints', hidden: '' });
   readonly #toast = el('div', { class: 'toast', role: 'status', hidden: '' });
   #toastTimer: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * The song that just started, for the time Forma's setting says. A theme restyles it from
+   * outside with `forma-shell::part(now-playing)` (and `song-title`, `song-artist`), or draws its
+   * own (`"draws": ["nowPlaying"]` in its theme.json).
+   */
+  readonly #song = el('div', { class: 'song', part: 'now-playing', role: 'status', hidden: '' });
+  #songTimer: ReturnType<typeof setTimeout> | undefined;
   #info: ShellInfo | null = null;
   #views: ViewInfo[] = [];
   #home: string | null = null;
@@ -77,14 +86,35 @@ export class Shell {
     forma.events.on('music:changed', () => {
       if (this.#page.open && this.#pageKind === 'music') void this.#page.refresh();
     });
+    forma.events.on('music:song', (song) => void this.announce(song));
     this.root.append(
       this.#menu.root,
       this.#switcher.root,
       this.#network.root,
       this.#page.root,
       this.#hints,
+      this.#song,
       this.#toast
     );
+  }
+
+  /** A new song: shown for its time, unless the theme draws it or a game is running. */
+  async announce(song: MusicSong): Promise<void> {
+    if (this.playing) return;
+    const info = this.#info ?? (await this.#loadInfo());
+    if (info?.theme.draws?.includes('nowPlaying')) return;
+    this.#song.replaceChildren(
+      el('span', { class: 'note', part: 'song-note', 'aria-hidden': 'true' }, '♪'),
+      el(
+        'span',
+        { class: 'words' },
+        el('span', { class: 'title', part: 'song-title' }, song.title),
+        song.artist ? el('span', { class: 'artist', part: 'song-artist' }, song.artist) : ''
+      )
+    );
+    this.#song.hidden = false;
+    clearTimeout(this.#songTimer);
+    this.#songTimer = setTimeout(() => (this.#song.hidden = true), song.seconds * 1000);
   }
 
   get open(): boolean {

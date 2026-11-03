@@ -209,6 +209,11 @@ export interface EventMap {
   /** A setting changed in Forma's menu: one of the theme's own, or Forma's (`display.margins`). */
   'settings:changed': SettingsChanged;
   'music:changed': MusicStatus;
+  /**
+   * A new song started. Forma's shell shows it for `seconds`, unless the theme draws it itself
+   * (`"draws": ["nowPlaying"]` in its theme.json), then the theme does, for as long.
+   */
+  'music:song': MusicSong;
   'store:progress': StoreProgress;
   'game:start': GameStart;
   'game:end': GameEnd;
@@ -230,6 +235,14 @@ export interface ShellContext {
   system?: { name: string; fullname: string } | null;
   /** The selected game. */
   game?: { id: number; name: string } | null;
+}
+
+/** A song that just started, as Forma announces it: the title without the file's extension. */
+export interface MusicSong {
+  title: string;
+  artist: string | null;
+  /** How long to show it: Forma's setting (Start → Music). Never 0: Forma says nothing then. */
+  seconds: number;
 }
 
 export interface NavOpen {

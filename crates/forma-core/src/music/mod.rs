@@ -63,6 +63,37 @@ impl Status {
     }
 }
 
+/// A song's artist and title from its file's name, as music folders name them:
+/// `Megadeth - Angry Again.mp3` is Megadeth's "Angry Again". The extension goes; a name without
+/// " - " is all title.
+pub fn from_file_name(name: &str) -> (Option<String>, String) {
+    let name = name.rsplit(['/', '\\']).next().unwrap_or(name);
+    // An extension is a few letters or digits after the last dot: "Mr. Blue Sky" keeps its dot.
+    let stem = match name.rsplit_once('.') {
+        Some((stem, ext))
+            if !stem.is_empty()
+                && (1..=5).contains(&ext.len())
+                && ext.chars().all(|c| c.is_ascii_alphanumeric()) =>
+        {
+            stem
+        }
+        _ => name,
+    };
+    let stem = stem.trim();
+    // " - " is the rule; "Artist- Title" and "Artist -Title" are common slips. A dash inside a
+    // word ("AC-DC") never splits.
+    let split = stem
+        .split_once(" - ")
+        .or_else(|| stem.split_once("- "))
+        .or_else(|| stem.split_once(" -"));
+    match split {
+        Some((artist, title)) if !artist.trim().is_empty() && !title.trim().is_empty() => {
+            (Some(artist.trim().to_owned()), title.trim().to_owned())
+        }
+        _ => (None, stem.to_owned()),
+    }
+}
+
 #[derive(Default)]
 struct State {
     source: Option<Source>,
@@ -252,15 +283,21 @@ impl Player {
                 Some((a, t)) => (Some(a.trim().to_owned()), Some(t.trim().to_owned())),
                 None => (None, Some(icy)),
             },
-            None => (
-                tag(&["artist"]),
-                tag(&["title"]).or_else(|| {
-                    self.property("media-title")
-                        .ok()?
-                        .as_str()
-                        .map(str::to_owned)
-                }),
-            ),
+            None => match tag(&["title"]) {
+                Some(title) => (tag(&["artist"]), Some(title)),
+                // No tags: mpv's title is the file's name, "Artist - Title.mp3" more often than
+                // not.
+                None => {
+                    let file = self
+                        .property("media-title")
+                        .ok()
+                        .and_then(|v| v.as_str().map(str::to_owned));
+                    match file.as_deref().map(from_file_name) {
+                        Some((artist, title)) => (tag(&["artist"]).or(artist), Some(title)),
+                        None => (tag(&["artist"]), None),
+                    }
+                }
+            },
         };
         let number = |name: &str| self.property(name).ok().and_then(|v| v.as_f64());
         Ok(Status {
@@ -387,6 +424,32 @@ mod tests {
             ["set_property", "set_property", "loadlist", "set_property"]
         );
         assert_eq!(fake.props.lock().unwrap()["volume"], json!(60));
+    }
+
+    #[test]
+    fn a_file_name_gives_artist_and_title_without_its_extension() {
+        let pick = |n: &str| {
+            let (a, t) = from_file_name(n);
+            (a, t)
+        };
+        assert_eq!(
+            pick("Megadeth - Angry Again.mp3"),
+            (Some("Megadeth".into()), "Angry Again".into())
+        );
+        assert_eq!(
+            pick("/music/System Of A Down - Toxicity.flac"),
+            (Some("System Of A Down".into()), "Toxicity".into())
+        );
+        assert_eq!(
+            pick("Scorpions- Blackout.mp3"),
+            (Some("Scorpions".into()), "Blackout".into())
+        );
+        assert_eq!(pick("Mr. Blue Sky"), (None, "Mr. Blue Sky".into()));
+        assert_eq!(pick("01 Intro.ogg"), (None, "01 Intro".into()));
+        assert_eq!(
+            pick("AC-DC - T.N.T..mp3"),
+            (Some("AC-DC".into()), "T.N.T.".into())
+        );
     }
 
     #[test]

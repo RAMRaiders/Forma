@@ -114,8 +114,18 @@ export function mockBackend(options: MockOptions = {}): Backend {
   };
   /** Changes the mock player, and tells listeners, as Forma does. */
   const playerSet = (change: Partial<MusicStatus>): MusicStatus => {
+    const before = music;
     music = { ...music, ...change };
     emit('music:changed', structuredClone(music));
+    // A new song, announced as Forma does: not a resume, and not when shown for 0 s.
+    const seconds = Number(settings.get('music.songSeconds') ?? 8);
+    const isNew =
+      music.state === 'playing' &&
+      music.title !== null &&
+      (music.title !== before.title || music.track !== before.track || before.state === 'stopped');
+    if (isNew && seconds > 0) {
+      emit('music:song', { title: music.title, artist: music.artist, seconds });
+    }
     return structuredClone(music);
   };
   const trackTitle = (n: number) => `Track ${n}`;
