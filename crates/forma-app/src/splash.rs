@@ -246,20 +246,15 @@ fn picture(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
 <defs>
 <radialGradient id="bg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#0a1a2e"/><stop offset="1" stop-color="#04060c"/></radialGradient>
-<radialGradient id="glow"><stop offset="0" stop-color="#22e4ff" stop-opacity=".13"/><stop offset="1" stop-color="#22e4ff" stop-opacity="0"/></radialGradient>
 <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2e88"/><stop offset="1" stop-color="#b23cff"/></linearGradient>
 </defs>
 <rect width="{width}" height="{height}" fill="#04060c"/>
 <rect width="{width}" height="{height}" fill="url(#bg)"/>
-<circle cx="{cx:.1}" cy="{gy:.1}" r="{gr:.1}" fill="url(#glow)"/>
 <svg x="{logo_x:.1}" y="{top:.1}" width="{logo_w:.1}" height="{logo_h:.1}" viewBox="0 0 96 130">{logo}</svg>
 <rect x="{bar_x:.1}" y="{bar_y:.1}" width="{bar_w:.1}" height="{bar_h:.1}" rx="{bar_h:.1}" fill="#22e4ff" fill-opacity=".15"/>
 {versions}
 </svg>
 "##,
-        cx = w / 2.0,
-        gy = h * 0.42,
-        gr = 35.0 * vh,
         logo = logo_body(),
         bar_x = (w - bar_w) / 2.0,
         bar_h = 0.5 * vh,
@@ -324,6 +319,7 @@ mod tests {
             batocera: "43.1 2026/05/29".into(),
             theme: "Cyber <0.7>".into(),
             margins: 0,
+            see_through: false,
         };
         let svg = picture(
             &cover,

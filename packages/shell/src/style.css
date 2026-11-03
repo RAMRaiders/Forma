@@ -43,6 +43,29 @@
   pointer-events: auto;
 }
 
+/* At boot: Forma's boot picture is under the see-through window, the same screen; the cover
+   lets it show and draws only what moves over it. Its glow fades in: loading has begun. */
+.cover.see-through {
+  background: transparent;
+}
+
+.cover.see-through .glow {
+  animation:
+    cover-glow-in 900ms ease-out both,
+    cover-breathe 2.4s 900ms ease-in-out infinite alternate;
+}
+
+@keyframes cover-glow-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0.7;
+    transform: scale(0.85);
+  }
+}
+
 /* Fading out over the theme, which is ready under it. */
 .cover.leaving {
   pointer-events: none;

@@ -7,6 +7,11 @@ export interface CoverInfo {
   theme: string;
   /** Screen margins for a TV's overscan, percent per side. */
   margins: number;
+  /**
+   * At boot on Batocera, Forma's boot picture is under the see-through window: the cover lets it
+   * show, and draws over it only what moves (the loader and the glow).
+   */
+  seeThrough: boolean;
 }
 
 /** The cover fades this long when the theme is ready. */
@@ -21,7 +26,8 @@ export function coverInfo(script: HTMLOrSVGScriptElement | null): CoverInfo {
     batocera: data.batocera ?? '',
     forma: data.forma ?? '',
     theme: data.theme ?? '',
-    margins: Math.min(10, Math.max(0, Number(data.margins) || 0))
+    margins: Math.min(10, Math.max(0, Number(data.margins) || 0)),
+    seeThrough: data.seeThrough === '1'
   };
 }
 
@@ -37,6 +43,8 @@ export class Cover {
   #gone = false;
   /** Called once the cover has gone over a ready theme: Forma's UI is up. */
   onStarted: () => void = () => {};
+  /** Called as the cover starts to go: the page under it may show. */
+  onReveal: () => void = () => {};
 
   constructor(info: CoverInfo) {
     const versions = el(
@@ -55,7 +63,12 @@ export class Cover {
     );
     // Keep clear of the edges a TV cuts off, as themes do with the same setting.
     versions.style.setProperty('--margin', `${info.margins}vh`);
-    this.root = el('div', { class: 'cover' }, el('div', { class: 'glow' }), forma);
+    this.root = el(
+      'div',
+      { class: info.seeThrough ? 'cover see-through' : 'cover' },
+      el('div', { class: 'glow' }),
+      forma
+    );
   }
 
   /** The theme is ready: the cover fades out over it. */
@@ -68,6 +81,7 @@ export class Cover {
   hide(fade = false): void {
     if (this.#gone) return;
     this.#gone = true;
+    this.onReveal();
     // Forma's UI is up the moment the theme is: the fade is only for show.
     if (this.#ready) this.onStarted();
     if (!fade) return this.root.remove();

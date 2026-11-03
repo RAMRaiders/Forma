@@ -92,6 +92,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         theme_ready: AtomicBool::new(false),
         ready_file: std::env::var_os("FORMA_READY_FILE").map(PathBuf::from),
         on_batocera: Path::new(BATOCERA_VERSION_FILE).is_file(),
+        see_through: Path::new(BATOCERA_VERSION_FILE).is_file() && crate::splash::drawn(),
         input: Mutex::new(None),
         shell: crate::shell::ShellState::default(),
         shell_dir,
@@ -147,7 +148,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     // there): the window starts see-through, so it stays in view until the page draws its
     // cover, the same picture, instead of a blank window. Elsewhere, dark from the first frame:
     // no white flash before the cover is drawn.
-    let see_through = state.on_batocera && crate::splash::drawn();
+    let see_through = state.see_through;
     let window = WebviewWindowBuilder::new(app, "main", url)
         .title("Forma")
         .inner_size(1280.0, 720.0)
@@ -232,6 +233,7 @@ pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
         batocera: batocera.trim().to_owned(),
         theme: theme.trim().to_owned(),
         margins: screen_margins(state),
+        see_through: state.see_through && !state.shell.ui_started.load(Ordering::SeqCst),
     };
     // The next boot shows the same, as Batocera's boot picture.
     crate::splash::refresh(&info);

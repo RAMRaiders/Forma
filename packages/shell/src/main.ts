@@ -35,6 +35,15 @@ function start(): void {
   style.textContent = css;
   const cover = new Cover(info);
   shadow.append(style, cover.root);
+  if (info.seeThrough) {
+    // The boot picture shows through the cover: the theme page, loading under it, stays out of
+    // sight (backgrounds too) until the cover goes. The shell's host is `all: initial`, visible.
+    const hide = document.createElement('style');
+    hide.textContent =
+      'html, body { visibility: hidden !important; background: transparent !important; }';
+    document.documentElement.append(hide);
+    cover.onReveal = () => hide.remove();
+  }
   // `<head>` is still being parsed: the document element is all there is.
   document.documentElement.append(host);
   // The theme may replace `<body>`'s content but not move us: keep the host last at the top.

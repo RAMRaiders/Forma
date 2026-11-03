@@ -384,17 +384,22 @@ pub struct CoverInfo {
     pub theme: String,
     /// Screen margins for a TV's overscan, in percent per side.
     pub margins: u8,
+    /// At boot on Batocera: the boot picture is under the see-through window, and the cover
+    /// lets it show, drawing only what moves over it.
+    pub see_through: bool,
 }
 
 /// The script tag that brings the shell into a theme page, first thing in its `<head>`, so it
 /// runs (and claims its token) before any of the theme's scripts.
 pub fn shell_tag(cover: &CoverInfo) -> String {
     format!(
-        "<script src=\"forma://localhost/shell/shell.js\" data-batocera=\"{}\" data-forma=\"{}\" data-theme=\"{}\" data-margins=\"{}\"></script>",
+        "<script src=\"forma://localhost/shell/shell.js\" data-batocera=\"{}\" data-forma=\"{}\" data-theme=\"{}\" data-margins=\"{}\" \
+         data-see-through=\"{}\"></script>",
         attribute(&cover.batocera),
         attribute(env!("CARGO_PKG_VERSION")),
         attribute(&cover.theme),
-        cover.margins
+        cover.margins,
+        u8::from(cover.see_through)
     )
 }
 
@@ -501,7 +506,9 @@ mod tests {
             batocera: "43.1 2026/05/29".into(),
             theme: "Neon \"<b>\" 2".into(),
             margins: 3,
+            see_through: true,
         });
+        assert!(tag.contains("data-see-through=\"1\""), "{tag}");
         assert!(tag.contains("data-batocera=\"43.1 2026/05/29\""), "{tag}");
         assert!(
             tag.contains("data-theme=\"Neon &quot;&lt;b&gt;&quot; 2\""),

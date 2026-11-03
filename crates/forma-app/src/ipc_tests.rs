@@ -95,6 +95,7 @@ impl Harness {
             theme_ready: AtomicBool::new(false),
             ready_file: Some(root.join("forma.ready")),
             on_batocera: false,
+            see_through: false,
             input: Mutex::new(None),
             shell: crate::shell::ShellState::default(),
             shell_dir: None,

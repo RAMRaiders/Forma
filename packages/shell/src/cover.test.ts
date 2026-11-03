@@ -9,7 +9,8 @@ const info = {
   batocera: '43.1 2026/05/29',
   forma: '0.1.0',
   theme: 'Cyber 0.2.0',
-  margins: 2
+  margins: 2,
+  seeThrough: false
 };
 
 describe('Forma’s cover', () => {
@@ -18,13 +19,15 @@ describe('Forma’s cover', () => {
     Object.assign(script.dataset, {
       batocera: '43.1',
       theme: 'Cyber 0.2.0',
-      margins: '40'
+      margins: '40',
+      seeThrough: '1'
     });
     expect(coverInfo(script)).toEqual({
       batocera: '43.1',
       forma: '',
       theme: 'Cyber 0.2.0',
-      margins: 10
+      margins: 10,
+      seeThrough: true
     });
     expect(coverInfo(null).margins).toBe(0);
   });
