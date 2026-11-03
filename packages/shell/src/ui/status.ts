@@ -37,13 +37,19 @@ function network(link: NetworkLink): HTMLElement {
     link.kind === 'none'
       ? 'Not connected'
       : `${link.kind === 'wifi' ? 'Wi-Fi' : 'Cable'}${link.internet ? ', online' : ', no internet'}`;
-  const item = el('span', {
-    class: `net net-${link.kind}${link.kind !== 'none' && !link.internet ? ' offline' : ''}`,
-    part: 'status-network',
-    title: label,
-    'aria-label': label
-  });
-  item.innerHTML = NETWORK[link.kind];
+  const word = link.kind === 'none' ? 'Offline' : link.internet ? 'Online' : 'No internet';
+  const item = el(
+    'span',
+    {
+      class: `net net-${link.kind}${link.kind !== 'none' && !link.internet ? ' offline' : ''}`,
+      part: 'status-network',
+      title: label,
+      'aria-label': label
+    },
+    // In words too: an icon alone did not say what it was.
+    el('span', { class: 'word' }, word)
+  );
+  item.insertAdjacentHTML('afterbegin', NETWORK[link.kind]);
   return item;
 }
 
@@ -74,9 +80,9 @@ const PADS: Record<ControllerKind, string> = {
 };
 
 const NETWORK: Record<NetworkLink['kind'], string> = {
-  // A network socket.
+  // A wired network: one box linked down to two, as network settings draw it.
   ethernet: svg(
-    '<rect x="8" y="3" width="16" height="18" rx="2"/><path d="M12 21v-5h8v5M12 8h8v4h-8z"/><path d="M14 8v-2M18 8v-2" stroke-width="1.4"/>'
+    '<rect x="12" y="2" width="8" height="6" rx="1"/><rect x="4" y="16" width="8" height="6" rx="1"/><rect x="20" y="16" width="8" height="6" rx="1"/><path d="M16 8v4M8 16v-4h16v4"/>'
   ),
   wifi: svg(
     '<path d="M4 9.5a17 17 0 0 1 24 0M8 13.5a11 11 0 0 1 16 0M12 17.4a5 5 0 0 1 8 0"/><circle cx="16" cy="20.5" r="1.4" fill="currentColor" stroke="none"/>'

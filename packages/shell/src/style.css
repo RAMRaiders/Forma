@@ -373,16 +373,18 @@ li.selected .badge {
 
 .status {
   position: fixed;
-  top: calc(1.6em + var(--margin, 0vh));
+  top: calc(1.4em + var(--margin, 0vh));
   right: calc(2.4em + var(--margin, 0vh));
   display: flex;
   align-items: center;
-  gap: 0.9em;
-  padding: 0.35em 0.8em;
+  gap: 0.8em;
+  padding: 0.3em 0.8em;
   border: 1px solid var(--line);
   border-radius: 2em;
   background: rgb(4 6 12 / 72%);
   color: var(--fg);
+  font-size: 0.85em;
+  line-height: 1;
   pointer-events: none;
 }
 
@@ -392,12 +394,18 @@ li.selected .badge {
 
 .status svg {
   display: block;
-  width: 2em;
-  height: 1.5em;
+  flex: none;
+  width: 1.6em;
+  height: 1.2em;
 }
 
+/* Each icon a fixed box, so they line up, the player's number inside its corner. */
 .status .pad {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15em 0.35em 0.15em 0.1em;
 }
 
 .status .pad-xbox {
@@ -416,51 +424,43 @@ li.selected .badge {
   color: var(--muted);
 }
 
-/* The player's number, on the pad's corner. */
 .status .player {
   position: absolute;
-  right: -0.45em;
-  bottom: -0.35em;
-  min-width: 1.1em;
-  padding: 0 0.2em;
+  right: 0;
+  bottom: 0;
+  min-width: 1.15em;
+  padding: 0.05em 0.15em;
   border-radius: 0.6em;
   background: var(--fg);
   color: var(--bg);
   font-family: var(--mono);
-  font-size: 0.62em;
+  font-size: 0.6em;
   font-weight: 700;
-  line-height: 1.1em;
   text-align: center;
 }
 
 .status .net {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
   color: var(--cyan);
 }
 
-.status .net-none {
+.status .net .word {
+  font-size: 0.85em;
+  color: var(--fg);
+}
+
+.status .net-none,
+.status .net-none .word {
   color: var(--muted);
 }
 
-/* Connected, but the internet does not answer: a warning mark. */
-.status .net.offline {
-  position: relative;
+/* Connected, but the internet does not answer. */
+.status .net.offline,
+.status .net.offline .word {
   color: #ffb547;
-}
-
-.status .net.offline::after {
-  content: '!';
-  position: absolute;
-  right: -0.35em;
-  bottom: -0.3em;
-  width: 1em;
-  height: 1em;
-  border-radius: 50%;
-  background: #ffb547;
-  color: var(--bg);
-  font-size: 0.7em;
-  font-weight: 700;
-  line-height: 1em;
-  text-align: center;
 }
 
 /* ---- The song that just started ---------------------------------------------------------- */
