@@ -270,13 +270,15 @@ export class Shell {
     const info = await this.#loadInfo();
     const context = info?.context ?? {};
     const { game, system } = context;
+    const views = !(info?.theme.views && info.theme.views.length <= 1);
     const items: MenuItem[] = [
       ...(game
         ? [
             {
               id: 'game-options',
-              label: `${game.name} options…`,
-              description: 'Emulator, core and options for this game only'
+              label: 'Game options',
+              description: `Emulator, core and options for ${game.name} only`,
+              section: 'Selected'
             }
           ]
         : []),
@@ -284,61 +286,102 @@ export class Shell {
         ? [
             {
               id: 'system-options',
-              label: `${system.fullname || system.name} options…`,
-              description: 'Emulator, core and options for its games'
+              label: 'System options',
+              description: `Emulator, core and options for every ${system.fullname || system.name} game`,
+              section: 'Selected'
             }
           ]
         : []),
       {
         id: 'collections',
-        label: 'Collections…',
-        description: game ? `Put ${game.name} in your own lists` : 'Your own lists of games'
+        label: 'Collections',
+        description: game ? `Put ${game.name} in your own lists` : 'Your own lists of games',
+        section: 'Library'
       },
-      ...(info?.theme.views && info.theme.views.length <= 1
-        ? []
-        : [{ id: 'views', label: 'Views…', description: 'Organise the library another way' }]),
-      {
-        id: 'interface',
-        label: 'Interface…',
-        description: info?.theme.settings.length
-          ? `Theme, where Forma opens, screen margins, ${info.theme.name}’s own settings`
-          : 'Theme, where Forma opens, screen margins'
-      },
-      { id: 'music', label: 'Music…', description: 'Folders, playlists and web radios' },
-      {
-        id: 'ra',
-        label: 'RetroAchievements…',
-        description: 'Your account and how achievements work'
-      },
-      { id: 'netplay', label: 'Netplay…', description: 'Playing online with others' },
-      {
-        id: 'controllers',
-        label: 'Controllers…',
-        description: 'Pads in use, Bluetooth pairing'
-      },
-      { id: 'network', label: 'Network…', description: 'Wi-Fi and Ethernet' },
+      ...(views
+        ? [
+            {
+              id: 'views',
+              label: 'Views',
+              description: 'Organise the library another way',
+              section: 'Library'
+            }
+          ]
+        : []),
       {
         id: 'store',
-        label: 'Content downloader…',
-        description: 'Free games, ports, decorations and music from Batocera'
+        label: 'Downloads',
+        description: 'Free games, ports, decorations and music from Batocera',
+        section: 'Library'
+      },
+      {
+        id: 'ra',
+        label: 'Achievements',
+        description: 'Your RetroAchievements account and how achievements work',
+        section: 'Play'
+      },
+      {
+        id: 'netplay',
+        label: 'Netplay',
+        description: game ? `Host ${game.name}, or join a room` : 'Play online with others',
+        section: 'Play'
+      },
+      {
+        id: 'interface',
+        label: 'Interface',
+        description: info?.theme.settings.length
+          ? `Theme, where Forma opens, screen margins, ${info.theme.name}’s own settings`
+          : 'Theme, where Forma opens, screen margins',
+        section: 'Settings'
+      },
+      {
+        id: 'music',
+        label: 'Music',
+        description: 'Folders, playlists and web radios',
+        section: 'Settings'
       },
       {
         id: 'game-settings',
-        label: 'Game settings…',
-        description: 'Emulator options for every game: ratio, shaders, decorations…'
+        label: 'Games',
+        description: 'Emulator options for every game: ratio, shaders, decorations…',
+        section: 'Settings'
       },
       {
         id: 'system-settings',
-        label: 'System settings…',
-        description: 'Display, audio, language, region and storage'
+        label: 'System',
+        description: 'Display, audio, language, region, storage and updates',
+        section: 'Settings'
+      },
+      {
+        id: 'controllers',
+        label: 'Controllers',
+        description: 'Pads in use, Bluetooth pairing',
+        section: 'Devices'
+      },
+      {
+        id: 'network',
+        label: 'Network',
+        description: 'Wi-Fi and Ethernet',
+        section: 'Devices'
       },
       {
         id: 'emulationstation',
-        label: 'Switch to EmulationStation',
-        description: 'For scraping and updates; Forma returns at the next boot'
+        label: 'Switch to ES',
+        description: 'EmulationStation, for scraping; Forma returns at the next boot',
+        section: 'Power'
       },
-      { id: 'restart', label: 'Restart', description: 'Press A twice' },
-      { id: 'shutdown', label: 'Shut down', description: 'Press A twice' }
+      {
+        id: 'restart',
+        label: 'Restart',
+        description: 'Restart the console. Press A twice',
+        section: 'Power'
+      },
+      {
+        id: 'shutdown',
+        label: 'Shut down',
+        description: 'Turn the console off. Press A twice',
+        section: 'Power'
+      }
     ];
     this.#menu.show(
       info ? `Forma ${info.formaVersion}`.trim() : 'Forma',
@@ -402,9 +445,9 @@ export class Shell {
 
   #menuInput(e: InputEvent): void {
     const m = this.#menu;
-    if (e.action === 'up' || e.action === 'down') {
+    if (e.action === 'up' || e.action === 'down' || e.action === 'left' || e.action === 'right') {
       this.#confirming = null;
-      return m.select(moveList(m.selected, m.count, e.action, 5, e.repeat));
+      return m.move(e.action, e.repeat);
     }
     if (e.repeat) return;
     if (e.action === 'back') {

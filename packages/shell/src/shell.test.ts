@@ -127,10 +127,10 @@ describe('Forma’s shell', () => {
 
   it('goes back to its menu on B from a page, on the entry it came from', async () => {
     const { press, text, shell, openMenu } = start(['settings.system']);
-    await openMenu('Music…');
+    await openMenu('Music');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Music']));
     await press('back');
-    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Music…']));
+    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Music']));
     expect(shell.open).toBe(true);
     // B in the menu itself closes it.
     await press('back');
@@ -139,14 +139,14 @@ describe('Forma’s shell', () => {
 
   it('goes back to its menu on B from the network screen and the views list', async () => {
     const { press, text, shell, openMenu } = start(['system.network']);
-    await openMenu('Network…');
+    await openMenu('Network');
     await press('back');
-    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Network…']));
+    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Network']));
     await press('back');
-    await openMenu('Views…');
+    await openMenu('Views');
     await vi.waitFor(() => expect(shell.open).toBe(true));
     await press('back');
-    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Views…']));
+    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Views']));
     // Start shuts everything, wherever it is.
     await press('start');
     expect(shell.open).toBe(false);
@@ -184,7 +184,7 @@ describe('Forma’s shell', () => {
 
   it('sets how long a new song shows, from the music page', async () => {
     const { press, text, openMenu, forma } = start(['settings.system']);
-    await openMenu('Music…');
+    await openMenu('Music');
     await vi.waitFor(() => expect(text('.page li .name')).toContain('Show each new song'));
     for (let i = 0; i < 30 && text('.page li.selected .name')[0] !== 'Show each new song'; i++) {
       await press('down');
@@ -202,12 +202,12 @@ describe('Forma’s shell', () => {
   it('keeps to the views a theme says it shows: one, and there is nothing to pick', async () => {
     const { press, text, shell, openMenu } = start([], {}, ['systems']);
     await press('start');
-    expect(text('.switcher li .name')).not.toContain('Views…');
+    expect(text('.menu li .name')).not.toContain('Views');
     await press('back');
     await press('select');
     expect(text('.toast')).toEqual(['Neon shows the library one way']);
     expect(shell.open).toBe(false);
-    await openMenu('Interface…');
+    await openMenu('Interface');
     await vi.waitFor(() => expect(text('.page li .name').length).toBeGreaterThan(0));
     expect(text('.page li .name').some((n) => n.startsWith('Start on'))).toBe(false);
   });
@@ -217,24 +217,26 @@ describe('Forma’s shell', () => {
     await press('confirm');
     expect(shell.open).toBe(false);
     await press('start');
-    expect(text('.switcher h2')).toEqual(['Forma 0.0.0']);
-    expect(text('.switcher .note')).toEqual(['Neon 2.0.0']);
-    expect(text('.switcher li .name')).toEqual([
-      'Collections…',
-      'Views…',
-      'Interface…',
-      'Music…',
-      'RetroAchievements…',
-      'Netplay…',
-      'Controllers…',
-      'Network…',
-      'Content downloader…',
-      'Game settings…',
-      'System settings…',
-      'Switch to EmulationStation',
+    expect(text('.menu h2')).toEqual(['Forma 0.0.0']);
+    expect(text('.menu .note')).toEqual(['Neon 2.0.0']);
+    expect(text('.menu li .name')).toEqual([
+      'Collections',
+      'Views',
+      'Downloads',
+      'Achievements',
+      'Netplay',
+      'Interface',
+      'Music',
+      'Games',
+      'System',
+      'Controllers',
+      'Network',
+      'Switch to ES',
       'Restart',
       'Shut down'
     ]);
+    expect(text('.menu h3')).toEqual(['Library', 'Play', 'Settings', 'Devices', 'Power']);
+    expect(text('.menu .about')).toEqual(['Your own lists of games']);
     expect(text('.hints .hint')).toEqual(['AChoose', 'BClose']);
     expect(open).toEqual([true]);
     await press('back');
@@ -249,17 +251,70 @@ describe('Forma’s shell', () => {
       game: { id: 3, name: 'Super Metroid' }
     });
     await press('start');
-    expect(text('.switcher li .name').slice(0, 2)).toEqual([
-      'Super Metroid options…',
-      'Super Nintendo options…'
-    ]);
+    expect(text('.menu li .name').slice(0, 2)).toEqual(['Game options', 'System options']);
+    expect(text('.menu h3')[0]).toBe('Selected');
+    expect(text('.menu .about')).toEqual(['Emulator, core and options for Super Metroid only']);
+  });
+
+  it('moves across the menu as it looks: rows of tiles, left and right too', async () => {
+    const { press, text, root } = start();
+    await press('start');
+    // Lay the tiles out as on screen: four across in each row's own band.
+    const tiles = [...root.querySelectorAll<HTMLElement>('.menu li')];
+    const sections = [...root.querySelectorAll('.menu section')];
+    let top = 0;
+    for (const section of sections) {
+      const own = [...section.querySelectorAll<HTMLElement>('li')];
+      own.forEach((tile, n) => {
+        const box = {
+          left: (n % 4) * 100,
+          top: top + Math.floor(n / 4) * 50,
+          width: 90,
+          height: 40
+        };
+        tile.getBoundingClientRect = () =>
+          ({
+            ...box,
+            right: box.left + 90,
+            bottom: box.top + 40,
+            x: box.left,
+            y: box.top
+          }) as DOMRect;
+      });
+      top += Math.ceil(own.length / 4) * 50 + 20;
+    }
+    expect(tiles.length).toBe(14);
+    const at = () => text('.menu li.selected .name')[0];
+    expect(at()).toBe('Collections');
+    await press('right');
+    expect(at()).toBe('Views');
+    await press('down');
+    // the tile below, in the next row
+    expect(at()).toBe('Netplay');
+    await press('down');
+    expect(at()).toBe('Music');
+    await press('right');
+    await press('right');
+    expect(at()).toBe('System');
+    await press('down');
+    // the next row down, nearest across
+    expect(at()).toBe('Network');
+    await press('down');
+    expect(at()).toBe('Restart');
+    await press('down');
+    // down from the bottom wraps to the top, in the same column
+    expect(at()).toBe('Views');
+    await press('left');
+    await press('left');
+    // left stops at the edge
+    expect(at()).toBe('Collections');
   });
 
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
     for (let i = 0; i < 12; i++) await press('down');
-    expect(text('.switcher li.selected .name')).toEqual(['Restart']);
+    expect(text('.menu li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
     await press('confirm');
@@ -284,8 +339,7 @@ describe('Forma’s shell', () => {
   it('switches theme, and sets the theme’s own settings, from Interface', async () => {
     const { press, text, settings, forma } = start(['settings.system']);
     await press('start');
-    await press('down');
-    await press('down');
+    for (let i = 0; i < 5; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Interface']));
     expect(text('.page li.heading')).toEqual(['Theme', 'Screen', 'Look', 'This theme']);
@@ -327,8 +381,8 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 7; i++) await press('down');
-    expect(text('.switcher li.selected .name')).toEqual(['Network…']);
+    for (let i = 0; i < 10; i++) await press('down');
+    expect(text('.menu li.selected .name')).toEqual(['Network']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');
     await vi.waitFor(() => expect(rows()).toContain('▮▮▯▯  Office 5G'));
@@ -356,7 +410,7 @@ describe('Forma’s shell', () => {
 describe('Forma’s settings pages', () => {
   it('music: picks a playlist, shows it playing, and adds a web radio', async () => {
     const { press, text, openMenu } = start(['music.manage']);
-    await openMenu('Music…');
+    await openMenu('Music');
     const rows = () => text('.page > .panel li .name');
     await vi.waitFor(() => expect(rows()).toContain('Chiptune'));
     expect(rows()[0]).toBe('Nothing playing');
@@ -389,7 +443,7 @@ describe('Forma’s settings pages', () => {
 
   it('RetroAchievements: signs in, and flips a switch', async () => {
     const { press, text, openMenu } = start(['settings.batocera', 'settings.system']);
-    await openMenu('RetroAchievements…');
+    await openMenu('Achievements');
     const rows = () => text('.page > .panel li .name');
     await vi.waitFor(() => expect(rows()[0]).toBe('Sign in…'));
     await press('confirm');
@@ -413,7 +467,7 @@ describe('Forma’s settings pages', () => {
 
   it('netplay: cycles the relay server and shows the custom one only when chosen', async () => {
     const { press, text, openMenu } = start(['settings.batocera']);
-    await openMenu('Netplay…');
+    await openMenu('Netplay');
     const rows = () => text('.page > .panel li .name');
     await vi.waitFor(() => expect(rows()).toContain('Relay server'));
     expect(rows()).not.toContain('Custom server');
@@ -435,7 +489,7 @@ describe('Forma’s settings pages', () => {
       if (cmd === 'launch_game') launches.push(args);
       return invoke<T>(cmd, args);
     };
-    await openMenu('Netplay…');
+    await openMenu('Netplay');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()[0]).toBe('Host Super Mario Bros.'));
@@ -475,7 +529,7 @@ describe('Forma’s settings pages', () => {
       cmd === 'netplay_lobby' && down
         ? Promise.reject(new Error('lobby.libretro.com unreachable'))
         : invoke<T>(cmd, args);
-    await openMenu('Netplay…');
+    await openMenu('Netplay');
     const rows = () => text('.page > .panel li[role=option] .name');
     await vi.waitFor(() => expect(rows()[0]).toBe('Rooms online…'));
     await press('confirm');
@@ -490,7 +544,7 @@ describe('Forma’s settings pages', () => {
     const { press, text, openMenu, forma } = start([], {
       game: { id: 2, name: 'Super Mario Bros.' }
     });
-    await openMenu('Collections…');
+    await openMenu('Collections');
     const rows = () => text('.page > .panel li[role=option] .name');
     await vi.waitFor(() => expect(rows()[0]).toMatch(/^Couch co-op: /));
     const was = rows()[0]!;
@@ -521,7 +575,7 @@ describe('Forma’s settings pages', () => {
 
   it('game settings: global options, a choice cycled, a page of its own and back', async () => {
     const { press, text, openMenu } = start(['settings.emulators']);
-    await openMenu('Game settings…');
+    await openMenu('Games');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()).toContain('Game aspect ratio'));
@@ -548,7 +602,7 @@ describe('Forma’s settings pages', () => {
     };
     const { press, text, openMenu } = start(['settings.emulators'], context);
     const rows = () => text('.page > .panel li[role=option] .name');
-    await openMenu('Nintendo Entertainment System options…');
+    await openMenu('System options');
     await vi.waitFor(() => expect(rows().slice(0, 2)).toEqual(['Emulator', 'Core']));
     expect(text('.page .heading')).toContain('Advanced options');
     expect(rows()).toContain('Palette');
@@ -565,7 +619,7 @@ describe('Forma’s settings pages', () => {
 
     // A game of the NES selected in the theme: its core is the system's.
     context.game = { id: 2, name: 'Super Mario Bros.' };
-    await openMenu('Super Mario Bros. options…');
+    await openMenu('Game options');
     await vi.waitFor(() => expect(rows()).toContain('Core'));
     const core = rows().indexOf('Core');
     expect(text('.page > .panel li[role=option] .description')[core]).toBe(
@@ -575,7 +629,7 @@ describe('Forma’s settings pages', () => {
 
   it('system settings: information, a long list picked from, and when it applies', async () => {
     const { press, text, openMenu } = start(['system.settings']);
-    await openMenu('System settings…');
+    await openMenu('System');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()).toContain('Time zone'));
@@ -615,7 +669,7 @@ describe('Forma’s settings pages', () => {
 
   it('content downloader: a category, an install with its progress, and removing it', async () => {
     const { press, text, openMenu } = start(['store.manage']);
-    await openMenu('Content downloader…');
+    await openMenu('Downloads');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()).toContain('Refresh the list'));
@@ -641,7 +695,7 @@ describe('Forma’s settings pages', () => {
 
   it('controllers: the pads in use, pairing a new one, connecting and forgetting', async () => {
     const { press, text, openMenu } = start(['system.controllers']);
-    await openMenu('Controllers…');
+    await openMenu('Controllers');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()).toContain('Pair a controller…'));
@@ -661,7 +715,7 @@ describe('Forma’s settings pages', () => {
 
   it('Batocera updates: the versions, then the update only after asking twice', async () => {
     const { press, text, openMenu } = start(['system.settings', 'system.update']);
-    await openMenu('System settings…');
+    await openMenu('System');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()).toContain('Batocera updates…'));
@@ -684,7 +738,7 @@ describe('Forma’s settings pages', () => {
 
   it('RetroAchievements: how many games are matched, per system', async () => {
     const { press, text, openMenu } = start(['settings.batocera', 'settings.system']);
-    await openMenu('RetroAchievements…');
+    await openMenu('Achievements');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()).toContain('Games matched'));
