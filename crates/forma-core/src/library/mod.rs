@@ -7,6 +7,7 @@
 mod collections;
 mod computed;
 mod imports;
+mod recommend;
 mod refresh;
 mod schema;
 

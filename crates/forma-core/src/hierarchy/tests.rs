@@ -54,6 +54,7 @@ fn every_bundled_view_parses() {
             "all",
             "favorites",
             "recent",
+            "recommended",
             "home",
             "collections"
         ]
@@ -464,4 +465,83 @@ fn collections_are_emulationstations_files_and_a_view_of_their_own() {
     // None at all: the view is an empty list, not an error.
     let empty = collections_view(&[]);
     assert!(games(&browse(&lib, &empty, &[])).is_empty());
+}
+
+#[test]
+fn recommended_is_unplayed_games_like_the_ones_played() {
+    let lib = library();
+    let view = bundled("recommended");
+    let all = games(&browse(&lib, &view, &[]));
+    assert!(!all.is_empty());
+    // Every visible game not played yet is a candidate.
+    let unplayed: i64 = lib
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM game WHERE present = 1 AND hidden = 0
+             AND play_count = 0 AND last_played IS NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(i64::try_from(all.len()).unwrap(), unplayed.min(50));
+
+    // Hours on two games of one system and genre: its other games come first; those two go.
+    let (system, played): (String, Vec<i64>) = {
+        let (system, genre): (String, String) = lib
+            .conn
+            .query_row(
+                "SELECT system, 'Puzzle' FROM game WHERE present = 1 AND hidden = 0
+                 GROUP BY system ORDER BY COUNT(*) DESC LIMIT 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        lib.conn
+            .execute(
+                "UPDATE game SET genre = ?1 WHERE system = ?2",
+                [&genre, &system],
+            )
+            .unwrap();
+        let ids: Vec<i64> = lib
+            .conn
+            .prepare("SELECT id FROM game WHERE system = ?1 AND present = 1 AND hidden = 0 ORDER BY id LIMIT 2")
+            .unwrap()
+            .query_map([&system], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        (system, ids)
+    };
+    for id in &played {
+        lib.conn
+            .execute(
+                "UPDATE game SET play_count = 5, game_time = 36000, last_played = '2026-11-01T20:00:00'
+                 WHERE id = ?1",
+                [id],
+            )
+            .unwrap();
+    }
+    let page = browse(&lib, &view, &[]);
+    let Listing::Games { items, .. } = &page.listing else {
+        panic!()
+    };
+    assert!(
+        items.iter().all(|g| !played.contains(&g.id)),
+        "played games are not recommended"
+    );
+    let left: i64 = lib
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM game WHERE system = ?1 AND present = 1 AND hidden = 0
+             AND play_count = 0",
+            [&system],
+            |r| r.get(0),
+        )
+        .unwrap();
+    if left > 0 {
+        assert_eq!(
+            items[0].system, system,
+            "the most like what is played comes first"
+        );
+    }
 }

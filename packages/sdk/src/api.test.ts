@@ -203,4 +203,14 @@ describe('the SDK surface', () => {
     expect(none.listing).toMatchObject({ kind: 'games', total: 0 });
     await vi.waitFor(() => expect(changed.length).toBeGreaterThanOrEqual(5));
   });
+
+  it('recommended: games not played yet, as a view like any other', async () => {
+    const forma = await sdk();
+    expect((await forma.nav.views()).map((v) => v.id)).toContain('recommended');
+    const page = await forma.nav.browse('recommended', []);
+    expect(page.listing.kind).toBe('games');
+    if (page.listing.kind !== 'games') return;
+    expect(page.listing.items.length).toBeGreaterThan(0);
+    expect(page.listing.items.every((g) => g.playCount === 0 && !g.favorite)).toBe(true);
+  });
 });

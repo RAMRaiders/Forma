@@ -96,6 +96,8 @@ pub(crate) enum GameSort {
     Rating,
     LastPlayed,
     PlayCount,
+    /// Not played yet, most like what the user plays first (see `library/recommend.rs`).
+    Recommended,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]

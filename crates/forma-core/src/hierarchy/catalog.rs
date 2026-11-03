@@ -22,6 +22,7 @@ const BUNDLED: &[(&str, &str)] = &[
     ("all.json", include_str!("views/all.json")),
     ("favorites.json", include_str!("views/favorites.json")),
     ("recent.json", include_str!("views/recent.json")),
+    ("recommended.json", include_str!("views/recommended.json")),
     ("home.json", include_str!("views/home.json")),
 ];
 

@@ -89,13 +89,22 @@ you build a home screen:
 { "games": { "sort": "lastPlayed", "order": "desc", "limit": 50 } }
 ```
 
-| Field   | Values                                                                          |
-| ------- | ------------------------------------------------------------------------------- |
-| `sort`  | `name` (default), `releaseDate`, `rating`, `lastPlayed`, `playCount`            |
-| `order` | `asc` or `desc`. Defaults: ascending for name and date, descending for the rest |
-| `limit` | Show at most this many                                                          |
+| Field   | Values                                                                              |
+| ------- | ----------------------------------------------------------------------------------- |
+| `sort`  | `name` (default), `releaseDate`, `rating`, `lastPlayed`, `playCount`, `recommended` |
+| `order` | `asc` or `desc`. Defaults: ascending for name and date, descending for the rest     |
+| `limit` | Show at most this many                                                              |
 
 Games with no value for the sort field come last either way.
+
+`recommended` is different: it keeps only games not played yet and not starred, the ones most
+like what the user plays first (`order` does not apply; without `limit`, 50). Forma builds a
+taste from every game played or starred: time played counts most, then sessions, then how
+recent, and a star a little. It weighs what those games share (genre, system, developer,
+decade, more than one player), adds a little for rating, keeps one copy of a game found on
+several systems, and spreads the list so one system or genre does not fill it. With nothing
+played yet, the best-rated games come first. The bundled `recommended` view is 50 of them
+from the whole library; a view's filters narrow it (a system's recommended games, say).
 
 ## Filters
 

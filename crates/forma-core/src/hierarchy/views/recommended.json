@@ -1,0 +1,8 @@
+{
+  "id": "recommended",
+  "name": "Recommended",
+  "description": "Games you have not played yet, picked from what you play and star.",
+  "root": {
+    "games": { "sort": "recommended", "limit": 50 }
+  }
+}
