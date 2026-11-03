@@ -27,7 +27,8 @@ fi
 
 mnt="$(mktemp -d)"
 done_with_boot() {
-    mountpoint -q "$mnt" && umount "$mnt"
+    # (Batocera has no `mountpoint`.)
+    if grep -qs " $mnt " /proc/mounts; then umount "$mnt"; fi
     rmdir "$mnt"
     mount -o remount,ro /boot
     sync
