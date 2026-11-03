@@ -100,14 +100,30 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     });
     let state = app.state::<AppState>();
 
+    // The sync's first full rescan reads every gamelist off the card: at boot, on a Pi, that
+    // held the theme's start back past the 30 s the service allows. The library from the last
+    // run is in the database, so it waits for the UI to be up; with nothing in it yet (a
+    // first start) it runs at once, as there is nothing else to show.
+    let empty = state.library().systems().map_or(true, |s| s.is_empty());
     let handle = app.handle().clone();
-    let sync = sync::spawn(
-        paths.clone(),
-        paths.database(),
-        SyncOptions::default(),
-        move |event| on_sync(&handle, event),
-    );
-    *state.sync.lock().unwrap_or_else(PoisonError::into_inner) = Some(sync);
+    std::thread::spawn(move || {
+        let state = handle.state::<AppState>();
+        let since = std::time::Instant::now();
+        while !empty
+            && !state.shell.ui_started.load(Ordering::SeqCst)
+            && since.elapsed() < SYNC_WAIT
+        {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        let events = handle.clone();
+        let sync = sync::spawn(
+            state.paths.clone(),
+            state.paths.database(),
+            SyncOptions::default(),
+            move |event| on_sync(&events, event),
+        );
+        *state.sync.lock().unwrap_or_else(PoisonError::into_inner) = Some(sync);
+    });
 
     crate::music::start(app.handle().clone());
     crate::status::start(app.handle().clone());
@@ -166,6 +182,19 @@ fn reload_if_the_page_dies<R: Runtime>(_window: &tauri::WebviewWindow<R>) {}
 /// Batocera's splash files: its boot image (`boot-logo.png`), whose joystick emblem marks
 /// Batocera's version on Forma's cover.
 pub const BATOCERA_SPLASH: &str = "/usr/share/batocera/splash";
+/// The same, as Batocera's read-only system has them: Forma's boot picture takes the boot
+/// image's place in the live system ([`crate::splash`]), and the emblem is Batocera's own.
+const BATOCERA_SPLASH_ORIGINAL: &str = "/overlay/base/usr/share/batocera/splash";
+
+/// One of Batocera's own splash files, from its read-only system when that is to hand.
+pub fn batocera_splash_file(name: &str) -> PathBuf {
+    let original = Path::new(BATOCERA_SPLASH_ORIGINAL).join(name);
+    if original.is_file() {
+        original
+    } else {
+        Path::new(BATOCERA_SPLASH).join(name)
+    }
+}
 /// Batocera's logo as EmulationStation shows it, for the corner of Forma's cover.
 pub const BATOCERA_LOGO: &str = "/usr/share/emulationstation/resources/splash_batocera.svg";
 
@@ -201,6 +230,9 @@ pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
 
 /// The Forma setting every theme shares for a TV that cuts the picture's edges (overscan): how
 /// much, in percent of each side, to keep clear. 0 to 10.
+/// The longest the library sync waits for the UI to be up before it starts anyway.
+const SYNC_WAIT: Duration = Duration::from_secs(60);
+
 pub const MARGINS_SETTING: &str = "display.margins";
 
 fn screen_margins(state: &AppState) -> u8 {

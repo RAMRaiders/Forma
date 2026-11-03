@@ -27,8 +27,9 @@ export function coverInfo(script: HTMLOrSVGScriptElement | null): CoverInfo {
 
 /**
  * Forma's entry screen, over the theme page while it loads, whatever the theme: Forma's logo
- * rising in over a breathing glow, a loader, and Batocera's, Forma's and the theme's versions
- * in a corner. It fades out as soon as the theme reports ready.
+ * over a breathing glow, a loader, and Batocera's, Forma's and the theme's versions in a
+ * corner, as Forma's boot picture has them (forma-app's splash.rs), so the boot goes on from
+ * that picture without a jump. It fades out as soon as the theme reports ready.
  */
 export class Cover {
   readonly root: HTMLElement;

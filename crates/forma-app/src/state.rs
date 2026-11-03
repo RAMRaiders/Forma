@@ -146,7 +146,7 @@ impl Resolver for AppState {
     fn splash_file(&self, name: &str) -> Option<PathBuf> {
         let file = match name {
             "batocera-logo.svg" => PathBuf::from(crate::boot::BATOCERA_LOGO),
-            _ => PathBuf::from(crate::boot::BATOCERA_SPLASH).join(name),
+            _ => crate::boot::batocera_splash_file(name),
         };
         Some(file).filter(|f| f.is_file())
     }

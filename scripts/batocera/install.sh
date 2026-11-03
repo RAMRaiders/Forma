@@ -36,6 +36,7 @@ mv "$work/squashfs-root" "$dest/app"
 rm -rf "$dest/app.old"
 
 install -m 755 "$here/forma-standalone" "$dest/bin/forma-standalone"
+install -m 755 "$here/forma-boot-picture" "$dest/bin/forma-boot-picture"
 batocera-services enable forma
 
 echo "Installed. Forma replaces EmulationStation from the next boot."
