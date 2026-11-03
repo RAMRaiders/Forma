@@ -21,7 +21,7 @@ use forma_core::{Library, Paths};
 use tauri::{App, AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 use crate::commands::{EVENT_LIBRARY_CHANGED, EVENT_VIEWS_CHANGED, LibraryChanged, entry_url};
-use crate::state::{AppState, DEFAULT_THEME, THEME_SETTING, pick_theme};
+use crate::state::{AppState, DEFAULT_THEME, FALLBACK_THEME, THEME_SETTING, pick_theme};
 
 static PROCESS_START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
 
@@ -288,15 +288,29 @@ pub fn watch_ready<R: Runtime>(app: AppHandle<R>) {
         let Some(current) = state.current_theme() else {
             return;
         };
-        if current.id == DEFAULT_THEME {
+        // A newer copy of a bundled theme gives way to the bundled one; any other theme to the
+        // default, and the default to the plain fallback.
+        let reverted = current.overrides
+            && forma_core::themes::revert_override(
+                &mut state.themes.write().unwrap_or_else(PoisonError::into_inner),
+                &current.id,
+            );
+        let next = if reverted {
+            current.id.as_str()
+        } else if current.id != DEFAULT_THEME {
+            DEFAULT_THEME
+        } else if current.id != FALLBACK_THEME {
+            FALLBACK_THEME
+        } else {
             return;
-        }
+        };
         eprintln!(
-            "forma: theme `{}` did not start within {READY_TIMEOUT:?}; using the default theme",
-            current.id
+            "forma: theme `{}` did not start within {READY_TIMEOUT:?}; using `{next}`{}",
+            current.id,
+            if reverted { " as built in" } else { "" }
         );
-        if let Some(default) = state.available_theme(DEFAULT_THEME) {
-            let _ = show_theme(&app, &state, &default);
+        if let Some(theme) = state.available_theme(next) {
+            let _ = show_theme(&app, &state, &theme);
         }
     });
 }
@@ -339,8 +353,8 @@ fn shell_dir(app: &AppHandle) -> Option<PathBuf> {
         .find(|d| d.join("shell.js").is_file())
 }
 
-/// Bundled themes: `<resources>/themes/*` in a packaged build; in development, every
-/// `packages/theme-*/dist` built from this repository.
+/// Bundled themes: `<resources>/themes/*` in a packaged build; in development, the pinned
+/// themes unpacked in `build/themes` and every `packages/theme-*/dist` built here.
 fn bundled_theme_dirs(app: &AppHandle) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Ok(resources) = app.path().resource_dir() {
@@ -348,7 +362,9 @@ fn bundled_theme_dirs(app: &AppHandle) -> Vec<PathBuf> {
     }
     #[cfg(debug_assertions)]
     {
-        let packages = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        dirs.extend(subdirs(&root.join("build/themes")));
+        let packages = root.join("packages");
         dirs.extend(
             subdirs(&packages)
                 .into_iter()

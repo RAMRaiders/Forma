@@ -181,6 +181,8 @@ pub struct Theme {
     pub manifest: Option<ThemeManifest>,
     /// Why the theme cannot load; `None` means it can.
     pub unavailable: Option<String>,
+    /// A user theme standing in for the bundled theme with its id (it is newer).
+    pub overrides: bool,
 }
 
 impl Theme {
@@ -201,8 +203,10 @@ pub fn user_themes_dir(paths: &Paths) -> PathBuf {
 }
 
 /// Every theme in `bundled` folders, then in the user's themes folder. A user theme with a
-/// bundled theme's id is listed as unavailable: replacing the default theme by accident would
-/// leave a user without a working UI.
+/// bundled theme's id stands in for it only when its version is newer (an update installed
+/// without a new Forma); the bundled one is then listed as replaced, and comes back if the
+/// newer one fails ([`revert_override`]). An older or equal one is listed as unavailable: an
+/// old copy must not hide the theme Forma ships.
 pub fn discover(bundled: &[PathBuf], paths: &Paths) -> Vec<Theme> {
     let mut themes: Vec<Theme> = bundled
         .iter()
@@ -221,15 +225,75 @@ pub fn discover(bundled: &[PathBuf], paths: &Paths) -> Vec<Theme> {
     user_dirs.sort();
     for dir in user_dirs {
         let mut theme = load(&dir, ThemeOrigin::User);
-        if theme.is_available() && themes.iter().any(|t| t.id == theme.id) {
-            theme.unavailable = Some(format!(
-                "id `{}` is already used by another theme",
-                theme.id
-            ));
+        if theme.is_available()
+            && let Some(other) = themes
+                .iter_mut()
+                .find(|t| t.id == theme.id && t.is_available())
+        {
+            let version = |t: &Theme| t.manifest.as_ref().map(|m| m.version.clone());
+            match (other.origin, version(&theme), version(other)) {
+                (ThemeOrigin::Bundled, Some(mine), Some(theirs)) if newer(&mine, &theirs) => {
+                    other.unavailable = Some(format!("replaced by version {mine}, installed"));
+                    theme.overrides = true;
+                }
+                (ThemeOrigin::Bundled, Some(mine), Some(theirs)) => {
+                    theme.unavailable = Some(format!(
+                        "version {mine} is not newer than the built-in {theirs}"
+                    ));
+                }
+                _ => {
+                    theme.unavailable = Some(format!(
+                        "id `{}` is already used by another theme",
+                        theme.id
+                    ));
+                }
+            }
         }
         themes.push(theme);
     }
     themes
+}
+
+/// A user theme that stood in for a bundled one failed: it is set aside and the bundled one
+/// is back. `false` when `id` was not an override.
+pub fn revert_override(themes: &mut [Theme], id: &str) -> bool {
+    let Some(user) = themes.iter_mut().find(|t| t.id == id && t.overrides) else {
+        return false;
+    };
+    user.overrides = false;
+    user.unavailable = Some("did not start; using the built-in version".into());
+    if let Some(bundled) = themes
+        .iter_mut()
+        .find(|t| t.id == id && t.origin == ThemeOrigin::Bundled)
+    {
+        bundled.unavailable = None;
+    }
+    true
+}
+
+/// `a` is a later version than `b`: `major.minor.patch`, a prerelease (`0.3.1-dev.2`) coming
+/// before its release. Anything unreadable is never newer.
+pub fn newer(a: &str, b: &str) -> bool {
+    fn parse(v: &str) -> Option<([u64; 3], Option<&str>)> {
+        let (core, pre) = match v.trim().split_once('-') {
+            Some((c, p)) => (c, Some(p)),
+            None => (v.trim(), None),
+        };
+        let mut n = core.split('.').map(|p| p.parse::<u64>().ok());
+        let out = [n.next()??, n.next()??, n.next()??];
+        n.next().is_none().then_some((out, pre))
+    }
+    let (Some((a, a_pre)), Some((b, b_pre))) = (parse(a), parse(b)) else {
+        return false;
+    };
+    if a != b {
+        return a > b;
+    }
+    match (a_pre, b_pre) {
+        (None, Some(_)) => true,
+        (Some(x), Some(y)) => x > y,
+        _ => false,
+    }
 }
 
 fn load(dir: &Path, origin: ThemeOrigin) -> Theme {
@@ -243,6 +307,7 @@ fn load(dir: &Path, origin: ThemeOrigin) -> Theme {
         origin,
         manifest: None,
         unavailable: None,
+        overrides: false,
     };
     let manifest = std::fs::read_to_string(dir.join("theme.json"))
         .map_err(|e| format!("theme.json: {e}"))
@@ -496,6 +561,65 @@ mod tests {
                 ("neon", ThemeOrigin::User, true),
             ]
         );
+    }
+
+    #[test]
+    fn a_newer_user_copy_of_a_bundled_theme_stands_in_for_it_and_can_be_set_aside() {
+        let (_dir, paths) = fixture_copy();
+        let bundled = paths.userdata.join("bundled/cyber");
+        write_theme(
+            &bundled,
+            r#"{ "id": "cyber", "name": "Cyber", "version": "0.3.0", "sdk": "^1" }"#,
+        );
+        let users = user_themes_dir(&paths);
+        write_theme(
+            &users.join("cyber"),
+            r#"{ "id": "cyber", "name": "Cyber", "version": "0.3.1-dev", "sdk": "^1" }"#,
+        );
+        let mut themes = discover(std::slice::from_ref(&bundled), &paths);
+        let summary = |themes: &[Theme]| -> Vec<(ThemeOrigin, bool)> {
+            themes
+                .iter()
+                .map(|t| (t.origin, t.is_available()))
+                .collect()
+        };
+        assert_eq!(
+            summary(&themes),
+            [(ThemeOrigin::Bundled, false), (ThemeOrigin::User, true)]
+        );
+        assert!(themes[1].overrides);
+
+        assert!(revert_override(&mut themes, "cyber"));
+        assert_eq!(
+            summary(&themes),
+            [(ThemeOrigin::Bundled, true), (ThemeOrigin::User, false)]
+        );
+        assert!(!revert_override(&mut themes, "cyber"));
+
+        // The same version, or an older one, does not replace it.
+        write_theme(
+            &users.join("cyber"),
+            r#"{ "id": "cyber", "name": "Cyber", "version": "0.3.0", "sdk": "^1" }"#,
+        );
+        let themes = discover(&[bundled], &paths);
+        assert_eq!(
+            summary(&themes),
+            [(ThemeOrigin::Bundled, true), (ThemeOrigin::User, false)]
+        );
+    }
+
+    #[test]
+    fn newer_compares_versions_with_prereleases() {
+        assert!(newer("0.3.1", "0.3.0"));
+        assert!(newer("0.3.1-dev", "0.3.0"));
+        assert!(newer("1.0.0", "0.9.9"));
+        assert!(newer("0.3.0", "0.3.0-rc.1"));
+        assert!(newer("0.3.0-rc.2", "0.3.0-rc.1"));
+        assert!(!newer("0.3.0", "0.3.0"));
+        assert!(!newer("0.3.0-dev", "0.3.0"));
+        assert!(!newer("0.2.9", "0.3.0"));
+        assert!(!newer("latest", "0.3.0"));
+        assert!(!newer("1.0", "0.3.0"));
     }
 
     #[test]

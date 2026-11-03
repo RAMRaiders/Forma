@@ -75,6 +75,7 @@ mod tests {
 
     fn theme(permissions: &[&str]) -> Theme {
         Theme {
+            overrides: false,
             id: "neon".into(),
             dir: "/t".into(),
             origin: ThemeOrigin::User,

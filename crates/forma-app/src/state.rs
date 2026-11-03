@@ -24,7 +24,10 @@ use crate::protocol::Resolver;
 
 /// The setting that names the selected theme.
 pub const THEME_SETTING: &str = "theme.current";
-pub const DEFAULT_THEME: &str = "default";
+/// The theme Forma opens on until the user picks another: Cyber, bundled at a pinned version.
+pub const DEFAULT_THEME: &str = "cyber";
+/// The plain theme Forma also ships, for when even the default cannot start.
+pub const FALLBACK_THEME: &str = "default";
 
 pub struct AppState {
     pub paths: Paths,
@@ -101,12 +104,13 @@ impl AppState {
     }
 }
 
-/// The selected theme if it can load, else the default, else any that can.
+/// The selected theme if it can load, else the default, else the fallback, else any that can.
 pub fn pick_theme(themes: &[Theme], selected: Option<&str>) -> Option<String> {
     let available = |id: &str| themes.iter().any(|t| t.id == id && t.is_available());
     selected
         .filter(|id| available(id))
         .or(Some(DEFAULT_THEME).filter(|id| available(id)))
+        .or(Some(FALLBACK_THEME).filter(|id| available(id)))
         .map(str::to_owned)
         .or_else(|| {
             themes
@@ -154,5 +158,42 @@ impl Resolver for AppState {
     fn ra_media(&self, path: &str) -> Option<PathBuf> {
         let dir = self.paths.cache_dir().join("ra-media");
         achievements::media_file(&*self.http, &dir, path).ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use forma_core::themes::ThemeOrigin;
+
+    fn theme(id: &str, available: bool) -> Theme {
+        Theme {
+            id: id.into(),
+            dir: PathBuf::new(),
+            origin: ThemeOrigin::Bundled,
+            manifest: None,
+            unavailable: (!available).then(|| "broken".into()),
+            overrides: false,
+        }
+    }
+
+    #[test]
+    fn picks_the_selected_then_cyber_then_the_plain_default() {
+        let all = [
+            theme("default", true),
+            theme("cyber", true),
+            theme("neon", true),
+        ];
+        assert_eq!(pick_theme(&all, Some("neon")).as_deref(), Some("neon"));
+        assert_eq!(pick_theme(&all, None).as_deref(), Some("cyber"));
+        let no_cyber = [theme("default", true), theme("cyber", false)];
+        assert_eq!(
+            pick_theme(&no_cyber, Some("gone")).as_deref(),
+            Some("default")
+        );
+        assert_eq!(
+            pick_theme(&[theme("neon", true)], None).as_deref(),
+            Some("neon")
+        );
     }
 }

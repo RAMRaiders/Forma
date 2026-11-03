@@ -109,7 +109,12 @@ connection, marked when the internet does not answer. Restyle it through
 
 ## Where themes live, and installing your own
 
-- Bundled themes ship with Forma.
+- Bundled themes ship with Forma: **Cyber**, the default, at the version pinned in
+  `themes/cyber/lock.json`, and the plain **Default** theme from `packages/theme-default`.
+- A user theme with a bundled theme's id stands in for it only when its `version` is newer
+  (`0.3.1`, or a prerelease such as `0.3.1-dev`, over `0.3.0`), so a theme can be updated without
+  a new Forma. An older or equal copy is listed as unavailable. If the newer copy fails to
+  start, Forma sets it aside and goes back to the bundled version.
 - User themes go in `/userdata/themes-forma/<id>/`. Installing a theme is copying its folder
   there; Forma lists it and lets you switch to it. A theme with a bad manifest or an
   incompatible `sdk` range is listed as unavailable, with the reason, and never loaded.
@@ -181,10 +186,16 @@ reports that it started. `connect()` reports it; a theme that wants the cover up
 screen is drawn connects with `{ deferReady: true }` and calls `forma.ready()` then. A theme
 needs no loading screen of its own for start-up.
 
-If a theme page has not reported within 30 seconds of starting to load, Forma shows the default
-theme instead, for this session only: the user's choice of theme is kept for the next start.
+If a theme page has not reported within 30 seconds of starting to load, Forma shows another
+theme instead, for this session only (the user's choice is kept for the next start): the bundled
+version of a theme that was standing in for one, else Cyber, else the plain Default theme.
 
 ## Developing
+
+To ship a new Cyber with Forma, commit it in its repository and pin it here:
+`scripts/pin-cyber.sh ../forma-theme-cyber` packs its build reproducibly into
+`themes/cyber/` and records the version, commit and checksum in `lock.json`. The build
+(`scripts/unpack-themes.sh`) refuses an archive whose checksum differs.
 
 `npm run dev` builds the default theme, starts Forma against the fixture library with the
 mock launcher, and rebuilds on every change. In development the window reloads by itself when

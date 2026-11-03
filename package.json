@@ -12,7 +12,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run build --workspace @forma/shell && npm run build --workspace @forma/theme-default && FORMA_USERDATA=\"$PWD/fixtures/userdata\" FORMA_SYSTEMS_CFG=\"$PWD/fixtures/usr-share-emulationstation/es_systems.cfg\" FORMA_LAUNCHER=mock tauri dev",
+    "themes:unpack": "scripts/unpack-themes.sh",
+    "dev": "npm run themes:unpack && npm run build --workspace @forma/shell && npm run build --workspace @forma/theme-default && FORMA_USERDATA=\"$PWD/fixtures/userdata\" FORMA_SYSTEMS_CFG=\"$PWD/fixtures/usr-share-emulationstation/es_systems.cfg\" FORMA_LAUNCHER=mock tauri dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write . && cargo fmt --all",

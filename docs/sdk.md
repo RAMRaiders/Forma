@@ -38,7 +38,8 @@ const forma = await connect();
 
 `connect()` checks that Forma speaks a compatible SDK version (it rejects with code
 `incompatible` otherwise), then reports the theme as started, which lifts Forma's cover. A theme
-that never reports is replaced by the default theme after 15 seconds. With `deferReady`, the
+that never reports is replaced by another theme after 30 seconds (see theme-authoring.md,
+Starting up). With `deferReady`, the
 theme reports itself, with `forma.ready()`, e.g. once its first screen is drawn.
 
 Outside Forma, in a plain browser, `connect()` uses a **mock**: the real engine's answers for
