@@ -13,6 +13,8 @@ export interface CoverInfo {
 
 /** How long Batocera's boot image stays before Forma's screen. */
 const BOOT_MS = 2000;
+/** After the boot image, Forma's screen stays at least this long, however fast the theme is. */
+const FORMA_MS = 1500;
 
 const SYSTEM = 'forma://localhost/system/';
 
@@ -32,7 +34,8 @@ export function coverInfo(script: HTMLOrSVGScriptElement | null): CoverInfo {
  * Forma's entry screen, over the theme page while it loads, whatever the theme. On the first
  * page since Forma started, Batocera's boot image; then Forma's logo and a loader, with
  * Batocera's, Forma's and the theme's versions in a corner. It goes, at once, when the theme
- * reports ready (and not before the boot image has had its time). Nothing moves but the loader.
+ * reports ready (when Forma starts, not before the boot image and Forma's screen have had their
+ * time). Nothing moves but the loader.
  */
 export class Cover {
   readonly root: HTMLElement;
@@ -70,11 +73,11 @@ export class Cover {
       // No 4:3 image on this box: the wide one, cropped to fit.
       if (!wide) image.addEventListener('error', () => (image.src = `${SYSTEM}boot-logo.png`));
       this.root.append(image);
+      setTimeout(() => image.remove(), BOOT_MS);
       setTimeout(() => {
-        image.remove();
         this.#booting = false;
         if (this.#ready) this.hide();
-      }, BOOT_MS);
+      }, BOOT_MS + FORMA_MS);
     }
   }
 

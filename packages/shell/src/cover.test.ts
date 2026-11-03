@@ -51,6 +51,9 @@ describe('Forma’s cover', () => {
     cover.ready();
     expect(cover.root.isConnected).toBe(true);
     vi.advanceTimersByTime(2000);
+    expect(cover.root.querySelector('.boot')).toBeNull();
+    expect(cover.root.isConnected).toBe(true);
+    vi.advanceTimersByTime(1500);
     expect(cover.root.isConnected).toBe(false);
   });
 });
