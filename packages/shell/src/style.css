@@ -34,7 +34,7 @@
   display: none !important;
 }
 
-/* ---- Entry cover: Batocera's boot image, then Forma's logo, a loader and the versions ----- */
+/* ---- Entry cover: Forma's logo rising in, a loader and the versions -------------------- */
 
 .cover {
   position: fixed;
@@ -43,13 +43,41 @@
   pointer-events: auto;
 }
 
-.cover .boot {
+/* Fading out over the theme, which is ready under it. */
+.cover.leaving {
+  pointer-events: none;
+  animation: cover-out 300ms ease-in both;
+}
+
+@keyframes cover-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A glow behind the logo, breathing while the theme loads. */
+.cover .glow {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: #000;
+  left: 50%;
+  top: 42%;
+  width: 70vh;
+  height: 70vh;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(34 228 255 / 18%), transparent);
+  animation: cover-breathe 2.4s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+@keyframes cover-breathe {
+  from {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.08);
+  }
 }
 
 .cover .forma {
@@ -63,7 +91,41 @@
 
 .cover .mark {
   height: 24vh;
-  filter: drop-shadow(0 0 2.4vh rgb(34 228 255 / 30%));
+  animation: cover-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.cover .bar {
+  animation: cover-rise 700ms 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cover-rise {
+  from {
+    opacity: 0;
+    transform: translateY(3vh) scale(0.96);
+  }
+}
+
+/* The versions, one after another. */
+.cover .versions > li > * {
+  animation: cover-in 500ms ease-out both;
+}
+
+.cover .versions > li:nth-child(1) > * {
+  animation-delay: 300ms;
+}
+
+.cover .versions > li:nth-child(2) > * {
+  animation-delay: 420ms;
+}
+
+.cover .versions > li:nth-child(3) > * {
+  animation-delay: 540ms;
+}
+
+@keyframes cover-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .cover .bar {

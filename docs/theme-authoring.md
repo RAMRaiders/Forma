@@ -189,10 +189,10 @@ A theme asking for a permission Forma does not know is not loaded.
 
 ## Starting up
 
-Forma's entry screen comes first, whatever the theme. When Forma starts, Batocera's boot image;
-then Forma's logo and a loader, with Batocera's, Forma's and the theme's versions in a corner.
-It covers the theme page while it loads (and again on a theme switch), and goes once the theme
-reports that it started. `connect()` reports it; a theme that wants the cover up until its first
+Forma's entry screen comes first, whatever the theme: Forma's logo and a loader, with
+Batocera's, Forma's and the theme's versions in a corner. It covers the theme page while it
+loads (and again on a theme switch), and fades out as soon as the theme reports that it
+started. `connect()` reports it; a theme that wants the cover up until its first
 screen is drawn connects with `{ deferReady: true }` and calls `forma.ready()` then. A theme
 needs no loading screen of its own for start-up.
 

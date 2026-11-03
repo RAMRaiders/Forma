@@ -56,8 +56,6 @@ pub struct ShellState {
     page: AtomicU64,
     /// This page's theme has called `theme_ready`.
     page_ready: AtomicBool,
-    /// Batocera's boot image has been shown: only on the first page since Forma started.
-    pub boot_done: AtomicBool,
     /// The entry cover has gone over a started theme: the UI is up, and music may start.
     pub ui_started: AtomicBool,
 }
@@ -380,8 +378,6 @@ pub fn deliver<R: Runtime>(app: &AppHandle<R>, event: &InputEvent) {
 /// can draw at once, before any call to Forma.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CoverInfo {
-    /// Batocera's boot image first (the first page since Forma started).
-    pub boot: bool,
     /// Batocera's version, e.g. `43.1 2026/05/29`.
     pub batocera: String,
     /// The theme and its version, e.g. `Cyber 0.2.0`.
@@ -394,9 +390,7 @@ pub struct CoverInfo {
 /// runs (and claims its token) before any of the theme's scripts.
 pub fn shell_tag(cover: &CoverInfo) -> String {
     format!(
-        "<script src=\"forma://localhost/shell/shell.js\" data-boot=\"{}\" \
-         data-batocera=\"{}\" data-forma=\"{}\" data-theme=\"{}\" data-margins=\"{}\"></script>",
-        u8::from(cover.boot),
+        "<script src=\"forma://localhost/shell/shell.js\" data-batocera=\"{}\" data-forma=\"{}\" data-theme=\"{}\" data-margins=\"{}\"></script>",
         attribute(&cover.batocera),
         attribute(env!("CARGO_PKG_VERSION")),
         attribute(&cover.theme),
@@ -504,12 +498,10 @@ mod tests {
     #[test]
     fn the_cover_gets_what_it_shows_on_the_tag_escaped() {
         let tag = shell_tag(&CoverInfo {
-            boot: true,
             batocera: "43.1 2026/05/29".into(),
             theme: "Neon \"<b>\" 2".into(),
             margins: 3,
         });
-        assert!(tag.contains("data-boot=\"1\""), "{tag}");
         assert!(tag.contains("data-batocera=\"43.1 2026/05/29\""), "{tag}");
         assert!(
             tag.contains("data-theme=\"Neon &quot;&lt;b&gt;&quot; 2\""),

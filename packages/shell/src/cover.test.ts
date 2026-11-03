@@ -6,7 +6,6 @@ import { Cover, coverInfo } from './cover.js';
 afterEach(() => vi.useRealTimers());
 
 const info = {
-  boot: false,
   batocera: '43.1 2026/05/29',
   forma: '0.1.0',
   theme: 'Cyber 0.2.0',
@@ -17,22 +16,21 @@ describe('Forma’s cover', () => {
   it('reads what to show from the shell’s script tag', () => {
     const script = document.createElement('script');
     Object.assign(script.dataset, {
-      boot: '1',
       batocera: '43.1',
       theme: 'Cyber 0.2.0',
       margins: '40'
     });
     expect(coverInfo(script)).toEqual({
-      boot: true,
       batocera: '43.1',
       forma: '',
       theme: 'Cyber 0.2.0',
       margins: 10
     });
-    expect(coverInfo(null).boot).toBe(false);
+    expect(coverInfo(null).margins).toBe(0);
   });
 
-  it('shows Forma’s logo, a loader and the three versions, and goes when the theme is ready', () => {
+  it('shows Forma’s logo, a loader and the three versions, and fades when the theme is ready', () => {
+    vi.useFakeTimers();
     const cover = new Cover(info);
     document.body.append(cover.root);
     const text = [...cover.root.querySelectorAll('.versions li')].map((li) => li.textContent);
@@ -42,8 +40,10 @@ describe('Forma’s cover', () => {
     const started = vi.fn();
     cover.onStarted = started;
     cover.ready();
-    expect(cover.root.isConnected).toBe(false);
     expect(started).toHaveBeenCalledOnce();
+    expect(cover.root.classList.contains('leaving')).toBe(true);
+    vi.advanceTimersByTime(300);
+    expect(cover.root.isConnected).toBe(false);
   });
 
   it('does not report the UI started when it goes over a theme that never started', () => {
@@ -53,19 +53,5 @@ describe('Forma’s cover', () => {
     cover.hide();
     cover.ready();
     expect(started).not.toHaveBeenCalled();
-  });
-
-  it('shows Batocera’s boot image first, and stays until it has had its time', () => {
-    vi.useFakeTimers();
-    const cover = new Cover({ ...info, boot: true });
-    document.body.append(cover.root);
-    expect(cover.root.querySelector<HTMLImageElement>('.boot')?.src).toContain('boot-logo');
-    cover.ready();
-    expect(cover.root.isConnected).toBe(true);
-    vi.advanceTimersByTime(2000);
-    expect(cover.root.querySelector('.boot')).toBeNull();
-    expect(cover.root.isConnected).toBe(true);
-    vi.advanceTimersByTime(1500);
-    expect(cover.root.isConnected).toBe(false);
   });
 });

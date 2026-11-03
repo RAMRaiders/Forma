@@ -2,8 +2,6 @@ import { el } from './ui/dom.js';
 
 /** What Forma puts on the shell's script tag for the cover (`CoverInfo` in forma-app). */
 export interface CoverInfo {
-  /** Batocera's boot image first: the first page since Forma started. */
-  boot: boolean;
   batocera: string;
   forma: string;
   theme: string;
@@ -11,10 +9,8 @@ export interface CoverInfo {
   margins: number;
 }
 
-/** How long Batocera's boot image stays before Forma's screen. */
-const BOOT_MS = 2000;
-/** After the boot image, Forma's screen stays at least this long, however fast the theme is. */
-const FORMA_MS = 1500;
+/** The cover fades this long when the theme is ready. */
+const FADE_MS = 300;
 
 const SYSTEM = 'forma://localhost/system/';
 
@@ -22,7 +18,6 @@ const SYSTEM = 'forma://localhost/system/';
 export function coverInfo(script: HTMLOrSVGScriptElement | null): CoverInfo {
   const data = script instanceof HTMLElement ? script.dataset : {};
   return {
-    boot: data.boot === '1',
     batocera: data.batocera ?? '',
     forma: data.forma ?? '',
     theme: data.theme ?? '',
@@ -31,16 +26,13 @@ export function coverInfo(script: HTMLOrSVGScriptElement | null): CoverInfo {
 }
 
 /**
- * Forma's entry screen, over the theme page while it loads, whatever the theme. On the first
- * page since Forma started, Batocera's boot image; then Forma's logo and a loader, with
- * Batocera's, Forma's and the theme's versions in a corner. It goes, at once, when the theme
- * reports ready (when Forma starts, not before the boot image and Forma's screen have had their
- * time). Nothing moves but the loader.
+ * Forma's entry screen, over the theme page while it loads, whatever the theme: Forma's logo
+ * rising in over a breathing glow, a loader, and Batocera's, Forma's and the theme's versions
+ * in a corner. It fades out as soon as the theme reports ready.
  */
 export class Cover {
   readonly root: HTMLElement;
   #ready = false;
-  #booting: boolean;
   #gone = false;
   /** Called once the cover has gone over a ready theme: Forma's UI is up. */
   onStarted: () => void = () => {};
@@ -62,39 +54,24 @@ export class Cover {
     );
     // Keep clear of the edges a TV cuts off, as themes do with the same setting.
     versions.style.setProperty('--margin', `${info.margins}vh`);
-    this.root = el('div', { class: 'cover' }, forma);
-
-    this.#booting = info.boot;
-    if (info.boot) {
-      const wide = typeof window === 'undefined' || window.innerWidth / window.innerHeight > 1.5;
-      const image = el('img', {
-        class: 'boot',
-        src: `${SYSTEM}${wide ? 'boot-logo.png' : 'boot-logo-4x3.png'}`,
-        alt: 'Batocera'
-      });
-      // No 4:3 image on this box: the wide one, cropped to fit.
-      if (!wide) image.addEventListener('error', () => (image.src = `${SYSTEM}boot-logo.png`));
-      this.root.append(image);
-      setTimeout(() => image.remove(), BOOT_MS);
-      setTimeout(() => {
-        this.#booting = false;
-        if (this.#ready) this.hide();
-      }, BOOT_MS + FORMA_MS);
-    }
+    this.root = el('div', { class: 'cover' }, el('div', { class: 'glow' }), forma);
   }
 
-  /** The theme is ready: the cover goes, once the boot image has had its time. */
+  /** The theme is ready: the cover fades out over it. */
   ready(): void {
     this.#ready = true;
-    if (!this.#booting) this.hide();
+    this.hide(true);
   }
 
-  /** Gone, whatever is showing; safe to call more than once. */
-  hide(): void {
+  /** Gone, whatever is showing; safe to call more than once. `fade`: fading out first. */
+  hide(fade = false): void {
     if (this.#gone) return;
     this.#gone = true;
-    this.root.remove();
+    // Forma's UI is up the moment the theme is: the fade is only for show.
     if (this.#ready) this.onStarted();
+    if (!fade) return this.root.remove();
+    this.root.classList.add('leaving');
+    setTimeout(() => this.root.remove(), FADE_MS);
   }
 }
 

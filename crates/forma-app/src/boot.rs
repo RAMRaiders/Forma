@@ -163,19 +163,15 @@ fn reload_if_the_page_dies<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 #[cfg(not(target_os = "linux"))]
 fn reload_if_the_page_dies<R: Runtime>(_window: &tauri::WebviewWindow<R>) {}
 
-/// Batocera's splash files: its boot image (`boot-logo.png`, and `boot-logo-4x3.png`).
+/// Batocera's splash files: its boot image (`boot-logo.png`), whose joystick emblem marks
+/// Batocera's version on Forma's cover.
 pub const BATOCERA_SPLASH: &str = "/usr/share/batocera/splash";
 /// Batocera's logo as EmulationStation shows it, for the corner of Forma's cover.
 pub const BATOCERA_LOGO: &str = "/usr/share/emulationstation/resources/splash_batocera.svg";
 
-/// What Forma's cover shows over a theme page while it loads: at the first page since Forma
-/// started, Batocera's boot image first; then Forma's logo and loader, with Batocera's, Forma's
-/// and the theme's versions in a corner. `FORMA_SPLASH=0` leaves the boot image out.
+/// What Forma's cover shows over a theme page while it loads: Forma's logo and loader, with
+/// Batocera's, Forma's and the theme's versions in a corner.
 pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
-    let first = !state.shell.boot_done.swap(true, Ordering::SeqCst);
-    let boot = first
-        && std::env::var("FORMA_SPLASH").as_deref() != Ok("0")
-        && Path::new(BATOCERA_SPLASH).join("boot-logo.png").is_file();
     // As Batocera's own splash subtitles it: "43.1 2026/05/29".
     let batocera = std::fs::read_to_string(BATOCERA_VERSION_FILE)
         .ok()
@@ -193,7 +189,6 @@ pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
             .map_or(t.id.clone(), |m| format!("{} {}", m.name, m.version))
     });
     crate::shell::CoverInfo {
-        boot,
         batocera: batocera.trim().to_owned(),
         theme: theme.trim().to_owned(),
         margins: screen_margins(state),
