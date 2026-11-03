@@ -78,7 +78,8 @@ pub struct ThemeManifest {
     /// "Start on" setting keep to them. Absent, every view.
     pub views: Option<Vec<String>>,
     /// What the theme draws itself, in its own style, instead of Forma's shell drawing it:
-    /// `nowPlaying` (the song that just started, `music:song`). What happens stays Forma's.
+    /// `nowPlaying` (the song that just started, `music:song`) and `status` (controllers and the
+    /// connection, `status:changed`). What happens stays Forma's.
     #[serde(default)]
     pub draws: Vec<String>,
     #[serde(rename = "$schema", default, skip_serializing)]

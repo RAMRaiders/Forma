@@ -369,12 +369,107 @@ li.selected .badge {
   background: var(--accent);
 }
 
+/* ---- Status: controllers and the connection, top right ---------------------------------- */
+
+.status {
+  position: fixed;
+  top: calc(1.6em + var(--margin, 0vh));
+  right: calc(2.4em + var(--margin, 0vh));
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  padding: 0.35em 0.8em;
+  border: 1px solid var(--line);
+  border-radius: 2em;
+  background: rgb(4 6 12 / 72%);
+  color: var(--fg);
+  pointer-events: none;
+}
+
+.status:empty {
+  display: none;
+}
+
+.status svg {
+  display: block;
+  width: 2em;
+  height: 1.5em;
+}
+
+.status .pad {
+  position: relative;
+}
+
+.status .pad-xbox {
+  color: #3ddc4f;
+}
+
+.status .pad-playstation {
+  color: #4d8dff;
+}
+
+.status .pad-nintendo {
+  color: #ff4d5e;
+}
+
+.status .pad-generic {
+  color: var(--muted);
+}
+
+/* The player's number, on the pad's corner. */
+.status .player {
+  position: absolute;
+  right: -0.45em;
+  bottom: -0.35em;
+  min-width: 1.1em;
+  padding: 0 0.2em;
+  border-radius: 0.6em;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 0.62em;
+  font-weight: 700;
+  line-height: 1.1em;
+  text-align: center;
+}
+
+.status .net {
+  color: var(--cyan);
+}
+
+.status .net-none {
+  color: var(--muted);
+}
+
+/* Connected, but the internet does not answer: a warning mark. */
+.status .net.offline {
+  position: relative;
+  color: #ffb547;
+}
+
+.status .net.offline::after {
+  content: '!';
+  position: absolute;
+  right: -0.35em;
+  bottom: -0.3em;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  background: #ffb547;
+  color: var(--bg);
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 1em;
+  text-align: center;
+}
+
 /* ---- The song that just started ---------------------------------------------------------- */
 
 .song {
   position: fixed;
-  top: 2.4em;
-  right: 2.4em;
+  /* Under the status. */
+  top: calc(4.6em + var(--margin, 0vh));
+  right: calc(2.4em + var(--margin, 0vh));
   display: flex;
   align-items: center;
   gap: 0.9em;

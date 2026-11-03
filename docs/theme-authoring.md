@@ -37,7 +37,7 @@ so you can build without a device.
 | `resolutions` | Resolutions the theme was designed for. Informational.                  |
 | `settings`    | The theme's own settings, shown in Forma's menu (see below).            |
 | `views`       | The only views the theme shows, by id, e.g. `["systems"]`. Absent, all. |
-| `draws`       | What the theme draws itself instead of Forma, e.g. `["nowPlaying"]`.    |
+| `draws`       | What the theme draws itself instead of Forma: `nowPlaying`, `status`.   |
 
 ## Forma's menus, over every theme
 
@@ -98,6 +98,14 @@ menu (Start → Music). When and for how long are Forma's; how it looks can be t
   `::part(song-note)`;
 - or draw it entirely: `"draws": ["nowPlaying"]` in `theme.json`, then show
   `music:song` (`{ title, artist, seconds }`) and hide it after `seconds`.
+
+### Controllers and the connection
+
+Forma shows, top right, an icon per controller connected (by kind, numbered by player) and the
+connection, marked when the internet does not answer. Restyle it through
+`forma-shell::part(status)`, `::part(status-controller)` (and `status-xbox`, `status-playstation`,
+`status-nintendo`, `status-generic`) and `::part(status-network)`; or draw it yourself with
+`"draws": ["status"]`, from `forma.status.get()` and `status:changed`.
 
 ## Where themes live, and installing your own
 

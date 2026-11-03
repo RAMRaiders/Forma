@@ -131,6 +131,43 @@ fn status_reads_both_interfaces() {
 }
 
 #[test]
+fn the_link_is_the_cable_first_then_wifi_and_says_if_the_internet_answers() {
+    let s = setup(SAVED_HOME);
+    s.shell.set(
+        "connmanctl services",
+        "*AO Wired                ethernet_020000000001_cable\n\
+         *AR Home                 wifi_020000000002_486f6d65_managed_psk\n",
+    );
+    assert_eq!(
+        s.network.link().unwrap(),
+        Link {
+            kind: LinkKind::Ethernet,
+            internet: true
+        }
+    );
+    s.shell.set(
+        "connmanctl services",
+        "*AR Home                 wifi_020000000002_486f6d65_managed_psk\n",
+    );
+    assert_eq!(
+        s.network.link().unwrap(),
+        Link {
+            kind: LinkKind::Wifi,
+            internet: false
+        },
+        "an address, but connman's check found no internet"
+    );
+    s.shell.set("connmanctl services", NO_CABLE);
+    assert_eq!(
+        s.network.link().unwrap(),
+        Link {
+            kind: LinkKind::None,
+            internet: false
+        }
+    );
+}
+
+#[test]
 fn status_without_wifi_hardware_or_settings() {
     let s = setup("");
     s.shell.set(

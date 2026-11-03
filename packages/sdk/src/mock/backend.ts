@@ -350,6 +350,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
     themes_select: ({ id }) =>
       id === 'mock' ? null : fail('notFound', `theme \`${String(id)}\` is not available`),
     input_controllers: () => [],
+    // One pad, on a cable, online: what the corner shows in a browser.
+    status_get: () => ({
+      controllers: [{ player: 1, name: 'Xbox 360 Controller', kind: 'xbox' }],
+      network: { kind: 'ethernet', internet: true }
+    }),
     ra_user: () => {
       raConfigured();
       return fetched(snapshot.ra.user);

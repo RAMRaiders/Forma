@@ -23,6 +23,7 @@ import type {
   RaGame,
   RaUser,
   ShellContext,
+  StatusBar,
   SystemSummary,
   ThemeInfo,
   Unsubscribe,
@@ -112,6 +113,7 @@ export class Forma {
   readonly store;
   readonly music;
   readonly shell;
+  readonly status;
 
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
@@ -307,6 +309,11 @@ export class Forma {
     this.shell = {
       /** What the theme shows now. Call it as the selection moves; it costs one small call. */
       setContext: (context: ShellContext) => invoke<void>('shell_set_context', { context })
+    };
+
+    /** Controllers and the connection, as Forma shows them in a corner; follows `status:changed`. */
+    this.status = {
+      get: () => invoke<StatusBar>('status_get')
     };
 
     this.system = {

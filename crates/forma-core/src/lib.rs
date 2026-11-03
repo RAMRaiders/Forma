@@ -38,7 +38,7 @@ pub use paths::Paths;
 
 /// Version of the theme-facing API this core implements. Themes declare the range they need in
 /// `theme.json` (`"sdk": "^1"`) and `@ramraiders/forma-sdk` checks it against this value at startup.
-pub const SDK_API_VERSION: &str = "1.5.0";
+pub const SDK_API_VERSION: &str = "1.6.0";
 
 #[cfg(test)]
 mod tests {

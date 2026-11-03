@@ -109,6 +109,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     *state.sync.lock().unwrap_or_else(PoisonError::into_inner) = Some(sync);
 
     crate::music::start(app.handle().clone());
+    crate::status::start(app.handle().clone());
 
     let handle = app.handle().clone();
     match input::spawn(InputOptions::default(), move |event| {

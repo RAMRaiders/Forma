@@ -214,6 +214,8 @@ export interface EventMap {
    * (`"draws": ["nowPlaying"]` in its theme.json), then the theme does, for as long.
    */
   'music:song': MusicSong;
+  /** A controller came or went, or the connection changed (`forma.status.get()`). */
+  'status:changed': StatusBar;
   'store:progress': StoreProgress;
   'game:start': GameStart;
   'game:end': GameEnd;
@@ -235,6 +237,35 @@ export interface ShellContext {
   system?: { name: string; fullname: string } | null;
   /** The selected game. */
   game?: { id: number; name: string } | null;
+}
+
+/**
+ * What Forma shows in a corner of the screen: the controllers connected, by kind, and the
+ * connection. Forma's shell draws it; a theme restyles it (`forma-shell::part(status)`) or
+ * draws its own (`"draws": ["status"]` in its theme.json).
+ */
+export interface StatusBar {
+  /** In player order. */
+  controllers: ControllerStatus[];
+  /** `null` where Forma cannot tell (not on a Batocera box). */
+  network: NetworkLink | null;
+}
+
+export interface ControllerStatus {
+  /** 1-based. */
+  player: number;
+  name: string;
+  kind: ControllerKind;
+}
+
+/** By maker, else by name: for an icon. */
+export type ControllerKind = 'xbox' | 'playstation' | 'nintendo' | 'generic';
+
+export interface NetworkLink {
+  /** The connection in use: a cable before Wi-Fi; `none` when not connected. */
+  kind: 'ethernet' | 'wifi' | 'none';
+  /** The internet answers over it. */
+  internet: boolean;
 }
 
 /** A song that just started, as Forma announces it: the title without the file's extension. */

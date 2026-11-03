@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.5.0', false);
+  const forma = new Forma(backend, '1.6.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -90,6 +90,41 @@ function start(
 }
 
 describe('Forma’s shell', () => {
+  it('shows each controller by kind and player, and the connection, top right', async () => {
+    const { shell, root } = start();
+    await vi.waitFor(() => expect(root.querySelectorAll('.status .pad').length).toBe(1));
+    expect(root.querySelector('.status .pad-xbox .player')?.textContent).toBe('1');
+    expect(root.querySelector('.status .net-ethernet')?.classList.contains('offline')).toBe(false);
+    await shell.showStatus({
+      controllers: [
+        { player: 1, name: 'Xbox 360 Controller', kind: 'xbox' },
+        { player: 2, name: 'DualSense', kind: 'playstation' },
+        { player: 3, name: 'Pro Controller', kind: 'nintendo' }
+      ],
+      network: { kind: 'wifi', internet: false }
+    });
+    const pads = [...root.querySelectorAll('.status .pad')].map((p) =>
+      p.getAttribute('aria-label')
+    );
+    expect(pads).toEqual([
+      'Player 1: Xbox 360 Controller',
+      'Player 2: DualSense',
+      'Player 3: Pro Controller'
+    ]);
+    const net = root.querySelector('.status .net')!;
+    expect(net.getAttribute('aria-label')).toBe('Wi-Fi, no internet');
+    expect(net.classList.contains('offline')).toBe(true);
+    expect(root.querySelector('.status')?.getAttribute('part')).toBe('status');
+    shell.playing = true;
+    expect(root.querySelector<HTMLElement>('.status')!.hidden).toBe(true);
+  });
+
+  it('leaves the corner to a theme that draws its own status', async () => {
+    const { shell, root } = start([], {}, null, ['status']);
+    await shell.showStatus({ controllers: [], network: { kind: 'none', internet: false } });
+    expect(root.querySelector<HTMLElement>('.status')!.hidden).toBe(true);
+  });
+
   it('goes back to its menu on B from a page, on the entry it came from', async () => {
     const { press, text, shell, openMenu } = start(['settings.system']);
     await openMenu('Music…');

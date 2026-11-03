@@ -10,6 +10,7 @@ mod permissions;
 mod protocol;
 mod shell;
 mod state;
+mod status;
 mod store;
 mod system_settings;
 
@@ -78,6 +79,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         shell::shell_claim,
         shell::shell_set_open,
         shell::shell_started,
+        status::status_get,
         shell::shell_set_context,
         shell::shell_info,
         shell::shell_set_theme_setting,

@@ -165,6 +165,20 @@ shell's (below) or draws it itself, declaring `"draws": ["nowPlaying"]` in `them
 
 `on` returns a function that unsubscribes.
 
+## `status`
+
+```ts
+const { controllers, network } = await forma.status.get();
+forma.events.on("status:changed", (status) => redraw(status));
+```
+
+What Forma shows in the top-right corner: each controller connected, in player order, with its
+`kind` (`xbox`, `playstation`, `nintendo` or `generic`, from its maker or its name), and the
+connection (`kind`: `ethernet`, `wifi` or `none`; `internet`: whether the internet answers, by
+connman's own check). `network` is `null` off a Batocera box. No permission: it holds no address
+and no network name. Forma's shell draws it; a theme restyles it or draws its own (see
+[theme authoring](theme-authoring.md)).
+
 ## `settings`
 
 | Method                                    | Scope                                     |

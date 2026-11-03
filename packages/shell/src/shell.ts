@@ -1,4 +1,11 @@
-import type { Forma, InputEvent, MusicSong, ShellContext, ViewInfo } from '@ramraiders/forma-sdk';
+import type {
+  Forma,
+  InputEvent,
+  MusicSong,
+  ShellContext,
+  StatusBar,
+  ViewInfo
+} from '@ramraiders/forma-sdk';
 import { FormaError } from '@ramraiders/forma-sdk';
 
 import { moveList } from './logic/nav.js';
@@ -14,6 +21,7 @@ import {
   retroAchievementsScreen
 } from './ui/screens.js';
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
+import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
 import { Switcher } from './ui/switcher.js';
 
@@ -64,6 +72,9 @@ export class Shell {
    */
   readonly #song = el('div', { class: 'song', part: 'now-playing', role: 'status', hidden: '' });
   #songTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Controllers and the connection, in the top-right corner. */
+  readonly #status = new StatusView();
+  #playing = false;
   /** The menu entry the open page, network screen or views list came from: B goes back to it. */
   #returnTo: number | null = null;
   #info: ShellInfo | null = null;
@@ -74,7 +85,15 @@ export class Shell {
   /** Which settings page is open, for the events that redraw it. */
   #pageKind: string | null = null;
   /** A game is running: the shell stays shut. */
-  playing = false;
+  /** A game runs: nothing of Forma's shows over it. */
+  get playing(): boolean {
+    return this.#playing;
+  }
+
+  set playing(playing: boolean) {
+    this.#playing = playing;
+    this.#status.root.hidden = playing;
+  }
 
   constructor(
     private readonly forma: Forma,
@@ -89,15 +108,44 @@ export class Shell {
       if (this.#page.open && this.#pageKind === 'music') void this.#page.refresh();
     });
     forma.events.on('music:song', (song) => void this.announce(song));
+    forma.events.on('status:changed', (status) => void this.showStatus(status));
+    forma.status
+      .get()
+      .then((status) => this.showStatus(status))
+      .catch(() => {});
+    // Clear of the edges a TV cuts off, as themes are, with the same setting.
+    const margins = (value: unknown) =>
+      this.root.style.setProperty(
+        '--margin',
+        `${typeof value === 'number' ? Math.min(10, Math.max(0, value)) : 0}vh`
+      );
+    forma.settings
+      .getSystem<number>('display.margins')
+      .then(margins)
+      .catch(() => {});
+    forma.events.on('settings:changed', ({ scope, key, value }) => {
+      if (scope === 'system' && key === 'display.margins') margins(value);
+    });
     this.root.append(
       this.#menu.root,
       this.#switcher.root,
       this.#network.root,
       this.#page.root,
       this.#hints,
+      this.#status.root,
       this.#song,
       this.#toast
     );
+  }
+
+  /** The corner's controllers and connection, unless the theme draws them. */
+  async showStatus(status: StatusBar): Promise<void> {
+    const info = this.#info ?? (await this.#loadInfo());
+    if (info?.theme.draws?.includes('status')) {
+      this.#status.root.hidden = true;
+      return;
+    }
+    this.#status.show(status);
   }
 
   /** A new song: shown for its time, unless the theme draws it or a game is running. */
