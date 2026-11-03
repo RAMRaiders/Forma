@@ -47,6 +47,10 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "see and change the machine's Wi-Fi and Ethernet settings",
     ),
     (
+        "system.controllers",
+        "see, pair, connect and forget Bluetooth controllers",
+    ),
+    (
         "network",
         "load content from the internet (the origins listed in `remote`)",
     ),

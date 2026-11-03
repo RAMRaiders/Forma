@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard};
 
 use forma_core::batocera::BatoceraSettings;
+use forma_core::bluetooth::Bluetooth;
 use forma_core::hierarchy::ViewCatalog;
 use forma_core::input::InputHandle;
 use forma_core::launch::Launcher;
@@ -38,6 +39,8 @@ pub struct AppState {
     pub http: Box<dyn Http>,
     /// This box's Ethernet and Wi-Fi, through Batocera's tools.
     pub network: Network,
+    /// Bluetooth controllers, through Batocera's tools.
+    pub bluetooth: Bluetooth,
     /// Batocera's RetroAchievements and netplay settings.
     pub batocera: BatoceraSettings,
     /// Batocera's emulator, core and game options.

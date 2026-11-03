@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Backend } from '../backend.js';
-import type { Browse, Game, GameEnd, NetworkStatus, WifiNetwork } from '../types.js';
+import type {
+  BluetoothDevice,
+  Browse,
+  Game,
+  GameEnd,
+  NetworkStatus,
+  WifiNetwork
+} from '../types.js';
 import { mockBackend } from './backend.js';
 
 const browse = (b: Backend, view: string, path: string[] = [], page?: object) =>
@@ -209,6 +216,29 @@ describe('mock backend', () => {
     await expect(
       b.invoke('system_settings_set', { key: 'system.hostname', value: 'my box' })
     ).rejects.toMatchObject({ code: 'invalid' });
+  });
+
+  it('Bluetooth: pairs, connects and forgets pads, with the permission', async () => {
+    await expect(mockBackend().invoke('bluetooth_status')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ permissions: ['system.controllers'] });
+    type Status = { enabled: boolean; devices: BluetoothDevice[] };
+    const said: string[] = [];
+    b.listen<{ message: string }>('bluetooth:pairing', (e) => said.push(e.message));
+    expect((await b.invoke<Status>('bluetooth_status')).devices).toHaveLength(2);
+    const paired = await b.invoke<BluetoothDevice[]>('bluetooth_pair');
+    expect(paired.map((d) => d.name)).toEqual(['Wireless Controller']);
+    expect(said[0]).toBe('Discovering…');
+    await b.invoke('bluetooth_disconnect', { address: paired[0]!.address });
+    await b.invoke('bluetooth_forget', { address: '00:06:F5:13:C3:50' });
+    const { devices } = await b.invoke<Status>('bluetooth_status');
+    expect(devices.map((d) => [d.name, d.connected])).toEqual([
+      ['8BitDo Pro 2', true],
+      ['Wireless Controller', false]
+    ]);
+    await b.invoke('bluetooth_set_enabled', { enabled: false });
+    expect(await b.invoke('bluetooth_status')).toEqual({ enabled: false, devices: [] });
   });
 
   it('emulator options: levels, inheritance, the emulator choosing the options', async () => {

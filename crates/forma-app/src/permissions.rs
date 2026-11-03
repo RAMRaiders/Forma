@@ -15,6 +15,7 @@ pub const MUSIC_MANAGE: &str = "music.manage";
 pub const SETTINGS_EMULATORS: &str = "settings.emulators";
 pub const SYSTEM_SETTINGS: &str = "system.settings";
 pub const STORE_MANAGE: &str = "store.manage";
+pub const SYSTEM_CONTROLLERS: &str = "system.controllers";
 
 pub fn require(theme: &Theme, permission: &str) -> ApiResult<()> {
     if theme.has_permission(permission) {

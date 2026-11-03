@@ -35,7 +35,9 @@ import type {
   SystemSetting,
   StorePackage,
   WifiJoined,
-  WifiNetwork
+  WifiNetwork,
+  BluetoothDevice,
+  BluetoothStatus
 } from './types.js';
 import { SDK_VERSION, satisfies } from './version.js';
 
@@ -108,6 +110,7 @@ export class Forma {
   readonly ra;
   readonly netplay;
   readonly network;
+  readonly bluetooth;
   readonly batocera;
   readonly options;
   readonly store;
@@ -234,6 +237,26 @@ export class Forma {
       /** DHCP or a static address, kept across reboots. The connection drops for a moment. */
       configureEthernet: (config: EthernetConfig) =>
         invoke<void>('network_ethernet_configure', { config })
+    };
+
+    /**
+     * Bluetooth controllers, through Batocera's own tools, as EmulationStation's Controllers
+     * menu offers them. Needs the `system.controllers` permission; Batocera only.
+     */
+    this.bluetooth = {
+      /** Whether Bluetooth is on, and the devices paired with this box. */
+      status: () => invoke<BluetoothStatus>('bluetooth_status'),
+      /** Turns Bluetooth on or off; Batocera restarts its Bluetooth services. */
+      setEnabled: (enabled: boolean) => invoke<void>('bluetooth_set_enabled', { enabled }),
+      /**
+       * Looks for pads in pairing mode for up to a minute, pairing each it finds; resolves with
+       * those it paired. `bluetooth:pairing` reports on the way.
+       */
+      pair: () => invoke<BluetoothDevice[]>('bluetooth_pair'),
+      connect: (address: string) => invoke<void>('bluetooth_connect', { address }),
+      disconnect: (address: string) => invoke<void>('bluetooth_disconnect', { address }),
+      /** Unpairs a device; it has to be paired again to be used. */
+      forget: (address: string) => invoke<void>('bluetooth_forget', { address })
     };
 
     /**

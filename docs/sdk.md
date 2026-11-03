@@ -317,6 +317,25 @@ connman, so the connection drops for a few seconds; read `status()` again after 
 answers from recorded connman output, has a cable plugged in, and refuses the password
 `wrong-password`.
 
+## `bluetooth`
+
+Bluetooth controllers, through Batocera's own `batocera-bluetooth`, as EmulationStation's
+Controllers menu offers them. Every method needs the `system.controllers` permission and
+answers `unsupported` anywhere but Batocera.
+
+| Method                | Returns                                                                       |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `status()`            | `{ enabled, devices }`: each paired device's address, name, whether connected |
+| `setEnabled(on)`      | Turns Bluetooth on or off (Batocera restarts its Bluetooth services)          |
+| `pair()`              | Looks for a minute for pads in pairing mode; the devices it paired            |
+| `connect(address)`    | Connects a paired device that is on                                           |
+| `disconnect(address)` | Disconnects it, keeping it paired                                             |
+| `forget(address)`     | Unpairs it                                                                    |
+
+While `pair()` looks, `bluetooth:pairing` carries `{ message }`, Batocera's word on what it is
+doing. The pads in use, by player, are in `forma.status.get()`. The mock has two pads paired and
+finds a third.
+
 ## `system`
 
 `quit()`, `restart()` and `shutdown()` need the `system.power` permission. Restart and

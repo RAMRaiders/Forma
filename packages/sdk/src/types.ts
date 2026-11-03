@@ -217,6 +217,8 @@ export interface EventMap {
   /** A controller came or went, or the connection changed (`forma.status.get()`). */
   'status:changed': StatusBar;
   'store:progress': StoreProgress;
+  /** While `forma.bluetooth.pair()` looks for pads: what Batocera is doing. */
+  'bluetooth:pairing': BluetoothPairing;
   'game:start': GameStart;
   'game:end': GameEnd;
   'library:changed': LibraryChanged;
@@ -537,6 +539,28 @@ export interface StoreProgress {
   stage: 'download' | 'install';
   /** 0–100; while installing it only shows that something is happening. */
   percent: number;
+}
+
+/** A Bluetooth device Batocera has paired and trusts. */
+export interface BluetoothDevice {
+  /** `AA:BB:CC:DD:EE:FF`. */
+  address: string;
+  name: string;
+  /** A gamepad or joystick, by its Bluetooth class; else something else (a headset…). */
+  controller: boolean;
+  connected: boolean;
+}
+
+export interface BluetoothStatus {
+  /** Batocera's Bluetooth is on (`controllers.bluetooth.enabled`). Off, nothing is listed. */
+  enabled: boolean;
+  devices: BluetoothDevice[];
+}
+
+/** While pairing. */
+export interface BluetoothPairing {
+  /** Batocera's own words, e.g. `Discovering…` or `Pairing Wireless Controller`. */
+  message: string;
 }
 
 /** Something the music player can play. Its `id` is stable: a theme can remember it. */

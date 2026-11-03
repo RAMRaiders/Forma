@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.6.0', false);
+  const forma = new Forma(backend, '1.7.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -225,6 +225,7 @@ describe('Forma’s shell', () => {
       'Music…',
       'RetroAchievements…',
       'Netplay…',
+      'Controllers…',
       'Network…',
       'Content downloader…',
       'Game settings…',
@@ -256,7 +257,7 @@ describe('Forma’s shell', () => {
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 10; i++) await press('down');
+    for (let i = 0; i < 11; i++) await press('down');
     expect(text('.switcher li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
@@ -324,7 +325,7 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 5; i++) await press('down');
+    for (let i = 0; i < 6; i++) await press('down');
     expect(text('.switcher li.selected .name')).toEqual(['Network…']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');
@@ -539,5 +540,25 @@ describe('Forma’s settings pages', () => {
     await press('north');
     await vi.waitFor(() => expect(text('.toast')[0]).toMatch(/ removed$/));
     expect(text('.page li.selected .description')[0]).toBe(before);
+  });
+
+  it('controllers: the pads in use, pairing a new one, connecting and forgetting', async () => {
+    const { press, text, openMenu } = start(['system.controllers']);
+    await openMenu('Controllers…');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(rows()).toContain('Pair a controller…'));
+    expect(rows()[0]).toBe('Player 1');
+    expect(rows()).toContain('8BitDo Pro 2');
+    while (selected() !== 'Pair a controller…') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.toast')[0]).toBe('Paired Wireless Controller'));
+    await vi.waitFor(() => expect(rows()).toContain('Wireless Controller'));
+    while (selected() !== 'PLAYSTATION(R)3 Controller') await press('down');
+    expect(text('.page li.selected .description')[0]).toBe('Not connected');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page li.selected .description')[0]).toBe('Connected'));
+    await press('north');
+    await vi.waitFor(() => expect(rows()).not.toContain('PLAYSTATION(R)3 Controller'));
   });
 });

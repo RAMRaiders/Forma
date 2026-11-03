@@ -23,6 +23,7 @@ import {
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
 import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
+import { controllersScreen } from './ui/controllers.js';
 import { Switcher } from './ui/switcher.js';
 
 /** What `shell_info` answers: the theme's context and its settings. */
@@ -282,6 +283,11 @@ export class Shell {
         description: 'Your account and how achievements work'
       },
       { id: 'netplay', label: 'Netplay…', description: 'Playing online with others' },
+      {
+        id: 'controllers',
+        label: 'Controllers…',
+        description: 'Pads in use, Bluetooth pairing'
+      },
       { id: 'network', label: 'Network…', description: 'Wi-Fi and Ethernet' },
       {
         id: 'store',
@@ -396,6 +402,8 @@ export class Shell {
         m.close();
         this.#network.show();
         return this.#changed();
+      case 'controllers':
+        return show('Controllers', controllersScreen(this.forma, page));
       case 'store':
         return show('Content downloader', storeScreen(this.forma, page));
       case 'system-settings':

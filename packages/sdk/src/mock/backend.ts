@@ -9,6 +9,7 @@
 import type { Backend } from '../backend.js';
 import { type ErrorCode, FormaError } from '../errors.js';
 import type {
+  BluetoothDevice,
   Browse,
   BatoceraSetting,
   OptionItem,
@@ -133,6 +134,19 @@ export function mockBackend(options: MockOptions = {}): Backend {
   let playing = false;
   const systemSettings = structuredClone(snapshot.system.settings);
   const store = structuredClone(snapshot.store);
+  /** Two pads paired, one of them on. */
+  const bluetooth: { enabled: boolean; devices: BluetoothDevice[] } = {
+    enabled: true,
+    devices: [
+      {
+        address: '00:06:F5:13:C3:50',
+        name: 'PLAYSTATION(R)3 Controller',
+        controller: true,
+        connected: false
+      },
+      { address: '58:2F:40:8A:11:20', name: '8BitDo Pro 2', controller: true, connected: true }
+    ]
+  };
   let storeBusy = false;
   /** One store operation at a time, as pacman's lock makes it. */
   const storeWork = async (work: () => Promise<void> | void): Promise<null> => {
@@ -366,6 +380,41 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return fetched(game);
     },
     netplay_lobby: () => fetched(snapshot.lobby),
+    bluetooth_status: () => {
+      bluetoothAllowed();
+      return {
+        enabled: bluetooth.enabled,
+        devices: bluetooth.enabled ? structuredClone(bluetooth.devices) : []
+      };
+    },
+    bluetooth_set_enabled: ({ enabled }) => {
+      bluetoothAllowed();
+      bluetooth.enabled = Boolean(enabled);
+      return null;
+    },
+    bluetooth_pair: async () => {
+      bluetoothAllowed();
+      if (!bluetooth.enabled) fail('unsupported', 'Bluetooth is off');
+      emit('bluetooth:pairing', { message: 'Discovering…' });
+      await new Promise((r) => setTimeout(r, 50));
+      const found = {
+        address: '9C:DE:B3:05:06:07',
+        name: 'Wireless Controller',
+        controller: true,
+        connected: true
+      };
+      emit('bluetooth:pairing', { message: `Pairing ${found.name}` });
+      if (bluetooth.devices.some((d) => d.address === found.address)) return [];
+      bluetooth.devices.push(found);
+      return [structuredClone(found)];
+    },
+    bluetooth_connect: ({ address }) => bluetoothDevice(address, (d) => (d.connected = true)),
+    bluetooth_disconnect: ({ address }) => bluetoothDevice(address, (d) => (d.connected = false)),
+    bluetooth_forget: ({ address }) => {
+      bluetoothDevice(address, () => {});
+      bluetooth.devices = bluetooth.devices.filter((d) => d.address !== address);
+      return null;
+    },
     network_status: () => {
       networkAllowed();
       return structuredClone(network.status);
@@ -682,6 +731,21 @@ export function mockBackend(options: MockOptions = {}): Backend {
     if (!permissions.has('settings.emulators')) {
       fail('permissionDenied', 'theme `mock` needs the `settings.emulators` permission');
     }
+  }
+
+  function bluetoothAllowed(): void {
+    if (!permissions.has('system.controllers')) {
+      fail('permissionDenied', 'theme `mock` needs the `system.controllers` permission');
+    }
+  }
+
+  function bluetoothDevice(address: unknown, change: (d: BluetoothDevice) => void): null {
+    bluetoothAllowed();
+    const d =
+      bluetooth.devices.find((x) => x.address === address) ??
+      fail('invalid', `no paired device \`${String(address)}\``);
+    change(d);
+    return null;
   }
 
   function networkAllowed(): void {

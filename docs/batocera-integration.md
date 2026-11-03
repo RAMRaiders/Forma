@@ -49,6 +49,19 @@ with its token (the emulators use the token; RetroArch clears the password). The
 one of `none`, `nyc`, `madrid`, `montreal`, `saopaulo` or `custom` (with
 `global.netplay.customserver`).
 
+## Controllers
+
+The menu's Controllers screen (`forma.bluetooth` in the SDK, `system.controllers` permission)
+shows the pads in use by player and drives Batocera's `batocera-bluetooth`, so EmulationStation
+sees the same pairings:
+
+| Change          | How                                                                                      |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Paired devices  | `batocera-bluetooth list`: trusted devices from `/var/lib/bluetooth`                     |
+| Pair            | `batocera-bluetooth trust input`: Batocera's agent looks for a minute, trusting each pad |
+| Connect, forget | `batocera-bluetooth connect`, `remove` (saved to `/userdata/system/bluetooth`)           |
+| On, off         | `batocera-bluetooth enable`/`disable`: `controllers.bluetooth.enabled` and its services  |
+
 ## Network settings
 
 The menu's Network screen (`forma.network` in the SDK, `system.network` permission) changes the

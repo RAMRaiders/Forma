@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod api;
+mod bluetooth;
 mod boot;
 mod commands;
 mod music;
@@ -58,6 +59,12 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         system_settings::system_info,
         system_settings::system_settings,
         system_settings::system_settings_set,
+        bluetooth::bluetooth_status,
+        bluetooth::bluetooth_set_enabled,
+        bluetooth::bluetooth_pair,
+        bluetooth::bluetooth_connect,
+        bluetooth::bluetooth_disconnect,
+        bluetooth::bluetooth_forget,
         store::store_list,
         store::store_refresh,
         store::store_install,

@@ -68,6 +68,7 @@ impl Harness {
             launcher: Box::new(MockLauncher::new(Duration::from_millis(20))),
             http: Box::new(FixtureHttp),
             network: Network::new(Box::new(SystemShell), &paths),
+            bluetooth: forma_core::bluetooth::Bluetooth::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             store: forma_core::store::Store::default(),
             system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
@@ -388,6 +389,26 @@ fn network_settings_need_permission_and_are_refused_outside_batocera() {
         )
         .unwrap_err();
     assert_eq!(code(&err), "unsupported");
+}
+
+#[test]
+fn bluetooth_needs_permission_and_is_refused_outside_batocera() {
+    let h = Harness::new(&[]);
+    let address = json!({ "address": "9C:DE:B3:05:06:07" });
+    for (cmd, args) in [
+        ("bluetooth_status", json!({})),
+        ("bluetooth_set_enabled", json!({ "enabled": false })),
+        ("bluetooth_pair", json!({})),
+        ("bluetooth_connect", address.clone()),
+        ("bluetooth_disconnect", address.clone()),
+        ("bluetooth_forget", address.clone()),
+    ] {
+        let err = h.call(cmd, args).unwrap_err();
+        assert_eq!(code(&err), "permissionDenied", "{cmd}");
+    }
+    let allowed = Harness::new(&["system.controllers"]);
+    let err = allowed.call("bluetooth_status", json!({})).unwrap_err();
+    assert_eq!(code(&err), "unsupported", "{err}");
 }
 
 #[test]
