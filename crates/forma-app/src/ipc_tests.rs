@@ -181,6 +181,10 @@ impl Http for FixtureHttp {
             "ra-game.json"
         } else if url.contains("lobby.libretro.com") {
             "lobby.json"
+        } else if url.contains("forma-themes") {
+            "themes-catalogue.json"
+        } else if url.ends_with("/theme-neon-1.0.0.zip") {
+            "theme-neon-1.0.0.zip"
         } else {
             return Err(HttpError {
                 status: Some(404),
@@ -559,6 +563,69 @@ fn removes_an_installed_theme_but_not_the_bundled_or_the_one_in_use() {
         .call("themes_remove", json!({ "id": "neon" }))
         .unwrap_err();
     assert_eq!(code(&err), "notFound");
+}
+
+#[test]
+fn installs_a_theme_from_the_catalogue_and_marks_updates() {
+    let h = Harness::new(&["themes.manage"]);
+    let fetched = h.call("themes_catalogue", json!({})).unwrap();
+    let themes = fetched["data"]["themes"].as_array().unwrap();
+    assert_eq!(themes.len(), 2, "the broken entry is skipped");
+    assert_eq!(fetched["data"]["skipped"].as_array().unwrap().len(), 1);
+    let neon = &themes[0];
+    assert_eq!(neon["installed"], Value::Null);
+    assert_eq!(neon["runsHere"], true);
+    assert_eq!(
+        neon["permissionDescriptions"][0],
+        "quit Forma, restart or shut down the machine"
+    );
+    assert_eq!(themes[1]["runsHere"], false);
+
+    h.call("themes_install", json!({ "id": "neon" })).unwrap();
+    let dir = h.state().paths.userdata.join("themes-forma/neon");
+    assert!(dir.join("index.html").is_file());
+    let listed = h.call("themes_list", json!({})).unwrap();
+    let neon = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == "neon")
+        .unwrap();
+    assert_eq!(neon["author"], "RAM Raiders");
+    assert_eq!(
+        neon["update"],
+        Value::Null,
+        "the catalogue has this version"
+    );
+
+    // An older copy on disk: the catalogue's 1.0.0 is an update.
+    let manifest = dir.join("theme.json");
+    let text = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(&manifest, text.replace("1.0.0", "0.9.0")).unwrap();
+    let listed = h.call("themes_list", json!({})).unwrap();
+    let neon = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == "neon")
+        .unwrap();
+    assert_eq!(neon["update"], "1.0.0");
+    let fetched = h.call("themes_catalogue", json!({})).unwrap();
+    assert_eq!(fetched["data"]["themes"][0]["update"], true);
+
+    let err = h
+        .call("themes_install", json!({ "id": "future" }))
+        .unwrap_err();
+    assert!(err["message"].as_str().unwrap().contains("needs Forma SDK"));
+    let err = h
+        .call("themes_install", json!({ "id": "nope" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "notFound");
+    let denied = Harness::new(&[]);
+    let err = denied
+        .call("themes_install", json!({ "id": "neon" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
 }
 
 #[test]

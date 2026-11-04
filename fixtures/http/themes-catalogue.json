@@ -1,0 +1,32 @@
+{
+  "themes": [
+    {
+      "id": "neon",
+      "name": "Neon",
+      "version": "1.0.0",
+      "author": "RAM Raiders",
+      "description": "Bright lines on black.",
+      "sdk": "^1",
+      "permissions": ["system.power"],
+      "previews": ["https://example.com/neon.png"],
+      "download": "https://example.com/theme-neon-1.0.0.zip",
+      "sha256": "441c0a7432f5323a37823e19759b5733c1257f364d8472e68d17d60dbc02ed12"
+    },
+    {
+      "id": "future",
+      "name": "Future",
+      "version": "1.0.0",
+      "sdk": "^99",
+      "download": "https://example.com/future.zip",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "id": "Broken Entry",
+      "name": "x",
+      "version": "1",
+      "sdk": "^1",
+      "download": "https://example.com/x.zip",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}

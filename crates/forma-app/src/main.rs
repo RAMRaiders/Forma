@@ -4,6 +4,7 @@
 mod api;
 mod bluetooth;
 mod boot;
+mod catalogue;
 mod collections;
 mod commands;
 mod music;
@@ -45,6 +46,8 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::themes_list,
         commands::themes_select,
         commands::themes_remove,
+        catalogue::themes_catalogue,
+        catalogue::themes_install,
         commands::input_controllers,
         commands::system_quit,
         commands::system_power,

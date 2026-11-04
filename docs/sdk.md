@@ -200,11 +200,13 @@ Values are any JSON. `set(key, null)` removes a setting.
 
 ## `themes`
 
-| Method       | Does                                                             |
-| ------------ | ---------------------------------------------------------------- |
-| `list()`     | Every theme found, with `unavailable` saying why one cannot load |
-| `select(id)` | Switches to that theme (the window reloads into it)              |
-| `remove(id)` | Deletes a theme the user installed. Needs `themes.manage`        |
+| Method        | Does                                                                  |
+| ------------- | --------------------------------------------------------------------- |
+| `list()`      | Every theme found, with `unavailable` saying why one cannot load      |
+| `select(id)`  | Switches to that theme (the window reloads into it)                   |
+| `remove(id)`  | Deletes a theme the user installed. Needs `themes.manage`             |
+| `catalogue()` | The theme catalogue: themes to install, and updates (`Fetched`)       |
+| `install(id)` | Installs or updates a theme from the catalogue. Needs `themes.manage` |
 
 `list()` leaves out Forma's plain fallback theme (unless it is in use) and a copy that another
 copy of the same theme stands in for. Each theme's `logo` is a URL for its logo, or `null`.
@@ -213,6 +215,15 @@ Each also has its `author` and `description` (or `null`), `permissionDescription
 `remove` refuses a theme that comes with Forma, and the one in use. Removing a newer copy of a
 bundled theme brings the bundled one back. Forma's own menu does this from Interface: Y on a
 theme opens its page (since 1.17.0).
+
+`list()` also gives `update`: a newer version in the catalogue, as fetched last (`null` before
+the first fetch). `catalogue()` asks again at most every six hours; offline it serves the last
+list, `stale`. Each entry says what it would be allowed to do (`permissionDescriptions`),
+whether it is `installed` and has an `update`, and whether it `runsHere`. `install` downloads the
+package, checks its SHA-256 against the catalogue, unpacks it beside the themes folder and checks
+it is that theme and version and can load, and only then replaces the installed copy; the theme
+in use reloads into the new version. Interface → Get more themes does this in Forma's own menu
+(since 1.18.0).
 
 ## `ra`
 

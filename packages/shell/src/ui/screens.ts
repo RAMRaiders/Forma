@@ -9,7 +9,7 @@ import type {
 
 import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
-import { themeScreen } from './themes.js';
+import { catalogueScreen, themeScreen } from './themes.js';
 
 /** Music: what plays, the controls, and everything there is to play. */
 /** Forma's setting for how long a new song is shown, in seconds (0: not at all). */
@@ -405,11 +405,13 @@ export function interfaceScreen(
       heading: i === 0 ? 'Theme' : undefined,
       label: `${t.name ?? t.id}${t.version ? ` ${t.version}` : ''}`,
       logo: t.logo ? { src: t.logo, name: t.name ?? t.id, text: t.version ?? '' } : undefined,
-      detail: t.current
-        ? 'In use · A for more'
-        : t.unavailable
-          ? `Cannot load: ${t.unavailable} · Y for more`
-          : `${t.origin === 'bundled' ? 'Comes with Forma' : 'Installed'} · A to use it, Y for more`,
+      detail:
+        (t.update ? `Update to ${t.update} · ` : '') +
+        (t.current
+          ? 'In use · A for more'
+          : t.unavailable
+            ? `Cannot load: ${t.unavailable} · Y for more`
+            : `${t.origin === 'bundled' ? 'Comes with Forma' : 'Installed'} · A to use it, Y for more`),
       run: t.current
         ? about(t)
         : t.unavailable
@@ -417,6 +419,11 @@ export function interfaceScreen(
           : () => page.run(`Switching to ${t.name ?? t.id}…`, () => forma.themes.select(t.id)),
       alt: { label: 'More', run: about(t) }
     }));
+    rows.push({
+      label: 'Get more themes…',
+      detail: 'Install and update themes from the catalogue',
+      run: () => page.push('Get more themes', catalogueScreen(forma, page, hooks.notify))
+    });
 
     const viewIds = views.map((v) => v.id);
     const startOn = home.id ?? 'systems';

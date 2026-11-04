@@ -273,6 +273,8 @@ pub struct ThemeInfo {
     pub permission_descriptions: Vec<String>,
     /// A theme the user installed and is not using: `themes.remove` takes it away.
     pub removable: bool,
+    /// A newer version in the catalogue (as fetched last), for `themes.install` to fetch.
+    pub update: Option<String>,
     pub current: bool,
     pub unavailable: Option<String>,
     /// Where to load the theme's logo from, if it has one.
@@ -293,6 +295,7 @@ pub fn themes_list(state: State<'_, AppState>) -> Vec<ThemeInfo> {
     drop(themes);
 
     let current = state.current_theme().map(|t| t.id);
+    let catalogue = crate::catalogue::cached(&state);
     let themes = state
         .themes
         .read()
@@ -319,6 +322,10 @@ pub fn themes_list(state: State<'_, AppState>) -> Vec<ThemeInfo> {
                     .collect(),
                 permissions,
                 removable: t.origin == ThemeOrigin::User && !in_use,
+                update: catalogue
+                    .as_ref()
+                    .and_then(|c| c.update_for(t))
+                    .map(|c| c.version.clone()),
                 current: in_use,
                 unavailable: t.unavailable.clone(),
                 logo: crate::state::theme_logo_url(t),
