@@ -961,3 +961,50 @@ kbd {
     animation: none;
   }
 }
+
+/* The magazine reader: one page on black, fitted to the screen or, zoomed, to its width. */
+.reader {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  pointer-events: auto;
+}
+
+.reader .sheet {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.reader .page {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.reader.zoomed .sheet {
+  overflow-y: auto;
+  place-items: start center;
+  scrollbar-width: none;
+}
+
+.reader.zoomed .page {
+  width: 100%;
+  max-height: none;
+}
+
+.reader .where {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--margin, 0vh) + 1.2rem);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 70%);
+  color: #fff;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}

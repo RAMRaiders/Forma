@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.18.0', false);
+  const forma = new Forma(backend, '1.19.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -268,6 +268,42 @@ describe('Forma’s shell', () => {
     );
   });
 
+  it('magazines: a list by folder, a reader that turns pages and remembers where', async () => {
+    const { press, text, openMenu, root } = start();
+    await openMenu('Magazines');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await vi.waitFor(() => expect(rows()).toEqual(['Retro Gamer 1', 'Edge 9']));
+    expect(text('.page .heading')).toEqual(['Magazines', 'Edge']);
+    await press('confirm');
+    const where = () => text('.reader .where')[0];
+    await vi.waitFor(() => expect(where()).toBe('Retro Gamer 1 · 1 / 8 · A: zoom'));
+    const page = () => root.querySelector<HTMLImageElement>('.reader .page')!.src;
+    expect(page()).toContain('page%200');
+    await press('right');
+    await press('right');
+    await press('left');
+    expect(where()).toBe('Retro Gamer 1 · 2 / 8 · A: zoom');
+    expect(page()).toContain('page%201');
+    await press('confirm');
+    expect(where()).toBe('Retro Gamer 1 · 2 / 8 · A: whole page');
+    await press('back');
+    expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
+    await vi.waitFor(() =>
+      expect(text('.page > .panel li[role=option] .description')[0]).toBe('PDF · read to page 2')
+    );
+    // Opening again starts where it was left.
+    await press('confirm');
+    await vi.waitFor(() => expect(where()).toBe('Retro Gamer 1 · 2 / 8 · A: zoom'));
+    await press('start');
+    expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
+  });
+
+  it('magazines: a theme opens one in Forma’s reader', async () => {
+    const { text, forma } = start();
+    await forma.magazines.open('Edge/Edge 9.cbz');
+    await vi.waitFor(() => expect(text('.reader .where')[0]).toBe('Edge 9 · 1 / 8 · A: zoom'));
+  });
+
   it('on Select over systems, offers their order, for every theme, and shuts on Select', async () => {
     const { press, text, shell, forma } = start(
       ['settings.system'],
@@ -310,6 +346,7 @@ describe('Forma’s shell', () => {
       'Collections',
       'Views',
       'Downloads',
+      'Magazines',
       'Achievements',
       'Netplay',
       'Interface',
@@ -370,7 +407,7 @@ describe('Forma’s shell', () => {
       });
       top += Math.ceil(own.length / 4) * 50 + 20;
     }
-    expect(tiles.length).toBe(14);
+    expect(tiles.length).toBe(15);
     const at = () => text('.menu li.selected .name')[0];
     expect(at()).toBe('Collections');
     await press('right');
@@ -400,7 +437,7 @@ describe('Forma’s shell', () => {
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 12; i++) await press('down');
+    for (let i = 0; i < 13; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
@@ -426,7 +463,7 @@ describe('Forma’s shell', () => {
   it('switches theme, and sets the theme’s own settings, from Interface', async () => {
     const { press, text, settings, forma } = start(['settings.system']);
     await press('start');
-    for (let i = 0; i < 5; i++) await press('down');
+    for (let i = 0; i < 6; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Interface']));
     expect(text('.page li.heading')).toEqual(['Theme', 'Screen', 'Look', 'This theme']);
@@ -463,7 +500,7 @@ describe('Forma’s shell', () => {
       }
     ]);
     await press('start');
-    for (let i = 0; i < 5; i++) await press('down');
+    for (let i = 0; i < 6; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(root.querySelector('.page .theme-logo')).not.toBeNull());
     const logo = root.querySelector<HTMLImageElement>('.page .theme-logo')!;
@@ -492,7 +529,7 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 10; i++) await press('down');
+    for (let i = 0; i < 11; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Network']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');

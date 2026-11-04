@@ -60,6 +60,15 @@ the AppImage's layout itself.
 For development, `FORMA_USERDATA` and `FORMA_SYSTEMS_CFG` point these at
 `fixtures/userdata`.
 
+## Magazines
+
+Forma reads magazines from `/userdata/magazines` (Start → Magazines). ZIP-based files (CBZ)
+are read in-process. RAR, 7z and tar (CBR, CB7, CBT) go through Batocera's `bsdtar`
+(libarchive), and PDFs through `pdfinfo` and `pdftoppm` (poppler); all of these ship with
+Batocera. Each page is turned into a JPEG at the width the screen needs, cached under
+`/userdata/system/forma/cache/magazines` (trimmed to 768 MB). Where the user left each magazine
+is the Forma setting `magazines.reading`.
+
 ## Writing back to `gamelist.xml`
 
 Off by default. With **System → Save to gamelist.xml** on (Forma setting

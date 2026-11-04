@@ -56,6 +56,8 @@ pub struct AppState {
     pub music: Player,
     /// Resized artwork, made in the background.
     pub thumbnails: Thumbnailer,
+    /// Opens magazines and makes their pages.
+    pub magazines: forma_core::magazines::Reader,
     pub playing: AtomicBool,
     /// Set by the SDK once the current theme has started.
     pub theme_ready: AtomicBool,
@@ -166,6 +168,16 @@ impl Resolver for AppState {
             Some(w) if image => self.thumbnails.file_for(&source, w),
             _ => source,
         })
+    }
+
+    fn magazine_page(&self, id: &str, page: usize, width: u32) -> Option<PathBuf> {
+        match self.magazines.page(id, page, width) {
+            Ok(file) => Some(file),
+            Err(e) => {
+                eprintln!("forma: magazine page: {e}");
+                None
+            }
+        }
     }
 
     fn shell_file(&self, name: &str) -> Option<PathBuf> {

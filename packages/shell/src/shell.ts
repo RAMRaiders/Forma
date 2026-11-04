@@ -22,6 +22,8 @@ import {
   retroAchievementsScreen,
   systemsScreen
 } from './ui/screens.js';
+import { magazinesScreen } from './ui/magazines.js';
+import { Reader } from './ui/reader.js';
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
 import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
@@ -83,6 +85,8 @@ export class Shell {
   readonly #status = new StatusView();
   /** After a game: what it earned on RetroAchievements. */
   readonly #unlocks = new UnlocksView();
+  /** Forma's magazine reader, over everything else. */
+  readonly #reader: Reader;
   #playing = false;
   /** The menu entry the open page, network screen or views list came from: B goes back to it. */
   #returnTo: number | null = null;
@@ -112,6 +116,9 @@ export class Shell {
     const changed = () => this.#changed();
     this.#page = new Page(notify, changed);
     this.#network = new NetworkScreen(forma, notify, changed);
+    this.#reader = new Reader(forma, notify);
+    // A theme's shortcut asks for Forma's magazines, or one of them.
+    forma.events.on('magazines:open', ({ id }) => void this.openMagazines(id));
     // What plays moves on by itself: the music page follows.
     forma.events.on('music:changed', () => {
       if (this.#page.open && this.#pageKind === 'music') void this.#page.refresh();
@@ -153,6 +160,7 @@ export class Shell {
       this.#status.root,
       this.#song,
       this.#unlocks.root,
+      this.#reader.root,
       this.#toast
     );
   }
@@ -195,7 +203,35 @@ export class Shell {
   }
 
   get open(): boolean {
-    return this.#menu.open || this.#switcher.open || this.#network.open || this.#page.open;
+    return (
+      this.#menu.open ||
+      this.#switcher.open ||
+      this.#network.open ||
+      this.#page.open ||
+      this.#reader.open
+    );
+  }
+
+  /** Forma's magazines page; with `id`, straight into that magazine (B then shows the list). */
+  async openMagazines(id: string | null = null): Promise<void> {
+    if (this.playing) return;
+    this.#closeAll();
+    this.#pageKind = 'magazines';
+    await this.#page.show(
+      'Magazines',
+      magazinesScreen(this.forma, (m) => this.#read(m))
+    );
+    this.#changed();
+    if (id) {
+      const magazine = (await this.forma.magazines.list()).find((m) => m.id === id);
+      if (magazine) await this.#read(magazine);
+      else this.notify('That magazine is no longer there');
+    }
+  }
+
+  async #read(magazine: Parameters<Reader['show']>[0]): Promise<void> {
+    await this.#reader.show(magazine);
+    this.#changed();
   }
 
   input(e: InputEvent): void {
@@ -225,6 +261,12 @@ export class Shell {
       this.#closeAll();
       return;
     }
+    if (this.#reader.open) {
+      this.#reader.input(e);
+      // Back on the list, which shows where the magazine was left.
+      if (!this.#reader.open) void this.#page.refresh();
+      return this.#changed();
+    }
     if (this.#page.open) {
       this.#page.input(e);
       if (!this.#page.open) return this.#backToMenu(e);
@@ -252,6 +294,7 @@ export class Shell {
   }
 
   #closeAll(): void {
+    if (this.#reader.open) this.#reader.close();
     this.#menu.close();
     this.#switcher.close();
     if (this.#network.open) this.#network.close();
@@ -326,6 +369,12 @@ export class Shell {
         id: 'store',
         label: 'Downloads',
         description: 'Free games, ports, decorations and music from Batocera',
+        section: 'Library'
+      },
+      {
+        id: 'magazines',
+        label: 'Magazines',
+        description: 'Read scanned magazines from /userdata/magazines',
         section: 'Library'
       },
       {
@@ -546,6 +595,9 @@ export class Shell {
         return show('RetroAchievements', retroAchievementsScreen(this.forma, page));
       case 'netplay':
         return show('Netplay', netplayScreen(this.forma, page, context.game ?? null));
+      case 'magazines':
+        m.close();
+        return void this.openMagazines();
       case 'collections':
         return show(
           'Collections',

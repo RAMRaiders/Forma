@@ -225,6 +225,24 @@ it is that theme and version and can load, and only then replaces the installed 
 in use reloads into the new version. Interface → Get more themes does this in Forma's own menu
 (since 1.18.0).
 
+## `magazines`
+
+Scanned magazines in `/userdata/magazines`: CBZ/ZIP, CBR/RAR, CB7/7Z, CBT/TAR and PDF files, and
+folders of page images. Sub-folders group them (`folder`). Forma's own reader shows them
+(Start → Magazines), for every theme. A theme may list them and open one; the reader, its
+controls and where the user left off are Forma's. No permission needed. Since 1.19.0.
+
+| Method                    | Does                                                              |
+| ------------------------- | ----------------------------------------------------------------- |
+| `list()`                  | Every magazine, by folder then title, with the `page` left off at |
+| `pages(id)`               | How many pages it has                                             |
+| `pageUrl(m, page, width)` | An image of a page (from 0), about `width` px wide: for covers    |
+| `setPage(id, page)`       | Remembers the page the user is on                                 |
+| `open(id?)`               | Opens Forma's reader on that magazine, or Forma's list            |
+
+Pages are made once per size and cached, so ask for the width that is drawn. `open` emits
+`magazines:open`, which Forma's shell answers.
+
 ## `ra`
 
 RetroAchievements, read-only: unlocking happens inside RetroArch, which Batocera already logs in.

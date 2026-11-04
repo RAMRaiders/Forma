@@ -7,6 +7,7 @@ mod boot;
 mod catalogue;
 mod collections;
 mod commands;
+mod magazines;
 mod music;
 mod options;
 mod permissions;
@@ -48,6 +49,10 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::themes_remove,
         catalogue::themes_catalogue,
         catalogue::themes_install,
+        magazines::magazines_list,
+        magazines::magazines_pages,
+        magazines::magazines_set_page,
+        magazines::magazines_open,
         commands::input_controllers,
         commands::system_quit,
         commands::system_power,

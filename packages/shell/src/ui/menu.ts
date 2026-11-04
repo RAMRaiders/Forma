@@ -168,6 +168,10 @@ const ICONS: Record<string, string> = {
     '<rect x="3" y="10" width="18" height="9" rx="2"/><path d="M8 10V5h8v5"/><path d="M10 7.5h4"/><circle cx="7.5" cy="14.5" r="1"/><path d="M14 14.5h3.5"/>'
   ),
   // Lists stacked.
+  // An open magazine.
+  magazines: svg(
+    '<path d="M3 5.5c3-1.3 6-1.3 9 .5v13c-3-1.8-6-1.8-9-.5z"/><path d="M21 5.5c-3-1.3-6-1.3-9 .5v13c3-1.8 6-1.8 9-.5z"/><path d="M5.5 9h4M5.5 12h4M14.5 9h4M14.5 12h4"/>'
+  ),
   collections: svg(
     '<rect x="4" y="9" width="16" height="11" rx="2"/><path d="M6 6h12M8 3h8"/><path d="M8 13h8M8 16h5"/>'
   ),
