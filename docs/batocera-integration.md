@@ -60,6 +60,19 @@ the AppImage's layout itself.
 For development, `FORMA_USERDATA` and `FORMA_SYSTEMS_CFG` point these at
 `fixtures/userdata`.
 
+## Writing back to `gamelist.xml`
+
+Off by default. With **System → Save to gamelist.xml** on (Forma setting
+`library.gamelistWriteBack`), a change of favourite and the end of a game write that game's
+`<favorite>`, `<playcount>` and `<lastplayed>` to its system's `gamelist.xml`, so
+EmulationStation (the fallback) and other tools see them. Nothing else in the file changes: the
+three tags are edited in place, and other tags, attributes, comments and layout keep their bytes.
+A game with no entry gets one (path, name, the three tags). A file that does not parse is left
+as it is (the error goes to the log), and the new file replaces the old one with a single rename.
+
+The watcher then re-imports the file, which changes nothing: Forma's own values outrank the
+gamelist's, and only a change made in Forma writes.
+
 ## RetroAchievements and netplay settings
 
 The menus change the same `batocera.conf` keys as EmulationStation's, through

@@ -194,6 +194,9 @@ const APPLIES: Record<SystemSetting['applies'], string> = {
   reboot: ' · after a reboot'
 };
 
+/** Forma's setting for writing favourites and play stats back to each system's gamelist.xml. */
+const GAMELIST_WRITE_BACK_SETTING = 'library.gamelistWriteBack';
+
 /** Batocera's system settings, as ES's System settings menu has them, by section. */
 export function systemSettingsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
   return async () => {
@@ -213,6 +216,18 @@ export function systemSettingsScreen(forma: Forma, page: Page): () => Promise<Ro
         run: () => page.push('Batocera updates', updatesScreen(forma, page))
       }
     ];
+    const writeBack =
+      (await forma.settings.getSystem<boolean>(GAMELIST_WRITE_BACK_SETTING).catch(() => null)) ===
+      true;
+    const flip = () =>
+      page.run('Saving…', () => forma.settings.setSystem(GAMELIST_WRITE_BACK_SETTING, !writeBack));
+    rows.push({
+      heading: 'EmulationStation',
+      label: `Save to gamelist.xml: ${writeBack ? 'On' : 'Off'}`,
+      detail: 'Favourites, play counts and last played, so EmulationStation sees them too',
+      adjust: flip,
+      run: flip
+    });
     let section = '';
     for (const s of settings) {
       const set = async (value: string | null) => {

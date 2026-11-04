@@ -11,6 +11,10 @@ use crate::field;
 use crate::paths::Paths;
 use crate::xml::{self, Element};
 
+mod write;
+
+pub use write::{PlayStats, write_back};
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GamelistEntry {
     /// Relative to the system's ROM folder, normalised (`./a/b.nes` becomes `a/b.nes`).
