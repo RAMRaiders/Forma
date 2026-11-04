@@ -1,0 +1,12 @@
+{
+  "id": "__ID__",
+  "name": "__NAME__",
+  "version": "0.1.0",
+  "author": "__AUTHOR__",
+  "description": "A Forma theme.",
+  "entry": "index.html",
+  "sdk": "^__SDK_MAJOR__",
+  "permissions": [],
+  "views": ["systems"],
+  "resolutions": ["1280x720", "1920x1080"]
+}

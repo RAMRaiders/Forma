@@ -14,6 +14,14 @@ forma.input.onPress('confirm', () => …);
 Open the theme in a plain browser while you work: outside Forma the SDK serves a mock library,
 so you can build without a device.
 
+To start a new theme, `packages/create-forma-theme` makes one: a single screen that lists
+systems and games and launches one, with tests on the mock and a README on installing it.
+
+```sh
+node packages/create-forma-theme/bin/create-forma-theme.js ../my-theme --name "My Theme"
+# once the package is published: npm create @ramraiders/forma-theme my-theme
+```
+
 ## `theme.json`
 
 ```json
