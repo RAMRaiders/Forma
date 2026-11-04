@@ -31,6 +31,8 @@ so you can build without a device.
 | Field         | Meaning                                                                 |
 | ------------- | ----------------------------------------------------------------------- |
 | `id`          | Unique, kebab-case. Also the folder name under the themes directory.    |
+| `author`      | Who made it. Optional; shown on the theme's page in Interface.          |
+| `description` | One or two sentences on what it is like. Optional; shown there too.     |
 | `entry`       | The HTML page Forma loads.                                              |
 | `sdk`         | Caret range of the SDK API the theme needs. A mismatch refuses to load. |
 | `permissions` | Privileged capabilities the theme uses, e.g. `system.power`.            |
@@ -187,6 +189,7 @@ Remote origins must be `https://` and need the `network` permission.
 | `settings.batocera`  | RetroAchievements and netplay settings, and logging in to RetroAchievements (Batocera only) |
 | `settings.emulators` | Emulator, core and game options (Batocera only)                                             |
 | `settings.system`    | Reading and writing Forma settings, beyond the theme's own                                  |
+| `themes.manage`      | Removing installed themes                                                                   |
 | `network`            | Loading from the origins listed in `remote`                                                 |
 
 They are checked in Rust before each command runs; a missing one returns a

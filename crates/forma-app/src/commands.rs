@@ -266,7 +266,13 @@ pub struct ThemeInfo {
     pub name: Option<String>,
     pub version: Option<String>,
     pub origin: ThemeOrigin,
+    pub author: Option<String>,
+    pub description: Option<String>,
     pub permissions: Vec<String>,
+    /// What each of `permissions` lets the theme do, in words, in the same order.
+    pub permission_descriptions: Vec<String>,
+    /// A theme the user installed and is not using: `themes.remove` takes it away.
+    pub removable: bool,
     pub current: bool,
     pub unavailable: Option<String>,
     /// Where to load the theme's logo from, if it has one.
@@ -293,21 +299,80 @@ pub fn themes_list(state: State<'_, AppState>) -> Vec<ThemeInfo> {
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     crate::state::listed_themes(&themes, current.as_deref())
         .into_iter()
-        .map(|t| ThemeInfo {
-            id: t.id.clone(),
-            name: t.manifest.as_ref().map(|m| m.name.clone()),
-            version: t.manifest.as_ref().map(|m| m.version.clone()),
-            origin: t.origin,
-            permissions: t
-                .manifest
-                .as_ref()
-                .map(|m| m.permissions.clone())
-                .unwrap_or_default(),
-            current: current.as_deref() == Some(t.id.as_str()) && t.is_available(),
-            unavailable: t.unavailable.clone(),
-            logo: crate::state::theme_logo_url(t),
+        .map(|t| {
+            let manifest = t.manifest.as_ref();
+            let permissions = manifest.map(|m| m.permissions.clone()).unwrap_or_default();
+            let in_use = current.as_deref() == Some(t.id.as_str()) && t.is_available();
+            ThemeInfo {
+                id: t.id.clone(),
+                name: manifest.map(|m| m.name.clone()),
+                version: manifest.map(|m| m.version.clone()),
+                origin: t.origin,
+                author: manifest.and_then(|m| m.author.clone()),
+                description: manifest.and_then(|m| m.description.clone()),
+                permission_descriptions: permissions
+                    .iter()
+                    .map(|p| {
+                        forma_core::themes::permission_description(p)
+                            .map_or_else(|| p.clone(), str::to_owned)
+                    })
+                    .collect(),
+                permissions,
+                removable: t.origin == ThemeOrigin::User && !in_use,
+                current: in_use,
+                unavailable: t.unavailable.clone(),
+                logo: crate::state::theme_logo_url(t),
+            }
         })
         .collect()
+}
+
+/// Deletes a theme the user installed, from `/userdata/themes-forma/`. Not one that comes with
+/// Forma, and not the one in use: switch away first. A newer copy of a bundled theme going
+/// brings the bundled one back.
+#[tauri::command]
+pub fn themes_remove(state: State<'_, AppState>, caller: Caller, id: String) -> ApiResult<()> {
+    caller.require(&state, permissions::THEMES_MANAGE)?;
+    let current = state.current_theme().map(|t| t.id);
+    let theme = {
+        let themes = state
+            .themes
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let in_use = |t: &&Theme| current.as_deref() == Some(t.id.as_str()) && t.is_available();
+        let user = themes
+            .iter()
+            .filter(|t| t.id == id && t.origin == ThemeOrigin::User)
+            .collect::<Vec<_>>();
+        if user.iter().any(in_use) {
+            return Err(ApiError::new(
+                ErrorCode::Invalid,
+                format!("theme `{id}` is in use: switch to another one first"),
+            ));
+        }
+        user.first().map(|t| (*t).clone()).ok_or_else(|| {
+            let bundled = themes.iter().any(|t| t.id == id);
+            ApiError::new(
+                if bundled {
+                    ErrorCode::Invalid
+                } else {
+                    ErrorCode::NotFound
+                },
+                if bundled {
+                    format!("theme `{id}` comes with Forma and cannot be removed")
+                } else {
+                    format!("no installed theme `{id}`")
+                },
+            )
+        })?
+    };
+    forma_core::themes::remove_user_theme(&state.paths, &theme)?;
+    let found = forma_core::themes::discover(&state.bundled_themes, &state.paths);
+    *state
+        .themes
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = found;
+    Ok(())
 }
 
 /// Switches theme and reloads the window into it. Any theme may: it is the user's choice.

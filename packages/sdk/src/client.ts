@@ -181,7 +181,12 @@ export class Forma {
     this.themes = {
       /** The themes the user can pick: not Forma's plain fallback, nor a copy another stands in for. */
       list: () => invoke<ThemeInfo[]>('themes_list'),
-      select: (id: string) => invoke<void>('themes_select', { id })
+      select: (id: string) => invoke<void>('themes_select', { id }),
+      /**
+       * Deletes a theme the user installed (see `ThemeInfo.removable`): not one that comes with
+       * Forma, nor the one in use. Needs the `themes.manage` permission.
+       */
+      remove: (id: string) => invoke<void>('themes_remove', { id })
     };
 
     this.input = {

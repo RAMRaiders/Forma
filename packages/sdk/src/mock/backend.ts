@@ -87,6 +87,23 @@ function fold(s: string): string {
 export function mockBackend(options: MockOptions = {}): Backend {
   const playMs = options.playMs ?? 1500;
   const permissions = new Set(options.permissions ?? []);
+  // A second, installed theme, so a theme manager has something to show and remove.
+  const extraThemes: ThemeInfo[] = [
+    {
+      id: 'neon',
+      name: 'Neon',
+      version: '1.2.0',
+      origin: 'user',
+      author: 'RAM Raiders',
+      description: 'Bright lines on black.',
+      permissions: ['system.power'],
+      permissionDescriptions: ['quit Forma, restart or shut down the machine'],
+      removable: true,
+      current: false,
+      unavailable: null,
+      logo: null
+    }
+  ];
   const games = new Map<number, Game>(snapshot.games.map((g) => [g.id, structuredClone(g)]));
   const settings = new Map<string, unknown>();
   const listeners = new Map<string, Set<Handler>>();
@@ -463,14 +480,31 @@ export function mockBackend(options: MockOptions = {}): Backend {
         name: 'Mock',
         version: null,
         origin: 'user',
+        author: null,
+        description: null,
         permissions: [...permissions],
+        permissionDescriptions: [...permissions],
+        removable: false,
         current: true,
         unavailable: null,
         logo: null
-      }
+      },
+      ...extraThemes.map((t) => structuredClone(t))
     ],
     themes_select: ({ id }) =>
-      id === 'mock' ? null : fail('notFound', `theme \`${String(id)}\` is not available`),
+      id === 'mock' || extraThemes.some((t) => t.id === id)
+        ? null
+        : fail('notFound', `theme \`${String(id)}\` is not available`),
+    themes_remove: ({ id }) => {
+      if (!permissions.has('themes.manage')) {
+        fail('permissionDenied', 'theme `mock` needs the `themes.manage` permission');
+      }
+      if (id === 'mock') fail('invalid', 'theme `mock` is in use: switch to another one first');
+      const at = extraThemes.findIndex((t) => t.id === id);
+      if (at < 0) fail('notFound', `no installed theme \`${String(id)}\``);
+      extraThemes.splice(at, 1);
+      return null;
+    },
     input_controllers: () => [],
     // One pad, on a cable, online: what the corner shows in a browser.
     status_get: () => ({

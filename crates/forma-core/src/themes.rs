@@ -51,6 +51,7 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "see, pair, connect and forget Bluetooth controllers",
     ),
     ("system.update", "check for and install Batocera updates"),
+    ("themes.manage", "remove installed themes"),
     (
         "network",
         "load content from the internet (the origins listed in `remote`)",
@@ -63,6 +64,10 @@ pub struct ThemeManifest {
     pub id: String,
     pub name: String,
     pub version: String,
+    /// Who made it, as the theme manager shows it.
+    pub author: Option<String>,
+    /// One or two sentences on what the theme is like.
+    pub description: Option<String>,
     #[serde(default = "default_entry")]
     pub entry: String,
     /// Caret range of the SDK API the theme needs, e.g. `^1`.
@@ -102,6 +107,8 @@ impl ThemeManifest {
             id: id.to_owned(),
             name: id.to_owned(),
             version: String::new(),
+            author: None,
+            description: None,
             entry: default_entry(),
             sdk: String::new(),
             permissions: Vec::new(),
@@ -257,6 +264,47 @@ pub fn discover(bundled: &[PathBuf], paths: &Paths) -> Vec<Theme> {
         themes.push(theme);
     }
     themes
+}
+
+/// What a permission lets a theme do, in words for the user; `None` for one Forma does not know.
+pub fn permission_description(permission: &str) -> Option<&'static str> {
+    PERMISSIONS
+        .iter()
+        .find(|(p, _)| *p == permission)
+        .map(|(_, what)| *what)
+}
+
+/// Deletes a theme the user installed. Only a folder directly in [`user_themes_dir`] goes: a
+/// bundled theme is part of Forma, and a link is removed as a link, never what it points to.
+/// Whether the theme is in use is for the caller to check.
+pub fn remove_user_theme(paths: &Paths, theme: &Theme) -> crate::error::Result<()> {
+    use crate::error::Error;
+    if theme.origin != ThemeOrigin::User {
+        return Err(Error::Invalid(format!(
+            "`{}` comes with Forma and cannot be removed",
+            theme.id
+        )));
+    }
+    let root = user_themes_dir(paths);
+    let inside = |dir: &Path| {
+        let (Ok(root), Some(parent)) = (root.canonicalize(), dir.parent()) else {
+            return false;
+        };
+        parent.canonicalize().is_ok_and(|p| p == root)
+    };
+    if !inside(&theme.dir) {
+        return Err(Error::Invalid(format!(
+            "`{}` is not in the themes folder",
+            theme.dir.display()
+        )));
+    }
+    let meta = std::fs::symlink_metadata(&theme.dir).map_err(|e| Error::io(&theme.dir, e))?;
+    if meta.file_type().is_symlink() {
+        std::fs::remove_file(&theme.dir)
+    } else {
+        std::fs::remove_dir_all(&theme.dir)
+    }
+    .map_err(|e| Error::io(&theme.dir, e))
 }
 
 /// A user theme that stood in for a bundled one failed: it is set aside and the bundled one
@@ -510,6 +558,41 @@ mod tests {
                 .unwrap()
                 .contains(".svg, .png or .webp")
         );
+    }
+
+    #[test]
+    fn removes_only_a_user_theme_inside_the_themes_folder() {
+        let (_dir, paths) = fixture_copy();
+        let root = user_themes_dir(&paths);
+        write_theme(&root.join("neon"), &manifest(r#", "author": "Ana""#));
+        let elsewhere = tempfile::tempdir().unwrap();
+        write_theme(elsewhere.path(), &manifest(""));
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(elsewhere.path(), root.join("linked")).unwrap();
+
+        let neon = load(&root.join("neon"), ThemeOrigin::User);
+        assert_eq!(
+            neon.manifest.as_ref().unwrap().author.as_deref(),
+            Some("Ana")
+        );
+        let bundled = load(elsewhere.path(), ThemeOrigin::Bundled);
+        assert!(remove_user_theme(&paths, &bundled).is_err());
+        let outside = load(elsewhere.path(), ThemeOrigin::User);
+        assert!(remove_user_theme(&paths, &outside).is_err());
+        assert!(elsewhere.path().join("theme.json").exists());
+
+        remove_user_theme(&paths, &neon).unwrap();
+        assert!(!root.join("neon").exists());
+        #[cfg(unix)]
+        {
+            let linked = load(&root.join("linked"), ThemeOrigin::User);
+            remove_user_theme(&paths, &linked).unwrap();
+            assert!(!root.join("linked").exists());
+            assert!(
+                elsewhere.path().join("theme.json").exists(),
+                "the link's target stays"
+            );
+        }
     }
 
     #[test]

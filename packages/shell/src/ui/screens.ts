@@ -3,11 +3,13 @@ import type {
   Forma,
   MusicSource,
   MusicStatus,
-  SystemsOrder
+  SystemsOrder,
+  ThemeInfo
 } from '@ramraiders/forma-sdk';
 
 import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
+import { themeScreen } from './themes.js';
 
 /** Music: what plays, the controls, and everything there is to play. */
 /** Forma's setting for how long a new song is shown, in seconds (0: not at all). */
@@ -367,6 +369,8 @@ export interface InterfaceHooks {
   /** The theme's declared settings, with their values now, and the only views it shows. */
   theme: () => Promise<{ settings: ThemeSettingValue[]; views: string[] | null }>;
   setThemeSetting: (key: string, value: unknown) => Promise<void>;
+  /** A short message at the foot of the screen (removing a theme asks for a second press). */
+  notify: (message: string) => void;
 }
 
 /** Forma's setting for a TV's overscan, shared by every theme: percent per side, 0–10. */
@@ -384,6 +388,9 @@ export function interfaceScreen(
   const cycle = <T>(values: readonly T[], now: T, step: -1 | 1): T =>
     values[(values.indexOf(now) + step + values.length) % values.length]!;
 
+  const about = (t: ThemeInfo) => () =>
+    page.push(t.name ?? t.id, themeScreen(forma, page, hooks.notify, t.id));
+
   return async () => {
     const [themes, allViews, home, margins, theme] = await Promise.all([
       forma.themes.list(),
@@ -399,16 +406,16 @@ export function interfaceScreen(
       label: `${t.name ?? t.id}${t.version ? ` ${t.version}` : ''}`,
       logo: t.logo ? { src: t.logo, name: t.name ?? t.id, text: t.version ?? '' } : undefined,
       detail: t.current
-        ? 'In use'
+        ? 'In use · A for more'
         : t.unavailable
-          ? `Cannot load: ${t.unavailable}`
-          : t.origin === 'bundled'
-            ? 'Comes with Forma · A to use it'
-            : 'Installed · A to use it',
-      run:
-        t.current || t.unavailable
+          ? `Cannot load: ${t.unavailable} · Y for more`
+          : `${t.origin === 'bundled' ? 'Comes with Forma' : 'Installed'} · A to use it, Y for more`,
+      run: t.current
+        ? about(t)
+        : t.unavailable
           ? undefined
-          : () => page.run(`Switching to ${t.name ?? t.id}…`, () => forma.themes.select(t.id))
+          : () => page.run(`Switching to ${t.name ?? t.id}…`, () => forma.themes.select(t.id)),
+      alt: { label: 'More', run: about(t) }
     }));
 
     const viewIds = views.map((v) => v.id);

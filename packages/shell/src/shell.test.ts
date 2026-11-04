@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.16.0', false);
+  const forma = new Forma(backend, '1.17.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -210,6 +210,26 @@ describe('Forma’s shell', () => {
     await openMenu('Interface');
     await vi.waitFor(() => expect(text('.page li .name').length).toBeGreaterThan(0));
     expect(text('.page li .name').some((n) => n.startsWith('Start on'))).toBe(false);
+  });
+
+  it('interface: a theme’s page says who made it and what it may do, and removes it', async () => {
+    const { press, text, openMenu, forma } = start(['themes.manage']);
+    await openMenu('Interface');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(rows()).toContain('Neon 1.2.0'));
+    while (selected() !== 'Neon 1.2.0') await press('down');
+    await press('north');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Neon']));
+    expect(text('.page > .panel li[role=option] .description')).toContain('RAM Raiders');
+    expect(rows()).toContain('Quit Forma, restart or shut down the machine');
+    while (selected() !== 'Remove') await press('down');
+    await press('confirm');
+    expect(rows()).toContain('Remove');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Interface']));
+    await vi.waitFor(() => expect(rows()).not.toContain('Neon 1.2.0'));
+    expect((await forma.themes.list()).map((t) => t.id)).toEqual(['mock']);
   });
 
   it('on Select over systems, offers their order, for every theme, and shuts on Select', async () => {

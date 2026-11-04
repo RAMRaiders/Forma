@@ -204,9 +204,15 @@ Values are any JSON. `set(key, null)` removes a setting.
 | ------------ | ---------------------------------------------------------------- |
 | `list()`     | Every theme found, with `unavailable` saying why one cannot load |
 | `select(id)` | Switches to that theme (the window reloads into it)              |
+| `remove(id)` | Deletes a theme the user installed. Needs `themes.manage`        |
 
 `list()` leaves out Forma's plain fallback theme (unless it is in use) and a copy that another
 copy of the same theme stands in for. Each theme's `logo` is a URL for its logo, or `null`.
+Each also has its `author` and `description` (or `null`), `permissionDescriptions` (what each of
+`permissions` allows, in words) and `removable`: a theme the user installed and is not using.
+`remove` refuses a theme that comes with Forma, and the one in use. Removing a newer copy of a
+bundled theme brings the bundled one back. Forma's own menu does this from Interface: Y on a
+theme opens its page (since 1.17.0).
 
 ## `ra`
 

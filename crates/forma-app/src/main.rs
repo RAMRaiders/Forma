@@ -44,6 +44,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::settings_set,
         commands::themes_list,
         commands::themes_select,
+        commands::themes_remove,
         commands::input_controllers,
         commands::system_quit,
         commands::system_power,
