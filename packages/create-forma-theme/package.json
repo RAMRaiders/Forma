@@ -1,0 +1,24 @@
+{
+  "name": "@ramraiders/create-forma-theme",
+  "version": "0.1.0",
+  "description": "Creates a new Forma theme: npm create @ramraiders/forma-theme my-theme",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "create-forma-theme": "bin/create-forma-theme.js"
+  },
+  "files": [
+    "bin",
+    "src/create.js",
+    "src/create.d.ts",
+    "template"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RAMRaiders/Forma.git",
+    "directory": "packages/create-forma-theme"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
+}

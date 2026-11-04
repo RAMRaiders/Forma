@@ -18,6 +18,12 @@ export default {
       entry: ['src/main.ts'],
       project: ['src/**/*.ts']
     },
+    'packages/create-forma-theme': {
+      entry: ['bin/*.js'],
+      project: ['bin/**/*.js', 'src/**/*.{js,ts}'],
+      // A theme of its own, with its own dependencies: checked by building one (see README).
+      ignore: ['template/**', 'src/create.d.ts']
+    },
     'packages/theme-default': {
       entry: ['index.html'],
       project: ['src/**/*.ts']

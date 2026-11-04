@@ -11,7 +11,9 @@ export default tseslint.config(
       '**/coverage/**',
       'target/**',
       'crates/**',
-      'build/**'
+      'build/**',
+      // The template's own config files belong to the theme it makes, not to this repo.
+      'packages/create-forma-theme/template/*.ts'
     ]
   },
 
@@ -54,7 +56,8 @@ export default tseslint.config(
     files: [
       'packages/sdk/src/**/*.ts',
       'packages/theme-*/src/**/*.ts',
-      'packages/shell/src/**/*.ts'
+      'packages/shell/src/**/*.ts',
+      'packages/create-forma-theme/template/src/**/*.ts'
     ],
     languageOptions: { globals: { ...globals.browser } }
   },
@@ -71,9 +74,9 @@ export default tseslint.config(
     }
   },
 
-  /* Plain ESM helper scripts: node globals, no type information needed. */
+  /* Plain ESM helper scripts (and create-forma-theme, run by npx unbuilt): node globals. */
   {
-    files: ['**/*.mjs'],
+    files: ['**/*.mjs', 'packages/create-forma-theme/{bin,src}/**/*.js'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
       ecmaVersion: 2023,

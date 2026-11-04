@@ -16,5 +16,10 @@
       "@ramraiders/forma-sdk/mock": ["./packages/sdk/src/mock/index.ts"]
     }
   },
-  "include": ["packages/*/src/**/*.ts", "packages/*/*.config.ts", "*.config.ts"]
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/*.config.ts",
+    "packages/create-forma-theme/template/src/**/*.ts",
+    "*.config.ts"
+  ]
 }
