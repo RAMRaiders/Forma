@@ -393,6 +393,15 @@ li.selected .badge {
   color: var(--muted);
 }
 
+/* On the bright selection a logo needs a dark edge to stand out, and the version goes white. */
+.page li.selected .theme-logo {
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 90%)) drop-shadow(0 0 0.25em rgb(0 0 0 / 60%));
+}
+
+.page li.selected .logo-text {
+  color: #fff;
+}
+
 .menu .note .theme-logo {
   height: 1.4em;
   width: auto;
