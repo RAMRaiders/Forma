@@ -536,7 +536,8 @@ export class Shell {
               const info = await this.#loadInfo();
               return { settings: info?.theme.settings ?? [], views: info?.theme.views ?? null };
             },
-            setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value)
+            setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value),
+            notify: (message) => this.notify(message)
           })
         );
       case 'music':

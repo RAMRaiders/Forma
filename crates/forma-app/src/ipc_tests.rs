@@ -509,6 +509,59 @@ fn lists_themes_and_refuses_an_unknown_one() {
 }
 
 #[test]
+fn removes_an_installed_theme_but_not_the_bundled_or_the_one_in_use() {
+    let write = |h: &Harness, id: &str| {
+        let dir = h.state().paths.userdata.join("themes-forma").join(id);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("theme.json"),
+            json!({ "id": id, "name": "Neon", "version": "1.0.0", "sdk": "^1",
+                    "author": "Ana", "permissions": ["system.power"] })
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(dir.join("index.html"), "<!doctype html>").unwrap();
+        dir
+    };
+    let denied = Harness::new(&[]);
+    write(&denied, "neon");
+    let err = denied
+        .call("themes_remove", json!({ "id": "neon" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+
+    let h = Harness::new(&["themes.manage"]);
+    let neon = write(&h, "neon");
+    let themes = h.call("themes_list", json!({})).unwrap();
+    let listed = themes
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == "neon")
+        .unwrap();
+    assert_eq!(listed["author"], "Ana");
+    assert_eq!(listed["removable"], true);
+    assert_eq!(
+        listed["permissionDescriptions"][0],
+        "quit Forma, restart or shut down the machine"
+    );
+    assert_eq!(themes[0]["removable"], false, "the bundled theme stays");
+    let err = h
+        .call("themes_remove", json!({ "id": "default" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "invalid");
+
+    h.call("themes_remove", json!({ "id": "neon" })).unwrap();
+    assert!(!neon.exists());
+    let themes = h.call("themes_list", json!({})).unwrap();
+    assert!(themes.as_array().unwrap().iter().all(|t| t["id"] != "neon"));
+    let err = h
+        .call("themes_remove", json!({ "id": "neon" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "notFound");
+}
+
+#[test]
 fn a_game_session_runs_records_and_reports_its_events() {
     let h = Harness::new(&[]);
     let events = Arc::new(Mutex::new(Vec::new()));

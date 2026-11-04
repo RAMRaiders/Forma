@@ -149,7 +149,15 @@ export interface ThemeInfo {
   name: string | null;
   version: string | null;
   origin: 'bundled' | 'user';
+  /** Who made it (`author` in its theme.json). */
+  author: string | null;
+  /** What the theme is like (`description` in its theme.json). */
+  description: string | null;
   permissions: string[];
+  /** What each of `permissions` lets the theme do, in words, in the same order. */
+  permissionDescriptions: string[];
+  /** Installed by the user and not in use: `themes.remove` can take it away. */
+  removable: boolean;
   current: boolean;
   /** Why the theme cannot load, if it cannot. */
   unavailable: string | null;
