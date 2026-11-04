@@ -20,6 +20,7 @@ use serde::Serialize;
 
 use crate::error::{Error, Result};
 use crate::field;
+use crate::paths::Paths;
 use crate::systems::System;
 
 pub use collections::Collection;
@@ -251,6 +252,32 @@ impl Library {
         Ok(())
     }
 
+    /// Writes the game's favourite, play count and last played to its system's
+    /// `gamelist.xml`, when the user turned [`GAMELIST_WRITE_BACK_SETTING`] on, so
+    /// EmulationStation and other tools see them. Returns whether the file changed.
+    ///
+    /// The re-import this causes through the watcher is harmless: the values came from the
+    /// user's own fields, which outrank the gamelist, and only a change made in Forma writes.
+    pub fn write_back_to_gamelist(&self, paths: &Paths, id: i64) -> Result<bool> {
+        if self.setting(GAMELIST_WRITE_BACK_SETTING)?.as_deref() != Some("true") {
+            return Ok(false);
+        }
+        let Some((game, system)) = self.launch_target(id)? else {
+            return Ok(false);
+        };
+        crate::gamelist::write_back(
+            &system.rom_path,
+            paths,
+            Path::new(&game.path),
+            &crate::gamelist::PlayStats {
+                name: &game.name,
+                favorite: game.favorite,
+                play_count: game.play_count,
+                last_played: game.last_played.as_deref(),
+            },
+        )
+    }
+
     /// A Forma setting, e.g. [`crate::hierarchy::DEFAULT_VIEW_SETTING`].
     pub fn setting(&self, key: &str) -> Result<Option<String>> {
         Ok(self
@@ -445,7 +472,10 @@ fn default_name(path: &str) -> String {
         .into_owned()
 }
 
-/// The highest number in a players field: `1-2` → 2, `1` → 1, `2+` → 2.
+/// Forma's setting (`true` or `false`, off by default) for writing favourites and play stats
+/// back to `gamelist.xml`: see [`Library::write_back_to_gamelist`].
+pub const GAMELIST_WRITE_BACK_SETTING: &str = "library.gamelistWriteBack";
+
 /// Forma's setting for the order systems are listed in, for every theme: `name` (A to Z, the
 /// default), `maker` (by manufacturer, then oldest first) or `year` (oldest first).
 pub const SYSTEMS_ORDER_SETTING: &str = "library.systemsOrder";

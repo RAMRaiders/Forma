@@ -109,6 +109,7 @@ pub fn library_set_favorite<R: Runtime>(
             .game(id)?
             .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no game with id {id}")))?;
         lib.set_favorite(id, favorite)?;
+        write_back(&lib, &state, id);
         game.system
     };
     let _ = app.emit(
@@ -118,6 +119,15 @@ pub fn library_set_favorite<R: Runtime>(
         },
     );
     Ok(())
+}
+
+/// The game's favourite and play stats to its `gamelist.xml`, if the user asked for that. A
+/// failure (a gamelist that does not parse, a read-only share) only goes to the log: the
+/// change is already safe in the library.
+fn write_back(lib: &forma_core::library::Library, state: &AppState, id: i64) {
+    if let Err(e) = lib.write_back_to_gamelist(&state.paths, id) {
+        eprintln!("forma: gamelist write-back: {e}");
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -488,7 +498,12 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
     let result = state.launcher.run(&prepared.command);
     let (seconds, exit_code, error) = match &result {
         Ok(exit) => {
-            let recorded = launch::finish(&mut state.library(), game.id, exit, SystemTime::now());
+            let recorded = {
+                let mut lib = state.library();
+                let recorded = launch::finish(&mut lib, game.id, exit, SystemTime::now());
+                write_back(&lib, &state, game.id);
+                recorded
+            };
             (
                 exit.duration.as_secs(),
                 exit.code,

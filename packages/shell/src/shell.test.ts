@@ -709,6 +709,7 @@ describe('Forma’s settings pages', () => {
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()).toContain('Time zone'));
     expect(text('.page .heading')).toEqual([
+      'EmulationStation',
       'Display',
       'Audio',
       'Language & region',
@@ -732,6 +733,18 @@ describe('Forma’s settings pages', () => {
         'English (UK) · after Forma restarts'
       ])
     );
+  });
+
+  it('system settings: writing to gamelist.xml is off until turned on', async () => {
+    const { press, text, openMenu, forma } = start(['system.settings', 'settings.system']);
+    await openMenu('System');
+    const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(text('.page .heading')).toContain('EmulationStation'));
+    while (!selected()?.startsWith('Save to gamelist.xml')) await press('down');
+    expect(selected()).toBe('Save to gamelist.xml: Off');
+    await press('confirm');
+    await vi.waitFor(() => expect(selected()).toBe('Save to gamelist.xml: On'));
+    expect(await forma.settings.getSystem('library.gamelistWriteBack')).toBe(true);
   });
 
   it('turns Batocera labels into sentence case, keeping acronyms', async () => {
