@@ -227,6 +227,10 @@ pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
         batocera: batocera.trim().to_owned(),
         theme: theme.trim().to_owned(),
         theme_logo: current.as_ref().and_then(crate::state::theme_logo_url),
+        theme_logo_file: current.as_ref().and_then(|t| {
+            let logo = t.manifest.as_ref()?.logo.as_ref()?;
+            Some(t.dir.join(logo))
+        }),
         theme_version: current
             .and_then(|t| t.manifest.map(|m| m.version))
             .unwrap_or_default(),

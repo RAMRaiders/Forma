@@ -42,6 +42,7 @@ pub fn refresh(cover: &CoverInfo) {
         width,
         height,
         emblem().as_deref(),
+        theme_logo(cover).as_ref(),
     );
     {
         let mut drawn = DRAWN
@@ -127,13 +128,65 @@ fn emblem() -> Option<String> {
     Some(format!("data:image/png;base64,{}", base64(&png)))
 }
 
+/// The theme's logo, inline, with its width over its height; `None` without one.
+struct ThemeLogo {
+    src: String,
+    aspect: f64,
+}
+
+/// The theme's logo file (an SVG or PNG; rsvg draws no WebP), for the boot picture.
+fn theme_logo(cover: &CoverInfo) -> Option<ThemeLogo> {
+    let file = cover.theme_logo_file.as_ref()?;
+    let bytes = std::fs::read(file).ok()?;
+    let ext = file.extension()?.to_str()?.to_ascii_lowercase();
+    let (mime, aspect) = match ext.as_str() {
+        "svg" => (
+            "image/svg+xml",
+            svg_aspect(&String::from_utf8_lossy(&bytes))?,
+        ),
+        "png" => ("image/png", png_aspect(&bytes)?),
+        _ => return None,
+    };
+    Some(ThemeLogo {
+        src: format!("data:{mime};base64,{}", base64(&bytes)),
+        aspect,
+    })
+}
+
+/// An SVG's width over its height, from its `viewBox`.
+fn svg_aspect(svg: &str) -> Option<f64> {
+    let start = svg.find("viewBox=\"")? + "viewBox=\"".len();
+    let end = start + svg[start..].find('"')?;
+    let n: Vec<f64> = svg[start..end]
+        .split([' ', ','])
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    match n[..] {
+        [_, _, w, h] if w > 0.0 && h > 0.0 => Some(w / h),
+        _ => None,
+    }
+}
+
+/// A PNG's width over its height, from its header.
+fn png_aspect(png: &[u8]) -> Option<f64> {
+    if png.len() < 24 || &png[1..4] != b"PNG" {
+        return None;
+    }
+    let w = u32::from_be_bytes(png[16..20].try_into().ok()?);
+    let h = u32::from_be_bytes(png[20..24].try_into().ok()?);
+    (w > 0 && h > 0).then(|| f64::from(w) / f64::from(h))
+}
+
 /// The cover, as an SVG `width`×`height`: sizes in the cover's vh, the versions in its grid.
+/// With the theme's logo, its row shows the logo, then the version, as the cover does.
 fn picture(
     cover: &CoverInfo,
     forma: &str,
     width: u32,
     height: u32,
     emblem: Option<&str>,
+    logo: Option<&ThemeLogo>,
 ) -> String {
     let (w, h) = (f64::from(width), f64::from(height));
     let vh = h / 100.0;
@@ -153,9 +206,19 @@ fn picture(
         lines.push(("batocera", "Batocera", &cover.batocera));
     }
     lines.push(("forma", "Forma", forma));
+    // With a logo, the theme's row gives its version only: the logo goes before it.
+    let logo = logo.filter(|_| !cover.theme.is_empty() && !cover.theme_version.is_empty());
     if !cover.theme.is_empty() {
-        lines.push(("theme", "Theme", &cover.theme));
+        let shown = if logo.is_some() {
+            &cover.theme_version
+        } else {
+            &cover.theme
+        };
+        lines.push(("theme", "Theme", shown));
     }
+    // The logo as the cover draws it: 2.6vh high, 1vh before the version.
+    let logo_h = 2.6 * vh;
+    let logo_lead = logo.map_or(0.0, |l| logo_h * l.aspect + vh);
     // DejaVu Sans widths of the names, in em; DejaVu Sans Mono is 0.602em a character.
     let name_em = |n: &str| match n {
         "Batocera" => 4.42,
@@ -165,9 +228,11 @@ fn picture(
     let name_w = lines.iter().map(|l| name_em(l.1)).fold(0.0, f64::max) * font;
     let version_w = lines
         .iter()
-        .map(|l| l.2.chars().count() as f64 * 0.602)
-        .fold(0.0, f64::max)
-        * font;
+        .map(|l| {
+            let lead = if l.0 == "theme" { logo_lead } else { 0.0 };
+            l.2.chars().count() as f64 * 0.602 * font + lead
+        })
+        .fold(0.0, f64::max);
     let icon = 3.0 * vh;
     let gap = 1.4 * vh;
     let row = icon.max(font * 1.35);
@@ -207,8 +272,19 @@ fn picture(
                 r = 0.3 * vh,
             ),
         };
+        let mut x_text = x_version;
+        if let (true, Some(l)) = (*kind == "theme", logo) {
+            versions += &format!(
+                r#"<image href="{src}" x="{x:.1}" y="{y:.1}" width="{lw:.1}" height="{logo_h:.1}"/>"#,
+                src = l.src,
+                x = x_version,
+                y = mid - logo_h / 2.0,
+                lw = logo_h * l.aspect,
+            );
+            x_text += logo_lead;
+        }
         versions += &format!(
-            r##"<text x="{x_name:.1}" y="{b:.1}" fill="#8aa0b6" font-family="DejaVu Sans" font-size="{font:.1}">{name}</text><text x="{x_version:.1}" y="{b:.1}" fill="#e6f7ff" font-family="DejaVu Sans Mono" font-size="{font:.1}">{version}</text>"##,
+            r##"<text x="{x_name:.1}" y="{b:.1}" fill="#8aa0b6" font-family="DejaVu Sans" font-size="{font:.1}">{name}</text><text x="{x_text:.1}" y="{b:.1}" fill="#e6f7ff" font-family="DejaVu Sans Mono" font-size="{font:.1}">{version}</text>"##,
             b = mid + font * 0.36,
             version = escape(version),
         );
@@ -300,6 +376,7 @@ mod tests {
             1920,
             1080,
             Some("data:image/png;base64,AA=="),
+            None,
         );
         assert!(svg.contains(r#"width="1920" height="1080""#));
         for text in [
@@ -314,5 +391,38 @@ mod tests {
         }
         assert!(svg.contains("data:image/png;base64,AA=="));
         assert!(!logo_body().contains("<svg"));
+    }
+
+    #[test]
+    fn draws_the_theme_logo_before_its_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("logo.svg");
+        std::fs::write(&file, r#"<svg viewBox="0 0 254 72"></svg>"#).unwrap();
+        let cover = CoverInfo {
+            batocera: "43.1".into(),
+            theme: "Cyber 0.7.12".into(),
+            theme_version: "0.7.12".into(),
+            theme_logo_file: Some(file),
+            ..Default::default()
+        };
+        let logo = theme_logo(&cover).unwrap();
+        assert!((logo.aspect - 254.0 / 72.0).abs() < 1e-9);
+        let svg = picture(&cover, "0.1.0", 1920, 1080, None, Some(&logo));
+        assert!(svg.contains(r#"<image href="data:image/svg+xml;base64,"#));
+        assert!(
+            svg.contains(">0.7.12</text>"),
+            "the version, without the name"
+        );
+        assert!(!svg.contains(">Cyber 0.7.12</text>"));
+    }
+
+    #[test]
+    fn reads_a_png_logo_size() {
+        let mut png = vec![0x89, b'P', b'N', b'G', 13, 10, 26, 10, 0, 0, 0, 13];
+        png.extend(b"IHDR");
+        png.extend(400u32.to_be_bytes());
+        png.extend(100u32.to_be_bytes());
+        assert_eq!(png_aspect(&png), Some(4.0));
+        assert_eq!(png_aspect(b"nope"), None);
     }
 }

@@ -389,6 +389,8 @@ pub struct CoverInfo {
     /// The theme's logo, to show in place of its name; its version then follows it.
     pub theme_logo: Option<String>,
     pub theme_version: String,
+    /// The same logo's file, for the boot picture ([`crate::splash`]).
+    pub theme_logo_file: Option<std::path::PathBuf>,
     /// Screen margins for a TV's overscan, in percent per side.
     pub margins: u8,
     /// At boot on Batocera: the boot picture is under the see-through window, and the cover
