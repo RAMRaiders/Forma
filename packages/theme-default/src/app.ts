@@ -6,9 +6,6 @@ import { LazyList } from './logic/pager.js';
 import { el } from './ui/dom.js';
 import { type Card, GridView } from './ui/grid.js';
 import { GamesView } from './ui/games.js';
-import { Menu } from './ui/menu.js';
-import { NetworkScreen } from './ui/network.js';
-import { Switcher } from './ui/switcher.js';
 
 /** One level of the path, and where the selection was, so going back returns to it. */
 interface Level {
@@ -41,15 +38,9 @@ export class App {
     const kind = game.media.image ? 'image' : game.media.thumbnail ? 'thumbnail' : null;
     return kind ? this.forma.library.mediaUrl(game.id, kind, DETAIL_WIDTH) : null;
   });
-  readonly #switcher = new Switcher();
-  readonly #menu = new Menu();
-  readonly #network: NetworkScreen;
-  /** A power action waiting for its second press, and until when. */
-  #confirming: { id: string; until: number } | null = null;
 
   #views: ViewInfo[] = [];
   #view = 'systems';
-  #home: string | null = null;
   #stack: Level[] = [{ path: [], index: 0 }];
   #page: Browse | null = null;
   #cards: Card[] = [];
@@ -61,18 +52,10 @@ export class App {
     private readonly forma: Forma,
     root: HTMLElement
   ) {
-    this.#network = new NetworkScreen(
-      forma,
-      (message) => this.#notify(message),
-      () => this.#renderChrome()
-    );
     root.replaceChildren(
       el('header', {}, this.#title, this.#trail),
       this.#main,
       this.#hints,
-      this.#switcher.root,
-      this.#menu.root,
-      this.#network.root,
       this.#playing,
       this.#toast
     );
@@ -81,7 +64,13 @@ export class App {
   async start(): Promise<void> {
     this.forma.input.on((e) => this.#onInput(e));
     this.forma.events.on('library:changed', () => this.#reloadSoon());
+    // The user chose another order for systems in Forma's Select menu: list them so.
+    this.forma.events.on('settings:changed', ({ scope, key }) => {
+      if (scope === 'system' && key === 'library.systemsOrder') this.#reloadSoon();
+    });
     this.forma.events.on('views:changed', () => void this.#loadViews());
+    // Forma's views list (Select) picked one.
+    this.forma.events.on('nav:open', ({ view }) => void this.#open(view));
     this.forma.events.on('game:start', ({ name }) => {
       this.#playing.replaceChildren(el('p', {}, `Starting ${name}…`));
       this.#playing.hidden = false;
@@ -99,7 +88,6 @@ export class App {
 
   async #loadViews(): Promise<void> {
     this.#views = await this.forma.nav.views();
-    this.#home = (await this.forma.nav.defaultView()).id;
   }
 
   async #open(view: string): Promise<void> {
@@ -141,6 +129,7 @@ export class App {
         this.#grid.show(this.#cards, this.#level.index);
       }
       this.#renderChrome();
+      this.#tellForma();
     } catch (error) {
       this.#notify(FormaError.from(error).message);
     }
@@ -183,26 +172,14 @@ export class App {
       ...(this.#page?.trail ?? []).map((c) => el('span', { class: 'crumb' }, c.label))
     );
     const games = this.#page?.listing.kind === 'games';
-    const hints: [string, string][] = this.#network.open
-      ? this.#network.hints()
-      : this.#menu.open
-        ? [
-            ['A', 'Choose'],
-            ['B', 'Close']
-          ]
-        : this.#switcher.open
-          ? [
-              ['A', 'Show'],
-              ['Y', 'Make home view'],
-              ['B', 'Close']
-            ]
-          : [
-              ['A', games ? 'Play' : 'Open'],
-              ...(games ? [['Y', 'Favourite'] as [string, string]] : []),
-              ...(this.#stack.length > 1 ? [['B', 'Back'] as [string, string]] : []),
-              ['Select', 'Views'],
-              ['Start', 'Menu']
-            ];
+    // Select and Start are Forma's own: its views list and its menu.
+    const hints: [string, string][] = [
+      ['A', games ? 'Play' : 'Open'],
+      ...(games ? [['Y', 'Favourite'] as [string, string]] : []),
+      ...(this.#stack.length > 1 ? [['B', 'Back'] as [string, string]] : []),
+      ['Select', 'Views'],
+      ['Start', 'Menu']
+    ];
     this.#hints.replaceChildren(
       ...hints.map(([button, label]) => el('span', { class: 'hint' }, el('kbd', {}, button), label))
     );
@@ -210,12 +187,6 @@ export class App {
 
   #onInput(e: InputEvent): void {
     if (!e.pressed || !this.#playing.hidden) return;
-    if (this.#network.open) {
-      this.#network.input(e);
-      return this.#renderChrome();
-    }
-    if (this.#menu.open) return this.#onMenuInput(e);
-    if (this.#switcher.open) return this.#onSwitcherInput(e);
 
     const move = MOVES[e.action];
     if (move) return this.#move(move, e.repeat);
@@ -227,12 +198,6 @@ export class App {
         return void this.#back();
       case 'north':
         return void this.#toggleFavorite();
-      case 'select':
-        this.#switcher.show(this.#views, this.#view, this.#home);
-        return this.#renderChrome();
-      case 'start':
-        this.#openMenu();
-        return this.#renderChrome();
       default:
     }
   }
@@ -246,6 +211,21 @@ export class App {
       level.index = moveGrid(level.index, this.#cards.length, this.#grid.columns(), move);
       this.#grid.select(level.index);
     }
+    this.#tellForma();
+  }
+
+  /** Forma's menu offers options for the selected game: tell it which that is. */
+  #tellForma(): void {
+    const game = this.#list ? this.#games.selected : null;
+    this.forma.shell
+      .setContext({
+        view: this.#view,
+        game: game ? { id: game.id, name: game.name } : null,
+        system: game ? { name: game.system, fullname: game.system } : null,
+        // Select then offers the order of what is listed.
+        list: this.#list ? 'games' : this.#view === 'systems' ? 'systems' : null
+      })
+      .catch(() => {});
   }
 
   async #confirm(): Promise<void> {
@@ -283,85 +263,6 @@ export class App {
     } catch (error) {
       this.#notify(FormaError.from(error).message);
     }
-  }
-
-  #openMenu(): void {
-    this.#confirming = null;
-    this.#menu.show('Forma', [
-      { id: 'views', label: 'Views…', description: 'Organise the library another way' },
-      { id: 'network', label: 'Network…', description: 'Wi-Fi and Ethernet' },
-      {
-        id: 'emulationstation',
-        label: 'Switch to EmulationStation',
-        description: 'For system settings, scraping and updates; Forma returns at the next boot'
-      },
-      { id: 'restart', label: 'Restart', description: 'Press A twice' },
-      { id: 'shutdown', label: 'Shut down', description: 'Press A twice' }
-    ]);
-  }
-
-  #onMenuInput(e: InputEvent): void {
-    const m = this.#menu;
-    if (e.action === 'up' || e.action === 'down') {
-      this.#confirming = null;
-      return m.select(moveList(m.selected, m.count, e.action, 5, e.repeat));
-    }
-    if (e.repeat) return;
-    if (e.action === 'back' || e.action === 'start') {
-      m.close();
-      return this.#renderChrome();
-    }
-    if (e.action !== 'confirm' || !m.item) return;
-    const id = m.item.id;
-    if (id === 'views') {
-      m.close();
-      this.#switcher.show(this.#views, this.#view, this.#home);
-      return this.#renderChrome();
-    }
-    if (id === 'network') {
-      m.close();
-      this.#network.show();
-      return this.#renderChrome();
-    }
-    // Power actions need a second press within three seconds: a stray A must not shut down.
-    const powerful = id === 'restart' || id === 'shutdown';
-    const now = Date.now();
-    if (powerful && (this.#confirming?.id !== id || now > this.#confirming.until)) {
-      this.#confirming = { id, until: now + 3000 };
-      this.#notify(`Press A again to ${id === 'restart' ? 'restart' : 'shut down'}`);
-      return;
-    }
-    this.#confirming = null;
-    const action =
-      id === 'restart'
-        ? this.forma.system.restart()
-        : id === 'shutdown'
-          ? this.forma.system.shutdown()
-          : this.forma.system.quit();
-    action.catch((error: unknown) => this.#notify(FormaError.from(error).message));
-  }
-
-  #onSwitcherInput(e: InputEvent): void {
-    const s = this.#switcher;
-    if (e.action === 'up' || e.action === 'down') {
-      return s.select(moveList(s.selected, s.count, e.action, 5, e.repeat));
-    }
-    if (e.repeat) return;
-    const view = s.view;
-    if (e.action === 'confirm' && view) {
-      s.close();
-      void this.#open(view.id);
-    } else if (e.action === 'north' && view) {
-      void this.forma.nav.setDefaultView(view.id).then(() => {
-        this.#home = view.id;
-        this.#notify(`Forma will open on “${view.name}”`);
-        s.show(this.#views, this.#view, this.#home);
-        s.select(this.#views.indexOf(view));
-      });
-    } else if (e.action === 'back' || e.action === 'select') {
-      s.close();
-    }
-    this.#renderChrome();
   }
 
   /** Library changes arrive in bursts (a scraper run); reload once they settle. */

@@ -47,6 +47,11 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "see and change the machine's Wi-Fi and Ethernet settings",
     ),
     (
+        "system.controllers",
+        "see, pair, connect and forget Bluetooth controllers",
+    ),
+    ("system.update", "check for and install Batocera updates"),
+    (
         "network",
         "load content from the internet (the origins listed in `remote`)",
     ),
@@ -71,8 +76,93 @@ pub struct ThemeManifest {
     /// `https://` origins the theme may load from. Requires the `network` permission.
     #[serde(default)]
     pub remote: Vec<String>,
+    /// What the user can set from Forma's menu (Start → Interface), for the theme to follow.
+    #[serde(default)]
+    pub settings: Vec<ThemeSetting>,
+    /// The only views (by id) the theme shows the library in: Forma's views list and its
+    /// "Start on" setting keep to them. Absent, every view.
+    pub views: Option<Vec<String>>,
+    /// What the theme draws itself, in its own style, instead of Forma's shell drawing it:
+    /// `nowPlaying` (the song that just started, `music:song`), `status` (controllers and the
+    /// connection, `status:changed`) and `achievements` (what a game just earned,
+    /// `ra:unlocked`). What happens stays Forma's.
+    #[serde(default)]
+    pub draws: Vec<String>,
+    /// The theme's logo (an SVG, PNG or WebP inside its folder), which Forma's menus and cover
+    /// show in place of its name.
+    pub logo: Option<String>,
     #[serde(rename = "$schema", default, skip_serializing)]
     pub schema: Option<String>,
+}
+
+impl ThemeManifest {
+    /// A manifest for a theme that has none, so Forma's menu still has a name to show.
+    pub fn unnamed(id: &str) -> Self {
+        Self {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            version: String::new(),
+            entry: default_entry(),
+            sdk: String::new(),
+            permissions: Vec::new(),
+            hierarchy: None,
+            resolutions: Vec::new(),
+            remote: Vec::new(),
+            settings: Vec::new(),
+            views: None,
+            draws: Vec::new(),
+            logo: None,
+            schema: None,
+        }
+    }
+}
+
+/// One of a theme's own settings, which Forma's menu shows and sets. The theme reads it with
+/// `forma.settings.get(key)` and hears of changes through the `settings:changed` event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ThemeSetting {
+    pub key: String,
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// A heading the menu groups settings under, e.g. `Look`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    #[serde(rename = "type")]
+    pub kind: SettingKind,
+    /// For a `choice`: the values it can take, in order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub choices: Vec<SettingChoice>,
+    pub default: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SettingKind {
+    /// On or off: `true` or `false`.
+    Toggle,
+    /// One of `choices`, by its value (a string).
+    Choice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingChoice {
+    pub value: String,
+    pub label: String,
+}
+
+impl ThemeSetting {
+    /// Whether `value` is one this setting can take.
+    pub fn accepts(&self, value: &serde_json::Value) -> bool {
+        match self.kind {
+            SettingKind::Toggle => value.is_boolean(),
+            SettingKind::Choice => value
+                .as_str()
+                .is_some_and(|v| self.choices.iter().any(|c| c.value == v)),
+        }
+    }
 }
 
 fn default_entry() -> String {
@@ -96,6 +186,8 @@ pub struct Theme {
     pub manifest: Option<ThemeManifest>,
     /// Why the theme cannot load; `None` means it can.
     pub unavailable: Option<String>,
+    /// A user theme standing in for the bundled theme with its id (it is newer).
+    pub overrides: bool,
 }
 
 impl Theme {
@@ -116,8 +208,10 @@ pub fn user_themes_dir(paths: &Paths) -> PathBuf {
 }
 
 /// Every theme in `bundled` folders, then in the user's themes folder. A user theme with a
-/// bundled theme's id is listed as unavailable: replacing the default theme by accident would
-/// leave a user without a working UI.
+/// bundled theme's id stands in for it only when its version is newer (an update installed
+/// without a new Forma); the bundled one is then listed as replaced, and comes back if the
+/// newer one fails ([`revert_override`]). An older or equal one is listed as unavailable: an
+/// old copy must not hide the theme Forma ships.
 pub fn discover(bundled: &[PathBuf], paths: &Paths) -> Vec<Theme> {
     let mut themes: Vec<Theme> = bundled
         .iter()
@@ -136,15 +230,75 @@ pub fn discover(bundled: &[PathBuf], paths: &Paths) -> Vec<Theme> {
     user_dirs.sort();
     for dir in user_dirs {
         let mut theme = load(&dir, ThemeOrigin::User);
-        if theme.is_available() && themes.iter().any(|t| t.id == theme.id) {
-            theme.unavailable = Some(format!(
-                "id `{}` is already used by another theme",
-                theme.id
-            ));
+        if theme.is_available()
+            && let Some(other) = themes
+                .iter_mut()
+                .find(|t| t.id == theme.id && t.is_available())
+        {
+            let version = |t: &Theme| t.manifest.as_ref().map(|m| m.version.clone());
+            match (other.origin, version(&theme), version(other)) {
+                (ThemeOrigin::Bundled, Some(mine), Some(theirs)) if newer(&mine, &theirs) => {
+                    other.unavailable = Some(format!("replaced by version {mine}, installed"));
+                    theme.overrides = true;
+                }
+                (ThemeOrigin::Bundled, Some(mine), Some(theirs)) => {
+                    theme.unavailable = Some(format!(
+                        "version {mine} is not newer than the built-in {theirs}"
+                    ));
+                }
+                _ => {
+                    theme.unavailable = Some(format!(
+                        "id `{}` is already used by another theme",
+                        theme.id
+                    ));
+                }
+            }
         }
         themes.push(theme);
     }
     themes
+}
+
+/// A user theme that stood in for a bundled one failed: it is set aside and the bundled one
+/// is back. `false` when `id` was not an override.
+pub fn revert_override(themes: &mut [Theme], id: &str) -> bool {
+    let Some(user) = themes.iter_mut().find(|t| t.id == id && t.overrides) else {
+        return false;
+    };
+    user.overrides = false;
+    user.unavailable = Some("did not start; using the built-in version".into());
+    if let Some(bundled) = themes
+        .iter_mut()
+        .find(|t| t.id == id && t.origin == ThemeOrigin::Bundled)
+    {
+        bundled.unavailable = None;
+    }
+    true
+}
+
+/// `a` is a later version than `b`: `major.minor.patch`, a prerelease (`0.3.1-dev.2`) coming
+/// before its release. Anything unreadable is never newer.
+pub fn newer(a: &str, b: &str) -> bool {
+    fn parse(v: &str) -> Option<([u64; 3], Option<&str>)> {
+        let (core, pre) = match v.trim().split_once('-') {
+            Some((c, p)) => (c, Some(p)),
+            None => (v.trim(), None),
+        };
+        let mut n = core.split('.').map(|p| p.parse::<u64>().ok());
+        let out = [n.next()??, n.next()??, n.next()??];
+        n.next().is_none().then_some((out, pre))
+    }
+    let (Some((a, a_pre)), Some((b, b_pre))) = (parse(a), parse(b)) else {
+        return false;
+    };
+    if a != b {
+        return a > b;
+    }
+    match (a_pre, b_pre) {
+        (None, Some(_)) => true,
+        (Some(x), Some(y)) => x > y,
+        _ => false,
+    }
 }
 
 fn load(dir: &Path, origin: ThemeOrigin) -> Theme {
@@ -158,6 +312,7 @@ fn load(dir: &Path, origin: ThemeOrigin) -> Theme {
         origin,
         manifest: None,
         unavailable: None,
+        overrides: false,
     };
     let manifest = std::fs::read_to_string(dir.join("theme.json"))
         .map_err(|e| format!("theme.json: {e}"))
@@ -208,6 +363,7 @@ fn check(m: &ThemeManifest, dir: &Path) -> Result<(), String> {
             "remote origin `{bad}` must look like https://example.com"
         ));
     }
+    check_settings(&m.settings)?;
     let entry = Path::new(&m.entry);
     if entry.is_absolute()
         || entry
@@ -221,6 +377,50 @@ fn check(m: &ThemeManifest, dir: &Path) -> Result<(), String> {
     }
     if !dir.join(entry).is_file() {
         return Err(format!("entry `{}` does not exist", m.entry));
+    }
+    if let Some(logo) = &m.logo {
+        let path = Path::new(logo);
+        let image = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "svg" | "png" | "webp"));
+        if !image {
+            return Err(format!("logo `{logo}` must be an .svg, .png or .webp"));
+        }
+        if path.is_absolute()
+            || path
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+            || !dir.join(path).is_file()
+        {
+            return Err(format!(
+                "logo `{logo}` must be a file inside the theme folder"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn check_settings(settings: &[ThemeSetting]) -> Result<(), String> {
+    for (i, s) in settings.iter().enumerate() {
+        if s.key.is_empty() || s.key.len() > 100 {
+            return Err("a setting's key must be 1–100 characters".to_owned());
+        }
+        if settings[..i].iter().any(|o| o.key == s.key) {
+            return Err(format!("setting `{}` is listed twice", s.key));
+        }
+        match s.kind {
+            SettingKind::Choice if s.choices.is_empty() => {
+                return Err(format!("setting `{}` has no choices", s.key));
+            }
+            SettingKind::Toggle if !s.choices.is_empty() => {
+                return Err(format!("setting `{}` is a toggle: no choices", s.key));
+            }
+            _ => {}
+        }
+        if !s.accepts(&s.default) {
+            return Err(format!("setting `{}` has a default it cannot take", s.key));
+        }
     }
     Ok(())
 }
@@ -285,6 +485,34 @@ mod tests {
     }
 
     #[test]
+    fn a_logo_must_be_an_image_in_the_theme_folder() {
+        let with_logo = |file: Option<&str>, logo: &str| {
+            let dir = tempfile::tempdir().unwrap();
+            write_theme(dir.path(), &manifest(&format!(r#", "logo": "{logo}""#)));
+            if let Some(file) = file {
+                std::fs::write(dir.path().join(file), "<svg/>").unwrap();
+            }
+            load(dir.path(), ThemeOrigin::User).unavailable
+        };
+        assert_eq!(with_logo(Some("logo.svg"), "logo.svg"), None);
+        assert!(
+            with_logo(None, "logo.svg")
+                .unwrap()
+                .contains("inside the theme folder")
+        );
+        assert!(
+            with_logo(None, "../logo.svg")
+                .unwrap()
+                .contains("inside the theme folder")
+        );
+        assert!(
+            with_logo(Some("logo.gif"), "logo.gif")
+                .unwrap()
+                .contains(".svg, .png or .webp")
+        );
+    }
+
+    #[test]
     fn says_why_a_theme_cannot_load() {
         let r = |extra: &str| reason(extra).unwrap();
         assert!(r(r#", "entry": "missing.html""#).contains("does not exist"));
@@ -304,6 +532,48 @@ mod tests {
         let theme = load(dir.path(), ThemeOrigin::User);
         assert!(theme.unavailable.unwrap().contains("needs SDK ^2"));
         assert!(theme.manifest.is_some(), "the manifest is still shown");
+    }
+
+    #[test]
+    fn a_theme_declares_settings_for_formas_menu() {
+        let settings = r#", "settings": [
+            { "key": "board", "label": "Board", "group": "Look", "type": "choice",
+              "choices": [{ "value": "on", "label": "On" }, { "value": "off", "label": "Off" }],
+              "default": "on" },
+            { "key": "motion", "label": "Animations", "type": "toggle", "default": true }
+        ]"#;
+        assert_eq!(reason(settings), None);
+        let dir = tempfile::tempdir().unwrap();
+        write_theme(dir.path(), &manifest(settings));
+        let m = load(dir.path(), ThemeOrigin::User).manifest.unwrap();
+        let [board, motion] = &m.settings[..] else {
+            panic!("two settings")
+        };
+        assert!(board.accepts(&serde_json::json!("off")));
+        assert!(!board.accepts(&serde_json::json!("dim")));
+        assert!(motion.accepts(&serde_json::json!(false)));
+        assert!(!motion.accepts(&serde_json::json!("false")));
+
+        let r = |extra: &str| reason(extra).unwrap();
+        assert!(
+            r(r#", "settings": [{ "key": "a", "label": "A", "type": "choice", "choices": [], "default": "x" }]"#)
+                .contains("no choices")
+        );
+        assert!(
+            r(r#", "settings": [{ "key": "a", "label": "A", "type": "toggle", "default": "on" }]"#)
+                .contains("default it cannot take")
+        );
+        assert!(
+            r(
+                r#", "settings": [{ "key": "a", "label": "A", "type": "toggle", "default": true },
+                                { "key": "a", "label": "B", "type": "toggle", "default": true }]"#
+            )
+            .contains("listed twice")
+        );
+        assert!(
+            r(r#", "settings": [{ "key": "a", "label": "A", "type": "slider", "default": 1 }]"#)
+                .contains("theme.json")
+        );
     }
 
     #[test]
@@ -344,6 +614,65 @@ mod tests {
                 ("neon", ThemeOrigin::User, true),
             ]
         );
+    }
+
+    #[test]
+    fn a_newer_user_copy_of_a_bundled_theme_stands_in_for_it_and_can_be_set_aside() {
+        let (_dir, paths) = fixture_copy();
+        let bundled = paths.userdata.join("bundled/cyber");
+        write_theme(
+            &bundled,
+            r#"{ "id": "cyber", "name": "Cyber", "version": "0.3.0", "sdk": "^1" }"#,
+        );
+        let users = user_themes_dir(&paths);
+        write_theme(
+            &users.join("cyber"),
+            r#"{ "id": "cyber", "name": "Cyber", "version": "0.3.1-dev", "sdk": "^1" }"#,
+        );
+        let mut themes = discover(std::slice::from_ref(&bundled), &paths);
+        let summary = |themes: &[Theme]| -> Vec<(ThemeOrigin, bool)> {
+            themes
+                .iter()
+                .map(|t| (t.origin, t.is_available()))
+                .collect()
+        };
+        assert_eq!(
+            summary(&themes),
+            [(ThemeOrigin::Bundled, false), (ThemeOrigin::User, true)]
+        );
+        assert!(themes[1].overrides);
+
+        assert!(revert_override(&mut themes, "cyber"));
+        assert_eq!(
+            summary(&themes),
+            [(ThemeOrigin::Bundled, true), (ThemeOrigin::User, false)]
+        );
+        assert!(!revert_override(&mut themes, "cyber"));
+
+        // The same version, or an older one, does not replace it.
+        write_theme(
+            &users.join("cyber"),
+            r#"{ "id": "cyber", "name": "Cyber", "version": "0.3.0", "sdk": "^1" }"#,
+        );
+        let themes = discover(&[bundled], &paths);
+        assert_eq!(
+            summary(&themes),
+            [(ThemeOrigin::Bundled, true), (ThemeOrigin::User, false)]
+        );
+    }
+
+    #[test]
+    fn newer_compares_versions_with_prereleases() {
+        assert!(newer("0.3.1", "0.3.0"));
+        assert!(newer("0.3.1-dev", "0.3.0"));
+        assert!(newer("1.0.0", "0.9.9"));
+        assert!(newer("0.3.0", "0.3.0-rc.1"));
+        assert!(newer("0.3.0-rc.2", "0.3.0-rc.1"));
+        assert!(!newer("0.3.0", "0.3.0"));
+        assert!(!newer("0.3.0-dev", "0.3.0"));
+        assert!(!newer("0.2.9", "0.3.0"));
+        assert!(!newer("latest", "0.3.0"));
+        assert!(!newer("1.0", "0.3.0"));
     }
 
     #[test]

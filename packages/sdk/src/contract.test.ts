@@ -163,7 +163,11 @@ describe('contract with the engine', () => {
       'hasSpectatePassword',
       'connectable',
       'created',
-      'localGameId'
+      'lan',
+      'join',
+      'localGameId',
+      'core',
+      'pingMs'
     );
     for (const r of data.lobby) expect(sorted(r)).toEqual(room);
   });
@@ -228,6 +232,9 @@ describe('contract with the engine', () => {
       'description',
       'kind',
       'choices',
+      'min',
+      'max',
+      'step',
       'value',
       'applies'
     );

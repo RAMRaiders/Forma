@@ -33,6 +33,7 @@ its systems, `gamelist.xml` metadata and `emulatorlauncher` — and replaces the
 | `crates/forma-core`      | Rust core: library, hierarchy engine, launcher, input. No Tauri. |
 | `crates/forma-app`       | Tauri 2 shell that hosts themes and exposes the core to them.    |
 | `packages/sdk`           | `@ramraiders/forma-sdk`, the public TypeScript API for themes.   |
+| `packages/shell`         | Forma's menus and entry cover, over every theme.                 |
 | `packages/theme-default` | The reference theme, built only on the SDK.                      |
 | `fixtures/userdata`      | A fake Batocera `/userdata` for tests and development.           |
 

@@ -17,11 +17,14 @@ import type {
   MusicSource,
   MusicStatus,
   NetplayRoom,
+  RoomFilter,
   NetworkStatus,
   Page,
   Radio,
   RaGame,
   RaUser,
+  ShellContext,
+  StatusBar,
   SystemSummary,
   ThemeInfo,
   Unsubscribe,
@@ -33,7 +36,12 @@ import type {
   SystemSetting,
   StorePackage,
   WifiJoined,
-  WifiNetwork
+  WifiNetwork,
+  BluetoothDevice,
+  Collection,
+  BluetoothStatus,
+  UpdateCheck,
+  RaMatches
 } from './types.js';
 import { SDK_VERSION, satisfies } from './version.js';
 
@@ -44,11 +52,18 @@ export interface ConnectOptions {
   mock?: MockOptions;
   /** Deliver arrow keys, Enter, Escape… as input events too. Default `true`. */
   keyboard?: boolean;
+  /**
+   * Hold Forma's cover (its logo, over the theme while it loads) until the theme calls
+   * `forma.ready()`, e.g. once its first screen is drawn, rather than lifting it as soon as
+   * `connect()` resolves. Default `false`.
+   */
+  deferReady?: boolean;
 }
 
 /**
  * Connects to Forma: checks the host speaks a compatible SDK version, then tells it the theme
- * has started (a theme that never does is replaced by the default one).
+ * has started (a theme that never does is replaced by the default one), unless `deferReady`
+ * leaves that to `forma.ready()`.
  */
 export async function connect(options: ConnectOptions = {}): Promise<Forma> {
   let backend = options.backend;
@@ -70,7 +85,7 @@ export async function connect(options: ConnectOptions = {}): Promise<Forma> {
     );
   }
   const sdk = new Forma(backend, host, options.keyboard ?? true);
-  await call(backend, 'theme_ready');
+  if (!options.deferReady) await sdk.ready();
   return sdk;
 }
 
@@ -98,11 +113,16 @@ export class Forma {
   readonly system;
   readonly ra;
   readonly netplay;
+  readonly collections;
   readonly network;
+  readonly bluetooth;
+  readonly updates;
   readonly batocera;
   readonly options;
   readonly store;
   readonly music;
+  readonly shell;
+  readonly status;
 
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
@@ -116,6 +136,7 @@ export class Forma {
       call<T>(backend, command, args);
 
     this.library = {
+      /** In the order the user chose (`SystemsOrder`): keep it, rather than sorting them. */
       systems: () => invoke<SystemSummary[]>('library_systems'),
       game: (id: number) => invoke<Game | null>('library_game', { id }),
       search: (query: string, limit?: number) => invoke<Game[]>('library_search', { query, limit }),
@@ -158,6 +179,7 @@ export class Forma {
     };
 
     this.themes = {
+      /** The themes the user can pick: not Forma's plain fallback, nor a copy another stands in for. */
       list: () => invoke<ThemeInfo[]>('themes_list'),
       select: (id: string) => invoke<void>('themes_select', { id })
     };
@@ -193,6 +215,12 @@ export class Forma {
       /** A local game's achievements and the user's progress in it. */
       game: (id: number) => invoke<Fetched<RaGame>>('ra_game', { id }),
       /**
+       * How much of the library is matched to RetroAchievements, per system. Forma hashes games
+       * in the background as rcheevos does (never while a game runs) and matches them once a
+       * web API key is set; until then, `matched` counts only imported ids.
+       */
+      matches: () => invoke<RaMatches>('ra_matches'),
+      /**
        * Logs in to RetroAchievements and saves the account (and the token the emulators use) in
        * Batocera's settings, as EmulationStation does. Resolves with the user name; rejects with
        * `invalid` when RetroAchievements refuses. Needs `settings.batocera`.
@@ -203,9 +231,72 @@ export class Forma {
       logout: () => invoke<void>('ra_logout')
     };
 
+    /**
+     * The user's own lists of games, as EmulationStation keeps them; browse them in the
+     * `collections` view. Like favourites, they need no permission. Names are any case.
+     */
+    this.collections = {
+      list: () => invoke<Collection[]>('collections_list'),
+      /** The collections a game is in. */
+      of: (gameId: number) => invoke<string[]>('collections_of', { gameId }),
+      /** Resolves with the name as kept (trimmed). */
+      create: (name: string) => invoke<string>('collections_create', { name }),
+      /** The collection goes; its games stay in the library. */
+      delete: (name: string) => invoke<void>('collections_delete', { name }),
+      add: (name: string, gameId: number) =>
+        invoke<void>('collections_set', { name, gameId, member: true }),
+      remove: (name: string, gameId: number) =>
+        invoke<void>('collections_set', { name, gameId, member: false })
+    };
+
     this.netplay = {
-      /** Open rooms, joinable first, each matched to a local game where possible. */
-      lobby: () => invoke<Fetched<NetplayRoom[]>>('netplay_lobby')
+      /** Open rooms, joinable first, each matched to a local game and core where possible. */
+      lobby: (filter?: RoomFilter) => invoke<Fetched<NetplayRoom[]>>('netplay_lobby', { filter }),
+      /** RetroArch hosts on the local network; takes a second or two to listen. */
+      lan: (filter?: RoomFilter) => invoke<NetplayRoom[]>('netplay_lan', { filter }),
+      /**
+       * Joins a room: starts the local game with the room's core, connected to the host or its
+       * relay. Fails without a local game, an installed core, or a way in.
+       */
+      join: (room: NetplayRoom, options: { password?: string; spectate?: boolean } = {}) => {
+        if (room.localGameId === null) {
+          return Promise.reject(new FormaError('notFound', `${room.gameName} is not on this box`));
+        }
+        if (room.core === null) {
+          return Promise.reject(
+            new FormaError('unsupported', `the ${room.coreName} core is not installed`)
+          );
+        }
+        if (room.join === null) {
+          return Promise.reject(new FormaError('unsupported', 'this room gives no way in'));
+        }
+        return invoke<void>('launch_game', {
+          id: room.localGameId,
+          request: {
+            emulator: 'libretro',
+            core: room.core,
+            netplay: {
+              mode: 'client',
+              host: room.join.host,
+              port: room.join.port,
+              ...(room.join.session ? { session: room.join.session } : {}),
+              ...(options.password ? { password: options.password } : {}),
+              ...(options.spectate ? { spectate: true } : {})
+            }
+          } satisfies LaunchRequest
+        });
+      },
+      /** Hosts a game: others join it from the lobby or the local network. */
+      host: (id: number, options: { password?: string } = {}) =>
+        invoke<void>('launch_game', {
+          id,
+          request: {
+            netplay: {
+              mode: 'host',
+              ...(options.password ? { password: options.password } : {})
+            }
+          } satisfies LaunchRequest
+        })
     };
 
     /** The box's Wi-Fi and Ethernet. Needs the `system.network` permission; Batocera only. */
@@ -223,6 +314,40 @@ export class Forma {
       /** DHCP or a static address, kept across reboots. The connection drops for a moment. */
       configureEthernet: (config: EthernetConfig) =>
         invoke<void>('network_ethernet_configure', { config })
+    };
+
+    /**
+     * Bluetooth controllers, through Batocera's own tools, as EmulationStation's Controllers
+     * menu offers them. Needs the `system.controllers` permission; Batocera only.
+     */
+    this.bluetooth = {
+      /** Whether Bluetooth is on, and the devices paired with this box. */
+      status: () => invoke<BluetoothStatus>('bluetooth_status'),
+      /** Turns Bluetooth on or off; Batocera restarts its Bluetooth services. */
+      setEnabled: (enabled: boolean) => invoke<void>('bluetooth_set_enabled', { enabled }),
+      /**
+       * Looks for pads in pairing mode for up to a minute, pairing each it finds; resolves with
+       * those it paired. `bluetooth:pairing` reports on the way.
+       */
+      pair: () => invoke<BluetoothDevice[]>('bluetooth_pair'),
+      connect: (address: string) => invoke<void>('bluetooth_connect', { address }),
+      disconnect: (address: string) => invoke<void>('bluetooth_disconnect', { address }),
+      /** Unpairs a device; it has to be paired again to be used. */
+      forget: (address: string) => invoke<void>('bluetooth_forget', { address })
+    };
+
+    /**
+     * Batocera's own updates, as EmulationStation's Updates menu has them. Needs the
+     * `system.update` permission; Batocera only. Nothing updates unless `install` is called.
+     */
+    this.updates = {
+      /** The box's version and the newest for its board and channel. */
+      check: () => invoke<UpdateCheck>('updates_check'),
+      /**
+       * Downloads (gigabytes) and unpacks the update; it takes effect after a reboot.
+       * `updates:progress` reports on the way.
+       */
+      install: () => invoke<void>('updates_install')
     };
 
     /**
@@ -290,6 +415,21 @@ export class Forma {
       removeRadio: (url: string) => invoke<void>('music_remove_radio', { url })
     };
 
+    /**
+     * Forma's own menus, drawn over every theme: Start (the menu) and Select (views). Those two
+     * buttons are Forma's and never reach the theme. A theme tells the menu what is on screen,
+     * and follows `nav:open` and `settings:changed`.
+     */
+    this.shell = {
+      /** What the theme shows now. Call it as the selection moves; it costs one small call. */
+      setContext: (context: ShellContext) => invoke<void>('shell_set_context', { context })
+    };
+
+    /** Controllers and the connection, as Forma shows them in a corner; follows `status:changed`. */
+    this.status = {
+      get: () => invoke<StatusBar>('status_get')
+    };
+
     this.system = {
       /** Needs the `system.power` permission. */
       quit: () => invoke<void>('system_quit'),
@@ -306,6 +446,14 @@ export class Forma {
       set: (key: string, value: string | null) =>
         invoke<void>('system_settings_set', { key, value })
     };
+  }
+
+  /**
+   * Tells Forma the theme has started: its cover lifts, and the theme is not replaced. `connect()`
+   * does it, unless asked to wait (`deferReady`). Calling it again does no harm.
+   */
+  ready(): Promise<void> {
+    return call<void>(this.#backend, 'theme_ready');
   }
 
   #attachInput(keyboard: boolean): void {

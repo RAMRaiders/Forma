@@ -87,6 +87,8 @@ enum Kind {
     VideoModes,
     VideoOutputs,
     AudioOutputs,
+    /// Batocera's system volume, 0–100, applied at once.
+    Volume,
     Timezones,
     KeyboardLayouts,
     Hostname,
@@ -135,6 +137,22 @@ const DEFS: &[Def] = &[
         section: "Audio",
         description: "Where the sound goes.",
         kind: Kind::AudioOutputs,
+        applies: "now",
+    },
+    Def {
+        key: "audio.volume",
+        label: "Volume",
+        section: "Audio",
+        description: "The whole system's volume, games included.",
+        kind: Kind::Volume,
+        applies: "now",
+    },
+    Def {
+        key: "audio.bgmusic",
+        label: "Menu music",
+        section: "Audio",
+        description: "Music from the music folder while in the menus.",
+        kind: Kind::Fixed(ON_OFF),
         applies: "now",
     },
     Def {
@@ -203,9 +221,13 @@ pub struct SystemSetting {
     pub label: &'static str,
     pub section: &'static str,
     pub description: &'static str,
-    /// `choice` (one of `choices`) or `text`.
+    /// `choice` (one of `choices`), `number` (from `min` to `max` by `step`) or `text`.
     pub kind: &'static str,
     pub choices: Vec<OptionChoice>,
+    /// For a `number`; `None` otherwise.
+    pub min: Option<u32>,
+    pub max: Option<u32>,
+    pub step: Option<u32>,
     /// `None` when unset: Batocera's default applies.
     pub value: Option<String>,
     /// `now`, `restart` (Forma's) or `reboot`.
@@ -277,11 +299,14 @@ impl SystemSettings {
                 label: def.label,
                 section: def.section,
                 description: def.description,
-                kind: if def.kind == Kind::Hostname {
-                    "text"
-                } else {
-                    "choice"
+                kind: match def.kind {
+                    Kind::Hostname => "text",
+                    Kind::Volume => "number",
+                    _ => "choice",
                 },
+                min: (def.kind == Kind::Volume).then_some(0),
+                max: (def.kind == Kind::Volume).then_some(100),
+                step: (def.kind == Kind::Volume).then_some(5),
                 choices: self.choices(def.kind),
                 value: if def.kind == Kind::Storage {
                     self.current_storage()
@@ -318,6 +343,13 @@ impl SystemSettings {
                     ));
                 }
             }
+            Kind::Volume => {
+                if !value.parse::<u8>().is_ok_and(|v| v <= 100) {
+                    return Err(Error::Invalid(format!(
+                        "the volume is 0 to 100, not `{value}`"
+                    )));
+                }
+            }
             kind if !self.choices(kind).iter().any(|c| c.value == value) => {
                 return Err(Error::Invalid(format!(
                     "`{value}` is not one of the choices for `{key}`"
@@ -335,6 +367,10 @@ impl SystemSettings {
             }
             Kind::AudioOutputs => {
                 self.shell.run("batocera-audio", &["set", value])?;
+            }
+            Kind::Volume => {
+                self.shell
+                    .run("batocera-audio", &["setSystemVolume", value])?;
             }
             Kind::Timezones => {
                 self.shell.run("batocera-timezone", &["set", value])?;
@@ -414,7 +450,7 @@ impl SystemSettings {
                 Some((value, rest.join(" ")))
             }),
             Kind::Timezones => self.timezones(),
-            Kind::Hostname => Vec::new(),
+            Kind::Hostname | Kind::Volume => Vec::new(),
         }
     }
 

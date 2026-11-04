@@ -4,7 +4,10 @@
 //! per source in `game_field`, and the winning value is materialised onto the `game` row, so a
 //! re-import from `gamelist.xml` can never overwrite what the user set in Forma.
 
+mod collections;
+mod computed;
 mod imports;
+mod recommend;
 mod refresh;
 mod schema;
 
@@ -19,11 +22,15 @@ use crate::error::{Error, Result};
 use crate::field;
 use crate::systems::System;
 
+pub use collections::Collection;
+pub use computed::RaMatch;
 pub use refresh::RefreshReport;
 
 /// Where a field value came from. A higher variant wins.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Source {
+    /// Worked out by Forma: RetroAchievements hashes and matches.
+    Forma = 0,
     Gamelist = 1,
     Import = 2,
     User = 3,
@@ -31,6 +38,8 @@ pub enum Source {
 
 pub struct Library {
     pub(crate) conn: Connection,
+    /// The last recommendations, until the library changes (see `recommend.rs`).
+    pub(crate) recommended: std::sync::Mutex<Option<recommend::Cached>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -96,7 +105,19 @@ impl Library {
     fn init(mut conn: Connection, path: &Path) -> Result<Self> {
         schema::configure(&conn)?;
         schema::migrate(&mut conn, path)?;
-        Ok(Self { conn })
+        Ok(Self {
+            conn,
+            recommended: std::sync::Mutex::default(),
+        })
+    }
+
+    /// Systems with at least one visible game, in the order the user set
+    /// ([`SYSTEMS_ORDER_SETTING`]): by name unless they chose otherwise.
+    pub fn systems_in_order(&self) -> Result<Vec<SystemSummary>> {
+        let mut systems = self.systems()?;
+        let order = self.setting_text(SYSTEMS_ORDER_SETTING)?;
+        sort_systems(&mut systems, SystemsOrder::parse(order.as_deref()));
+        Ok(systems)
     }
 
     /// Systems with at least one visible game, in definition order.
@@ -425,6 +446,52 @@ fn default_name(path: &str) -> String {
 }
 
 /// The highest number in a players field: `1-2` → 2, `1` → 1, `2+` → 2.
+/// Forma's setting for the order systems are listed in, for every theme: `name` (A to Z, the
+/// default), `maker` (by manufacturer, then oldest first) or `year` (oldest first).
+pub const SYSTEMS_ORDER_SETTING: &str = "library.systemsOrder";
+
+/// How systems are listed ([`SYSTEMS_ORDER_SETTING`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SystemsOrder {
+    #[default]
+    Name,
+    Maker,
+    Year,
+}
+
+impl SystemsOrder {
+    /// The setting's value; anything else (or none) is by name.
+    pub fn parse(value: Option<&str>) -> Self {
+        match value.map(str::trim) {
+            Some("maker") => Self::Maker,
+            Some("year") => Self::Year,
+            _ => Self::Name,
+        }
+    }
+}
+
+/// Sorts systems as the user sees them: by full name, ignoring case; by maker or year with the
+/// name breaking ties. A system without a maker or year comes after those with one.
+pub fn sort_systems(systems: &mut [SystemSummary], order: SystemsOrder) {
+    let name = |s: &SystemSummary| s.fullname.to_lowercase();
+    let year = |s: &SystemSummary| s.release_year.unwrap_or(i64::MAX);
+    let maker = |s: &SystemSummary| {
+        s.manufacturer
+            .as_deref()
+            .map(str::trim)
+            .filter(|m| !m.is_empty())
+            .map(str::to_lowercase)
+    };
+    match order {
+        SystemsOrder::Name => systems.sort_by_cached_key(|s| (name(s), s.name.clone())),
+        SystemsOrder::Year => systems.sort_by_cached_key(|s| (year(s), name(s))),
+        SystemsOrder::Maker => systems.sort_by_cached_key(|s| {
+            let m = maker(s);
+            (m.is_none(), m, year(s), name(s))
+        }),
+    }
+}
+
 fn players_max(players: &str) -> Option<i64> {
     players
         .split(|c: char| !c.is_ascii_digit())

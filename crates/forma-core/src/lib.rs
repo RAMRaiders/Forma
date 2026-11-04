@@ -5,6 +5,7 @@
 //! can be tested on any machine and reused by other hosts.
 
 pub mod batocera;
+pub mod bluetooth;
 mod error;
 pub mod field;
 pub mod gamelist;
@@ -19,6 +20,7 @@ pub mod net;
 pub mod network;
 pub mod options;
 pub mod paths;
+pub mod ra_match;
 pub mod scan;
 pub mod store;
 pub mod sync;
@@ -27,6 +29,7 @@ pub mod systems;
 pub mod themes;
 pub mod thumbs;
 mod time;
+pub mod updates;
 mod xml;
 
 #[cfg(test)]
@@ -38,7 +41,7 @@ pub use paths::Paths;
 
 /// Version of the theme-facing API this core implements. Themes declare the range they need in
 /// `theme.json` (`"sdk": "^1"`) and `@ramraiders/forma-sdk` checks it against this value at startup.
-pub const SDK_API_VERSION: &str = "1.3.0";
+pub const SDK_API_VERSION: &str = "1.16.0";
 
 #[cfg(test)]
 mod tests {

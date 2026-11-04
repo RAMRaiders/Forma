@@ -1,0 +1,963 @@
+/*
+ * Forma's shell, in its own shadow root: nothing here reaches the theme, nothing of the theme's
+ * reaches here. Sizes are in em off one font size scaled to the screen, not rem, so a theme's
+ * root font size cannot change the menus. Forma's colours: the logo's cyan-to-blue body and its
+ * magenta-to-violet last block.
+ */
+:host {
+  --bg: #04060c;
+  --panel: rgb(8 13 24 / 94%);
+  --card: #111a2c;
+  --line: rgb(34 228 255 / 18%);
+  --fg: #e6f7ff;
+  --muted: #8aa0b6;
+  --cyan: #22e4ff;
+  --blue: #3b6dff;
+  --pink: #ff2e88;
+  --violet: #b23cff;
+  --body: linear-gradient(135deg, var(--cyan), var(--blue));
+  --accent: linear-gradient(135deg, var(--pink), var(--violet));
+  --radius: 0.45em;
+  --mono: 'JetBrains Mono', 'DejaVu Sans Mono', Menlo, Consolas, monospace;
+}
+
+.shell,
+.cover {
+  font-family: 'DejaVu Sans', system-ui, sans-serif;
+  font-size: max(12px, min(calc(100vh / 42), calc(100vw / 62)));
+  line-height: 1.35;
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ---- Entry cover: Forma's logo, a loader and the versions, as the boot picture ---------- */
+
+.cover {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, #0a1a2e 0%, var(--bg) 70%);
+  pointer-events: auto;
+}
+
+/* At boot: Forma's boot picture is under the see-through window, the same screen; the cover
+   lets it show and draws only what moves over it. Its glow fades in: loading has begun. */
+.cover.see-through {
+  background: transparent;
+}
+
+/* The picture under it has the logo, the versions and the loader's track already: drawn twice,
+   by two renderers, they never lined up exactly and the letters looked doubled. Kept in the
+   layout (hidden, not gone), so the moving part of the loader stays where the picture's is. */
+.cover.see-through .mark,
+.cover.see-through .versions {
+  visibility: hidden;
+}
+
+.cover.see-through .bar {
+  background: transparent;
+}
+
+.cover.see-through .glow {
+  animation:
+    cover-glow-in 900ms ease-out both,
+    cover-breathe 2.4s 900ms ease-in-out infinite alternate;
+}
+
+@keyframes cover-glow-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0.7;
+    transform: scale(0.85);
+  }
+}
+
+/* Fading out over the theme, which is ready under it. */
+.cover.leaving {
+  pointer-events: none;
+  animation: cover-out 300ms ease-in both;
+}
+
+@keyframes cover-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A glow behind the logo, breathing while the theme loads. */
+.cover .glow {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 70vh;
+  height: 70vh;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(34 228 255 / 18%), transparent);
+  animation: cover-breathe 2.4s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+@keyframes cover-breathe {
+  from {
+    opacity: 0.7;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.cover .forma {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 5vh;
+}
+
+/* Still, and where the boot picture has it: the screen goes on from that picture without a
+   jump, only the loader and the glow moving. */
+.cover .mark {
+  height: 24vh;
+}
+
+.cover .bar {
+  width: 26vh;
+  height: 0.5vh;
+  border-radius: 1vh;
+  background: rgb(34 228 255 / 15%);
+  overflow: hidden;
+}
+
+.cover .bar span {
+  display: block;
+  width: 30%;
+  height: 100%;
+  background: var(--body);
+  animation: scan 1.2s ease-in-out infinite;
+}
+
+@keyframes scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+.cover .versions {
+  position: absolute;
+  right: calc(4vh + var(--margin, 0vh));
+  bottom: calc(4vh + var(--margin, 0vh));
+  display: grid;
+  grid-template-columns: 3vh auto auto;
+  align-items: center;
+  gap: 1.2vh 1.4vh;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 2vh;
+}
+
+/* One row per line, its three parts in the list's shared columns, so the versions align. */
+.cover .versions li {
+  display: contents;
+}
+
+.cover .versions img {
+  width: 3vh;
+  height: 3vh;
+  object-fit: contain;
+}
+
+/* Batocera's joystick emblem, cut from its boot image (its SVG logo is a full splash). */
+.cover .versions .batocera {
+  width: 3vh;
+  height: 3vh;
+  border-radius: 0.6vh;
+  background: url('forma://localhost/system/boot-logo.png') 50% 37.5% / 266.67% auto no-repeat;
+}
+
+.cover .versions .dot {
+  justify-self: center;
+  width: 1.2vh;
+  height: 1.2vh;
+  border-radius: 0.3vh;
+  background: var(--accent);
+}
+
+.cover .versions .name {
+  color: var(--muted);
+}
+
+.cover .versions .version {
+  color: var(--fg);
+  font-family: var(--mono);
+}
+
+/* The theme as its logo, followed by its version. */
+.cover .versions .with-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 1vh;
+}
+
+.cover .versions .with-logo .theme-logo {
+  width: auto;
+  height: 2.6vh;
+}
+
+/* ---- Menus ------------------------------------------------------------------------------ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(2 4 10 / 72%);
+  pointer-events: auto;
+  animation: fade 160ms ease-out;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.switcher .panel {
+  position: relative;
+  box-sizing: border-box;
+  width: min(42em, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 1.4em 1.6em 1.2em;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 2);
+  background:
+    radial-gradient(ellipse at 0% 0%, rgb(34 228 255 / 10%), transparent 55%),
+    radial-gradient(ellipse at 100% 100%, rgb(178 60 255 / 10%), transparent 55%), var(--panel);
+  box-shadow:
+    0 1.2em 3em rgb(0 0 0 / 60%),
+    inset 0 1px 0 rgb(255 255 255 / 4%);
+  scrollbar-width: none;
+  animation: rise 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.switcher .panel::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(0.8em) scale(0.98);
+    opacity: 0;
+  }
+}
+
+.switcher h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 0 0 0.6em;
+  font-family: var(--mono);
+  font-size: 1.15em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Forma's mark in small: four blocks, the last in the accent colour. */
+.switcher h2::before {
+  content: '';
+  flex: none;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 0.15em;
+  background:
+    linear-gradient(var(--pink), var(--violet)) right top / 42% 42% no-repeat,
+    linear-gradient(var(--cyan), var(--blue)) left top / 42% 42% no-repeat,
+    linear-gradient(var(--cyan), var(--blue)) left bottom / 42% 42% no-repeat;
+}
+
+.switcher ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.switcher li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.15em 0.6em;
+  padding: 0.6em 0.9em;
+  border-radius: var(--radius);
+  transition: background-color 90ms;
+}
+
+.switcher li.selected {
+  background: var(--accent);
+  box-shadow: 0 0.3em 1.2em rgb(255 46 136 / 30%);
+}
+
+.switcher .name {
+  font-weight: 600;
+}
+
+.switcher .description {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.82em;
+}
+
+.switcher .description:empty {
+  display: none;
+}
+
+.switcher li.selected .description {
+  color: rgb(255 255 255 / 85%);
+}
+
+.switcher .note {
+  margin: -0.3em 0 0.9em;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.badge {
+  align-self: center;
+  padding: 0.05em 0.5em;
+  border: 1px solid var(--line);
+  border-radius: 1em;
+  font-family: var(--mono);
+  font-size: 0.7em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.badge.current {
+  color: var(--fg);
+}
+
+li.selected .badge {
+  border-color: rgb(255 255 255 / 50%);
+  color: #fff;
+}
+
+.page li.heading {
+  display: block;
+  margin-top: 0.8em;
+  padding: 0.3em 0.9em;
+  font-family: var(--mono);
+  font-size: 0.72em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.page li.info .name {
+  color: var(--cyan);
+}
+
+.page li.info.selected .name {
+  color: #fff;
+}
+
+/* A theme's logo where its name would be, its version after it. */
+.page .name:has(.theme-logo) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.page .theme-logo {
+  height: 1.6em;
+  width: auto;
+  max-width: 12em;
+}
+
+.page .logo-text {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+/* On the bright selection a logo needs a dark edge to stand out, and the version goes white. */
+.page li.selected .theme-logo {
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 90%)) drop-shadow(0 0 0.25em rgb(0 0 0 / 60%));
+}
+
+.page li.selected .logo-text {
+  color: #fff;
+}
+
+.menu .note .theme-logo {
+  height: 1.4em;
+  width: auto;
+  max-width: 9em;
+  margin-right: 0.5em;
+  vertical-align: middle;
+}
+
+.page .adjust {
+  font-size: 0.75em;
+  color: var(--muted);
+}
+
+.page li.selected .adjust {
+  color: var(--fg);
+}
+
+/* ---- On-screen keyboard ----------------------------------------------------------------- */
+
+.keyboard .panel {
+  width: min(56em, 94vw);
+  max-height: none;
+}
+
+.keyboard .field {
+  display: flex;
+  align-items: center;
+  min-height: 2.6em;
+  margin-bottom: 1.1em;
+  padding: 0.4em 0.9em;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 1.3em;
+  overflow: hidden;
+  white-space: pre;
+}
+
+.keyboard .caret {
+  width: 0.1em;
+  height: 1.3em;
+  margin-left: 0.08em;
+  background: var(--pink);
+}
+
+.keyboard .keys {
+  display: grid;
+  gap: 0.45em;
+}
+
+.keyboard .row {
+  display: flex;
+  justify-content: center;
+  gap: 0.45em;
+}
+
+.keyboard .key {
+  flex: 0 0 3.6em;
+  padding: 0.6em 0;
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 1.2em;
+  text-align: center;
+}
+
+.keyboard .key.wide {
+  flex: 1 1 5.5em;
+  font-size: 0.95em;
+  line-height: 1.9em;
+}
+
+.keyboard .key.space {
+  flex-grow: 3;
+}
+
+.keyboard .key.selected {
+  background: var(--accent);
+}
+
+/* ---- Status: controllers and the connection, top right ---------------------------------- */
+
+.status {
+  position: fixed;
+  top: calc(1.4em + var(--margin, 0vh));
+  right: calc(2.4em + var(--margin, 0vh));
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  color: var(--fg);
+  /* No bubble: the icons stand alone, a shadow keeping them clear of any theme. */
+  filter: drop-shadow(0 0 0.25em rgb(0 0 0 / 80%));
+  font-size: 0.85em;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.status:empty {
+  display: none;
+}
+
+.status svg {
+  display: block;
+  flex: none;
+  width: 1.6em;
+  height: 1.2em;
+}
+
+/* Each icon a fixed box, so they line up, the player's number inside its corner. */
+.status .pad {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15em 0.35em 0.15em 0.1em;
+}
+
+.status .pad-xbox {
+  color: #3ddc4f;
+}
+
+.status .pad-playstation {
+  color: #4d8dff;
+}
+
+.status .pad-nintendo {
+  color: #ff4d5e;
+}
+
+.status .pad-generic {
+  color: var(--muted);
+}
+
+.status .player {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 1.15em;
+  padding: 0.05em 0.15em;
+  border-radius: 0.6em;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 0.6em;
+  font-weight: 700;
+  text-align: center;
+}
+
+.status .net {
+  color: var(--cyan);
+}
+
+.status .net-none {
+  color: var(--muted);
+}
+
+/* Connected, but the internet does not answer. */
+.status .net.offline {
+  color: #ffb547;
+}
+
+/* ---- The song that just started ---------------------------------------------------------- */
+
+.song {
+  position: fixed;
+  /* Under the status. */
+  top: calc(4.6em + var(--margin, 0vh));
+  right: calc(2.4em + var(--margin, 0vh));
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  max-width: 40vw;
+  padding: 0.75em 1.3em;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 2);
+  background: var(--panel);
+  box-shadow: 0 0.6em 1.6em rgb(0 0 0 / 50%);
+  animation: rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.song .note {
+  font-size: 1.6em;
+  background: var(--accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.song .words {
+  display: grid;
+  min-width: 0;
+}
+
+.song .title,
+.song .artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song .title {
+  font-weight: 700;
+}
+
+.song .artist {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+/* ---- What a game just earned ----------------------------------------------------------- */
+
+.unlocks {
+  position: fixed;
+  bottom: calc(5.5em + var(--margin, 0vh));
+  left: 50%;
+  width: min(36em, 80vw);
+  transform: translateX(-50%);
+  padding: 1.1em 1.4em 1em;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 2);
+  /* Solid: the theme's tiles must not show through the words. */
+  background: #0b111d;
+  box-shadow: 0 0.8em 2.4em rgb(0 0 0 / 60%);
+  animation: rise 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.unlocks header {
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  margin-bottom: 0.8em;
+}
+
+.unlocks .icon {
+  width: 3em;
+  height: 3em;
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.unlocks .words {
+  display: grid;
+  min-width: 0;
+}
+
+.unlocks .kicker {
+  color: #ffd166;
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.unlocks .game {
+  overflow: hidden;
+  font-size: 1.15em;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unlocks ul {
+  display: grid;
+  gap: 0.55em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.unlocks li {
+  display: grid;
+  grid-template-columns: 2.6em 1fr auto;
+  align-items: center;
+  gap: 0.8em;
+}
+
+.unlocks .badge {
+  width: 2.6em;
+  height: 2.6em;
+  border-radius: 0.4em;
+  background: var(--card);
+}
+
+.unlocks .title,
+.unlocks .description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unlocks .description {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.unlocks .points {
+  color: #ffd166;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.unlocks .more {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.unlocks footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4em 1em;
+  margin-top: 0.9em;
+  font-size: 0.9em;
+}
+
+.unlocks .total {
+  color: #ffd166;
+  font-weight: 700;
+}
+
+.unlocks .progress {
+  color: var(--muted);
+}
+
+.unlocks .bar {
+  flex-basis: 100%;
+  height: 0.3em;
+  border-radius: 0.2em;
+  background: linear-gradient(
+    to right,
+    #ffd166 calc(var(--done, 0) * 100%),
+    var(--card) calc(var(--done, 0) * 100%)
+  );
+}
+
+/* ---- Forma's Start menu: tiles in labelled rows ------------------------------------------ */
+
+.menu .panel {
+  box-sizing: border-box;
+  width: min(68em, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 1.5em 1.8em 1.3em;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 2.2);
+  background:
+    radial-gradient(ellipse at 0% 0%, rgb(34 228 255 / 9%), transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgb(178 60 255 / 11%), transparent 50%), #0b111d;
+  box-shadow:
+    0 1.4em 3.4em rgb(0 0 0 / 65%),
+    inset 0 1px 0 rgb(255 255 255 / 5%);
+  animation: rise 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.menu .panel::-webkit-scrollbar {
+  display: none;
+}
+
+.menu header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  margin-bottom: 1.1em;
+  padding-bottom: 0.9em;
+  border-bottom: 1px solid var(--line);
+}
+
+.menu h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1.2em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Forma's mark in small, as on every page. */
+.menu h2::before {
+  content: '';
+  flex: none;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 0.15em;
+  background:
+    linear-gradient(var(--pink), var(--violet)) right top / 42% 42% no-repeat,
+    linear-gradient(var(--cyan), var(--blue)) left top / 42% 42% no-repeat,
+    linear-gradient(var(--cyan), var(--blue)) left bottom / 42% 42% no-repeat;
+}
+
+.menu .note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.menu .sections {
+  display: grid;
+  gap: 0.75em;
+}
+
+/* A row: its name on the left, its tiles four across. */
+.menu section {
+  display: grid;
+  grid-template-columns: 7.5em 1fr;
+  align-items: start;
+  gap: 1em;
+}
+
+.menu h3 {
+  margin: 0;
+  padding-top: 1.05em;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.menu ul {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menu .tile {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  min-width: 0;
+  padding: 0.75em 0.9em;
+  border: 1px solid rgb(255 255 255 / 6%);
+  border-radius: calc(var(--radius) * 1.2);
+  background: rgb(255 255 255 / 3%);
+  transition:
+    background-color 90ms,
+    border-color 90ms,
+    transform 90ms;
+}
+
+.menu .icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.1em;
+  height: 2.1em;
+  border-radius: 0.6em;
+  background: rgb(34 228 255 / 9%);
+  color: var(--cyan);
+}
+
+.menu .icon svg {
+  width: 1.35em;
+  height: 1.35em;
+}
+
+.menu .name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu .tile.selected {
+  border-color: transparent;
+  background: var(--accent);
+  box-shadow: 0 0.35em 1.3em rgb(255 46 136 / 32%);
+  transform: translateY(-1px);
+}
+
+.menu .tile.selected .icon {
+  background: rgb(255 255 255 / 18%);
+  color: #fff;
+}
+
+/* Power, quieter until chosen; shutting down warns in red. */
+.menu .tile-restart .icon,
+.menu .tile-shutdown .icon,
+.menu .tile-emulationstation .icon {
+  background: rgb(255 255 255 / 6%);
+  color: var(--muted);
+}
+
+.menu .tile-shutdown.selected {
+  background: linear-gradient(135deg, #ff4d5e, #c2185b);
+  box-shadow: 0 0.35em 1.3em rgb(255 77 94 / 35%);
+}
+
+/* What the selected tile does, once, at the bottom. */
+.menu .about {
+  min-height: 1.4em;
+  margin: 1.1em 0 0;
+  padding-top: 0.9em;
+  border-top: 1px solid var(--line);
+  color: rgb(255 255 255 / 78%);
+  font-size: 0.92em;
+}
+
+/* ---- Hints and toast -------------------------------------------------------------------- */
+
+.hints {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.4em;
+  padding: 2.2em 2.4em 1.2em;
+  /* Over the theme's own hints, which say nothing while Forma's menu is open. */
+  background: linear-gradient(to bottom, transparent, rgb(2 4 10 / 96%) 55%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  margin-right: 0.4em;
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--line);
+  border-radius: 0.4em;
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8em;
+  text-align: center;
+}
+
+.toast {
+  position: fixed;
+  bottom: 4.2em;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 80vw;
+  padding: 0.65em 1.3em;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 0.3em 1em rgb(0 0 0 / 50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .switcher .panel,
+  .menu .panel,
+  .song,
+  .unlocks {
+    animation: none;
+  }
+}

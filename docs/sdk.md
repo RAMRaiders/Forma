@@ -37,24 +37,27 @@ const forma = await connect();
 ```
 
 `connect()` checks that Forma speaks a compatible SDK version (it rejects with code
-`incompatible` otherwise), then reports the theme as started. A theme that never connects is
-replaced by the default theme after 15 seconds.
+`incompatible` otherwise), then reports the theme as started, which lifts Forma's cover. A theme
+that never reports is replaced by another theme after 30 seconds (see theme-authoring.md,
+Starting up). With `deferReady`, the
+theme reports itself, with `forma.ready()`, e.g. once its first screen is drawn.
 
 Outside Forma, in a plain browser, `connect()` uses a **mock**: the real engine's answers for
 the repository's fixture library, with favourites, settings and play stats kept in memory and
 placeholder images for media. `forma.backendKind` says which one you got.
 
-| Option     | Default          | Meaning                                            |
-| ---------- | ---------------- | -------------------------------------------------- |
-| `keyboard` | `true`           | Deliver arrows, Enter, Escape… as input events too |
-| `mock`     | `{}`             | `{ playMs, permissions }` for the mock             |
-| `backend`  | Tauri, else mock | A custom backend, for tests                        |
+| Option       | Default          | Meaning                                            |
+| ------------ | ---------------- | -------------------------------------------------- |
+| `keyboard`   | `true`           | Deliver arrows, Enter, Escape… as input events too |
+| `deferReady` | `false`          | Leave reporting started to `forma.ready()`         |
+| `mock`       | `{}`             | `{ playMs, permissions }` for the mock             |
+| `backend`    | Tauri, else mock | A custom backend, for tests                        |
 
 ## `library`
 
 | Method                      | Returns                                                       |
 | --------------------------- | ------------------------------------------------------------- |
-| `systems()`                 | Systems with visible games, in Batocera's order               |
+| `systems()`                 | Systems with visible games, in the order the user chose       |
 | `game(id)`                  | One game, or `null`                                           |
 | `search(query, limit = 50)` | Games matching every word as a prefix, accents ignored        |
 | `setFavorite(id, favorite)` | Records the user's choice; emits `library:changed`            |
@@ -102,7 +105,9 @@ const deeper = await forma.nav.browse(page.view, [...page.path, page.listing.ite
 | `game(id, request?)` | Resolves once started; `game:start` and `game:end` follow |
 
 `request` may override the emulator or core, or start netplay:
-`{ netplay: { mode: 'host' } }`, `{ netplay: { mode: 'client', host, port } }`. While a game
+`{ netplay: { mode: 'host', password? } }`,
+`{ netplay: { mode: 'client', host, port, password?, session?, spectate? } }`; `netplay.join()`
+and `host()` build these. While a game
 runs the window is hidden and input is paused. A second launch meanwhile rejects with `busy`.
 
 ## `input`
@@ -124,6 +129,25 @@ Each event has an `action` (`up`, `down`, `left`, `right`, `confirm`, `back`, `w
 `button` (`south`, `east`… or `null` for sticks and keys), `pressed`, and `repeat` for
 held directions.
 
+Start and Select (F1 and Tab on a keyboard) are Forma's: they open its menu and views list, and
+never reach the theme. While one of Forma's menus is open, no input reaches the theme.
+
+## `shell`
+
+Forma's own menus, over every theme (see [Theme authoring](theme-authoring.md)).
+
+| Method                | Does                                                                           |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `setContext(context)` | Tells the menu what is on screen: `{ view, system, game, list }`, each or null |
+
+`system` is `{ name, fullname }`, `game` is `{ id, name }`. The menu offers options for them
+(Start → "Super Metroid options…") and marks `view` in the views list. `list` is the kind of list
+the selection moves in (`categories`, `systems` or `games`): Select opens Forma's options for it.
+Over `systems`, that is their order (`SystemsOrder`: `name`, the default, `maker` or `year`),
+Forma's setting `library.systemsOrder` for every theme. `library.systems()` comes in that order,
+so keep it rather than sorting; when it changes, Forma sends `settings:changed` (scope
+`system`) and the theme reads `library.systems()` again.
+
 ## `events`
 
 ```ts
@@ -131,10 +155,39 @@ forma.events.on("library:changed", ({ systems }) => refreshIfShowing(systems));
 forma.events.on("views:changed", () => reloadViewList());
 forma.events.on("game:start", ({ name }) => showLaunching(name));
 forma.events.on("game:end", ({ seconds, error }) => (error ? showError(error) : refresh()));
+// A few seconds later, if the session earned any RetroAchievements:
+forma.events.on("ra:unlocked", ({ game, unlocked, points }) => celebrate(game, unlocked, points));
 forma.events.on("store:progress", ({ name, stage, percent }) => showProgress(name, stage, percent));
+forma.events.on("nav:open", ({ view }) => open(view)); // picked in Forma's views list
+forma.events.on("settings:changed", ({ scope, key, value }) => apply(scope, key, value));
+forma.events.on("music:song", ({ title, artist, seconds }) => showSong(title, artist, seconds));
 ```
 
+`music:song` comes when a new song starts (not on a resume): its title without the file's
+extension, its artist (from its tags, else from an `Artist - Title` file name), and how long to
+show it, Forma's setting (Start → Music → Show each new song, 8 seconds unless changed; at 0 the
+event never comes). Forma's shell shows it; a theme that wants its own look either restyles the
+shell's (below) or draws it itself, declaring `"draws": ["nowPlaying"]` in `theme.json`.
+
+`settings:changed` follows a change made in Forma's menu: one of the theme's own settings
+(`scope: "theme"`, declared in `theme.json`) or one of Forma's (`scope: "system"`, e.g.
+`display.margins`).
+
 `on` returns a function that unsubscribes.
+
+## `status`
+
+```ts
+const { controllers, network } = await forma.status.get();
+forma.events.on("status:changed", (status) => redraw(status));
+```
+
+What Forma shows in the top-right corner: each controller connected, in player order, with its
+`kind` (`xbox`, `playstation`, `nintendo` or `generic`, from its maker or its name), and the
+connection (`kind`: `ethernet`, `wifi` or `none`; `internet`: whether the internet answers, by
+connman's own check). `network` is `null` off a Batocera box. No permission: it holds no address
+and no network name. Forma's shell draws it; a theme restyles it or draws its own (see
+[theme authoring](theme-authoring.md)).
 
 ## `settings`
 
@@ -152,14 +205,18 @@ Values are any JSON. `set(key, null)` removes a setting.
 | `list()`     | Every theme found, with `unavailable` saying why one cannot load |
 | `select(id)` | Switches to that theme (the window reloads into it)              |
 
+`list()` leaves out Forma's plain fallback theme (unless it is in use) and a copy that another
+copy of the same theme stands in for. Each theme's `logo` is a URL for its logo, or `null`.
+
 ## `ra`
 
 RetroAchievements, read-only: unlocking happens inside RetroArch, which Batocera already logs in.
 
-| Method     | Returns                                                       |
-| ---------- | ------------------------------------------------------------- |
-| `user()`   | The user's profile, points, rank and recently played games    |
-| `game(id)` | A local game's achievements and progress (`id` is Forma's id) |
+| Method      | Returns                                                       |
+| ----------- | ------------------------------------------------------------- |
+| `user()`    | The user's profile, points, rank and recently played games    |
+| `game(id)`  | A local game's achievements and progress (`id` is Forma's id) |
+| `matches()` | Per system: games, hashed, matched to RetroAchievements       |
 
 ```ts
 const { data, stale } = await forma.ra.game(game.id);
@@ -176,7 +233,13 @@ with `stale: true`. Badge, icon and avatar URLs are served by Forma itself, so a
 They need the user's **web API key** (retroachievements.org → Settings → Keys) in the Forma
 setting `ra.apiKey`; without it they reject with `notConfigured` and a message saying so. The
 username defaults to the one Batocera logs in with. `game()` rejects with `notFound` when no
-RetroAchievements id is known for the game yet (matching by hash arrives in Milestone 2).
+RetroAchievements id is known for the game yet.
+
+Forma finds the ids itself: in the background it hashes every game on a system RetroAchievements
+supports, as rcheevos does, and looks each hash up in RetroAchievements' list of that console's
+games. Hashing reads a file again only when it changes, never runs while a game does, and the
+lists are cached for a week. Ids and hashes from an import file win over these. `matches()`
+says how far it got (`running` while it works); the mock reports three systems.
 
 ### Logging in
 
@@ -246,13 +309,44 @@ page of its own (`DECORATIONS`). `flags` say what the emulator supports (`netpla
 
 ## `netplay`
 
-| Method    | Returns                                                                |
-| --------- | ---------------------------------------------------------------------- |
-| `lobby()` | Open rooms on the libretro lobby, joinable first, as `{ data, stale }` |
+| Method                   | Returns                                                                |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `lobby(filter?)`         | Open rooms on the libretro lobby, joinable first, as `{ data, stale }` |
+| `lan(filter?)`           | RetroArch hosts on the local network (listens for 1.5 s)               |
+| `join(room, options?)`   | Starts the local game with the room's core, connected to it            |
+| `host(gameId, options?)` | Starts a game others can join                                          |
 
-Each room has `localGameId` when a local game has the same name, so a theme can offer to join
-with `launch.game(room.localGameId, { netplay: { mode: 'client', host: room.host, port: room.port } })`.
-Hosting and joining from the default theme arrive in Milestone 2.
+Each room says what this box needs to join it: `localGameId` (the local game with the same name
+or CRC), `core` (the installed core RetroArch calls `coreName`) and `join` (the host, or its relay
+with the room's `session`). `join()` rejects when one is missing; `options` are `password` and
+`spectate`. `filter` keeps rooms that are `owned`, `joinable`, `open` (no password), of one
+`coreName`, or answering within `maxPingMs` (which measures `pingMs`, a TCP connect to the host
+or relay, for up to 40 rooms). LAN discovery is RetroArch's own (`RANQ` broadcast to UDP 55435);
+hosts behind a relay do not answer it.
+
+Forma's shell offers all of this on its Netplay page: hosting the selected game, rooms online
+(those for your games by default) and rooms on this network.
+
+## `collections`
+
+The user's own lists of games, kept as EmulationStation keeps its custom collections
+(`configs/emulationstation/collections/custom-<name>.cfg`, a game's full path per line). So
+collections made in EmulationStation carry over, and Forma's show there too. Like favourites,
+they need no permission. Names are matched in any case.
+
+| Method                 | Returns                                                  |
+| ---------------------- | -------------------------------------------------------- |
+| `list()`               | `{ name, games }[]`, by name; `games` counts those here  |
+| `of(gameId)`           | The names of the collections a game is in                |
+| `create(name)`         | The name as kept (trimmed); `invalid` if taken or unsafe |
+| `delete(name)`         | Deletes the collection; its games stay in the library    |
+| `add(name, gameId)`    | Puts a game in a collection                              |
+| `remove(name, gameId)` | Takes it out                                             |
+
+Browse them in the `collections` view: `nav.browse('collections', [])` lists one branch per
+collection, `nav.browse('collections', [id])` its games. Every change sends `views:changed`.
+Forma's shell has a Collections page in its Start menu: with a game selected, it puts that game
+in or out of each collection.
 
 ## `network`
 
@@ -273,6 +367,40 @@ stays saved either way), and `unsupported` for 802.1X networks. `configureEthern
 connman, so the connection drops for a few seconds; read `status()` again after that. The mock
 answers from recorded connman output, has a cable plugged in, and refuses the password
 `wrong-password`.
+
+## `updates`
+
+Batocera's own updates, as EmulationStation's Updates menu has them. Both need the
+`system.update` permission and answer `unsupported` anywhere but Batocera.
+
+| Method      | Returns                                                                                  |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| `check()`   | `{ current, latest, channel, available }`, from Batocera's update server for this board  |
+| `install()` | Downloads and unpacks the update with `batocera-upgrade`; it takes effect after a reboot |
+
+`install` takes a long while (gigabytes) and never runs unless called: ask the user first.
+`updates:progress` carries `{ message, percent }` on the way; `percent` is `null` when Batocera
+does not say. A second `install` while one runs is refused as `unsupported`. The mock offers
+43.1 → 44.
+
+## `bluetooth`
+
+Bluetooth controllers, through Batocera's own `batocera-bluetooth`, as EmulationStation's
+Controllers menu offers them. Every method needs the `system.controllers` permission and
+answers `unsupported` anywhere but Batocera.
+
+| Method                | Returns                                                                       |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `status()`            | `{ enabled, devices }`: each paired device's address, name, whether connected |
+| `setEnabled(on)`      | Turns Bluetooth on or off (Batocera restarts its Bluetooth services)          |
+| `pair()`              | Looks for a minute for pads in pairing mode; the devices it paired            |
+| `connect(address)`    | Connects a paired device that is on                                           |
+| `disconnect(address)` | Disconnects it, keeping it paired                                             |
+| `forget(address)`     | Unpairs it                                                                    |
+
+While `pair()` looks, `bluetooth:pairing` carries `{ message }`, Batocera's word on what it is
+doing. The pads in use, by player, are in `forma.status.get()`. The mock has two pads paired and
+finds a third.
 
 ## `system`
 

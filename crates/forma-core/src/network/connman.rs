@@ -11,6 +11,8 @@ pub struct ServiceLine {
     pub favorite: bool,
     /// Connected: `ready` (an address) or `online` (and the internet answers).
     pub connected: bool,
+    /// `online`: connman's own check found the internet.
+    pub online: bool,
 }
 
 impl ServiceLine {
@@ -46,6 +48,7 @@ pub fn services(output: &str) -> Vec<ServiceLine> {
                 name: rest[..rest.len() - id.len()].trim().to_owned(),
                 favorite: flags.contains('*'),
                 connected: flags.contains('O') || flags.contains('R'),
+                online: flags.contains('O'),
             })
         })
         .collect()

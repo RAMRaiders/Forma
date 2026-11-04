@@ -36,7 +36,7 @@ async function start(permissions: string[] = []) {
   };
   const text = (selector: string) =>
     [...root.querySelectorAll(selector)].map((n) => n.textContent?.trim() ?? '');
-  return { root, press, text, forma };
+  return { root, press, text, forma, backend };
 }
 
 describe('the default theme', () => {
@@ -98,26 +98,17 @@ describe('the default theme', () => {
     await vi.waitFor(() => expect(playing.hidden).toBe(true));
   });
 
-  it('switches view and sets the home view from the switcher', async () => {
-    const { press, text, forma } = await start();
-    await press('select');
-    expect(text('.switcher li.selected .name')).toEqual(['Systems']);
-    await press('down');
-    await press('north');
-    await vi.waitFor(async () =>
-      expect((await forma.nav.defaultView()).id).toBe('manufacturer-system')
-    );
-    await press('confirm');
+  it('opens the view picked in Forma’s views list', async () => {
+    const { text, backend } = await start();
+    // As Forma's shell does when the user picks a view after Select.
+    await backend.invoke('shell_open_view', { view: 'manufacturer-system' });
     await vi.waitFor(() => expect(text('h1')).toEqual(['By manufacturer']));
     expect(text('.card .label')).toEqual(['Nintendo', 'Sega', 'Sony', 'Unknown']);
   });
 
   it('opens a menu view into its branches', async () => {
-    const { press, text } = await start();
-    await press('select');
-    for (let i = 0; i < 5; i++) await press('down');
-    expect(text('.switcher li.selected .name')).toEqual(['Home']);
-    await press('confirm');
+    const { press, text, backend } = await start();
+    await backend.invoke('shell_open_view', { view: 'home' });
     await vi.waitFor(() =>
       expect(text('.card .label')).toEqual([
         'Favourites',
@@ -131,131 +122,20 @@ describe('the default theme', () => {
     await vi.waitFor(() => expect(text('.row')).toEqual(['★ Super Mario Bros.']));
   });
 
-  it('opens a system menu on Start, and power actions need a second press', async () => {
-    const { press, text } = await start();
-    await press('start');
-    expect(text('.switcher li .name')).toEqual([
-      'Views…',
-      'Network…',
-      'Switch to EmulationStation',
-      'Restart',
-      'Shut down'
-    ]);
-    await press('down');
-    await press('down');
-    await press('down');
-    await press('confirm');
-    expect(text('.toast')).toEqual(['Press A again to restart']);
-    await press('confirm');
-    // The mock grants no permission, as a theme without `system.power` would get.
-    await vi.waitFor(() => expect(text('.toast')[0]).toContain('system.power'));
-    await press('back');
-    // Closed: the normal hints are back.
-    expect(text('.hint')).toContain('StartMenu');
-  });
-
-  it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
-    const { press, text } = await start(['system.network']);
-    await press('start');
-    await press('down');
-    await press('confirm');
-    const rows = () => text('.network > .panel li .name');
-    await vi.waitFor(() => expect(rows()).toContain('▮▮▯▯  Office 5G'));
-    expect(rows()[0]).toBe('Ethernet');
-    expect(rows()[1]).toBe('Wi-Fi: on');
-    expect(text('.network > .panel li .description')[0]).toBe('192.168.1.113 · automatic');
-
-    // Down to Office 5G (Ethernet, Wi-Fi, Home, Cafe Guest, Office 5G).
-    for (let i = 0; i < 4; i++) await press('down');
-    await press('confirm');
-    expect(text('.keyboard h2')).toEqual(['Password for Office 5G']);
-    // A gamepad types the key under the cursor (row 2 starts at q); a keyboard types directly.
-    await press('confirm');
-    for (const key of 'uiet-place') {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key }));
-    }
-    expect(text('.keyboard .field')).toEqual(['•••••••••••']);
-    await press('north');
-    expect(text('.keyboard .field')).toEqual(['quiet-place']);
-    await press('start');
-    // A cable is plugged in, so Wi-Fi is saved for later, as on Batocera.
-    await vi.waitFor(() =>
-      expect(text('.toast')[0]).toBe(
-        'Office 5G is saved. The cable stays in use; unplug it to use Wi-Fi'
-      )
+  it('tells Forma’s menu which view and game are on screen', async () => {
+    const { press, backend } = await start();
+    const context = async () =>
+      (await backend.invoke<{ context: unknown }>('shell_info')).context as Record<string, unknown>;
+    await vi.waitFor(async () =>
+      expect(await context()).toMatchObject({ view: 'systems', game: null })
     );
-    await vi.waitFor(() =>
-      expect(text('.network > .panel li .description')[1]).toBe(
-        'Office 5G is saved; the cable is in use'
-      )
-    );
-  });
-
-  it('sets a static Ethernet address, and refuses an 802.1X network up front', async () => {
-    const { press, text, forma } = await start(['system.network']);
-    await press('start');
-    await press('down');
     await press('confirm');
-    await vi.waitFor(() => expect(text('.network > .panel li .name')).toContain('▮▮▯▯  Campus'));
-    for (let i = 0; i < 5; i++) await press('down');
-    await press('confirm');
-    expect(text('.toast')[0]).toContain('802.1X');
-    expect(text('.keyboard h2')).toEqual([]);
-
-    for (let i = 0; i < 5; i++) await press('up');
-    await press('confirm');
-    expect(text('.network h2')).toContain('Ethernet');
-    await press('down');
-    await press('confirm');
-    // The draft starts from the current address; change it with the keypad.
-    expect(text('.network > .panel li .name')).toEqual([
-      '○ Automatic (DHCP)',
-      '● Manual',
-      'Address',
-      'Netmask',
-      'Gateway',
-      'DNS server',
-      'Save'
-    ]);
-    await press('down');
-    await press('confirm');
-    expect(text('.keyboard h2')).toEqual(['Address']);
-    await press('back');
-    await press('back');
-    await press('back');
-    for (const key of '50') window.dispatchEvent(new KeyboardEvent('keydown', { key }));
-    await press('start');
-    expect(text('.network > .panel li .description')[2]).toBe('192.168.1.50');
-    for (let i = 0; i < 4; i++) await press('down');
-    // Saving waits for connman to restart before reading the status again.
-    vi.useFakeTimers({ toFake: ['setTimeout'] });
-    const saving = press('confirm');
-    await vi.advanceTimersByTimeAsync(5000);
-    await saving;
-    vi.useRealTimers();
-    await vi.waitFor(() => expect(text('.toast')[0]).toBe('Ethernet uses 192.168.1.50'));
-    const status = await forma.network.status();
-    expect(status.ethernet?.config).toMatchObject({ method: 'manual', address: '192.168.1.50' });
-  });
-
-  it('keeps the selection on Wi-Fi after turning it off, so A turns it back on', async () => {
-    const { press, text } = await start(['system.network']);
-    await press('start');
-    await press('down');
-    await press('confirm');
-    await vi.waitFor(() => expect(text('.network > .panel li .name')).toContain('Wi-Fi: on'));
-    await press('down');
-    await press('confirm');
-    await vi.waitFor(() =>
-      expect(text('.network > .panel li.selected .name')).toEqual(['Wi-Fi: off'])
-    );
-    vi.useFakeTimers({ toFake: ['setTimeout'] });
-    const turningOn = press('confirm');
-    await vi.advanceTimersByTimeAsync(5000);
-    await turningOn;
-    vi.useRealTimers();
-    await vi.waitFor(() =>
-      expect(text('.network > .panel li.selected .name')).toEqual(['Wi-Fi: on'])
+    await vi.waitFor(async () =>
+      expect(await context()).toMatchObject({
+        view: 'systems',
+        game: { name: 'Homebrew Demo' },
+        system: { name: 'nes' }
+      })
     );
   });
 });

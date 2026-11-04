@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard};
 
 use forma_core::batocera::BatoceraSettings;
+use forma_core::bluetooth::Bluetooth;
 use forma_core::hierarchy::ViewCatalog;
 use forma_core::input::InputHandle;
 use forma_core::launch::Launcher;
@@ -15,7 +16,7 @@ use forma_core::options::Options;
 use forma_core::store::Store;
 use forma_core::sync::SyncHandle;
 use forma_core::system_settings::SystemSettings;
-use forma_core::themes::Theme;
+use forma_core::themes::{Theme, ThemeOrigin};
 use forma_core::thumbs::Thumbnailer;
 use forma_core::{Library, Paths};
 
@@ -23,7 +24,10 @@ use crate::protocol::Resolver;
 
 /// The setting that names the selected theme.
 pub const THEME_SETTING: &str = "theme.current";
-pub const DEFAULT_THEME: &str = "default";
+/// The theme Forma opens on until the user picks another: Cyber, bundled at a pinned version.
+pub const DEFAULT_THEME: &str = "cyber";
+/// The plain theme Forma also ships, for when even the default cannot start.
+pub const FALLBACK_THEME: &str = "default";
 
 pub struct AppState {
     pub paths: Paths,
@@ -38,6 +42,8 @@ pub struct AppState {
     pub http: Box<dyn Http>,
     /// This box's Ethernet and Wi-Fi, through Batocera's tools.
     pub network: Network,
+    /// Bluetooth controllers, through Batocera's tools.
+    pub bluetooth: Bluetooth,
     /// Batocera's RetroAchievements and netplay settings.
     pub batocera: BatoceraSettings,
     /// Batocera's emulator, core and game options.
@@ -57,7 +63,13 @@ pub struct AppState {
     pub ready_file: Option<PathBuf>,
     /// Running on Batocera: power and network settings go to its own tools.
     pub on_batocera: bool,
+    /// The window starts see-through over Forma's boot picture (on Batocera, once it is drawn).
+    pub see_through: bool,
     pub input: Mutex<Option<InputHandle>>,
+    /// Forma's shell in the theme's page: its token, whether it has a menu open, the context.
+    pub shell: crate::shell::ShellState,
+    /// Where the shell's files are (`shell.js`).
+    pub shell_dir: Option<PathBuf>,
     pub sync: Mutex<Option<SyncHandle>>,
 }
 
@@ -94,12 +106,13 @@ impl AppState {
     }
 }
 
-/// The selected theme if it can load, else the default, else any that can.
+/// The selected theme if it can load, else the default, else the fallback, else any that can.
 pub fn pick_theme(themes: &[Theme], selected: Option<&str>) -> Option<String> {
     let available = |id: &str| themes.iter().any(|t| t.id == id && t.is_available());
     selected
         .filter(|id| available(id))
         .or(Some(DEFAULT_THEME).filter(|id| available(id)))
+        .or(Some(FALLBACK_THEME).filter(|id| available(id)))
         .map(str::to_owned)
         .or_else(|| {
             themes
@@ -107,6 +120,34 @@ pub fn pick_theme(themes: &[Theme], selected: Option<&str>) -> Option<String> {
                 .find(|t| t.is_available())
                 .map(|t| t.id.clone())
         })
+}
+
+/// The themes the user is offered: not the plain fallback (Forma's safety net, listed only while
+/// it is in use), and not a copy that cannot load because another copy of the same theme
+/// stands in for it (an older bundled Cyber under a newer installed one).
+pub fn listed_themes<'a>(themes: &'a [Theme], current: Option<&str>) -> Vec<&'a Theme> {
+    themes
+        .iter()
+        .filter(|t| {
+            t.id != FALLBACK_THEME
+                || t.origin != ThemeOrigin::Bundled
+                || current == Some(FALLBACK_THEME)
+        })
+        .filter(|t| {
+            t.is_available()
+                || !themes
+                    .iter()
+                    .any(|other| other.id == t.id && other.is_available())
+        })
+        .collect()
+}
+
+/// The URL Forma's menus load a theme's logo from, if it declares one.
+pub fn theme_logo_url(theme: &Theme) -> Option<String> {
+    let logo = theme.manifest.as_ref()?.logo.as_ref()?;
+    theme
+        .is_available()
+        .then(|| format!("forma://localhost/theme/{}/{}", theme.id, logo))
 }
 
 impl Resolver for AppState {
@@ -127,12 +168,87 @@ impl Resolver for AppState {
         })
     }
 
+    fn shell_file(&self, name: &str) -> Option<PathBuf> {
+        let dir = self.shell_dir.as_ref()?;
+        crate::protocol::inside_dir(dir, name)
+    }
+
     fn splash_file(&self, name: &str) -> Option<PathBuf> {
-        Some(PathBuf::from(crate::boot::BATOCERA_SPLASH).join(name)).filter(|f| f.is_file())
+        let file = match name {
+            "batocera-logo.svg" => PathBuf::from(crate::boot::BATOCERA_LOGO),
+            _ => crate::boot::batocera_splash_file(name),
+        };
+        Some(file).filter(|f| f.is_file())
+    }
+
+    fn cover(&self) -> crate::shell::CoverInfo {
+        crate::boot::cover_info(self)
     }
 
     fn ra_media(&self, path: &str) -> Option<PathBuf> {
         let dir = self.paths.cache_dir().join("ra-media");
         achievements::media_file(&*self.http, &dir, path).ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn theme(id: &str, available: bool) -> Theme {
+        Theme {
+            id: id.into(),
+            dir: PathBuf::new(),
+            origin: ThemeOrigin::Bundled,
+            manifest: None,
+            unavailable: (!available).then(|| "broken".into()),
+            overrides: false,
+        }
+    }
+
+    #[test]
+    fn offers_neither_the_fallback_nor_a_copy_another_stands_in_for() {
+        let mut old_cyber = theme("cyber", false);
+        old_cyber.unavailable = Some("replaced by version 0.8.0-dev, installed".into());
+        let mut new_cyber = theme("cyber", true);
+        new_cyber.origin = ThemeOrigin::User;
+        let all = [
+            theme("default", true),
+            old_cyber,
+            new_cyber,
+            theme("broken", false),
+        ];
+        let ids = |current| {
+            listed_themes(&all, current)
+                .iter()
+                .map(|t| (t.id.as_str(), t.is_available()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(ids(Some("cyber")), [("cyber", true), ("broken", false)]);
+        assert_eq!(
+            ids(Some("default")),
+            [("default", true), ("cyber", true), ("broken", false)],
+            "the fallback is listed while it is in use"
+        );
+    }
+
+    #[test]
+    fn picks_the_selected_then_cyber_then_the_plain_default() {
+        let all = [
+            theme("default", true),
+            theme("cyber", true),
+            theme("neon", true),
+        ];
+        assert_eq!(pick_theme(&all, Some("neon")).as_deref(), Some("neon"));
+        assert_eq!(pick_theme(&all, None).as_deref(), Some("cyber"));
+        let no_cyber = [theme("default", true), theme("cyber", false)];
+        assert_eq!(
+            pick_theme(&no_cyber, Some("gone")).as_deref(),
+            Some("default")
+        );
+        assert_eq!(
+            pick_theme(&[theme("neon", true)], None).as_deref(),
+            Some("neon")
+        );
     }
 }

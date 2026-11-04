@@ -441,3 +441,69 @@ fn a_record_waits_for_its_file_to_appear() {
     assert_eq!(report.import_records, 1);
     by_name(&lib.games("nes").unwrap(), "Arrived Later");
 }
+
+fn summary(name: &str, fullname: &str, maker: Option<&str>, year: Option<i64>) -> SystemSummary {
+    SystemSummary {
+        name: name.into(),
+        fullname: fullname.into(),
+        manufacturer: maker.map(Into::into),
+        release_year: year,
+        hardware: None,
+        game_count: 1,
+    }
+}
+
+fn ordered(order: SystemsOrder) -> Vec<String> {
+    let mut systems = vec![
+        summary("snes", "Super Nintendo", Some("Nintendo"), Some(1990)),
+        summary("megadrive", "Mega Drive", Some("Sega"), Some(1988)),
+        summary("nes", "nes", Some("Nintendo"), Some(1983)),
+        summary("homebrew", "Homebrew", None, None),
+        summary("gamegear", "Game Gear", Some("Sega"), Some(1990)),
+    ];
+    sort_systems(&mut systems, order);
+    systems.into_iter().map(|s| s.name).collect()
+}
+
+#[test]
+fn lists_systems_by_name_maker_or_year() {
+    assert_eq!(
+        ordered(SystemsOrder::Name),
+        ["gamegear", "homebrew", "megadrive", "nes", "snes"]
+    );
+    assert_eq!(
+        ordered(SystemsOrder::Maker),
+        ["nes", "snes", "megadrive", "gamegear", "homebrew"]
+    );
+    assert_eq!(
+        ordered(SystemsOrder::Year),
+        ["nes", "megadrive", "gamegear", "snes", "homebrew"]
+    );
+}
+
+#[test]
+fn the_systems_order_is_a_setting_by_name_unless_set() {
+    let (mut lib, _) = refreshed();
+    let names = |lib: &Library| -> Vec<String> {
+        lib.systems_in_order()
+            .unwrap()
+            .into_iter()
+            .map(|s| s.fullname)
+            .collect()
+    };
+    let by_name = names(&lib);
+    let mut sorted = by_name.clone();
+    sorted.sort_by_key(|n| n.to_lowercase());
+    assert_eq!(by_name, sorted);
+    assert_eq!(SystemsOrder::parse(Some("sideways")), SystemsOrder::Name);
+
+    lib.set_setting(SYSTEMS_ORDER_SETTING, Some("\"year\""))
+        .unwrap();
+    let years: Vec<i64> = lib
+        .systems_in_order()
+        .unwrap()
+        .iter()
+        .map(|s| s.release_year.unwrap_or(i64::MAX))
+        .collect();
+    assert!(years.windows(2).all(|w| w[0] <= w[1]), "{years:?}");
+}

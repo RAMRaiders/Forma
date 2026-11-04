@@ -6,8 +6,9 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
 
 use crate::api::{ApiError, ApiResult, ErrorCode};
-use crate::commands::{off_thread, theme};
+use crate::commands::off_thread;
 use crate::permissions;
+use crate::shell::Caller;
 use crate::state::AppState;
 
 /// While a package installs: `{ name, stage, percent }`.
@@ -20,8 +21,8 @@ struct StoreProgress<'a> {
     percent: u8,
 }
 
-fn allowed(state: &AppState) -> ApiResult<()> {
-    permissions::require(&theme(state)?, permissions::STORE_MANAGE)?;
+fn allowed(state: &AppState, caller: Caller) -> ApiResult<()> {
+    caller.require(state, permissions::STORE_MANAGE)?;
     if !state.on_batocera {
         return Err(ApiError::new(
             ErrorCode::Unsupported,
@@ -32,9 +33,9 @@ fn allowed(state: &AppState) -> ApiResult<()> {
 }
 
 #[tauri::command]
-pub async fn store_list<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<Package>> {
-    off_thread(app, |state| {
-        allowed(state)?;
+pub async fn store_list<R: Runtime>(app: AppHandle<R>, caller: Caller) -> ApiResult<Vec<Package>> {
+    off_thread(app, move |state| {
+        allowed(state, caller)?;
         Ok(state.store.list()?)
     })
     .await
@@ -42,9 +43,9 @@ pub async fn store_list<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<Package>
 
 /// Reads the catalogue again from Batocera's server.
 #[tauri::command]
-pub async fn store_refresh<R: Runtime>(app: AppHandle<R>) -> ApiResult<()> {
-    off_thread(app, |state| {
-        allowed(state)?;
+pub async fn store_refresh<R: Runtime>(app: AppHandle<R>, caller: Caller) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        allowed(state, caller)?;
         Ok(state.store.refresh()?)
     })
     .await
@@ -52,10 +53,14 @@ pub async fn store_refresh<R: Runtime>(app: AppHandle<R>) -> ApiResult<()> {
 
 /// Resolves once installed; `store:progress` reports on the way.
 #[tauri::command]
-pub async fn store_install<R: Runtime>(app: AppHandle<R>, name: String) -> ApiResult<()> {
+pub async fn store_install<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    name: String,
+) -> ApiResult<()> {
     let events = app.clone();
     off_thread(app, move |state| {
-        allowed(state)?;
+        allowed(state, caller)?;
         Ok(state.store.install(&name, |p| {
             let _ = events.emit(
                 EVENT_STORE_PROGRESS,
@@ -71,9 +76,13 @@ pub async fn store_install<R: Runtime>(app: AppHandle<R>, name: String) -> ApiRe
 }
 
 #[tauri::command]
-pub async fn store_remove<R: Runtime>(app: AppHandle<R>, name: String) -> ApiResult<()> {
+pub async fn store_remove<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    name: String,
+) -> ApiResult<()> {
     off_thread(app, move |state| {
-        allowed(state)?;
+        allowed(state, caller)?;
         Ok(state.store.remove(&name)?)
     })
     .await
@@ -81,9 +90,9 @@ pub async fn store_remove<R: Runtime>(app: AppHandle<R>, name: String) -> ApiRes
 
 /// Updates every installed package that has a newer version.
 #[tauri::command]
-pub async fn store_update<R: Runtime>(app: AppHandle<R>) -> ApiResult<()> {
-    off_thread(app, |state| {
-        allowed(state)?;
+pub async fn store_update<R: Runtime>(app: AppHandle<R>, caller: Caller) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        allowed(state, caller)?;
         Ok(state.store.update()?)
     })
     .await

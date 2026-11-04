@@ -2,15 +2,22 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod api;
+mod bluetooth;
 mod boot;
+mod collections;
 mod commands;
 mod music;
 mod options;
 mod permissions;
 mod protocol;
+mod ra_match;
+mod shell;
+mod splash;
 mod state;
+mod status;
 mod store;
 mod system_settings;
+mod updates;
 
 #[cfg(test)]
 mod ipc_tests;
@@ -43,7 +50,14 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::launch_game,
         commands::ra_user,
         commands::ra_game,
+        ra_match::ra_matches,
         commands::netplay_lobby,
+        commands::netplay_lan,
+        collections::collections_list,
+        collections::collections_of,
+        collections::collections_create,
+        collections::collections_delete,
+        collections::collections_set,
         commands::network_status,
         commands::network_wifi_scan,
         commands::network_wifi_join,
@@ -56,6 +70,14 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         system_settings::system_info,
         system_settings::system_settings,
         system_settings::system_settings_set,
+        bluetooth::bluetooth_status,
+        bluetooth::bluetooth_set_enabled,
+        bluetooth::bluetooth_pair,
+        bluetooth::bluetooth_connect,
+        bluetooth::bluetooth_disconnect,
+        bluetooth::bluetooth_forget,
+        updates::updates_check,
+        updates::updates_install,
         store::store_list,
         store::store_refresh,
         store::store_install,
@@ -74,6 +96,14 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         music::music_radios,
         music::music_add_radio,
         music::music_remove_radio,
+        shell::shell_claim,
+        shell::shell_set_open,
+        shell::shell_started,
+        status::status_get,
+        shell::shell_set_context,
+        shell::shell_info,
+        shell::shell_set_theme_setting,
+        shell::shell_open_view,
     ]
 }
 
@@ -95,6 +125,18 @@ fn main() {
             });
         })
         .invoke_handler(handlers())
+        .on_page_load(|webview, payload| {
+            // A new page in the window: the shell it brings claims a new token, and a theme page
+            // has its time to report ready from now.
+            if payload.event() == tauri::webview::PageLoadEvent::Started
+                && let Some(state) = webview.try_state::<AppState>()
+            {
+                state.shell.new_page();
+                if payload.url().path().starts_with("/theme/") {
+                    boot::watch_ready(webview.app_handle().clone());
+                }
+            }
+        })
         .on_window_event(commands::on_window_event)
         .setup(|app| boot::start(app))
         .run(tauri::generate_context!())

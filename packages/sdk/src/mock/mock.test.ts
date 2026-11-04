@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Backend } from '../backend.js';
-import type { Browse, Game, GameEnd, NetworkStatus, WifiNetwork } from '../types.js';
+import type {
+  BluetoothDevice,
+  RaSession,
+  Browse,
+  Game,
+  GameEnd,
+  NetworkStatus,
+  WifiNetwork
+} from '../types.js';
 import { mockBackend } from './backend.js';
 
 const browse = (b: Backend, view: string, path: string[] = [], page?: object) =>
@@ -95,6 +103,19 @@ describe('mock backend', () => {
     const after = await b.invoke<Game>('library_game', { id: zelda.id });
     expect(after.playCount).toBe(1);
     expect(after.gameTime).toBe(3);
+  });
+
+  it('after a game RetroAchievements knows, says what the session unlocked', async () => {
+    vi.useFakeTimers();
+    const b = mockBackend({ playMs: 1000 });
+    const sessions: RaSession[] = [];
+    b.listen<RaSession>('ra:unlocked', (e) => sessions.push(e));
+    await b.invoke('launch_game', { id: 2 });
+    vi.advanceTimersByTime(1000);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]!.unlocked.map((a) => a.title)).toEqual(['Princess Toadstool']);
+    expect(sessions[0]!.game.earned).toBe(3);
+    expect(sessions[0]!.points).toBe(sessions[0]!.unlocked[0]!.points);
   });
 
   it('network settings: permission, scan, join as Batocera does with a cable in', async () => {
@@ -192,6 +213,50 @@ describe('mock backend', () => {
     });
   });
 
+  it('Batocera updates: checks, and installs only when asked', async () => {
+    await expect(mockBackend().invoke('updates_check')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ permissions: ['system.update'] });
+    type Check = { current: string; latest: string; available: boolean };
+    expect(await b.invoke<Check>('updates_check')).toMatchObject({
+      current: '43.1',
+      available: true
+    });
+    const seen: string[] = [];
+    b.listen<{ message: string; percent: number | null }>('updates:progress', (p) =>
+      seen.push(`${p.message} ${p.percent ?? '-'}`)
+    );
+    await b.invoke('updates_install');
+    expect(seen).toEqual([
+      'Downloading 0',
+      'Downloading 50',
+      'Downloading 100',
+      'Extracting files -'
+    ]);
+    expect(await b.invoke<Check>('updates_check')).toMatchObject({
+      current: '44',
+      available: false
+    });
+    await expect(b.invoke('updates_install')).rejects.toMatchObject({ code: 'unsupported' });
+  });
+
+  it('the volume is a number from 0 to 100', async () => {
+    const b = mockBackend({ permissions: ['system.settings'] });
+    type Setting = { key: string; kind: string; value: string | null };
+    await b.invoke('system_settings_set', { key: 'audio.volume', value: '75' });
+    const all = await b.invoke<Setting[]>('system_settings');
+    expect(all.find((s) => s.key === 'audio.volume')).toMatchObject({
+      kind: 'number',
+      value: '75'
+    });
+    for (const value of ['101', 'loud']) {
+      await expect(
+        b.invoke('system_settings_set', { key: 'audio.volume', value })
+      ).rejects.toMatchObject({ code: 'invalid' });
+    }
+  });
+
   it('system settings behind system.settings, checked against their choices', async () => {
     await expect(mockBackend().invoke('system_settings')).rejects.toMatchObject({
       code: 'permissionDenied'
@@ -209,6 +274,33 @@ describe('mock backend', () => {
     await expect(
       b.invoke('system_settings_set', { key: 'system.hostname', value: 'my box' })
     ).rejects.toMatchObject({ code: 'invalid' });
+  });
+
+  it('Bluetooth: pairs, connects and forgets pads, with the permission', async () => {
+    await expect(mockBackend().invoke('bluetooth_status')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const b = mockBackend({ permissions: ['system.controllers'] });
+    type Status = { enabled: boolean; devices: BluetoothDevice[] };
+    const said: string[] = [];
+    b.listen<{ message: string }>('bluetooth:pairing', (e) => said.push(e.message));
+    expect((await b.invoke<Status>('bluetooth_status')).devices).toHaveLength(2);
+    const paired = await b.invoke<BluetoothDevice[]>('bluetooth_pair');
+    expect(paired.map((d) => d.name)).toEqual(['Wireless Controller']);
+    expect(said[0]).toBe('Discovering…');
+    await b.invoke('bluetooth_disconnect', { address: paired[0]!.address });
+    await b.invoke('bluetooth_forget', { address: '00:06:F5:13:C3:50' });
+    const { devices } = await b.invoke<Status>('bluetooth_status');
+    expect(devices.map((d) => [d.name, d.connected])).toEqual([
+      ['8BitDo Pro 2', true],
+      ['Wireless Controller', false]
+    ]);
+    await b.invoke('bluetooth_set_enabled', { enabled: false });
+    expect(await b.invoke('bluetooth_status')).toEqual({ enabled: false, devices: [] });
+    await expect(b.invoke('bluetooth_pair')).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(b.invoke('bluetooth_connect', { address: 'nope' })).rejects.toMatchObject({
+      code: 'invalid'
+    });
   });
 
   it('emulator options: levels, inheritance, the emulator choosing the options', async () => {

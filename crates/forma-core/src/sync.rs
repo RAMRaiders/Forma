@@ -98,6 +98,8 @@ struct Scope {
     full: bool,
     systems: BTreeSet<String>,
     views: bool,
+    /// A collection file changed: read them again (the collections view follows).
+    collections: bool,
 }
 
 impl Scope {
@@ -111,6 +113,7 @@ impl Scope {
     fn merge(&mut self, other: Scope) {
         self.full |= other.full;
         self.views |= other.views;
+        self.collections |= other.collections;
         self.systems.extend(other.systems);
     }
 }
@@ -130,6 +133,7 @@ fn run(
     // Created up front so they can be watched, and so users find where views and imports go.
     let _ = std::fs::create_dir_all(paths.views_dir());
     let _ = std::fs::create_dir_all(paths.import_dir());
+    let _ = std::fs::create_dir_all(paths.collections_dir());
     refresh_all(&mut lib, paths, &mut emit);
     let mut targets = Targets::of(paths);
     // Held only to keep watching; replacing it unwatches everything the old one held.
@@ -157,7 +161,13 @@ fn run(
             }
         }
 
-        if scope.views {
+        if scope.collections
+            && !scope.full
+            && let Err(e) = lib.load_collections(paths)
+        {
+            emit(SyncEvent::Failed(e.to_string()));
+        }
+        if scope.views || scope.collections {
             emit(SyncEvent::ViewsChanged);
         }
         if scope.full {
@@ -204,6 +214,7 @@ struct Targets {
     overlay_dir: PathBuf,
     views_dir: PathBuf,
     import_dir: PathBuf,
+    collections_dir: PathBuf,
     roms: PathBuf,
     /// System name and ROM folder; a symlinked folder is listed under both of its paths,
     /// since watchers report the resolved one.
@@ -220,6 +231,7 @@ impl Targets {
             overlay_dir: paths.systems_overlay_dir(),
             views_dir: paths.views_dir(),
             import_dir: paths.import_dir(),
+            collections_dir: paths.collections_dir(),
             roms: paths.roms(),
             ..Self::default()
         };
@@ -252,8 +264,11 @@ impl Targets {
             return scope;
         }
         for path in &event.paths {
+            // Inside the overlay folder, but only the collections change.
+            if path.starts_with(&self.collections_dir) {
+                scope.collections = true;
             // An import file can touch any system; imports are rare, so refresh them all.
-            if path == &self.systems_cfg
+            } else if path == &self.systems_cfg
                 || path.starts_with(&self.overlay_dir)
                 || path.starts_with(&self.import_dir)
             {
@@ -305,6 +320,7 @@ fn watch(
         Some(targets.overlay_dir.clone()),
         Some(targets.views_dir.clone()),
         Some(targets.import_dir.clone()),
+        Some(targets.collections_dir.clone()),
         Some(targets.roms.clone()),
     ];
     let shallow = shallow
@@ -489,6 +505,17 @@ mod tests {
         sync.handle.tx.send(Msg::Fs(Ok(read))).unwrap();
         sync.touch(paths.database());
         assert!(sync.quiet_for(Duration::from_millis(500)));
+    }
+
+    #[test]
+    fn a_collection_file_change_reloads_collections_and_views() {
+        let (_dir, paths) = fixture_copy();
+        let sync = Running::start(&paths, injected());
+        sync.next_refresh();
+        assert!(paths.collections_dir().is_dir(), "created at start");
+        sync.touch(paths.collections_dir().join("custom-Mine.cfg"));
+        sync.next_views_changed();
+        assert!(sync.quiet_for(Duration::from_millis(400)), "no rescan");
     }
 
     #[test]

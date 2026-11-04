@@ -200,6 +200,9 @@ impl Library {
     }
 
     fn game_page(&self, spec: &GamesSpec, conds: &Conds, page: Page) -> Result<Listing> {
+        if spec.sort == GameSort::Recommended {
+            return self.recommended_page(spec, conds, page);
+        }
         let cap = spec.limit.map_or(i64::MAX, i64::from);
         let total = self.count(conds)?.min(cap);
         let offset = i64::from(page.offset);
@@ -208,6 +211,7 @@ impl Library {
         let default_order = match spec.sort {
             GameSort::Name | GameSort::ReleaseDate => Order::Asc,
             GameSort::Rating | GameSort::LastPlayed | GameSort::PlayCount => Order::Desc,
+            GameSort::Recommended => unreachable!("handled above"),
         };
         let dir = match spec.order.unwrap_or(default_order) {
             Order::Asc => "ASC",
@@ -219,6 +223,7 @@ impl Library {
             GameSort::Rating => format!("g.rating IS NULL, g.rating {dir}"),
             GameSort::LastPlayed => format!("g.last_played IS NULL, g.last_played {dir}"),
             GameSort::PlayCount => format!("g.play_count {dir}"),
+            GameSort::Recommended => unreachable!("handled above"),
         };
         let items = self.query_games(
             &format!(
@@ -228,6 +233,35 @@ impl Library {
             ),
             params_from_iter(&conds.params),
         )?;
+        Ok(Listing::Games { items, total })
+    }
+
+    /// Recommended games: picked in Rust, then read in that order. Without a limit, 50.
+    fn recommended_page(&self, spec: &GamesSpec, conds: &Conds, page: Page) -> Result<Listing> {
+        let cap = spec.limit.map_or(50, |l| l as usize);
+        let ids = self.recommended(&conds.sql(), &conds.params, cap)?;
+        let total = i64::try_from(ids.len()).unwrap_or(i64::MAX);
+        let shown: Vec<i64> = ids
+            .iter()
+            .skip(page.offset as usize)
+            .take(page.limit as usize)
+            .copied()
+            .collect();
+        if shown.is_empty() {
+            return Ok(Listing::Games {
+                items: Vec::new(),
+                total,
+            });
+        }
+        let marks = vec!["?"; shown.len()].join(", ");
+        let mut items = self.query_games(
+            &format!(
+                "SELECT {GAME_COLUMNS} FROM game g JOIN system s ON s.name = g.system
+                 WHERE g.id IN ({marks})"
+            ),
+            params_from_iter(&shown),
+        )?;
+        items.sort_by_key(|g| shown.iter().position(|id| *id == g.id));
         Ok(Listing::Games { items, total })
     }
 
@@ -345,6 +379,14 @@ impl Conds {
         if let Some(favorite) = f.favorite {
             self.sql.push("g.favorite = ?".into());
             self.params.push(Value::Integer(i64::from(favorite)));
+        }
+        if let Some(collection) = &f.collection {
+            self.sql.push(
+                "EXISTS (SELECT 1 FROM collection_game cg WHERE cg.collection = ?
+                 AND cg.path = s.rom_path || '/' || g.path)"
+                    .into(),
+            );
+            self.params.push(Value::Text(collection.clone()));
         }
         if let Some(played) = f.played {
             self.sql.push(

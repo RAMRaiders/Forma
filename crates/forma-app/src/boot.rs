@@ -20,11 +20,8 @@ use forma_core::thumbs::{self, Thumbnailer, Thumbs};
 use forma_core::{Library, Paths};
 use tauri::{App, AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
-use crate::commands::{
-    EVENT_INPUT, EVENT_LIBRARY_CHANGED, EVENT_VIEWS_CHANGED, LibraryChanged, entry_url,
-};
-use crate::protocol::splash_url;
-use crate::state::{AppState, DEFAULT_THEME, THEME_SETTING, pick_theme};
+use crate::commands::{EVENT_LIBRARY_CHANGED, EVENT_VIEWS_CHANGED, LibraryChanged, entry_url};
+use crate::state::{AppState, DEFAULT_THEME, FALLBACK_THEME, THEME_SETTING, pick_theme};
 
 static PROCESS_START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
 
@@ -43,8 +40,9 @@ pub fn since_start() -> Duration {
 /// Present on every Batocera install, and nowhere else.
 const BATOCERA_VERSION_FILE: &str = "/usr/share/batocera/batocera.version";
 
-/// How long a theme has to call `theme_ready` before Forma falls back to the default theme.
-const READY_TIMEOUT: Duration = Duration::from_secs(15);
+/// How long a theme page has, from when it starts loading, to call `theme_ready` before Forma
+/// falls back to the default theme. Generous: a Raspberry Pi still busy booting is slow.
+const READY_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let paths = Paths::from_env();
@@ -62,6 +60,10 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let current = pick_theme(&themes, selected.as_deref()).unwrap_or_default();
 
     let music = music_player(&paths, &library);
+    let shell_dir = shell_dir(app.handle());
+    if shell_dir.is_none() {
+        eprintln!("forma: the shell (shell.js) is missing: no Start menu over themes");
+    }
     app.manage(AppState {
         views: RwLock::new(load_views(&paths)),
         library: Mutex::new(library),
@@ -71,6 +73,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         launcher: launcher_from_env(),
         http: Box::new(forma_core::net::UreqHttp::default()),
         network: Network::new(Box::new(SystemShell), &paths),
+        bluetooth: forma_core::bluetooth::Bluetooth::new(Box::new(SystemShell), &paths),
         batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
         store: forma_core::store::Store::default(),
         system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
@@ -89,46 +92,77 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         theme_ready: AtomicBool::new(false),
         ready_file: std::env::var_os("FORMA_READY_FILE").map(PathBuf::from),
         on_batocera: Path::new(BATOCERA_VERSION_FILE).is_file(),
+        see_through: Path::new(BATOCERA_VERSION_FILE).is_file() && crate::splash::drawn(),
         input: Mutex::new(None),
+        shell: crate::shell::ShellState::default(),
+        shell_dir,
         sync: Mutex::new(None),
         paths: paths.clone(),
     });
     let state = app.state::<AppState>();
 
+    // The sync's first full rescan reads every gamelist off the card: at boot, on a Pi, that
+    // held the theme's start back past the 30 s the service allows. The library from the last
+    // run is in the database, so it waits for the UI to be up; with nothing in it yet (a
+    // first start) it runs at once, as there is nothing else to show.
+    let empty = state.library().systems().map_or(true, |s| s.is_empty());
     let handle = app.handle().clone();
-    let sync = sync::spawn(
-        paths.clone(),
-        paths.database(),
-        SyncOptions::default(),
-        move |event| on_sync(&handle, event),
-    );
-    *state.sync.lock().unwrap_or_else(PoisonError::into_inner) = Some(sync);
+    std::thread::spawn(move || {
+        let state = handle.state::<AppState>();
+        let since = std::time::Instant::now();
+        while !empty
+            && !state.shell.ui_started.load(Ordering::SeqCst)
+            && since.elapsed() < SYNC_WAIT
+        {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        let events = handle.clone();
+        let sync = sync::spawn(
+            state.paths.clone(),
+            state.paths.database(),
+            SyncOptions::default(),
+            move |event| on_sync(&events, event),
+        );
+        *state.sync.lock().unwrap_or_else(PoisonError::into_inner) = Some(sync);
+    });
 
     crate::music::start(app.handle().clone());
+    crate::status::start(app.handle().clone());
+    crate::ra_match::start(app.handle().clone());
 
     let handle = app.handle().clone();
     match input::spawn(InputOptions::default(), move |event| {
-        let _ = handle.emit(EVENT_INPUT, event);
+        crate::shell::deliver(&handle, &event);
     }) {
         Ok(input) => *state.input.lock().unwrap_or_else(PoisonError::into_inner) = Some(input),
         Err(e) => eprintln!("forma: no gamepad input: {e}"),
     }
 
     let url = match state.available_theme(&current) {
-        Some(theme) => WebviewUrl::CustomProtocol(
-            startup_url(&state, &theme, perf_url(entry_url(&theme))).parse()?,
-        ),
+        // Straight to the theme: Forma's cover in its page is the entry screen.
+        Some(theme) => WebviewUrl::CustomProtocol(perf_url(entry_url(&theme)).parse()?),
         // No theme can load: the bundled boot page explains instead of showing nothing.
         None => WebviewUrl::App("index.html".into()),
     };
+    // On Batocera the boot picture is on the screen under the window (forma-standalone puts it
+    // there): the window starts see-through, so it stays in view until the page draws its
+    // cover, the same picture, instead of a blank window. Elsewhere, dark from the first frame:
+    // no white flash before the cover is drawn.
+    let see_through = state.see_through;
     let window = WebviewWindowBuilder::new(app, "main", url)
         .title("Forma")
         .inner_size(1280.0, 720.0)
         .fullscreen(fullscreen())
+        .transparent(see_through)
+        .background_color(tauri::window::Color(
+            4,
+            6,
+            12,
+            if see_through { 0 } else { 255 },
+        ))
         .build()?;
     reload_if_the_page_dies(&window);
 
-    watch_ready(app.handle().clone());
     #[cfg(debug_assertions)]
     reload_on_theme_change(app.handle().clone());
     Ok(())
@@ -156,30 +190,21 @@ fn reload_if_the_page_dies<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 #[cfg(not(target_os = "linux"))]
 fn reload_if_the_page_dies<R: Runtime>(_window: &tauri::WebviewWindow<R>) {}
 
-/// Batocera's splash files: its boot animation (`splash.mp4`) and logo.
+/// Batocera's splash files: its boot image (`boot-logo.png`), whose joystick emblem marks
+/// Batocera's version on Forma's cover.
 pub const BATOCERA_SPLASH: &str = "/usr/share/batocera/splash";
+/// One of Batocera's own splash files.
+pub fn batocera_splash_file(name: &str) -> PathBuf {
+    Path::new(BATOCERA_SPLASH).join(name)
+}
 
-/// The start-up screen shows only this soon after boot: at the first start, not when Forma is
-/// restarted later.
-const SPLASH_WITHIN: Duration = Duration::from_secs(180);
+/// Batocera's logo as EmulationStation shows it, for the corner of Forma's cover.
+pub const BATOCERA_LOGO: &str = "/usr/share/emulationstation/resources/splash_batocera.svg";
 
-/// Where the window opens: Forma's start-up screen (Batocera's animation, then Forma's logo with
-/// the theme and its version, and Forma's and Batocera's versions), which then loads `theme_url`;
-/// or the theme straight away.
-/// `FORMA_SPLASH=1|0` forces it either way, for development.
-fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
-    let wanted = match std::env::var("FORMA_SPLASH").as_deref() {
-        Ok("1") => true,
-        Ok("0") => false,
-        _ => {
-            state.on_batocera
-                && uptime().is_some_and(|u| u < SPLASH_WITHIN)
-                && Path::new(BATOCERA_SPLASH).join("splash.mp4").is_file()
-        }
-    };
-    if !wanted {
-        return theme_url;
-    }
+/// What Forma's cover shows over a theme page while it loads: Forma's logo and loader, with
+/// Batocera's, Forma's and the theme's versions in a corner. Batocera shows the same picture at
+/// the next boot ([`crate::splash`]).
+pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
     // As Batocera's own splash subtitles it: "43.1 2026/05/29".
     let batocera = std::fs::read_to_string(BATOCERA_VERSION_FILE)
         .ok()
@@ -192,29 +217,36 @@ fn startup_url(state: &AppState, theme: &Theme, theme_url: String) -> String {
             ))
         })
         .unwrap_or_default();
-    let name = theme
-        .manifest
-        .as_ref()
-        .map_or(theme.id.as_str(), |m| m.name.as_str());
-    let version = theme.manifest.as_ref().map_or("", |m| m.version.as_str());
-    let line = format!("{name} {version}");
-    let margins = screen_margins(state);
-    let sound = forma_core::net::batocera_conf(&state.paths.batocera_conf())
-        .get("splash.screen.sound")
-        .is_none_or(|v| v != "0");
-    splash_url(&format!(
-        "next={}&batocera={}&theme={}&forma={}&sound={}&margins={}",
-        query_value(&theme_url),
-        query_value(batocera.trim()),
-        query_value(line.trim()),
-        query_value(env!("CARGO_PKG_VERSION")),
-        u8::from(sound),
-        margins
-    ))
+    let current = state.current_theme();
+    let theme = current.as_ref().map_or_else(String::new, |t| {
+        t.manifest
+            .as_ref()
+            .map_or(t.id.clone(), |m| format!("{} {}", m.name, m.version))
+    });
+    let info = crate::shell::CoverInfo {
+        batocera: batocera.trim().to_owned(),
+        theme: theme.trim().to_owned(),
+        theme_logo: current.as_ref().and_then(crate::state::theme_logo_url),
+        theme_logo_file: current.as_ref().and_then(|t| {
+            let logo = t.manifest.as_ref()?.logo.as_ref()?;
+            Some(t.dir.join(logo))
+        }),
+        theme_version: current
+            .and_then(|t| t.manifest.map(|m| m.version))
+            .unwrap_or_default(),
+        margins: screen_margins(state),
+        see_through: state.see_through && !state.shell.ui_started.load(Ordering::SeqCst),
+    };
+    // The next boot shows the same, as Batocera's boot picture.
+    crate::splash::refresh(&info);
+    info
 }
 
 /// The Forma setting every theme shares for a TV that cuts the picture's edges (overscan): how
 /// much, in percent of each side, to keep clear. 0 to 10.
+/// The longest the library sync waits for the UI to be up before it starts anyway.
+const SYNC_WAIT: Duration = Duration::from_secs(60);
+
 pub const MARGINS_SETTING: &str = "display.margins";
 
 fn screen_margins(state: &AppState) -> u8 {
@@ -225,25 +257,6 @@ fn screen_margins(state: &AppState) -> u8 {
         .flatten()
         .and_then(|v| v.trim().parse::<f64>().ok())
         .map_or(0, |m| m.clamp(0.0, 10.0).round() as u8)
-}
-
-/// Time since the system booted (`/proc/uptime`).
-fn uptime() -> Option<Duration> {
-    let text = std::fs::read_to_string("/proc/uptime").ok()?;
-    let secs: f64 = text.split_whitespace().next()?.parse().ok()?;
-    Some(Duration::from_secs_f64(secs))
-}
-
-/// Percent-encoding for a query value.
-fn query_value(text: &str) -> String {
-    text.bytes()
-        .map(|b| match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                (b as char).to_string()
-            }
-            _ => format!("%{b:02X}"),
-        })
-        .collect()
 }
 
 /// Batocera's own music, played when the music folder has none.
@@ -287,7 +300,6 @@ pub fn show_theme<R: Runtime>(
         .parse()
         .map_err(|e| format!("{e}"))?;
     window.navigate(url).map_err(|e| e.to_string())?;
-    watch_ready(app.clone());
     Ok(())
 }
 
@@ -309,26 +321,42 @@ fn fullscreen() -> bool {
     }
 }
 
-/// Falls back to the default theme if the current one never reports ready.
-fn watch_ready<R: Runtime>(app: AppHandle<R>) {
+/// A theme page started loading: falls back to the default theme if it never reports ready.
+/// Counted from the page, not from Forma's start, and dropped once another page loads.
+pub fn watch_ready<R: Runtime>(app: AppHandle<R>) {
+    let page = app.state::<AppState>().shell.page();
     std::thread::spawn(move || {
         std::thread::sleep(READY_TIMEOUT);
         let state = app.state::<AppState>();
-        if state.theme_ready.load(Ordering::SeqCst) {
+        if state.shell.page() != page || state.shell.page_ready() {
             return;
         }
         let Some(current) = state.current_theme() else {
             return;
         };
-        if current.id == DEFAULT_THEME {
+        // A newer copy of a bundled theme gives way to the bundled one; any other theme to the
+        // default, and the default to the plain fallback.
+        let reverted = current.overrides
+            && forma_core::themes::revert_override(
+                &mut state.themes.write().unwrap_or_else(PoisonError::into_inner),
+                &current.id,
+            );
+        let next = if reverted {
+            current.id.as_str()
+        } else if current.id != DEFAULT_THEME {
+            DEFAULT_THEME
+        } else if current.id != FALLBACK_THEME {
+            FALLBACK_THEME
+        } else {
             return;
-        }
+        };
         eprintln!(
-            "forma: theme `{}` did not start within {READY_TIMEOUT:?}; using the default theme",
-            current.id
+            "forma: theme `{}` did not start within {READY_TIMEOUT:?}; using `{next}`{}",
+            current.id,
+            if reverted { " as built in" } else { "" }
         );
-        if let Some(default) = state.available_theme(DEFAULT_THEME) {
-            let _ = show_theme(&app, &state, &default);
+        if let Some(theme) = state.available_theme(next) {
+            let _ = show_theme(&app, &state, &theme);
         }
     });
 }
@@ -337,6 +365,7 @@ fn on_sync(app: &AppHandle, event: SyncEvent) {
     match event {
         SyncEvent::Refreshed(report) => {
             if !report.changed_systems.is_empty() {
+                crate::ra_match::systems_changed(&report.changed_systems);
                 let _ = app.emit(
                     EVENT_LIBRARY_CHANGED,
                     LibraryChanged {
@@ -357,8 +386,22 @@ fn on_sync(app: &AppHandle, event: SyncEvent) {
     }
 }
 
-/// Bundled themes: `<resources>/themes/*` in a packaged build; in development, every
-/// `packages/theme-*/dist` built from this repository.
+/// Forma's shell (`shell.js`): `<resources>/shell` in a packaged build; in development,
+/// `packages/shell/dist` built from this repository.
+fn shell_dir(app: &AppHandle) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(resources) = app.path().resource_dir() {
+        candidates.push(resources.join("shell"));
+    }
+    #[cfg(debug_assertions)]
+    candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/shell/dist"));
+    candidates
+        .into_iter()
+        .find(|d| d.join("shell.js").is_file())
+}
+
+/// Bundled themes: `<resources>/themes/*` in a packaged build; in development, the pinned
+/// themes unpacked in `build/themes` and every `packages/theme-*/dist` built here.
 fn bundled_theme_dirs(app: &AppHandle) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Ok(resources) = app.path().resource_dir() {
@@ -366,7 +409,9 @@ fn bundled_theme_dirs(app: &AppHandle) -> Vec<PathBuf> {
     }
     #[cfg(debug_assertions)]
     {
-        let packages = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        dirs.extend(subdirs(&root.join("build/themes")));
+        let packages = root.join("packages");
         dirs.extend(
             subdirs(&packages)
                 .into_iter()

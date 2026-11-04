@@ -4,11 +4,15 @@
 # `batocera-services disable forma` gives the box back to EmulationStation.
 
 # The app, by executable: this script is itself a process named "forma" while it runs, so
-# `pgrep -x forma` alone would find it.
-BIN=/userdata/system/forma/app/usr/bin/forma
+# `pgrep -x forma` alone would find it. Any Forma binary under /userdata/system/forma counts,
+# including one install.sh has since moved to app.old and deleted ("… (deleted)"): matching
+# only the current one left a Forma running from before an update, holding the library open.
+DIR=/userdata/system/forma/
 app_pids() {
     for pid in $(pgrep -x forma); do
-        [ "$(readlink "/proc/$pid/exe")" = "$BIN" ] && echo "$pid"
+        case "$(readlink "/proc/$pid/exe")" in
+            "$DIR"*/usr/bin/forma | "$DIR"*"/usr/bin/forma (deleted)") echo "$pid" ;;
+        esac
     done
 }
 

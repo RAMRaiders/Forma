@@ -46,6 +46,11 @@ impl Paths {
         self.userdata.join("system/configs/emulationstation")
     }
 
+    /// EmulationStation's custom collections, one `custom-<name>.cfg` each.
+    pub fn collections_dir(&self) -> PathBuf {
+        self.systems_overlay_dir().join("collections")
+    }
+
     pub fn batocera_conf(&self) -> PathBuf {
         self.userdata.join("system/batocera.conf")
     }

@@ -1,5 +1,5 @@
 {
-  "apiVersion": "1.3.0",
+  "apiVersion": "1.16.0",
   "batocera": [
     {
       "choices": [],
@@ -138,6 +138,211 @@
     }
   ],
   "browse": {
+    "[\"all\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 10,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Alter Ego",
+            "path": "Alter Ego.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "homebrew"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 5,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Chrono Trigger (USA)",
+            "path": "Chrono Trigger (USA).sfc",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": "Square",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Role Playing Game",
+            "hidden": false,
+            "id": 9,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Final Fantasy VII",
+            "path": "Final Fantasy VII.m3u",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Sony Computer Entertainment",
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": "1997-09-07",
+            "system": "psx"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 1,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Homebrew Demo",
+            "path": "Homebrew Demo.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "nes"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 7,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Sonic The Hedgehog (USA, Europe)",
+            "path": "Sonic The Hedgehog (USA, Europe).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 8,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Streets of Rage 2 (USA)",
+            "path": "Streets of Rage 2 (USA).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
+            "developer": "Nintendo",
+            "favorite": true,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 2,
+            "lastPlayed": "2026-01-01T12:00:00",
+            "media": {
+              "image": "image",
+              "marquee": "marquee",
+              "video": "video"
+            },
+            "name": "Super Mario Bros.",
+            "path": "Super Mario Bros. (World).nes",
+            "playCount": 12,
+            "players": "1-2",
+            "publisher": "Nintendo",
+            "raGameId": 1446,
+            "rating": 0.9,
+            "releaseDate": "1985-09-13",
+            "system": "nes"
+          },
+          {
+            "description": null,
+            "developer": "Nintendo R&D1",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 6,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Super Metroid",
+            "path": "Super Metroid (Japan, USA).sfc",
+            "playCount": 0,
+            "players": "1",
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": "Link explores <Hyrule>.",
+            "developer": "Nintendo",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Action / Adventure",
+            "hidden": false,
+            "id": 3,
+            "lastPlayed": null,
+            "media": {},
+            "name": "The Legend of Zelda",
+            "path": "The Legend of Zelda (USA).nes",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Nintendo",
+            "raGameId": null,
+            "rating": 0.85,
+            "releaseDate": "1986-02-21",
+            "system": "nes"
+          }
+        ],
+        "kind": "games",
+        "total": 9
+      },
+      "path": [],
+      "trail": [],
+      "view": "all"
+    },
+    "[\"collections\"]": {
+      "listing": {
+        "items": [],
+        "kind": "games",
+        "total": 0
+      },
+      "path": [],
+      "trail": [],
+      "view": "collections"
+    },
     "[\"favorites\"]": {
       "listing": {
         "items": [
@@ -2220,6 +2425,177 @@
       "trail": [],
       "view": "recent"
     },
+    "[\"recommended\"]": {
+      "listing": {
+        "items": [
+          {
+            "description": "Link explores <Hyrule>.",
+            "developer": "Nintendo",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Action / Adventure",
+            "hidden": false,
+            "id": 3,
+            "lastPlayed": null,
+            "media": {},
+            "name": "The Legend of Zelda",
+            "path": "The Legend of Zelda (USA).nes",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Nintendo",
+            "raGameId": null,
+            "rating": 0.85,
+            "releaseDate": "1986-02-21",
+            "system": "nes"
+          },
+          {
+            "description": null,
+            "developer": "Nintendo R&D1",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Platform",
+            "hidden": false,
+            "id": 6,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Super Metroid",
+            "path": "Super Metroid (Japan, USA).sfc",
+            "playCount": 0,
+            "players": "1",
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 1,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Homebrew Demo",
+            "path": "Homebrew Demo.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "nes"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 7,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Sonic The Hedgehog (USA, Europe)",
+            "path": "Sonic The Hedgehog (USA, Europe).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          },
+          {
+            "description": null,
+            "developer": "Square",
+            "favorite": false,
+            "gameTime": 0,
+            "genre": "Role Playing Game",
+            "hidden": false,
+            "id": 9,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Final Fantasy VII",
+            "path": "Final Fantasy VII.m3u",
+            "playCount": 0,
+            "players": "1",
+            "publisher": "Sony Computer Entertainment",
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": "1997-09-07",
+            "system": "psx"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 10,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Alter Ego",
+            "path": "Alter Ego.nes",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "homebrew"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 5,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Chrono Trigger (USA)",
+            "path": "Chrono Trigger (USA).sfc",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "snes"
+          },
+          {
+            "description": null,
+            "developer": null,
+            "favorite": false,
+            "gameTime": 0,
+            "genre": null,
+            "hidden": false,
+            "id": 8,
+            "lastPlayed": null,
+            "media": {},
+            "name": "Streets of Rage 2 (USA)",
+            "path": "Streets of Rage 2 (USA).md",
+            "playCount": 0,
+            "players": null,
+            "publisher": null,
+            "raGameId": null,
+            "rating": null,
+            "releaseDate": null,
+            "system": "megadrive"
+          }
+        ],
+        "kind": "games",
+        "total": 8
+      },
+      "path": [],
+      "trail": [],
+      "view": "recommended"
+    },
     "[\"systems\",\"homebrew\"]": {
       "listing": {
         "items": [
@@ -2727,6 +3103,7 @@
   "lobby": [
     {
       "connectable": true,
+      "core": "fceumm",
       "coreName": "FCEUmm",
       "coreVersion": "(SVN) 7d2f0b6",
       "country": "pt",
@@ -2738,7 +3115,14 @@
       "hasSpectatePassword": false,
       "host": "192.0.2.10",
       "id": 7123401,
+      "join": {
+        "host": "192.0.2.10",
+        "port": 55435,
+        "session": null
+      },
+      "lan": false,
       "localGameId": 2,
+      "pingMs": null,
       "port": 55435,
       "relayHost": null,
       "relayPort": null,
@@ -2747,6 +3131,7 @@
     },
     {
       "connectable": false,
+      "core": null,
       "coreName": "Snes9x",
       "coreVersion": "1.63",
       "country": "br",
@@ -2758,7 +3143,14 @@
       "hasSpectatePassword": false,
       "host": "198.51.100.7",
       "id": 7123455,
+      "join": {
+        "host": "198.51.100.200",
+        "port": 55436,
+        "session": "a1b2c3d4e5"
+      },
+      "lan": false,
       "localGameId": null,
+      "pingMs": null,
       "port": 55435,
       "relayHost": "198.51.100.200",
       "relayPort": 55436,
@@ -5954,7 +6346,10 @@
         "key": "es.resolution",
         "kind": "choice",
         "label": "Video mode",
+        "max": null,
+        "min": null,
         "section": "Display",
+        "step": null,
         "value": null
       },
       {
@@ -5973,7 +6368,10 @@
         "key": "global.videooutput",
         "kind": "choice",
         "label": "Video output",
+        "max": null,
+        "min": null,
         "section": "Display",
+        "step": null,
         "value": null
       },
       {
@@ -6000,7 +6398,10 @@
         "key": "display.rotate",
         "kind": "choice",
         "label": "Screen rotation",
+        "max": null,
+        "min": null,
         "section": "Display",
+        "step": null,
         "value": null
       },
       {
@@ -6019,7 +6420,45 @@
         "key": "audio.device",
         "kind": "choice",
         "label": "Audio output",
+        "max": null,
+        "min": null,
         "section": "Audio",
+        "step": null,
+        "value": null
+      },
+      {
+        "applies": "now",
+        "choices": [],
+        "description": "The whole system's volume, games included.",
+        "key": "audio.volume",
+        "kind": "number",
+        "label": "Volume",
+        "max": 100,
+        "min": 0,
+        "section": "Audio",
+        "step": 5,
+        "value": null
+      },
+      {
+        "applies": "now",
+        "choices": [
+          {
+            "label": "On",
+            "value": "1"
+          },
+          {
+            "label": "Off",
+            "value": "0"
+          }
+        ],
+        "description": "Music from the music folder while in the menus.",
+        "key": "audio.bgmusic",
+        "kind": "choice",
+        "label": "Menu music",
+        "max": null,
+        "min": null,
+        "section": "Audio",
+        "step": null,
         "value": null
       },
       {
@@ -6174,7 +6613,10 @@
         "key": "system.language",
         "kind": "choice",
         "label": "Language",
+        "max": null,
+        "min": null,
         "section": "Language & region",
+        "step": null,
         "value": "en_US"
       },
       {
@@ -6205,7 +6647,10 @@
         "key": "system.timezone",
         "kind": "choice",
         "label": "Time zone",
+        "max": null,
+        "min": null,
         "section": "Language & region",
+        "step": null,
         "value": null
       },
       {
@@ -6232,7 +6677,10 @@
         "key": "system.kblayout",
         "kind": "choice",
         "label": "Keyboard layout",
+        "max": null,
+        "min": null,
         "section": "Language & region",
+        "step": null,
         "value": null
       },
       {
@@ -6242,7 +6690,10 @@
         "key": "system.hostname",
         "kind": "text",
         "label": "Name on the network",
+        "max": null,
+        "min": null,
         "section": "System",
+        "step": null,
         "value": null
       },
       {
@@ -6261,7 +6712,10 @@
         "key": "system.security.enabled",
         "kind": "choice",
         "label": "Security",
+        "max": null,
+        "min": null,
         "section": "System",
+        "step": null,
         "value": null
       },
       {
@@ -6280,7 +6734,10 @@
         "key": "updates.enabled",
         "kind": "choice",
         "label": "Check for updates",
+        "max": null,
+        "min": null,
         "section": "System",
+        "step": null,
         "value": null
       },
       {
@@ -6303,7 +6760,10 @@
         "key": "storage",
         "kind": "choice",
         "label": "Storage device",
+        "max": null,
+        "min": null,
         "section": "Storage",
+        "step": null,
         "value": "INTERNAL"
       }
     ]
@@ -6370,6 +6830,12 @@
       "origin": "bundled"
     },
     {
+      "description": "Every game in the library, from every system, A to Z.",
+      "id": "all",
+      "name": "All games",
+      "origin": "bundled"
+    },
+    {
       "description": "Your favourite games from every system.",
       "id": "favorites",
       "name": "Favourites",
@@ -6382,9 +6848,21 @@
       "origin": "bundled"
     },
     {
+      "description": "Games you have not played yet, picked from what you play and star.",
+      "id": "recommended",
+      "name": "Recommended",
+      "origin": "bundled"
+    },
+    {
       "description": "A menu: favourites, recents, and the library by system, manufacturer or genre.",
       "id": "home",
       "name": "Home",
+      "origin": "bundled"
+    },
+    {
+      "description": "Your own lists of games.",
+      "id": "collections",
+      "name": "Collections",
       "origin": "bundled"
     }
   ]

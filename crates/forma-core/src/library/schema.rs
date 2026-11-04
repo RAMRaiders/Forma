@@ -5,9 +5,23 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 4;
+pub(crate) const SCHEMA_VERSION: i64 = 5;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5];
+
+/// The user's collections, as EmulationStation's `custom-<name>.cfg` files hold them (see
+/// `collections.rs`): the files stay the truth, this is their index for browsing. Paths are
+/// absolute, as in the files, so a game that is missing keeps its place.
+const V5: &str = r"
+CREATE TABLE collection (
+    name  TEXT PRIMARY KEY COLLATE NOCASE
+);
+CREATE TABLE collection_game (
+    collection  TEXT NOT NULL COLLATE NOCASE REFERENCES collection (name) ON DELETE CASCADE,
+    path        TEXT NOT NULL,
+    PRIMARY KEY (collection, path)
+) WITHOUT ROWID;
+";
 
 /// Visible games per system from the index alone: counting them read every game row, 2.6 s on
 /// a cold SD card at boot, and far longer while the start-up refresh read the disk too.

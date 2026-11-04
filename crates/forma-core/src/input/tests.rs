@@ -127,3 +127,34 @@ fn the_gamepad_thread_starts_pauses_and_stops_without_a_controller() {
         "stop is noticed within IDLE_WAKE"
     );
 }
+
+#[test]
+fn a_controller_kind_comes_from_its_maker_or_its_name() {
+    use super::{ControllerKind as K, controller_kind as kind};
+    // An Xbox 360 pad: Microsoft's vendor id, 0x045e, at bytes 4–5 of the GUID.
+    assert_eq!(
+        kind("030000005e0400008e02000014010000", "Generic X-Box pad"),
+        K::Xbox
+    );
+    assert_eq!(
+        kind("030000005e0400008e02000014010000", "Controller"),
+        K::Xbox
+    );
+    assert_eq!(
+        kind("030000004c050000cc09000011810000", "Wireless Controller"),
+        K::Playstation
+    );
+    assert_eq!(
+        kind("050000007e0500000920000001800000", "Pro Controller"),
+        K::Nintendo
+    );
+    assert_eq!(
+        kind("03000000c82d00000160000011010000", "8BitDo SN30 Pro"),
+        K::Generic
+    );
+    assert_eq!(
+        kind("03000000c82d00000160000011010000", "8BitDo Xbox mode"),
+        K::Xbox
+    );
+    assert_eq!(kind("", "USB Gamepad"), K::Generic);
+}

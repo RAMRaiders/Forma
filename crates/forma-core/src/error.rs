@@ -34,12 +34,20 @@ pub enum Error {
     #[error("{0}")]
     Unsupported(String),
 
+    /// Something asked for by name or id that is not there (a collection, a game).
+    #[error("{0}")]
+    NotFound(String),
+
     /// A view or a path into it that cannot be resolved.
     #[error("{0}")]
     View(String),
 
     #[error("library database: {0}")]
     Db(#[from] rusqlite::Error),
+
+    /// Identifying ROMs (romdex): its hash cache, or a file it could not read.
+    #[error("identifying games: {0}")]
+    Identify(#[from] romdex::Error),
 }
 
 impl Error {

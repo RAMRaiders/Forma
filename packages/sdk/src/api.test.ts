@@ -15,7 +15,9 @@ async function sdk(permissions: string[] = []) {
 describe('the SDK surface', () => {
   it('library', async () => {
     const forma = await sdk();
-    expect((await forma.library.systems())[0]!.name).toBe('nes');
+    // By name, as Forma lists them unless the user chose otherwise.
+    const names = (await forma.library.systems()).map((s) => s.fullname.toLowerCase());
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
     const [zelda] = await forma.library.search('zelda', 5);
     expect(await forma.library.game(zelda!.id)).toMatchObject({ name: 'The Legend of Zelda' });
     const changed = new Promise<LibraryChanged>((resolve) => {
@@ -119,5 +121,98 @@ describe('the SDK surface', () => {
 
     const unset = await connect({ backend: mockBackend({ ra: false }), keyboard: false });
     await expect(unset.ra.user()).rejects.toMatchObject({ code: 'notConfigured' });
+  });
+
+  it('netplay: filters rooms, finds the local network, joins and hosts', async () => {
+    const backend = mockBackend({ playMs: 0 });
+    const launched: unknown[] = [];
+    const invoke = backend.invoke.bind(backend);
+    backend.invoke = <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+      if (cmd === 'launch_game') launched.push(args);
+      return invoke<T>(cmd, args);
+    };
+    const forma = await connect({ backend, keyboard: false });
+    const all = (await forma.netplay.lobby()).data;
+    expect(all).toHaveLength(2);
+    const mine = (await forma.netplay.lobby({ owned: true, joinable: true, open: true })).data;
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.core).toBe('fceumm');
+    expect((await forma.netplay.lobby({ coreName: 'snes9x' })).data).toHaveLength(1);
+    expect((await forma.netplay.lobby({ maxPingMs: 50 })).data[0]!.pingMs).toBe(30);
+    expect((await forma.netplay.lobby({ maxPingMs: 10 })).data).toHaveLength(0);
+
+    const [lan] = await forma.netplay.lan();
+    expect(lan).toMatchObject({ lan: true, join: { host: '192.168.1.50' } });
+
+    await forma.netplay.join(mine[0]!, { password: 'pw' });
+    expect(launched.at(-1)).toEqual({
+      id: mine[0]!.localGameId,
+      request: {
+        emulator: 'libretro',
+        core: 'fceumm',
+        netplay: { mode: 'client', host: '192.0.2.10', port: 55435, password: 'pw' }
+      }
+    });
+    // The relayed room: not on this box, and its core is missing.
+    const relayed = all.find((r) => r.join?.session)!;
+    await expect(forma.netplay.join(relayed)).rejects.toMatchObject({ code: 'notFound' });
+    await expect(forma.netplay.join({ ...relayed, localGameId: 1 })).rejects.toMatchObject({
+      code: 'unsupported'
+    });
+    await expect(
+      forma.netplay.join({ ...relayed, localGameId: 1, core: 'snes9x', join: null })
+    ).rejects.toMatchObject({ code: 'unsupported' });
+    await new Promise((r) => setTimeout(r, 5));
+    await forma.netplay.join({ ...relayed, localGameId: 1, core: 'snes9x' }, { spectate: true });
+    expect(launched.at(-1)).toMatchObject({
+      request: { netplay: { mode: 'client', session: 'a1b2c3d4e5', spectate: true } }
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    await forma.netplay.host(1);
+    expect(launched.at(-1)).toEqual({ id: 1, request: { netplay: { mode: 'host' } } });
+  });
+
+  it('collections: made, filled, browsed in their view, and deleted', async () => {
+    const forma = await sdk();
+    const changed: string[] = [];
+    forma.events.on('views:changed', () => changed.push('views'));
+    expect(await forma.collections.list()).toEqual([{ name: 'Couch co-op', games: 2 }]);
+    const [zelda] = await forma.library.search('zelda');
+    expect(await forma.collections.create('  RPGs ')).toBe('RPGs');
+    await expect(forma.collections.create('rpgs')).rejects.toMatchObject({ code: 'invalid' });
+    await expect(forma.collections.create('a/b')).rejects.toMatchObject({ code: 'invalid' });
+    await forma.collections.add('rpgs', zelda!.id);
+    expect(await forma.collections.of(zelda!.id)).toContain('RPGs');
+
+    const root = await forma.nav.browse('collections', []);
+    expect(root.listing).toMatchObject({
+      kind: 'branches',
+      items: [
+        { id: 'couch-co-op', name: 'Couch co-op', gameCount: 2 },
+        { id: 'rpgs', name: 'RPGs', gameCount: 1 }
+      ]
+    });
+    const rpgs = await forma.nav.browse('collections', ['rpgs']);
+    expect(rpgs.trail).toEqual([{ key: 'rpgs', label: 'RPGs' }]);
+    expect(rpgs.listing).toMatchObject({ kind: 'games', total: 1 });
+
+    await forma.collections.remove('RPGs', zelda!.id);
+    expect(await forma.collections.of(zelda!.id)).not.toContain('RPGs');
+    await forma.collections.delete('Couch co-op');
+    await forma.collections.delete('RPGs');
+    await expect(forma.collections.delete('RPGs')).rejects.toMatchObject({ code: 'notFound' });
+    const none = await forma.nav.browse('collections', []);
+    expect(none.listing).toMatchObject({ kind: 'games', total: 0 });
+    await vi.waitFor(() => expect(changed.length).toBeGreaterThanOrEqual(5));
+  });
+
+  it('recommended: games not played yet, as a view like any other', async () => {
+    const forma = await sdk();
+    expect((await forma.nav.views()).map((v) => v.id)).toContain('recommended');
+    const page = await forma.nav.browse('recommended', []);
+    expect(page.listing.kind).toBe('games');
+    if (page.listing.kind !== 'games') return;
+    expect(page.listing.items.length).toBeGreaterThan(0);
+    expect(page.listing.items.every((g) => g.playCount === 0 && !g.favorite)).toBe(true);
   });
 });

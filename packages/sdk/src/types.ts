@@ -99,14 +99,43 @@ export interface Browse {
   listing: Listing;
 }
 
+/**
+ * One of the user's collections: EmulationStation's custom collections, so they carry over.
+ * Browse them in the `collections` view: a branch per collection, its games by name.
+ */
+export interface Collection {
+  name: string;
+  /** Its games on the box now. */
+  games: number;
+}
+
 export interface DefaultView {
   id: string | null;
   /** Why a preferred view was passed over, if one was. */
   notes: string[];
 }
 
+/**
+ * Netplay, through Batocera's launcher. Nickname, relay and the host's own port come from
+ * Batocera's netplay settings. Usually built by `forma.netplay.join()` and `host()`.
+ */
 export type Netplay =
-  { mode: 'host'; port?: number } | { mode: 'client'; host: string; port: number };
+  | {
+      mode: 'host';
+      port?: number;
+      /** Players must give it to join. One word, no quotes. */
+      password?: string;
+    }
+  | {
+      mode: 'client';
+      host: string;
+      port: number;
+      password?: string;
+      /** A relay's session for the room, when joining through a relay. */
+      session?: string;
+      /** Watch instead of play. */
+      spectate?: boolean;
+    };
 
 export interface LaunchRequest {
   /** Overrides Batocera's configured emulator/core for this launch only. */
@@ -124,6 +153,8 @@ export interface ThemeInfo {
   current: boolean;
   /** Why the theme cannot load, if it cannot. */
   unavailable: string | null;
+  /** Where to load the theme's logo from (`logo` in its theme.json), if it has one. */
+  logo: string | null;
 }
 
 export interface Controller {
@@ -204,16 +235,110 @@ export interface LibraryChanged {
 }
 
 export interface EventMap {
+  /** The user picked a view in Forma's views list (Select): show it. */
+  'nav:open': NavOpen;
+  /** A setting changed in Forma's menu: one of the theme's own, or Forma's (`display.margins`). */
+  'settings:changed': SettingsChanged;
   'music:changed': MusicStatus;
+  /**
+   * A new song started. Forma's shell shows it for `seconds`, unless the theme draws it itself
+   * (`"draws": ["nowPlaying"]` in its theme.json), then the theme does, for as long.
+   */
+  'music:song': MusicSong;
+  /** A controller came or went, or the connection changed (`forma.status.get()`). */
+  'status:changed': StatusBar;
   'store:progress': StoreProgress;
+  /** While `forma.bluetooth.pair()` looks for pads: what Batocera is doing. */
+  'bluetooth:pairing': BluetoothPairing;
+  /** While `forma.updates.install()` runs. */
+  'updates:progress': UpdateProgress;
   'game:start': GameStart;
   'game:end': GameEnd;
+  /**
+   * Shortly after `game:end`: the RetroAchievements the session earned, when it earned any.
+   * Forma's shell shows them, unless the theme draws them (`"draws": ["achievements"]`).
+   */
+  'ra:unlocked': RaSession;
   'library:changed': LibraryChanged;
   'views:changed': null;
   input: InputEvent;
 }
 
 export type Unsubscribe = () => void;
+
+/**
+ * What the theme shows now, for Forma's menu: its entries for the selected game or system
+ * ("Super Mario World options…") and the views list's "Showing" mark follow it.
+ */
+export interface ShellContext {
+  /** The view on screen. */
+  view?: string | null;
+  /** The selected system, or the system of the selected game. */
+  system?: { name: string; fullname: string } | null;
+  /** The selected game. */
+  game?: { id: number; name: string } | null;
+  /**
+   * The kind of list the selection moves in: Select opens Forma's options for it (for
+   * `systems`, the order they are listed in).
+   */
+  list?: 'categories' | 'systems' | 'games' | null;
+}
+
+/**
+ * How `library.systems()` lists systems, Forma's setting `library.systemsOrder` (scope
+ * `system`): `name` (A to Z, the default), `maker` (by manufacturer, then oldest first) or
+ * `year` (oldest first). The user sets it in Forma's Select menu; when it changes, Forma sends
+ * `settings:changed` and a theme reads `library.systems()` again.
+ */
+export type SystemsOrder = 'name' | 'maker' | 'year';
+
+/**
+ * What Forma shows in a corner of the screen: the controllers connected, by kind, and the
+ * connection. Forma's shell draws it; a theme restyles it (`forma-shell::part(status)`) or
+ * draws its own (`"draws": ["status"]` in its theme.json).
+ */
+export interface StatusBar {
+  /** In player order. */
+  controllers: ControllerStatus[];
+  /** `null` where Forma cannot tell (not on a Batocera box). */
+  network: NetworkLink | null;
+}
+
+export interface ControllerStatus {
+  /** 1-based. */
+  player: number;
+  name: string;
+  kind: ControllerKind;
+}
+
+/** By maker, else by name: for an icon. */
+export type ControllerKind = 'xbox' | 'playstation' | 'nintendo' | 'generic';
+
+export interface NetworkLink {
+  /** The connection in use: a cable before Wi-Fi; `none` when not connected. */
+  kind: 'ethernet' | 'wifi' | 'none';
+  /** The internet answers over it. */
+  internet: boolean;
+}
+
+/** A song that just started, as Forma announces it: the title without the file's extension. */
+export interface MusicSong {
+  title: string;
+  artist: string | null;
+  /** How long to show it: Forma's setting (Start → Music). Never 0: Forma says nothing then. */
+  seconds: number;
+}
+
+export interface NavOpen {
+  view: string;
+}
+
+export interface SettingsChanged {
+  /** `theme` for the theme's own settings (declared in `theme.json`), `system` for Forma's. */
+  scope: 'theme' | 'system';
+  key: string;
+  value: unknown;
+}
 
 /** An answer from an online service, and whether it is fresh. */
 export interface Fetched<T> {
@@ -258,6 +383,18 @@ export interface RaGame {
   achievements: RaAchievement[];
 }
 
+/** What a play session earned on RetroAchievements. */
+export interface RaSession {
+  /** Forma's game id. */
+  gameId: number;
+  /** The game's progress now, after the session. */
+  game: RaGame;
+  /** Earned during the session, in the order they were earned. */
+  unlocked: RaAchievement[];
+  /** Their points. */
+  points: number;
+}
+
 export interface RaAchievement {
   id: number;
   title: string;
@@ -289,8 +426,30 @@ export interface NetplayRoom {
   hasSpectatePassword: boolean;
   connectable: boolean;
   created: string | null;
-  /** The local game with the same name, when there is one. */
+  /** Found on the local network (`forma.netplay.lan()`), not in the lobby. */
+  lan: boolean;
+  /** Where to connect: the host, or its relay with the room's session. `null`: no way in. */
+  join: { host: string; port: number; session: string | null } | null;
+  /** The local game with the same name or CRC, when there is one. */
   localGameId: number | null;
+  /** The installed core that can join it (e.g. `fceumm`), when there is one. */
+  core: string | null;
+  /** How long connecting took, when measured (`maxPingMs`). */
+  pingMs: number | null;
+}
+
+/** Which rooms `forma.netplay.lobby()` and `lan()` keep. */
+export interface RoomFilter {
+  /** Only rooms playing a game on this box. */
+  owned?: boolean;
+  /** Only rooms an installed core can join. */
+  joinable?: boolean;
+  /** Only rooms without a password. */
+  open?: boolean;
+  /** Only rooms with this core (the room's name for it, e.g. `FCEUmm`), any case. */
+  coreName?: string;
+  /** Only rooms answering within this many milliseconds; measures each room's ping. */
+  maxPingMs?: number;
 }
 
 /** The box's own connections. Needs the `system.network` permission; Batocera only. */
@@ -422,8 +581,13 @@ export interface SystemSetting {
   /** `Display`, `Audio`, `Language & region`, `System` or `Storage`. */
   section: string;
   description: string;
-  kind: 'choice' | 'text';
+  /** One of `choices`, a whole number from `min` to `max` by `step` (the volume), or text. */
+  kind: 'choice' | 'number' | 'text';
   choices: OptionChoice[];
+  /** For a `number`; `null` otherwise. */
+  min: number | null;
+  max: number | null;
+  step: number | null;
   /** `null` when unset: Batocera's default applies. */
   value: string | null;
   /** When a change takes effect: at once, after Forma restarts, or after a reboot. */
@@ -465,6 +629,63 @@ export interface StoreProgress {
   stage: 'download' | 'install';
   /** 0–100; while installing it only shows that something is happening. */
   percent: number;
+}
+
+/** How much of one system is matched to RetroAchievements. */
+export interface RaMatch {
+  system: string;
+  /** Games on disk. */
+  games: number;
+  /** With a RetroAchievements hash: computed by Forma (rcheevos), or imported. */
+  hashed: number;
+  /** With a RetroAchievements game id, so `ra.game()` works for them. */
+  matched: number;
+}
+
+export interface RaMatches {
+  /** Forma is hashing or matching now: the numbers are still growing. */
+  running: boolean;
+  /** Each system RetroAchievements supports that has games. */
+  systems: RaMatch[];
+}
+
+/** The box's Batocera and the newest on Batocera's update server for it. */
+export interface UpdateCheck {
+  /** The version the box runs, e.g. `43.1`. */
+  current: string;
+  latest: string;
+  /** `stable`, `unstable` or `butterfly` (Batocera's `updates.type`). */
+  channel: string;
+  /** `latest` is not what the box runs. */
+  available: boolean;
+}
+
+/** While an update installs: Batocera's word on it, and how far when it says. */
+export interface UpdateProgress {
+  message: string;
+  percent: number | null;
+}
+
+/** A Bluetooth device Batocera has paired and trusts. */
+export interface BluetoothDevice {
+  /** `AA:BB:CC:DD:EE:FF`. */
+  address: string;
+  name: string;
+  /** A gamepad or joystick, by its Bluetooth class; else something else (a headset…). */
+  controller: boolean;
+  connected: boolean;
+}
+
+export interface BluetoothStatus {
+  /** Batocera's Bluetooth is on (`controllers.bluetooth.enabled`). Off, nothing is listed. */
+  enabled: boolean;
+  devices: BluetoothDevice[];
+}
+
+/** While pairing. */
+export interface BluetoothPairing {
+  /** Batocera's own words, e.g. `Discovering…` or `Pairing Wireless Controller`. */
+  message: string;
 }
 
 /** Something the music player can play. Its `id` is stable: a theme can remember it. */

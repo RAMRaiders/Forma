@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["crates/forma-core", "crates/forma-app"]
+# romdex, vendored by scripts/pin-romdex.sh, is its own workspace.
+exclude = ["vendor/romdex"]
 
 [workspace.package]
 version = "0.0.0"

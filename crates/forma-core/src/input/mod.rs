@@ -17,6 +17,58 @@ use serde::Serialize;
 pub use device::Device;
 pub use gamepad::{InputHandle, spawn};
 
+/// What a controller is, for an icon: by its maker, else its name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ControllerKind {
+    Xbox,
+    Playstation,
+    Nintendo,
+    /// Anything else: 8BitDo, arcade sticks, generic USB pads…
+    Generic,
+}
+
+/// A controller's kind from its SDL GUID (whose bytes 4–5 are the USB vendor, little-endian)
+/// and its name. The name decides for a third-party pad that copies a console's layout.
+pub fn controller_kind(guid: &str, name: &str) -> ControllerKind {
+    let name = name.to_lowercase();
+    let has = |words: &[&str]| words.iter().any(|w| name.contains(w));
+    if has(&["xbox", "x-box", "xinput"]) {
+        return ControllerKind::Xbox;
+    }
+    if has(&[
+        "playstation",
+        "dualshock",
+        "dualsense",
+        "ps3",
+        "ps4",
+        "ps5",
+        "sony",
+    ]) {
+        return ControllerKind::Playstation;
+    }
+    if has(&[
+        "nintendo",
+        "joy-con",
+        "pro controller",
+        "switch",
+        "wii",
+        "gamecube",
+    ]) {
+        return ControllerKind::Nintendo;
+    }
+    let vendor = guid
+        .get(8..12)
+        .and_then(|v| u16::from_str_radix(v, 16).ok())
+        .map(u16::swap_bytes);
+    match vendor {
+        Some(0x045e) => ControllerKind::Xbox,
+        Some(0x054c) => ControllerKind::Playstation,
+        Some(0x057e) => ControllerKind::Nintendo,
+        _ => ControllerKind::Generic,
+    }
+}
+
 /// A physical control, by position (Xbox/SDL convention: `south` is the bottom face button).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]

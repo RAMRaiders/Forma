@@ -28,6 +28,26 @@ batocera-services start forma                          # take over now, or reboo
 - `./uninstall.sh` disables the service and removes the program; `--purge` removes Forma's data
   too. Gamelists are never written; network settings are, as below.
 
+### What the AppImage carries
+
+Batocera has no WebKitGTK, so Forma brings the runtime Tauri needs: the AppImage bundles
+WebKitGTK 4.1 and JavaScriptCore with the GTK libraries they need, and GStreamer with its base
+and good plugins for video previews and the start-up animation. The libraries come from the
+build machine's Ubuntu 22.04 packages (`ubuntu-22.04-arm` for the Pi).
+
+| Measured on the Pi 5 (aarch64)       | Size   |
+| ------------------------------------ | ------ |
+| The AppImage                         | 130 MB |
+| Unpacked in `/userdata/system/forma` | 382 MB |
+| WebKitGTK and JavaScriptCore         | 115 MB |
+| GStreamer plugins                    | 19 MB  |
+
+**Licences.** WebKitGTK and JavaScriptCore are LGPL-2+ and BSD-2-Clause, with parts under
+Apache-2.0 and AFL-2.0; GStreamer and its plugins are LGPL-2+ and LGPL-2.1+. They are
+dynamically linked, unmodified, and each package's Debian `copyright` file ships in the
+AppImage's `usr/share/doc`, so the LGPL's terms (the user can replace the libraries) are met by
+the AppImage's layout itself.
+
 ## What Forma reads
 
 | Batocera file                                                | Used for                               |
@@ -48,6 +68,31 @@ Logging in calls RetroAchievements' `dorequest.php?r=login`, as ES does, and sav
 with its token (the emulators use the token; RetroArch clears the password). The netplay relay is
 one of `none`, `nyc`, `madrid`, `montreal`, `saopaulo` or `custom` (with
 `global.netplay.customserver`).
+
+## Updates
+
+System settings → Batocera updates (`forma.updates` in the SDK, `system.update` permission)
+does what EmulationStation's Updates menu does:
+
+- **Check:** `https://updates.batocera.org/<board>/<channel>/last/batocera.version` against
+  `/usr/share/batocera/batocera.version`. The board is `/boot/boot/batocera.board` (`rpi4`
+  downloads `rpi464`, as `batocera-upgrade` does), the channel `updates.type`, the server
+  `updates.url` when set.
+- **Install:** `batocera-upgrade`, only after the user confirms on a second page. Its
+  `… >>> 13%` lines become progress. The box restarts when the user chooses.
+
+## Controllers
+
+The menu's Controllers screen (`forma.bluetooth` in the SDK, `system.controllers` permission)
+shows the pads in use by player and drives Batocera's `batocera-bluetooth`, so EmulationStation
+sees the same pairings:
+
+| Change          | How                                                                                      |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Paired devices  | `batocera-bluetooth list`: trusted devices from `/var/lib/bluetooth`                     |
+| Pair            | `batocera-bluetooth trust input`: Batocera's agent looks for a minute, trusting each pad |
+| Connect, forget | `batocera-bluetooth connect`, `remove` (saved to `/userdata/system/bluetooth`)           |
+| On, off         | `batocera-bluetooth enable`/`disable`: `controllers.bluetooth.enabled` and its services  |
 
 ## Network settings
 
@@ -109,6 +154,24 @@ RetroAchievements unlocking stays in RetroArch, set up by Batocera from `batocer
 only shows progress, through the Web API, which needs the user's **web API key**: Batocera stores
 the account password for RetroArch, not that key. It is the Forma setting `ra.apiKey`; the
 username comes from `global.retroachievements.username` unless `ra.username` overrides it.
+
+**Matching games (#41).** Forma links [romdex](https://github.com/RAMRaiders/romdex), vendored in
+`vendor/romdex` at the commit in `PINNED` (`scripts/pin-romdex.sh` updates it), which hashes ROMs
+with rcheevos' own code, archives and discs included. After start-up, a background thread hashes
+one system at a time, waiting while a game runs; its cache (`romdex.sqlite` in
+`/userdata/system/forma`) keeps path, size and time, so after the first pass only changed files
+are read (11 minutes for 12,000 cartridge and arcade games on a Pi 5 the first time, 2 seconds
+after). Hashes are matched through `API_GetGameList.php?i=<console>&h=1&f=1`, once per console a
+week, when the web API key is set. CHD discs are not hashed yet (romdex R2).
+
+**Netplay (#43, #44).** Forma launches through Batocera's launcher as EmulationStation does:
+`-netplaymode host|client|spectator`, `-netplayip`, `-netplayport`, `-netplaypass` and, for a room
+behind a relay (`host_method` 3), the relay's address and `-netplaysession`. Joining picks the
+installed core whose `.info` `corename` (in `/usr/share/libretro/info`) is the room's core name,
+with `-emulator libretro`. Nickname, relay and port stay Batocera's `global.netplay.*`. Rooms on
+the local network are found with RetroArch's own discovery: a `RANQ` broadcast to UDP 55435,
+answered by every host not behind a relay with its `ad_packet` (`netplay_frontend.c`, RetroArch
+1.22).
 
 The netplay lobby is read from `lobby.libretro.com`. Answers from both are cached under
 `/userdata/system/forma/cache/`, and served marked stale when offline.

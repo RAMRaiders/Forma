@@ -44,11 +44,32 @@ pub struct LaunchRequest {
     pub netplay: Option<Netplay>,
 }
 
+/// Netplay through Batocera's launcher (`-netplaymode`, `-netplayip`, `-netplayport`,
+/// `-netplaypass`, `-netplaysession`), which sets RetroArch up as EmulationStation does. The
+/// rest (nickname, relay, the host's own port) comes from Batocera's `global.netplay.*`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(tag = "mode", rename_all = "camelCase")]
 pub enum Netplay {
-    Host { port: Option<u16> },
-    Client { host: String, port: u16 },
+    #[serde(rename_all = "camelCase")]
+    Host {
+        port: Option<u16>,
+        /// Players must give it to join.
+        #[serde(default)]
+        password: Option<String>,
+    },
+    #[serde(rename_all = "camelCase")]
+    Client {
+        host: String,
+        port: u16,
+        #[serde(default)]
+        password: Option<String>,
+        /// A relay's session for the room, when joining through a relay.
+        #[serde(default)]
+        session: Option<String>,
+        /// Watch instead of play.
+        #[serde(default)]
+        spectate: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -193,20 +214,46 @@ fn build_command(
     }
     match &request.netplay {
         None => {}
-        Some(Netplay::Host { port }) => {
+        Some(Netplay::Host { port, password }) => {
             argv.extend(["-netplaymode".to_owned(), "host".to_owned()]);
             if let Some(port) = port {
                 argv.extend(["-netplayport".to_owned(), port.to_string()]);
             }
+            if let Some(password) = password.as_deref().filter(|p| !p.is_empty()) {
+                argv.extend([
+                    "-netplaypass".to_owned(),
+                    checked_word(password, "password")?,
+                ]);
+            }
         }
-        Some(Netplay::Client { host, port }) => argv.extend([
-            "-netplaymode".to_owned(),
-            "client".to_owned(),
-            "-netplayip".to_owned(),
-            host.clone(),
-            "-netplayport".to_owned(),
-            port.to_string(),
-        ]),
+        Some(Netplay::Client {
+            host,
+            port,
+            password,
+            session,
+            spectate,
+        }) => {
+            argv.extend([
+                "-netplaymode".to_owned(),
+                if *spectate { "spectator" } else { "client" }.to_owned(),
+                "-netplayip".to_owned(),
+                checked_host(host)?,
+                "-netplayport".to_owned(),
+                port.to_string(),
+            ]);
+            if let Some(password) = password.as_deref().filter(|p| !p.is_empty()) {
+                argv.extend([
+                    "-netplaypass".to_owned(),
+                    checked_word(password, "password")?,
+                ]);
+            }
+            if let Some(session) = session.as_deref().filter(|s| !s.is_empty()) {
+                argv.extend([
+                    "-netplaysession".to_owned(),
+                    checked_word(session, "session")?,
+                ]);
+            }
+        }
     }
 
     if argv.is_empty() {
@@ -221,6 +268,40 @@ fn build_command(
         args: argv,
         log,
     })
+}
+
+/// A host name or address: letters, digits, dots, dashes and colons (IPv6), nothing a launcher
+/// could read as an option.
+fn checked_host(host: &str) -> Result<String> {
+    let host = host.trim();
+    let ok = !host.is_empty()
+        && host.len() <= 253
+        && !host.starts_with('-')
+        && host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':'));
+    if ok {
+        Ok(host.to_owned())
+    } else {
+        Err(Error::Invalid(format!(
+            "`{host}` is not a host name or address"
+        )))
+    }
+}
+
+/// One word for Batocera's launcher: no spaces or newlines (it writes it into RetroArch's
+/// config line by line) and not an option.
+fn checked_word(word: &str, what: &str) -> Result<String> {
+    let ok = word.len() <= 128
+        && !word.starts_with('-')
+        && word.chars().all(|c| c.is_ascii_graphic() && c != '"');
+    if ok {
+        Ok(word.to_owned())
+    } else {
+        Err(Error::Invalid(format!(
+            "the netplay {what} must be one word without quotes"
+        )))
+    }
 }
 
 /// Splits a command template on whitespace, keeping "quoted parts" together (quotes removed).

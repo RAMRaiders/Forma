@@ -15,6 +15,8 @@ pub const MUSIC_MANAGE: &str = "music.manage";
 pub const SETTINGS_EMULATORS: &str = "settings.emulators";
 pub const SYSTEM_SETTINGS: &str = "system.settings";
 pub const STORE_MANAGE: &str = "store.manage";
+pub const SYSTEM_CONTROLLERS: &str = "system.controllers";
+pub const SYSTEM_UPDATE: &str = "system.update";
 
 pub fn require(theme: &Theme, permission: &str) -> ApiResult<()> {
     if theme.has_permission(permission) {
@@ -39,8 +41,9 @@ pub enum Scope {
     System,
 }
 
-/// Where a setting is stored, after checking the theme may touch it.
-pub fn setting_key(theme: &Theme, scope: Scope, key: &str) -> ApiResult<String> {
+/// Where a setting is stored, after checking the caller may touch it. Forma's own shell
+/// (`by_shell`) may reach Forma's settings whatever the theme declares.
+pub fn setting_key(theme: &Theme, scope: Scope, key: &str, by_shell: bool) -> ApiResult<String> {
     if key.is_empty() || key.len() > 200 {
         return Err(ApiError::new(
             ErrorCode::Invalid,
@@ -50,7 +53,9 @@ pub fn setting_key(theme: &Theme, scope: Scope, key: &str) -> ApiResult<String> 
     match scope {
         Scope::Theme => Ok(format!("theme.{}.{key}", theme.id)),
         Scope::System => {
-            require(theme, SETTINGS_SYSTEM)?;
+            if !by_shell {
+                require(theme, SETTINGS_SYSTEM)?;
+            }
             if key.starts_with("theme.") {
                 // Another theme's private settings are not system settings.
                 return Err(ApiError::new(
@@ -70,6 +75,7 @@ mod tests {
 
     fn theme(permissions: &[&str]) -> Theme {
         Theme {
+            overrides: false,
             id: "neon".into(),
             dir: "/t".into(),
             origin: ThemeOrigin::User,
@@ -83,6 +89,10 @@ mod tests {
                 hierarchy: None,
                 resolutions: vec![],
                 remote: vec![],
+                settings: vec![],
+                views: None,
+                draws: vec![],
+                logo: None,
                 schema: None,
             }),
             unavailable: None,
@@ -100,21 +110,22 @@ mod tests {
     #[test]
     fn theme_settings_are_namespaced_and_free() {
         assert_eq!(
-            setting_key(&theme(&[]), Scope::Theme, "layout").unwrap(),
+            setting_key(&theme(&[]), Scope::Theme, "layout", false).unwrap(),
             "theme.neon.layout"
         );
     }
 
     #[test]
     fn system_settings_need_permission_and_cannot_reach_other_themes() {
-        let err = setting_key(&theme(&[]), Scope::System, "views.default").unwrap_err();
+        let err = setting_key(&theme(&[]), Scope::System, "views.default", false).unwrap_err();
+        assert!(setting_key(&theme(&[]), Scope::System, "views.default", true).is_ok());
         assert_eq!(err.code, ErrorCode::PermissionDenied);
         let admin = theme(&[SETTINGS_SYSTEM]);
         assert_eq!(
-            setting_key(&admin, Scope::System, "views.default").unwrap(),
+            setting_key(&admin, Scope::System, "views.default", false).unwrap(),
             "views.default"
         );
-        assert!(setting_key(&admin, Scope::System, "theme.other.secret").is_err());
-        assert!(setting_key(&admin, Scope::Theme, "").is_err());
+        assert!(setting_key(&admin, Scope::System, "theme.other.secret", true).is_err());
+        assert!(setting_key(&admin, Scope::Theme, "", false).is_err());
     }
 }

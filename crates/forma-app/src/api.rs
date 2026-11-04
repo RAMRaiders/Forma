@@ -41,10 +41,11 @@ impl From<forma_core::Error> for ApiError {
         let code = match &e {
             E::Launch(_) => ErrorCode::Launch,
             E::View(_) | E::Invalid(_) => ErrorCode::Invalid,
+            E::NotFound(_) => ErrorCode::NotFound,
             E::Unsupported(_) => ErrorCode::Unsupported,
             E::Network(_) => ErrorCode::Network,
             E::NotConfigured(_) => ErrorCode::NotConfigured,
-            E::Io { .. } | E::Parse { .. } | E::Db(_) => ErrorCode::Internal,
+            E::Io { .. } | E::Parse { .. } | E::Db(_) | E::Identify(_) => ErrorCode::Internal,
         };
         Self::new(code, e.to_string())
     }

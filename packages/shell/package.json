@@ -1,0 +1,15 @@
+{
+  "name": "@forma/shell",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Forma's own menus and entry cover, drawn over every theme.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@ramraiders/forma-sdk": "1.16.0",
+    "@tauri-apps/api": "2.12.4"
+  }
+}

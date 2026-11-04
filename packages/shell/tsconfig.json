@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@ramraiders/forma-sdk": ["../sdk/src/index.ts"],
+      "@ramraiders/forma-sdk/mock": ["../sdk/src/mock/index.ts"]
+    }
+  },
+  "include": ["src/**/*", "vite.config.ts"]
+}

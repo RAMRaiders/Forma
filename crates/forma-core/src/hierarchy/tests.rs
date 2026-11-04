@@ -1,6 +1,7 @@
 use super::*;
-use crate::library::Library;
+use crate::library::{Collection, Library};
 use crate::test_support::{fixture_copy, fixture_paths};
+use catalog::collections_view;
 
 fn library() -> Library {
     let mut lib = Library::open_in_memory().unwrap();
@@ -50,9 +51,12 @@ fn every_bundled_view_parses() {
             "systems",
             "manufacturer-system",
             "genre",
+            "all",
             "favorites",
             "recent",
-            "home"
+            "recommended",
+            "home",
+            "collections"
         ]
     );
 }
@@ -123,6 +127,16 @@ fn groups_sorted_by_count_keep_unknown_last() {
             g("", "Unknown", 5),
         ]
     );
+}
+
+#[test]
+fn every_game_in_one_list_a_to_z() {
+    let lib = library();
+    let all = games(&browse(&lib, &bundled("all"), &[]));
+    let mut sorted = all.clone();
+    sorted.sort_by_key(|n| n.to_lowercase());
+    assert!(all.len() > 1, "{all:?}");
+    assert_eq!(all, sorted);
 }
 
 #[test]
@@ -364,4 +378,172 @@ fn the_boot_view_setting_is_stored_with_the_library() {
     );
     lib.set_setting(DEFAULT_VIEW_SETTING, None).unwrap();
     assert_eq!(lib.setting(DEFAULT_VIEW_SETTING).unwrap(), None);
+}
+
+#[test]
+fn collections_are_emulationstations_files_and_a_view_of_their_own() {
+    let (_dir, paths) = fixture_copy();
+    let mut lib = Library::open_in_memory().unwrap();
+    lib.refresh(&paths).unwrap();
+    let id = |q: &str| lib.search(q, 1).unwrap()[0].id;
+    let (mario, zelda) = (id("super mario"), id("zelda"));
+
+    // One made in EmulationStation: a full path per line, one for a game no longer here.
+    let dir = paths.collections_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    let rom = |game: i64| {
+        let g = lib.game(game).unwrap().unwrap();
+        let system = lib.launch_target(game).unwrap().unwrap().1;
+        format!("{}/{}", system.rom_path.display(), g.path)
+    };
+    let (mario_rom, zelda_rom) = (rom(mario), rom(zelda));
+    let zelda_name = lib.game(zelda).unwrap().unwrap().name;
+    std::fs::write(
+        dir.join("custom-Couch Co-op.cfg"),
+        format!("{mario_rom}\n/userdata/roms/nes/Gone.nes\n\n"),
+    )
+    .unwrap();
+    lib.refresh(&paths).unwrap();
+    assert_eq!(
+        lib.collections().unwrap(),
+        [Collection {
+            name: "Couch Co-op".into(),
+            games: 1
+        }]
+    );
+    assert_eq!(lib.collections_of(mario).unwrap(), ["Couch Co-op"]);
+
+    // Made, filled and emptied from Forma: the file says the same.
+    lib.create_collection(&paths, " RPGs ").unwrap();
+    assert!(
+        lib.create_collection(&paths, "rpgs").is_err(),
+        "names are free of case"
+    );
+    lib.set_in_collection(&paths, "rpgs", zelda, true).unwrap();
+    lib.set_in_collection(&paths, "Couch Co-op", zelda, true)
+        .unwrap();
+    lib.set_in_collection(&paths, "Couch Co-op", zelda, true)
+        .unwrap();
+    let file = std::fs::read_to_string(dir.join("custom-Couch Co-op.cfg")).unwrap();
+    assert_eq!(
+        file,
+        format!("{mario_rom}\n/userdata/roms/nes/Gone.nes\n{zelda_rom}\n")
+    );
+    assert_eq!(lib.collections_of(zelda).unwrap(), ["Couch Co-op", "RPGs"]);
+
+    let view = collections_view(&["Couch Co-op".into(), "RPGs".into()]);
+    let root = browse(&lib, &view, &[]);
+    let Listing::Branches { items } = &root.listing else {
+        panic!("{root:?}")
+    };
+    let ids: Vec<(&str, i64)> = items
+        .iter()
+        .map(|b| (b.id.as_str(), b.game_count))
+        .collect();
+    assert_eq!(ids, [("couch-co-op", 2), ("rpgs", 1)]);
+    assert_eq!(games(&browse(&lib, &view, &["rpgs"])), [zelda_name]);
+    assert_eq!(
+        load_views(&paths).get("collections").unwrap().root,
+        view.root,
+        "from the files"
+    );
+
+    lib.set_in_collection(&paths, "Couch Co-op", mario, false)
+        .unwrap();
+    assert_eq!(lib.collections_of(mario).unwrap(), Vec::<String>::new());
+    lib.delete_collection(&paths, "rpgs").unwrap();
+    assert!(!dir.join("custom-RPGs.cfg").exists());
+    assert!(lib.delete_collection(&paths, "rpgs").is_err());
+    for bad in ["", "a/b", "..", ".hidden", &"x".repeat(65)] {
+        assert!(lib.create_collection(&paths, bad).is_err(), "{bad:?}");
+    }
+    assert!(
+        lib.set_in_collection(&paths, "Couch Co-op", 99_999, true)
+            .is_err()
+    );
+
+    // None at all: the view is an empty list, not an error.
+    let empty = collections_view(&[]);
+    assert!(games(&browse(&lib, &empty, &[])).is_empty());
+}
+
+#[test]
+fn recommended_is_unplayed_games_like_the_ones_played() {
+    let lib = library();
+    let view = bundled("recommended");
+    let all = games(&browse(&lib, &view, &[]));
+    assert!(!all.is_empty());
+    // Every visible game not played yet is a candidate.
+    let unplayed: i64 = lib
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM game WHERE present = 1 AND hidden = 0
+             AND play_count = 0 AND last_played IS NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(i64::try_from(all.len()).unwrap(), unplayed.min(50));
+
+    // Hours on two games of one system and genre: its other games come first; those two go.
+    let (system, played): (String, Vec<i64>) = {
+        let (system, genre): (String, String) = lib
+            .conn
+            .query_row(
+                "SELECT system, 'Puzzle' FROM game WHERE present = 1 AND hidden = 0
+                 GROUP BY system ORDER BY COUNT(*) DESC LIMIT 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        lib.conn
+            .execute(
+                "UPDATE game SET genre = ?1 WHERE system = ?2",
+                [&genre, &system],
+            )
+            .unwrap();
+        let ids: Vec<i64> = lib
+            .conn
+            .prepare("SELECT id FROM game WHERE system = ?1 AND present = 1 AND hidden = 0 ORDER BY id LIMIT 2")
+            .unwrap()
+            .query_map([&system], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        (system, ids)
+    };
+    for id in &played {
+        lib.conn
+            .execute(
+                "UPDATE game SET play_count = 5, game_time = 36000, last_played = '2026-11-01T20:00:00'
+                 WHERE id = ?1",
+                [id],
+            )
+            .unwrap();
+    }
+    let page = browse(&lib, &view, &[]);
+    let Listing::Games { items, .. } = &page.listing else {
+        panic!()
+    };
+    assert!(
+        items.iter().all(|g| !played.contains(&g.id)),
+        "played games are not recommended"
+    );
+    // Asked again with nothing changed: the kept answer, the same page.
+    assert_eq!(browse(&lib, &view, &[]), page);
+    let left: i64 = lib
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM game WHERE system = ?1 AND present = 1 AND hidden = 0
+             AND play_count = 0",
+            [&system],
+            |r| r.get(0),
+        )
+        .unwrap();
+    if left > 0 {
+        assert_eq!(
+            items[0].system, system,
+            "the most like what is played comes first"
+        );
+    }
 }

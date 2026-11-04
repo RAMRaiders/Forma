@@ -79,7 +79,9 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "sort": { "enum": ["name", "releaseDate", "rating", "lastPlayed", "playCount"] },
+            "sort": {
+              "enum": ["name", "releaseDate", "rating", "lastPlayed", "playCount", "recommended"]
+            },
             "order": { "enum": ["asc", "desc"] },
             "limit": { "type": "integer", "minimum": 0 }
           }
@@ -108,7 +110,8 @@
         "year": { "$ref": "#/$defs/range" },
         "players": { "$ref": "#/$defs/range" },
         "favorite": { "type": "boolean" },
-        "played": { "type": "boolean" }
+        "played": { "type": "boolean" },
+        "collection": { "type": "string" }
       }
     }
   }

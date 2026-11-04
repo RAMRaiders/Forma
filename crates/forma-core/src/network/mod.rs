@@ -140,7 +140,48 @@ pub struct Network {
 
 const CONNMAN_INIT: &str = "/etc/init.d/S08connman";
 
+/// How the box is connected, in a word, and whether the internet answers: for a status icon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Link {
+    pub kind: LinkKind,
+    /// connman's own check reached the internet over it.
+    pub internet: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LinkKind {
+    Ethernet,
+    Wifi,
+    /// Not connected.
+    None,
+}
+
 impl Network {
+    /// The connection in use (a cable before Wi-Fi), from one quick `connmanctl services`.
+    pub fn link(&self) -> Result<Link> {
+        let services = self.services()?;
+        let pick = services
+            .iter()
+            .find(|s| s.is_ethernet() && s.connected)
+            .or_else(|| services.iter().find(|s| s.is_wifi() && s.connected));
+        Ok(match pick {
+            Some(s) => Link {
+                kind: if s.is_ethernet() {
+                    LinkKind::Ethernet
+                } else {
+                    LinkKind::Wifi
+                },
+                internet: services.iter().any(|x| x.online),
+            },
+            None => Link {
+                kind: LinkKind::None,
+                internet: false,
+            },
+        })
+    }
+
     pub fn new(shell: Box<dyn Shell>, paths: &Paths) -> Self {
         Self {
             shell,

@@ -68,6 +68,7 @@ impl Harness {
             launcher: Box::new(MockLauncher::new(Duration::from_millis(20))),
             http: Box::new(FixtureHttp),
             network: Network::new(Box::new(SystemShell), &paths),
+            bluetooth: forma_core::bluetooth::Bluetooth::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             store: forma_core::store::Store::default(),
             system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
@@ -94,7 +95,10 @@ impl Harness {
             theme_ready: AtomicBool::new(false),
             ready_file: Some(root.join("forma.ready")),
             on_batocera: false,
+            see_through: false,
             input: Mutex::new(None),
+            shell: crate::shell::ShellState::default(),
+            shell_dir: None,
             sync: Mutex::new(None),
             paths,
         };
@@ -125,6 +129,23 @@ impl Harness {
     }
 
     fn call_from(&self, url: &str, cmd: &str, args: Value) -> Result<Value, Value> {
+        self.call_with(url, cmd, args, Default::default())
+    }
+
+    /// A call from Forma's shell, carrying `token`.
+    fn call_as_shell(&self, token: &str, cmd: &str, args: Value) -> Result<Value, Value> {
+        let mut headers = tauri::http::HeaderMap::new();
+        headers.insert(crate::shell::SHELL_HEADER, token.parse().unwrap());
+        self.call_with(PAGE, cmd, args, headers)
+    }
+
+    fn call_with(
+        &self,
+        url: &str,
+        cmd: &str,
+        args: Value,
+        headers: tauri::http::HeaderMap,
+    ) -> Result<Value, Value> {
         get_ipc_response(
             &self.window,
             InvokeRequest {
@@ -133,7 +154,7 @@ impl Harness {
                 error: CallbackFn(1),
                 url: url.parse().unwrap(),
                 body: InvokeBody::Json(args),
-                headers: Default::default(),
+                headers,
                 invoke_key: INVOKE_KEY.into(),
             },
         )
@@ -310,7 +331,11 @@ fn the_boot_view_can_be_chosen_from_the_ui() {
         "manufacturer-system"
     );
     let views = h.call("nav_views", json!({})).unwrap();
-    assert_eq!(views.as_array().unwrap().len(), 6);
+    assert_eq!(
+        views.as_array().unwrap().len(),
+        9,
+        "the bundled ones and collections"
+    );
 }
 
 #[test]
@@ -369,6 +394,38 @@ fn network_settings_need_permission_and_are_refused_outside_batocera() {
         )
         .unwrap_err();
     assert_eq!(code(&err), "unsupported");
+}
+
+#[test]
+fn bluetooth_needs_permission_and_is_refused_outside_batocera() {
+    let h = Harness::new(&[]);
+    let address = json!({ "address": "9C:DE:B3:05:06:07" });
+    for (cmd, args) in [
+        ("bluetooth_status", json!({})),
+        ("bluetooth_set_enabled", json!({ "enabled": false })),
+        ("bluetooth_pair", json!({})),
+        ("bluetooth_connect", address.clone()),
+        ("bluetooth_disconnect", address.clone()),
+        ("bluetooth_forget", address.clone()),
+    ] {
+        let err = h.call(cmd, args).unwrap_err();
+        assert_eq!(code(&err), "permissionDenied", "{cmd}");
+    }
+    let allowed = Harness::new(&["system.controllers"]);
+    let err = allowed.call("bluetooth_status", json!({})).unwrap_err();
+    assert_eq!(code(&err), "unsupported", "{err}");
+}
+
+#[test]
+fn updates_need_permission_and_are_refused_outside_batocera() {
+    let h = Harness::new(&[]);
+    for cmd in ["updates_check", "updates_install"] {
+        let err = h.call(cmd, json!({})).unwrap_err();
+        assert_eq!(code(&err), "permissionDenied", "{cmd}");
+    }
+    let allowed = Harness::new(&["system.update"]);
+    let err = allowed.call("updates_install", json!({})).unwrap_err();
+    assert_eq!(code(&err), "unsupported", "{err}");
 }
 
 #[test]
@@ -557,4 +614,196 @@ fn the_netplay_lobby_is_matched_to_local_games() {
         .clone();
     assert_eq!(rooms[0]["localGameId"], mario);
     assert_eq!(rooms[1]["localGameId"], Value::Null);
+    assert_eq!(
+        rooms[1]["join"]["session"], "a1b2c3d4e5",
+        "through its relay"
+    );
+
+    let owned = h
+        .call("netplay_lobby", json!({ "filter": { "owned": true } }))
+        .unwrap();
+    let owned = owned["data"].as_array().unwrap();
+    assert_eq!(owned.len(), 1);
+    assert_eq!(owned[0]["localGameId"], mario);
+}
+
+#[test]
+fn collections_are_made_filled_and_browsed_by_any_theme() {
+    let h = Harness::new(&[]);
+    let mario = h
+        .call("library_search", json!({ "query": "super mario" }))
+        .unwrap()[0]["id"]
+        .clone();
+    assert_eq!(h.call("collections_list", json!({})).unwrap(), json!([]));
+    assert_eq!(
+        h.call("collections_create", json!({ "name": "Couch co-op" }))
+            .unwrap(),
+        "Couch co-op"
+    );
+    h.call(
+        "collections_set",
+        json!({ "name": "couch CO-OP", "gameId": mario, "member": true }),
+    )
+    .unwrap();
+    assert_eq!(
+        h.call("collections_list", json!({})).unwrap(),
+        json!([{ "name": "Couch co-op", "games": 1 }])
+    );
+    assert_eq!(
+        h.call("collections_of", json!({ "gameId": mario }))
+            .unwrap(),
+        json!(["Couch co-op"])
+    );
+    let page = h
+        .call(
+            "nav_browse",
+            json!({ "view": "collections", "path": ["couch-co-op"] }),
+        )
+        .unwrap();
+    assert_eq!(page["listing"]["items"][0]["id"], mario);
+    let err = h
+        .call("collections_create", json!({ "name": "a/b" }))
+        .unwrap_err();
+    assert_eq!(err["code"], "invalid");
+    let err = h
+        .call("collections_delete", json!({ "name": "nope" }))
+        .unwrap_err();
+    assert_eq!(err["code"], "notFound");
+    h.call("collections_delete", json!({ "name": "Couch co-op" }))
+        .unwrap();
+    assert_eq!(h.call("collections_list", json!({})).unwrap(), json!([]));
+}
+
+#[test]
+fn the_shell_claims_its_token_once_and_then_may_do_what_forma_offers() {
+    // A theme with no permissions at all: Forma's menu still works over it.
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    assert_eq!(
+        code(&h.call("shell_claim", json!({})).unwrap_err()),
+        "permissionDenied"
+    );
+
+    let err = h
+        .call_as_shell(token, "system_power", json!({ "action": "shutdown" }))
+        .unwrap_err();
+    assert_eq!(
+        code(&err),
+        "unsupported",
+        "past the permission, refused off Batocera"
+    );
+    let err = h
+        .call_as_shell("guess", "system_power", json!({ "action": "shutdown" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+
+    h.call_as_shell(
+        token,
+        "settings_set",
+        json!({ "key": "display.margins", "value": 3, "scope": "system" }),
+    )
+    .unwrap();
+    assert_eq!(
+        h.call(
+            "settings_get",
+            json!({ "key": "display.margins", "scope": "system" })
+        )
+        .unwrap_err()["code"],
+        "permissionDenied",
+        "the theme itself still cannot"
+    );
+    assert_eq!(
+        h.call_as_shell(
+            token,
+            "settings_get",
+            json!({ "key": "display.margins", "scope": "system" })
+        )
+        .unwrap(),
+        3
+    );
+
+    // Only the shell opens its menu, or reads what it needs.
+    assert_eq!(
+        code(
+            &h.call("shell_set_open", json!({ "open": true }))
+                .unwrap_err()
+        ),
+        "permissionDenied"
+    );
+    assert_eq!(
+        code(&h.call("shell_info", json!({})).unwrap_err()),
+        "permissionDenied"
+    );
+    h.call_as_shell(token, "shell_set_open", json!({ "open": true }))
+        .unwrap();
+}
+
+#[test]
+fn the_theme_tells_the_shell_what_is_selected() {
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let context =
+        json!({ "view": "systems", "system": { "name": "snes", "fullname": "Super Nintendo" } });
+    h.call("shell_set_context", json!({ "context": context }))
+        .unwrap();
+    let info = h.call_as_shell(token, "shell_info", json!({})).unwrap();
+    assert_eq!(info["context"], context);
+    assert_eq!(info["theme"]["id"], "default");
+    assert_eq!(info["theme"]["settings"], json!([]));
+    assert_eq!(
+        code(
+            &h.call("shell_set_context", json!({ "context": 3 }))
+                .unwrap_err()
+        ),
+        "invalid"
+    );
+}
+
+#[test]
+fn the_shell_opens_a_view_in_the_theme() {
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let opened = Arc::new(Mutex::new(None));
+    let seen = opened.clone();
+    h.window.listen_any(crate::shell::EVENT_NAV_OPEN, move |e| {
+        *seen.lock().unwrap() = Some(e.payload().to_owned());
+    });
+    h.call_as_shell(token, "shell_open_view", json!({ "view": "genre" }))
+        .unwrap();
+    assert_eq!(
+        opened.lock().unwrap().as_deref(),
+        Some(r#"{"view":"genre"}"#)
+    );
+    assert_eq!(
+        code(
+            &h.call_as_shell(token, "shell_open_view", json!({ "view": "nope" }))
+                .unwrap_err()
+        ),
+        "notFound"
+    );
+}
+
+#[test]
+fn ra_matches_reports_each_ra_system_of_the_library() {
+    let h = Harness::new(&[]);
+    let report = h.call("ra_matches", json!({})).unwrap();
+    assert_eq!(report["running"], false);
+    let systems = report["systems"].as_array().unwrap();
+    let nes = systems.iter().find(|s| s["system"] == "nes").unwrap();
+    assert!(nes["games"].as_i64().unwrap() > 0);
+    // The fixture imports one hash and its id; the worker has not run.
+    assert_eq!(
+        (nes["hashed"].as_i64(), nes["matched"].as_i64()),
+        (Some(1), Some(1))
+    );
+    assert!(
+        systems.iter().all(|s| s["system"] != "ports"),
+        "no RA console"
+    );
 }

@@ -9,7 +9,11 @@
 import type { Backend } from '../backend.js';
 import { type ErrorCode, FormaError } from '../errors.js';
 import type {
+  BluetoothDevice,
   Browse,
+  Collection,
+  RaSession,
+  RoomFilter,
   BatoceraSetting,
   OptionItem,
   OptionsPage,
@@ -87,6 +91,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const settings = new Map<string, unknown>();
   const listeners = new Map<string, Set<Handler>>();
   let defaultView: string | null = null;
+  let shellContext: unknown = null;
   const network = structuredClone(snapshot.network);
   const radios = structuredClone(snapshot.music.radios);
   const musicSources = (): MusicSource[] => [
@@ -113,8 +118,18 @@ export function mockBackend(options: MockOptions = {}): Backend {
   };
   /** Changes the mock player, and tells listeners, as Forma does. */
   const playerSet = (change: Partial<MusicStatus>): MusicStatus => {
+    const before = music;
     music = { ...music, ...change };
     emit('music:changed', structuredClone(music));
+    // A new song, announced as Forma does: not a resume, and not when shown for 0 s.
+    const seconds = Number(settings.get('music.songSeconds') ?? 8);
+    const isNew =
+      music.state === 'playing' &&
+      music.title !== null &&
+      (music.title !== before.title || music.track !== before.track || before.state === 'stopped');
+    if (isNew && seconds > 0) {
+      emit('music:song', { title: music.title, artist: music.artist, seconds });
+    }
     return structuredClone(music);
   };
   const trackTitle = (n: number) => `Track ${n}`;
@@ -122,6 +137,20 @@ export function mockBackend(options: MockOptions = {}): Backend {
   let playing = false;
   const systemSettings = structuredClone(snapshot.system.settings);
   const store = structuredClone(snapshot.store);
+  const updates = { current: '43.1', latest: '44', channel: 'stable' };
+  /** Two pads paired, one of them on. */
+  const bluetooth: { enabled: boolean; devices: BluetoothDevice[] } = {
+    enabled: true,
+    devices: [
+      {
+        address: '00:06:F5:13:C3:50',
+        name: 'PLAYSTATION(R)3 Controller',
+        controller: true,
+        connected: false
+      },
+      { address: '58:2F:40:8A:11:20', name: '8BitDo Pro 2', controller: true, connected: true }
+    ]
+  };
   let storeBusy = false;
   /** One store operation at a time, as pacman's lock makes it. */
   const storeWork = async (work: () => Promise<void> | void): Promise<null> => {
@@ -258,10 +287,106 @@ export function mockBackend(options: MockOptions = {}): Backend {
     return `theme.mock.${key}`;
   };
 
+  // The user's collections, by name: one to start with, as a box with EmulationStation's.
+  const collections = new Map<string, number[]>([
+    [
+      'Couch co-op',
+      [...games.values()]
+        .filter((g) => !g.hidden)
+        .slice(0, 2)
+        .map((g) => g.id)
+    ]
+  ]);
+  const collection = (name: unknown): string =>
+    [...collections.keys()].find((n) => n.toLowerCase() === String(name).trim().toLowerCase()) ??
+    fail('notFound', `no collection called ${String(name)}`);
+  const slug = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'collection';
+  const sortedCollections = () =>
+    [...collections.keys()].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  const collectionsChanged = (system?: string) => {
+    emit('views:changed', null);
+    if (system) emit('library:changed', { systems: [system] } satisfies LibraryChanged);
+  };
+  /** The `collections` view, from the collections there are now. */
+  const browseCollections = (path: string[]): Browse => {
+    const names = sortedCollections();
+    const inIt = (name: string) =>
+      (collections.get(name) ?? [])
+        .map((id) => games.get(id))
+        .filter((g): g is Game => g !== undefined && !g.hidden)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    if (path.length === 0) {
+      return {
+        view: 'collections',
+        path,
+        trail: [],
+        listing: names.length
+          ? {
+              kind: 'branches',
+              items: names.map((n) => ({ id: slug(n), name: n, gameCount: inIt(n).length }))
+            }
+          : { kind: 'games', items: [], total: 0 }
+      };
+    }
+    const name =
+      names.find((n) => slug(n) === path[0]) ??
+      fail('invalid', 'no such path in view `collections`');
+    const items = inIt(name);
+    return {
+      view: 'collections',
+      path,
+      trail: [{ key: path[0]!, label: name }],
+      listing: { kind: 'games', items, total: items.length }
+    };
+  };
+
   const commands: Record<string, (args: Record<string, unknown>) => unknown> = {
     sdk_api_version: () => snapshot.apiVersion,
+    collections_list: (): Collection[] =>
+      sortedCollections().map((name) => ({
+        name,
+        games: (collections.get(name) ?? []).filter((id) => games.has(id)).length
+      })),
+    collections_of: ({ gameId }) =>
+      sortedCollections().filter((n) => collections.get(n)?.includes(gameId as number)),
+    collections_create: ({ name }) => {
+      const trimmed = String(name).trim();
+      if (
+        !trimmed ||
+        trimmed.length > 64 ||
+        /[/\\:*?"<>|]/.test(trimmed) ||
+        trimmed.startsWith('.')
+      ) {
+        fail('invalid', `\`${trimmed}\` cannot be a collection's name`);
+      }
+      if ([...collections.keys()].some((n) => n.toLowerCase() === trimmed.toLowerCase())) {
+        fail('invalid', `there is already a collection called ${trimmed}`);
+      }
+      collections.set(trimmed, []);
+      collectionsChanged();
+      return trimmed;
+    },
+    collections_delete: ({ name }) => {
+      collections.delete(collection(name));
+      collectionsChanged();
+      return null;
+    },
+    collections_set: ({ name, gameId, member }) => {
+      const key = collection(name);
+      const game =
+        games.get(gameId as number) ?? fail('notFound', `no game with id ${String(gameId)}`);
+      const ids = (collections.get(key) ?? []).filter((id) => id !== game.id);
+      collections.set(key, member ? [...ids, game.id] : ids);
+      collectionsChanged(game.system);
+      return null;
+    },
     theme_ready: () => null,
-    library_systems: () => snapshot.systems,
+    // In the order the user chose, as Forma lists them (`SystemsOrder`).
+    library_systems: () => orderSystems(snapshot.systems, settings.get('library.systemsOrder')),
     library_game: ({ id }) => {
       const game = games.get(id as number);
       return game ? present(game) : null;
@@ -289,6 +414,13 @@ export function mockBackend(options: MockOptions = {}): Backend {
     nav_browse: ({ view, path, page }) => {
       if (!snapshot.views.some((v) => v.id === view))
         fail('notFound', `no view \`${String(view)}\``);
+      if (view === 'collections') {
+        return paginate(
+          browseCollections((path as string[] | undefined) ?? []),
+          page as { offset: number; limit: number } | undefined,
+          present
+        );
+      }
       const key = JSON.stringify([view, ...((path as string[] | undefined) ?? [])]);
       const found =
         snapshot.browse[key] ?? fail('invalid', `no such path in view \`${String(view)}\``);
@@ -300,6 +432,22 @@ export function mockBackend(options: MockOptions = {}): Backend {
         fail('notFound', `no view ${JSON.stringify(id)}`);
       }
       defaultView = (id as string | null) ?? null;
+      return null;
+    },
+    shell_set_context: ({ context }) => {
+      shellContext = context ?? null;
+      return null;
+    },
+    // Forma's menu, as the mock plays it: a test can pick a view or change a setting as the
+    // user would, and the theme hears of it.
+    shell_open_view: ({ view }) => {
+      emit('nav:open', { view });
+      return null;
+    },
+    shell_info: () => ({ context: shellContext }),
+    shell_set_theme_setting: ({ key, value }) => {
+      settings.set(settingKey(String(key), 'theme'), value);
+      emit('settings:changed', { scope: 'theme', key, value });
       return null;
     },
     settings_get: ({ key, scope }) => settings.get(settingKey(String(key), scope)) ?? null,
@@ -317,12 +465,26 @@ export function mockBackend(options: MockOptions = {}): Backend {
         origin: 'user',
         permissions: [...permissions],
         current: true,
-        unavailable: null
+        unavailable: null,
+        logo: null
       }
     ],
     themes_select: ({ id }) =>
       id === 'mock' ? null : fail('notFound', `theme \`${String(id)}\` is not available`),
     input_controllers: () => [],
+    // One pad, on a cable, online: what the corner shows in a browser.
+    status_get: () => ({
+      controllers: [{ player: 1, name: 'Xbox 360 Controller', kind: 'xbox' }],
+      network: { kind: 'ethernet', internet: true }
+    }),
+    ra_matches: () => ({
+      running: false,
+      systems: [
+        { system: 'nes', games: 4, hashed: 4, matched: 3 },
+        { system: 'snes', games: 2, hashed: 2, matched: 1 },
+        { system: 'psx', games: 1, hashed: 0, matched: 0 }
+      ]
+    }),
     ra_user: () => {
       raConfigured();
       return fetched(snapshot.ra.user);
@@ -333,7 +495,69 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (!game) fail('notFound', `no RetroAchievements id is known for game ${String(id)} yet`);
       return fetched(game);
     },
-    netplay_lobby: () => fetched(snapshot.lobby),
+    netplay_lobby: ({ filter }) => fetched(rooms(snapshot.lobby, filter as RoomFilter | undefined)),
+    // A host next door: the lobby's first room, found on the local network.
+    netplay_lan: ({ filter }) =>
+      rooms(
+        snapshot.lobby.slice(0, 1).map((r) => ({
+          ...r,
+          id: -1,
+          lan: true,
+          host: '192.168.1.50',
+          join: { host: '192.168.1.50', port: r.port ?? 55435, session: null }
+        })),
+        filter as RoomFilter | undefined
+      ),
+    updates_check: () => {
+      updatesAllowed();
+      return { ...updates, available: updates.latest !== updates.current };
+    },
+    updates_install: async () => {
+      updatesAllowed();
+      if (updates.latest === updates.current) fail('unsupported', 'Batocera is up to date');
+      for (const percent of [0, 50, 100]) {
+        emit('updates:progress', { message: 'Downloading', percent });
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      emit('updates:progress', { message: 'Extracting files', percent: null });
+      updates.current = updates.latest;
+      return null;
+    },
+    bluetooth_status: () => {
+      bluetoothAllowed();
+      return {
+        enabled: bluetooth.enabled,
+        devices: bluetooth.enabled ? structuredClone(bluetooth.devices) : []
+      };
+    },
+    bluetooth_set_enabled: ({ enabled }) => {
+      bluetoothAllowed();
+      bluetooth.enabled = Boolean(enabled);
+      return null;
+    },
+    bluetooth_pair: async () => {
+      bluetoothAllowed();
+      if (!bluetooth.enabled) fail('unsupported', 'Bluetooth is off');
+      emit('bluetooth:pairing', { message: 'Discovering…' });
+      await new Promise((r) => setTimeout(r, 50));
+      const found = {
+        address: '9C:DE:B3:05:06:07',
+        name: 'Wireless Controller',
+        controller: true,
+        connected: true
+      };
+      emit('bluetooth:pairing', { message: `Pairing ${found.name}` });
+      if (bluetooth.devices.some((d) => d.address === found.address)) return [];
+      bluetooth.devices.push(found);
+      return [structuredClone(found)];
+    },
+    bluetooth_connect: ({ address }) => bluetoothDevice(address, (d) => (d.connected = true)),
+    bluetooth_disconnect: ({ address }) => bluetoothDevice(address, (d) => (d.connected = false)),
+    bluetooth_forget: ({ address }) => {
+      bluetoothDevice(address, () => {});
+      bluetooth.devices = bluetooth.devices.filter((d) => d.address !== address);
+      return null;
+    },
     network_status: () => {
       networkAllowed();
       return structuredClone(network.status);
@@ -451,7 +675,9 @@ export function mockBackend(options: MockOptions = {}): Backend {
         v === '' ||
         (s.kind === 'text'
           ? /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(v)
-          : s.choices.some((c) => c.value === v));
+          : s.kind === 'number'
+            ? /^\d+$/.test(v) && Number(v) >= (s.min ?? 0) && Number(v) <= (s.max ?? 100)
+            : s.choices.some((c) => c.value === v));
       if (!ok) fail('invalid', `\`${v}\` is not allowed for \`${s.key}\``);
       s.value = v === '' ? null : v;
       return null;
@@ -617,10 +843,41 @@ export function mockBackend(options: MockOptions = {}): Backend {
           error: null
         } satisfies GameEnd);
         emit('library:changed', { systems: [game.system] } satisfies LibraryChanged);
+        // A game RetroAchievements knows: the session earned what was still locked.
+        const ra = snapshot.ra.games[String(game.id)];
+        const locked = ra?.achievements.filter((x) => x.earnedAt === null) ?? [];
+        if (ra && locked.length) {
+          const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+          const unlocked = locked.map((x) => ({ ...x, earnedAt: now }));
+          emit('ra:unlocked', {
+            gameId: game.id,
+            game: {
+              ...ra,
+              earned: ra.earned + unlocked.length,
+              completion: (ra.earned + unlocked.length) / Math.max(1, ra.achievementCount)
+            },
+            unlocked,
+            points: unlocked.reduce((n, x) => n + x.points, 0)
+          } satisfies RaSession);
+        }
       }, playMs);
       return null;
     }
   };
+
+  /** As Forma filters rooms; every ping is 30 ms. */
+  function rooms(all: NetplayRoom[], filter: RoomFilter = {}): NetplayRoom[] {
+    return all
+      .filter(
+        (r) =>
+          (!filter.owned || r.localGameId !== null) &&
+          (!filter.joinable || (r.core !== null && r.join !== null)) &&
+          (!filter.open || !r.hasPassword) &&
+          (!filter.coreName || r.coreName.toLowerCase() === filter.coreName.toLowerCase())
+      )
+      .map((r) => (filter.maxPingMs === undefined ? r : { ...r, pingMs: 30 }))
+      .filter((r) => filter.maxPingMs === undefined || (r.pingMs ?? Infinity) <= filter.maxPingMs);
+  }
 
   function musicManage(): void {
     if (!permissions.has('music.manage')) {
@@ -650,6 +907,27 @@ export function mockBackend(options: MockOptions = {}): Backend {
     if (!permissions.has('settings.emulators')) {
       fail('permissionDenied', 'theme `mock` needs the `settings.emulators` permission');
     }
+  }
+
+  function updatesAllowed(): void {
+    if (!permissions.has('system.update')) {
+      fail('permissionDenied', 'theme `mock` needs the `system.update` permission');
+    }
+  }
+
+  function bluetoothAllowed(): void {
+    if (!permissions.has('system.controllers')) {
+      fail('permissionDenied', 'theme `mock` needs the `system.controllers` permission');
+    }
+  }
+
+  function bluetoothDevice(address: unknown, change: (d: BluetoothDevice) => void): null {
+    bluetoothAllowed();
+    const d =
+      bluetooth.devices.find((x) => x.address === address) ??
+      fail('invalid', `no paired device \`${String(address)}\``);
+    change(d);
+    return null;
   }
 
   function networkAllowed(): void {
@@ -715,4 +993,21 @@ function escapeXml(s: string): string {
     /[<>&"]/g,
     (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]!
   );
+}
+
+/** Forma's systems order (`SystemsOrder`): by name unless the setting says maker or year. */
+function orderSystems(systems: SystemSummary[], order: unknown): SystemSummary[] {
+  const name = (s: SystemSummary) => s.fullname.toLowerCase();
+  const year = (s: SystemSummary) => s.releaseYear ?? Number.MAX_SAFE_INTEGER;
+  const maker = (s: SystemSummary) => s.manufacturer?.trim().toLowerCase() || null;
+  const byName = (a: SystemSummary, b: SystemSummary) => name(a).localeCompare(name(b));
+  return [...systems].sort((a, b) => {
+    if (order === 'year') return year(a) - year(b) || byName(a, b);
+    if (order === 'maker') {
+      const [ma, mb] = [maker(a), maker(b)];
+      if (ma !== mb) return ma === null ? 1 : mb === null ? -1 : ma.localeCompare(mb);
+      return year(a) - year(b) || byName(a, b);
+    }
+    return byName(a, b);
+  });
 }
