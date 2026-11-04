@@ -76,4 +76,4 @@ jobs:
           name: forma-spike-${{ matrix.arch }}
           path: target/release/bundle/appimage/*.AppImage
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
