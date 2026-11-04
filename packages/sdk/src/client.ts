@@ -26,6 +26,7 @@ import type {
   ShellContext,
   StatusBar,
   SystemSummary,
+  ThemeCatalogue,
   ThemeInfo,
   Unsubscribe,
   ViewInfo,
@@ -186,7 +187,18 @@ export class Forma {
        * Deletes a theme the user installed (see `ThemeInfo.removable`): not one that comes with
        * Forma, nor the one in use. Needs the `themes.manage` permission.
        */
-      remove: (id: string) => invoke<void>('themes_remove', { id })
+      remove: (id: string) => invoke<void>('themes_remove', { id }),
+      /**
+       * The theme catalogue: themes to install, and updates to installed ones. Fetched at most
+       * every few hours; offline, the last one, `stale`.
+       */
+      catalogue: () => invoke<Fetched<ThemeCatalogue>>('themes_catalogue'),
+      /**
+       * Installs a theme from the catalogue, or updates it, once its download matches the
+       * catalogue's SHA-256 and it can load. The theme in use reloads into its new version.
+       * Needs the `themes.manage` permission.
+       */
+      install: (id: string) => invoke<void>('themes_install', { id })
     };
 
     this.input = {

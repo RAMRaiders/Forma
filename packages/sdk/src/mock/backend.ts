@@ -36,6 +36,9 @@ import type {
   RaUser,
   SystemSummary,
   ThemeInfo,
+  CatalogueTheme,
+  Fetched,
+  ThemeCatalogue,
   Unsubscribe,
   ViewInfo,
   WifiNetwork
@@ -99,9 +102,39 @@ export function mockBackend(options: MockOptions = {}): Backend {
       permissions: ['system.power'],
       permissionDescriptions: ['quit Forma, restart or shut down the machine'],
       removable: true,
+      update: '1.3.0',
       current: false,
       unavailable: null,
       logo: null
+    }
+  ];
+  // The theme catalogue: a newer Neon, and a theme not installed yet.
+  const catalogue: CatalogueTheme[] = [
+    {
+      id: 'neon',
+      name: 'Neon',
+      version: '1.3.0',
+      author: 'RAM Raiders',
+      description: 'Bright lines on black.',
+      permissions: ['system.power'],
+      permissionDescriptions: ['quit Forma, restart or shut down the machine'],
+      previews: [],
+      installed: '1.2.0',
+      update: true,
+      runsHere: true
+    },
+    {
+      id: 'paper',
+      name: 'Paper',
+      version: '0.4.0',
+      author: 'A theme author',
+      description: 'Quiet, light and printed.',
+      permissions: [],
+      permissionDescriptions: [],
+      previews: [],
+      installed: null,
+      update: false,
+      runsHere: true
     }
   ];
   const games = new Map<number, Game>(snapshot.games.map((g) => [g.id, structuredClone(g)]));
@@ -485,6 +518,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
         permissions: [...permissions],
         permissionDescriptions: [...permissions],
         removable: false,
+        update: null,
         current: true,
         unavailable: null,
         logo: null
@@ -495,6 +529,43 @@ export function mockBackend(options: MockOptions = {}): Backend {
       id === 'mock' || extraThemes.some((t) => t.id === id)
         ? null
         : fail('notFound', `theme \`${String(id)}\` is not available`),
+    themes_catalogue: (): Fetched<ThemeCatalogue> => ({
+      data: { themes: structuredClone(catalogue), skipped: [] },
+      stale: false,
+      fetchedAt: new Date().toISOString().slice(0, 19)
+    }),
+    themes_install: ({ id }) => {
+      if (!permissions.has('themes.manage')) {
+        fail('permissionDenied', 'theme `mock` needs the `themes.manage` permission');
+      }
+      const entry =
+        catalogue.find((c) => c.id === id) ??
+        fail('notFound', `no theme \`${String(id)}\` in the catalogue`);
+      entry.installed = entry.version;
+      entry.update = false;
+      const installed = extraThemes.find((t) => t.id === id);
+      if (installed) {
+        installed.version = entry.version;
+        installed.update = null;
+      } else {
+        extraThemes.push({
+          id: entry.id,
+          name: entry.name,
+          version: entry.version,
+          origin: 'user',
+          author: entry.author,
+          description: entry.description,
+          permissions: [...entry.permissions],
+          permissionDescriptions: [...entry.permissionDescriptions],
+          removable: true,
+          update: null,
+          current: false,
+          unavailable: null,
+          logo: null
+        });
+      }
+      return null;
+    },
     themes_remove: ({ id }) => {
       if (!permissions.has('themes.manage')) {
         fail('permissionDenied', 'theme `mock` needs the `themes.manage` permission');
@@ -503,6 +574,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const at = extraThemes.findIndex((t) => t.id === id);
       if (at < 0) fail('notFound', `no installed theme \`${String(id)}\``);
       extraThemes.splice(at, 1);
+      const listed = catalogue.find((c) => c.id === id);
+      if (listed) Object.assign(listed, { installed: null, update: false });
       return null;
     },
     input_controllers: () => [],

@@ -189,7 +189,7 @@ Remote origins must be `https://` and need the `network` permission.
 | `settings.batocera`  | RetroAchievements and netplay settings, and logging in to RetroAchievements (Batocera only) |
 | `settings.emulators` | Emulator, core and game options (Batocera only)                                             |
 | `settings.system`    | Reading and writing Forma settings, beyond the theme's own                                  |
-| `themes.manage`      | Removing installed themes                                                                   |
+| `themes.manage`      | Installing, updating and removing themes                                                    |
 | `network`            | Loading from the origins listed in `remote`                                                 |
 
 They are checked in Rust before each command runs; a missing one returns a
@@ -246,3 +246,35 @@ document.body.style.transform = margins > 0 ? `scale(${1 - (2 * margins) / 100})
 Fixed overlays live inside the body, so they shrink with it. Forma's menu sets it (Start →
 Interface → Screen margins), and tells the theme with `settings:changed`
 (`{ scope: "system", key: "display.margins", value }`).
+
+## Publishing to the theme catalogue
+
+Forma installs and updates themes from a catalogue: a JSON file, by default
+`catalogue.json` in [`RAMRaiders/forma-themes`](https://github.com/RAMRaiders/forma-themes)
+(the Forma setting `themes.catalogueUrl` points elsewhere, for a catalogue of your own).
+
+```json
+{
+  "themes": [
+    {
+      "id": "neon",
+      "name": "Neon",
+      "version": "1.2.0",
+      "author": "You",
+      "description": "Bright lines on black.",
+      "sdk": "^1",
+      "permissions": ["system.power"],
+      "previews": ["https://example.com/neon.png"],
+      "download": "https://github.com/you/neon/releases/download/v1.2.0/neon-1.2.0.zip",
+      "sha256": "…64 hex digits…"
+    }
+  ]
+}
+```
+
+The package is a zip of the built theme (`dist/`), with `theme.json` at its root or in one
+folder. Its `id` and `version` must match the entry. Forma refuses a package whose SHA-256
+differs, which has paths leaving the folder or links, or which cannot load. URLs must be
+`https://`. To publish an update, raise `version` in `theme.json`, attach the new zip to a
+release, and change `version`, `download` and `sha256` in the catalogue. Users see it in
+Interface as "Update to …".

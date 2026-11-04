@@ -24,6 +24,12 @@ pub struct HttpError {
 /// A blocking GET. Call it off the UI thread.
 pub trait Http: Send + Sync {
     fn get(&self, url: &str) -> std::result::Result<Vec<u8>, HttpError>;
+
+    /// A download larger than an API answer may be (a theme package), up to `limit` bytes.
+    fn download(&self, url: &str, limit: u64) -> std::result::Result<Vec<u8>, HttpError> {
+        let _ = limit;
+        self.get(url)
+    }
 }
 
 /// The real client: rustls with bundled root certificates, so it works on a Batocera image
@@ -48,17 +54,34 @@ impl Default for UreqHttp {
 
 impl Http for UreqHttp {
     fn get(&self, url: &str) -> std::result::Result<Vec<u8>, HttpError> {
-        let mut response = self.agent.get(url).call().map_err(|e| HttpError {
-            status: match &e {
-                ureq::Error::StatusCode(code) => Some(*code),
-                _ => None,
-            },
-            message: e.to_string(),
-        })?;
+        self.download(url, MAX_BODY)
+    }
+
+    fn download(&self, url: &str, limit: u64) -> std::result::Result<Vec<u8>, HttpError> {
+        // An API answer gets the agent's 15 s; a package on slow Wi-Fi gets minutes.
+        let timeout = if limit > MAX_BODY {
+            Duration::from_secs(600)
+        } else {
+            Duration::from_secs(15)
+        };
+        let mut response = self
+            .agent
+            .get(url)
+            .config()
+            .timeout_global(Some(timeout))
+            .build()
+            .call()
+            .map_err(|e| HttpError {
+                status: match &e {
+                    ureq::Error::StatusCode(code) => Some(*code),
+                    _ => None,
+                },
+                message: e.to_string(),
+            })?;
         response
             .body_mut()
             .with_config()
-            .limit(MAX_BODY)
+            .limit(limit)
             .read_to_vec()
             .map_err(|e| HttpError {
                 status: None,

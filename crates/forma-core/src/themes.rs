@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use crate::SDK_API_VERSION;
 use crate::paths::Paths;
 
+pub mod catalogue;
+
 /// Privileged capabilities a theme must declare in `permissions` before using them.
 pub const PERMISSIONS: &[(&str, &str)] = &[
     (
@@ -51,7 +53,7 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
         "see, pair, connect and forget Bluetooth controllers",
     ),
     ("system.update", "check for and install Batocera updates"),
-    ("themes.manage", "remove installed themes"),
+    ("themes.manage", "install, update and remove themes"),
     (
         "network",
         "load content from the internet (the origins listed in `remote`)",

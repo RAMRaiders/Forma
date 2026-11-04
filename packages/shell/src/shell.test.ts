@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.17.0', false);
+  const forma = new Forma(backend, '1.18.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -230,6 +230,42 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Interface']));
     await vi.waitFor(() => expect(rows()).not.toContain('Neon 1.2.0'));
     expect((await forma.themes.list()).map((t) => t.id)).toEqual(['mock']);
+  });
+
+  it('interface: installs from the catalogue and updates an installed theme', async () => {
+    const { press, text, openMenu, forma } = start(['themes.manage']);
+    await openMenu('Interface');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(rows()).toContain('Get more themes…'));
+    expect(details()[rows().indexOf('Neon 1.2.0')]).toMatch(/^Update to 1\.3\.0 · /);
+    while (selected() !== 'Get more themes…') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Neon 1.3.0', 'Paper 0.4.0']));
+    expect(details()).toEqual(['Installed 1.2.0 · update to 1.3.0', 'By A theme author']);
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Paper']));
+    expect(rows()).toContain('Only show your library and play games');
+    while (selected() !== 'Install') await press('down');
+    await press('confirm');
+    await vi.waitFor(async () =>
+      expect((await forma.themes.list()).map((t) => t.id)).toContain('paper')
+    );
+    await press('back');
+    await vi.waitFor(() => expect(details()[1]).toBe('Installed'));
+    // Neon asks for a permission: Update takes a second press.
+    await press('up');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Neon']));
+    while (selected() !== 'Update to 1.3.0') await press('down');
+    await press('confirm');
+    expect((await forma.themes.list()).find((t) => t.id === 'neon')?.version).toBe('1.2.0');
+    await press('confirm');
+    await vi.waitFor(async () =>
+      expect((await forma.themes.list()).find((t) => t.id === 'neon')?.version).toBe('1.3.0')
+    );
   });
 
   it('on Select over systems, offers their order, for every theme, and shuts on Select', async () => {

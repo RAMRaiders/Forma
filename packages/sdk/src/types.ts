@@ -158,11 +158,39 @@ export interface ThemeInfo {
   permissionDescriptions: string[];
   /** Installed by the user and not in use: `themes.remove` can take it away. */
   removable: boolean;
+  /** A newer version in the theme catalogue (as fetched last); `themes.install` gets it. */
+  update: string | null;
   current: boolean;
   /** Why the theme cannot load, if it cannot. */
   unavailable: string | null;
   /** Where to load the theme's logo from (`logo` in its theme.json), if it has one. */
   logo: string | null;
+}
+
+/** A theme in the catalogue (`themes.catalogue()`), to install or update from Forma. */
+export interface CatalogueTheme {
+  id: string;
+  name: string;
+  version: string;
+  author: string | null;
+  description: string | null;
+  /** What it would ask for, as in its theme.json, and the same in words. */
+  permissions: string[];
+  permissionDescriptions: string[];
+  /** `https://` pictures of it. */
+  previews: string[];
+  /** The version installed now, if any. */
+  installed: string | null;
+  /** Installed, and this is a newer version this Forma can run. */
+  update: boolean;
+  /** This Forma can run it (its SDK range allows this Forma's). */
+  runsHere: boolean;
+}
+
+export interface ThemeCatalogue {
+  themes: CatalogueTheme[];
+  /** Entries left out, and why. */
+  skipped: string[];
 }
 
 export interface Controller {
