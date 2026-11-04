@@ -159,6 +159,38 @@ fn the_users_favourite_survives_a_gamelist_reimport() {
 }
 
 #[test]
+fn write_back_is_off_until_turned_on_then_reaches_the_gamelist() {
+    let (_dir, paths) = fixture_copy();
+    let mut lib = Library::open_in_memory().unwrap();
+    lib.refresh(&paths).unwrap();
+    let gamelist = paths.roms().join("nes/gamelist.xml");
+    let before = std::fs::read_to_string(&gamelist).unwrap();
+    let mario = by_name(&lib.games("nes").unwrap(), "Super Mario Bros.").id;
+
+    lib.set_favorite(mario, false).unwrap();
+    assert!(!lib.write_back_to_gamelist(&paths, mario).unwrap());
+    assert_eq!(std::fs::read_to_string(&gamelist).unwrap(), before);
+
+    lib.set_setting(GAMELIST_WRITE_BACK_SETTING, Some("true"))
+        .unwrap();
+    lib.record_play(mario, SystemTime::UNIX_EPOCH, Duration::from_secs(60))
+        .unwrap();
+    assert!(lib.write_back_to_gamelist(&paths, mario).unwrap());
+    let after = std::fs::read_to_string(&gamelist).unwrap();
+    assert!(!after.contains("<favorite>"), "{after}");
+    assert!(after.contains("<playcount>13</playcount>"));
+    assert!(after.contains("<lastplayed>19700101T000000</lastplayed>"));
+    assert!(after.contains("<someFutureTag>kept, not understood</someFutureTag>"));
+
+    // The watcher's re-import reads back what was written; nothing is written again.
+    lib.refresh(&paths).unwrap();
+    let game = lib.game(mario).unwrap().unwrap();
+    assert!(!game.favorite);
+    assert_eq!(game.play_count, 13);
+    assert!(!lib.write_back_to_gamelist(&paths, mario).unwrap());
+}
+
+#[test]
 fn a_missing_file_keeps_its_row_and_comes_back_with_its_data() {
     let (_dir, paths) = fixture_copy();
     let mut lib = Library::open_in_memory().unwrap();
