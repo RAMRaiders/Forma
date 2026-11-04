@@ -217,8 +217,8 @@ fn picture(
         lines.push(("theme", "Theme", shown));
     }
     // The logo as the cover draws it: 2.6vh high, 1vh before the version.
-    let logo_h = 2.6 * vh;
-    let logo_lead = logo.map_or(0.0, |l| logo_h * l.aspect + vh);
+    let theme_logo_h = 2.6 * vh;
+    let logo_lead = logo.map_or(0.0, |l| theme_logo_h * l.aspect + vh);
     // DejaVu Sans widths of the names, in em; DejaVu Sans Mono is 0.602em a character.
     let name_em = |n: &str| match n {
         "Batocera" => 4.42,
@@ -275,11 +275,12 @@ fn picture(
         let mut x_text = x_version;
         if let (true, Some(l)) = (*kind == "theme", logo) {
             versions += &format!(
-                r#"<image href="{src}" x="{x:.1}" y="{y:.1}" width="{lw:.1}" height="{logo_h:.1}"/>"#,
+                r#"<image href="{src}" x="{x:.1}" y="{y:.1}" width="{lw:.1}" height="{lh:.1}"/>"#,
                 src = l.src,
                 x = x_version,
-                y = mid - logo_h / 2.0,
-                lw = logo_h * l.aspect,
+                y = mid - theme_logo_h / 2.0,
+                lw = theme_logo_h * l.aspect,
+                lh = theme_logo_h,
             );
             x_text += logo_lead;
         }
@@ -414,6 +415,8 @@ mod tests {
             "the version, without the name"
         );
         assert!(!svg.contains(">Cyber 0.7.12</text>"));
+        // Forma's own logo, in the middle, keeps its 24vh whatever the theme's logo.
+        assert!(svg.contains(r#"width="191.4" height="259.2" viewBox="0 0 96 130""#));
     }
 
     #[test]
