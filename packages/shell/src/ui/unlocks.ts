@@ -12,7 +12,7 @@ function picture(src: string | null, cls: string, part?: string): HTMLElement {
 }
 
 /** How long the card stays: long enough to read four achievements. */
-export const UNLOCKS_MS = 12_000;
+const UNLOCKS_MS = 12_000;
 /** Shown one by one; the rest are counted. */
 const SHOWN = 4;
 

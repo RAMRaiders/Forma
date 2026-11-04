@@ -64,6 +64,10 @@ export class App {
   async start(): Promise<void> {
     this.forma.input.on((e) => this.#onInput(e));
     this.forma.events.on('library:changed', () => this.#reloadSoon());
+    // The user chose another order for systems in Forma's Select menu: list them so.
+    this.forma.events.on('settings:changed', ({ scope, key }) => {
+      if (scope === 'system' && key === 'library.systemsOrder') this.#reloadSoon();
+    });
     this.forma.events.on('views:changed', () => void this.#loadViews());
     // Forma's views list (Select) picked one.
     this.forma.events.on('nav:open', ({ view }) => void this.#open(view));
@@ -217,7 +221,9 @@ export class App {
       .setContext({
         view: this.#view,
         game: game ? { id: game.id, name: game.name } : null,
-        system: game ? { name: game.system, fullname: game.system } : null
+        system: game ? { name: game.system, fullname: game.system } : null,
+        // Select then offers the order of what is listed.
+        list: this.#list ? 'games' : this.#view === 'systems' ? 'systems' : null
       })
       .catch(() => {});
   }

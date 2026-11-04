@@ -277,7 +277,20 @@ export interface ShellContext {
   system?: { name: string; fullname: string } | null;
   /** The selected game. */
   game?: { id: number; name: string } | null;
+  /**
+   * The kind of list the selection moves in: Select opens Forma's options for it (for
+   * `systems`, the order they are listed in).
+   */
+  list?: 'categories' | 'systems' | 'games' | null;
 }
+
+/**
+ * How `library.systems()` lists systems, Forma's setting `library.systemsOrder` (scope
+ * `system`): `name` (A to Z, the default), `maker` (by manufacturer, then oldest first) or
+ * `year` (oldest first). The user sets it in Forma's Select menu; when it changes, Forma sends
+ * `settings:changed` and a theme reads `library.systems()` again.
+ */
+export type SystemsOrder = 'name' | 'maker' | 'year';
 
 /**
  * What Forma shows in a corner of the screen: the controllers connected, by kind, and the

@@ -1,4 +1,10 @@
-import type { BatoceraSetting, Forma, MusicSource, MusicStatus } from '@ramraiders/forma-sdk';
+import type {
+  BatoceraSetting,
+  Forma,
+  MusicSource,
+  MusicStatus,
+  SystemsOrder
+} from '@ramraiders/forma-sdk';
 
 import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
@@ -465,4 +471,44 @@ export function interfaceScreen(
       run: () => pick(1)
     };
   }
+}
+
+/** Forma's setting for how every theme lists systems (`SystemsOrder` in the SDK). */
+const SYSTEMS_ORDER_SETTING = 'library.systemsOrder';
+
+const SYSTEMS_ORDERS: { value: SystemsOrder; label: string }[] = [
+  { value: 'name', label: 'Name (A to Z)' },
+  { value: 'maker', label: 'Manufacturer' },
+  { value: 'year', label: 'Year' }
+];
+
+/**
+ * Select's page while the theme shows systems: the order they are listed in, for every theme;
+ * and the views list, when the theme shows more than one.
+ */
+export function systemsScreen(forma: Forma, page: Page, views?: () => void): () => Promise<Row[]> {
+  return async () => {
+    const saved = await forma.settings.getSystem<string>(SYSTEMS_ORDER_SETTING).catch(() => null);
+    const at = Math.max(
+      0,
+      SYSTEMS_ORDERS.findIndex((o) => o.value === saved)
+    );
+    const pick = (step: -1 | 1) => {
+      const next = SYSTEMS_ORDERS[(at + step + SYSTEMS_ORDERS.length) % SYSTEMS_ORDERS.length]!;
+      return page.run('Sorting…', () =>
+        forma.settings.setSystem(SYSTEMS_ORDER_SETTING, next.value)
+      );
+    };
+    const rows: Row[] = [
+      {
+        heading: 'Systems',
+        label: `Order: ${SYSTEMS_ORDERS[at]!.label}`,
+        detail: 'How systems are listed, in every theme · ◀ ▶ to change',
+        adjust: pick,
+        run: () => pick(1)
+      }
+    ];
+    if (views) rows.push({ heading: 'Views', label: 'Change view…', run: views });
+    return rows;
+  };
 }

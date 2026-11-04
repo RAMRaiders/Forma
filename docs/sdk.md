@@ -57,7 +57,7 @@ placeholder images for media. `forma.backendKind` says which one you got.
 
 | Method                      | Returns                                                       |
 | --------------------------- | ------------------------------------------------------------- |
-| `systems()`                 | Systems with visible games, in Batocera's order               |
+| `systems()`                 | Systems with visible games, in the order the user chose       |
 | `game(id)`                  | One game, or `null`                                           |
 | `search(query, limit = 50)` | Games matching every word as a prefix, accents ignored        |
 | `setFavorite(id, favorite)` | Records the user's choice; emits `library:changed`            |
@@ -136,12 +136,17 @@ never reach the theme. While one of Forma's menus is open, no input reaches the 
 
 Forma's own menus, over every theme (see [Theme authoring](theme-authoring.md)).
 
-| Method                | Does                                                                     |
-| --------------------- | ------------------------------------------------------------------------ |
-| `setContext(context)` | Tells the menu what is on screen: `{ view, system, game }`, each or null |
+| Method                | Does                                                                           |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `setContext(context)` | Tells the menu what is on screen: `{ view, system, game, list }`, each or null |
 
 `system` is `{ name, fullname }`, `game` is `{ id, name }`. The menu offers options for them
-(Start → "Super Metroid options…") and marks `view` in the views list.
+(Start → "Super Metroid options…") and marks `view` in the views list. `list` is the kind of list
+the selection moves in (`categories`, `systems` or `games`): Select opens Forma's options for it.
+Over `systems`, that is their order (`SystemsOrder`: `name`, the default, `maker` or `year`),
+Forma's setting `library.systemsOrder` for every theme. `library.systems()` comes in that order,
+so keep it rather than sorting; when it changes, Forma sends `settings:changed` (scope
+`system`) and the theme reads `library.systems()` again.
 
 ## `events`
 

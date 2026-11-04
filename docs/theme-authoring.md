@@ -62,9 +62,10 @@ whatever the theme's `permissions` say.
 
 A theme works with the menus in three ways:
 
-- **What is on screen.** `forma.shell.setContext({ view, system, game })` as the selection
-  moves; the menu then offers options for that game and system, and the views list marks the
-  view shown.
+- **What is on screen.** `forma.shell.setContext({ view, system, game, list })` as the
+  selection moves; the menu then offers options for that game and system, the views list marks
+  the view shown, and Select opens Forma's options for the `list` shown (for `systems`, their
+  order). Systems come from `library.systems()` already in the user's order: keep it.
 - **Views.** When the user picks a view in Forma's list, the theme receives `nav:open` with its
   id and shows it. Forma keeps which view to open with (`nav.defaultView()`).
 - **Its own settings.** Declare them in `theme.json`; Forma's menu shows them under Interface,

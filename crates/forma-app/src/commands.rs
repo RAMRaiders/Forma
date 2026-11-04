@@ -76,7 +76,7 @@ pub fn theme_ready<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) {
 
 #[tauri::command]
 pub fn library_systems(state: State<'_, AppState>) -> ApiResult<Vec<SystemSummary>> {
-    Ok(state.library().systems()?)
+    Ok(state.library().systems_in_order()?)
 }
 
 #[tauri::command]

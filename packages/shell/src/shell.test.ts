@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.15.0', false);
+  const forma = new Forma(backend, '1.16.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -210,6 +210,37 @@ describe('Forma’s shell', () => {
     await openMenu('Interface');
     await vi.waitFor(() => expect(text('.page li .name').length).toBeGreaterThan(0));
     expect(text('.page li .name').some((n) => n.startsWith('Start on'))).toBe(false);
+  });
+
+  it('on Select over systems, offers their order, for every theme, and shuts on Select', async () => {
+    const { press, text, shell, forma } = start(
+      ['settings.system'],
+      { view: 'systems', list: 'systems' },
+      ['systems']
+    );
+    await press('select');
+    await vi.waitFor(() => expect(text('.page li .name').length).toBeGreaterThan(0));
+    expect(text('.page h2')).toEqual(['Systems']);
+    expect(text('.page li .name')).toEqual(['Order: Name (A to Z)']);
+    await press('right');
+    await vi.waitFor(() => expect(text('.page li .name')).toEqual(['Order: Manufacturer']));
+    expect(await forma.settings.getSystem('library.systemsOrder')).toBe('maker');
+    const makers = (await forma.library.systems()).map((s) => s.manufacturer ?? '');
+    // By maker; those without one last.
+    const named = makers.filter(Boolean);
+    expect(named).toEqual([...named].sort((a, b) => a.localeCompare(b)));
+    expect(makers.slice(named.length).every((m) => m === '')).toBe(true);
+    await press('left');
+    await press('left');
+    await vi.waitFor(() => expect(text('.page li .name')).toEqual(['Order: Year']));
+    await press('select');
+    expect(shell.open).toBe(false);
+  });
+
+  it('on Select elsewhere, still offers the views', async () => {
+    const { press, text } = start([], { view: 'systems', list: 'games' }, ['systems']);
+    await press('select');
+    expect(text('.toast')).toEqual(['Neon shows the library one way']);
   });
 
   it('opens its menu on Start, over any theme, and tells Forma input is its own', async () => {

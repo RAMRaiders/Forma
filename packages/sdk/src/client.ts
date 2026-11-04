@@ -136,6 +136,7 @@ export class Forma {
       call<T>(backend, command, args);
 
     this.library = {
+      /** In the order the user chose (`SystemsOrder`): keep it, rather than sorting them. */
       systems: () => invoke<SystemSummary[]>('library_systems'),
       game: (id: number) => invoke<Game | null>('library_game', { id }),
       search: (query: string, limit?: number) => invoke<Game[]>('library_search', { query, limit }),

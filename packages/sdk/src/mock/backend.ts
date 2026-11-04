@@ -385,7 +385,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return null;
     },
     theme_ready: () => null,
-    library_systems: () => snapshot.systems,
+    // In the order the user chose, as Forma lists them (`SystemsOrder`).
+    library_systems: () => orderSystems(snapshot.systems, settings.get('library.systemsOrder')),
     library_game: ({ id }) => {
       const game = games.get(id as number);
       return game ? present(game) : null;
@@ -992,4 +993,21 @@ function escapeXml(s: string): string {
     /[<>&"]/g,
     (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]!
   );
+}
+
+/** Forma's systems order (`SystemsOrder`): by name unless the setting says maker or year. */
+function orderSystems(systems: SystemSummary[], order: unknown): SystemSummary[] {
+  const name = (s: SystemSummary) => s.fullname.toLowerCase();
+  const year = (s: SystemSummary) => s.releaseYear ?? Number.MAX_SAFE_INTEGER;
+  const maker = (s: SystemSummary) => s.manufacturer?.trim().toLowerCase() || null;
+  const byName = (a: SystemSummary, b: SystemSummary) => name(a).localeCompare(name(b));
+  return [...systems].sort((a, b) => {
+    if (order === 'year') return year(a) - year(b) || byName(a, b);
+    if (order === 'maker') {
+      const [ma, mb] = [maker(a), maker(b)];
+      if (ma !== mb) return ma === null ? 1 : mb === null ? -1 : ma.localeCompare(mb);
+      return year(a) - year(b) || byName(a, b);
+    }
+    return byName(a, b);
+  });
 }

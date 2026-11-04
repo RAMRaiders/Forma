@@ -29,14 +29,14 @@ function fakeBackend(host = SDK_VERSION, rejections: Record<string, object> = {}
 
 describe('connect', () => {
   it('checks the host version, then reports the theme ready', async () => {
-    const { backend, calls } = fakeBackend('1.15.0');
+    const { backend, calls } = fakeBackend('1.16.0');
     const sdk = await connect({ backend });
-    expect(sdk.hostVersion).toBe('1.15.0');
+    expect(sdk.hostVersion).toBe('1.16.0');
     expect(calls).toEqual(['sdk_api_version', 'theme_ready']);
   });
 
   it('can leave reporting ready to the theme, for once its first screen is drawn', async () => {
-    const { backend, calls } = fakeBackend('1.15.0');
+    const { backend, calls } = fakeBackend('1.16.0');
     const sdk = await connect({ backend, deferReady: true });
     expect(calls).toEqual(['sdk_api_version']);
     await sdk.ready();
@@ -44,7 +44,7 @@ describe('connect', () => {
   });
 
   it('tells Forma’s menu what is on screen', async () => {
-    const { backend, calls } = fakeBackend('1.15.0');
+    const { backend, calls } = fakeBackend('1.16.0');
     const sdk = await connect({ backend });
     await sdk.shell.setContext({ view: 'systems', game: { id: 1, name: 'Zelda' } });
     expect(calls).toContain('shell_set_context');

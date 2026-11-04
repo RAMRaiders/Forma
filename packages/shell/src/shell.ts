@@ -19,7 +19,8 @@ import {
   interfaceScreen,
   musicScreen,
   netplayScreen,
-  retroAchievementsScreen
+  retroAchievementsScreen,
+  systemsScreen
 } from './ui/screens.js';
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
 import { StatusView } from './ui/status.js';
@@ -204,7 +205,18 @@ export class Shell {
       // Opened afresh: nothing to go back to.
       this.#returnTo = null;
       if (e.action === 'start') void this.#openMenu();
-      else if (e.action === 'select') void this.#openViews();
+      else if (e.action === 'select') void this.#openContext();
+      return;
+    }
+    // Select shuts the page it opened, as it shuts the views list.
+    if (
+      e.pressed &&
+      !e.repeat &&
+      e.action === 'select' &&
+      this.#page.open &&
+      this.#pageKind === 'context'
+    ) {
+      this.#closeAll();
       return;
     }
     // Start shuts whatever is open, from anywhere, unless the keyboard is typing.
@@ -392,6 +404,26 @@ export class Shell {
       info?.theme.logo ? { src: info.theme.logo, name: info.theme.name } : undefined
     );
     this.#menu.select(Math.min(at, items.length - 1));
+    this.#changed();
+  }
+
+  /**
+   * Select: Forma's options for what the theme shows (its `list` in `setContext`). Showing
+   * systems, their order; elsewhere, for now, the views list.
+   */
+  async #openContext(): Promise<void> {
+    const info = await this.#loadInfo();
+    if (info?.context?.list !== 'systems') return this.#openViews();
+    const views = themeViews(await this.forma.nav.views().catch(() => []), info);
+    const openViews =
+      views.length > 1
+        ? () => {
+            this.#page.close();
+            void this.#openViews();
+          }
+        : undefined;
+    this.#pageKind = 'context';
+    await this.#page.show('Systems', systemsScreen(this.forma, this.#page, openViews));
     this.#changed();
   }
 
