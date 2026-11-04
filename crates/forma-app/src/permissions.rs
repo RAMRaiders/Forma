@@ -92,6 +92,7 @@ mod tests {
                 settings: vec![],
                 views: None,
                 draws: vec![],
+                logo: None,
                 schema: None,
             }),
             unavailable: None,

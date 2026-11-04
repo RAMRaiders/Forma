@@ -217,13 +217,19 @@ pub fn cover_info(state: &AppState) -> crate::shell::CoverInfo {
             ))
         })
         .unwrap_or_default();
-    let theme = state.current_theme().map_or_else(String::new, |t| {
+    let current = state.current_theme();
+    let theme = current.as_ref().map_or_else(String::new, |t| {
         t.manifest
+            .as_ref()
             .map_or(t.id.clone(), |m| format!("{} {}", m.name, m.version))
     });
     let info = crate::shell::CoverInfo {
         batocera: batocera.trim().to_owned(),
         theme: theme.trim().to_owned(),
+        theme_logo: current.as_ref().and_then(crate::state::theme_logo_url),
+        theme_version: current
+            .and_then(|t| t.manifest.map(|m| m.version))
+            .unwrap_or_default(),
         margins: screen_margins(state),
         see_through: state.see_through && !state.shell.ui_started.load(Ordering::SeqCst),
     };

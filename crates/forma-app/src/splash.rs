@@ -292,6 +292,7 @@ mod tests {
             theme: "Cyber <0.7>".into(),
             margins: 0,
             see_through: false,
+            ..Default::default()
         };
         let svg = picture(
             &cover,

@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.14.0', false);
+  const forma = new Forma(backend, '1.15.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -359,6 +359,30 @@ describe('Forma’s shell', () => {
     for (let i = board; i > margins; i--) await press('up');
     await press('right');
     await vi.waitFor(async () => expect(await forma.settings.getSystem('display.margins')).toBe(1));
+  });
+
+  it('shows a theme’s logo in place of its name in Interface', async () => {
+    const { press, root, forma } = start(['settings.system']);
+    vi.spyOn(forma.themes, 'list').mockResolvedValue([
+      {
+        id: 'cyber',
+        name: 'Cyber',
+        version: '0.7.12',
+        origin: 'bundled',
+        permissions: [],
+        current: true,
+        unavailable: null,
+        logo: 'forma://localhost/theme/cyber/logo.svg'
+      }
+    ]);
+    await press('start');
+    for (let i = 0; i < 5; i++) await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(root.querySelector('.page .theme-logo')).not.toBeNull());
+    const logo = root.querySelector<HTMLImageElement>('.page .theme-logo')!;
+    expect(logo.getAttribute('src')).toBe('forma://localhost/theme/cyber/logo.svg');
+    expect(logo.alt).toBe('Cyber');
+    expect(logo.closest('.name')!.textContent).toBe('0.7.12');
   });
 
   it('Start closes whatever is open, except the keyboard, which it finishes', async () => {

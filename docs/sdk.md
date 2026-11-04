@@ -200,6 +200,9 @@ Values are any JSON. `set(key, null)` removes a setting.
 | `list()`     | Every theme found, with `unavailable` saying why one cannot load |
 | `select(id)` | Switches to that theme (the window reloads into it)              |
 
+`list()` leaves out Forma's plain fallback theme (unless it is in use) and a copy that another
+copy of the same theme stands in for. Each theme's `logo` is a URL for its logo, or `null`.
+
 ## `ra`
 
 RetroAchievements, read-only: unlocking happens inside RetroArch, which Batocera already logs in.

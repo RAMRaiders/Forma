@@ -1,4 +1,4 @@
-import { el } from './dom.js';
+import { el, themeLogo } from './dom.js';
 
 export interface MenuItem {
   id: string;
@@ -32,7 +32,13 @@ export class Menu {
     return this.#items.length;
   }
 
-  show(title: string, items: MenuItem[], subtitle?: string): void {
+  /** `logo`: drawn before the subtitle, in place of the name it starts with. */
+  show(
+    title: string,
+    items: MenuItem[],
+    subtitle?: string,
+    logo?: { src: string; name: string }
+  ): void {
     this.#items = items;
     this.#tiles = items.map((i) => {
       const tile = el(
@@ -60,7 +66,16 @@ export class Menu {
           'header',
           {},
           el('h2', {}, title),
-          subtitle ? el('p', { class: 'note' }, subtitle) : null
+          subtitle
+            ? el(
+                'p',
+                { class: 'note' },
+                logo ? themeLogo(logo.src, logo.name) : '',
+                logo && subtitle.startsWith(logo.name)
+                  ? subtitle.slice(logo.name.length).trim()
+                  : subtitle
+              )
+            : null
         ),
         el(
           'div',

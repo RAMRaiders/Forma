@@ -464,7 +464,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
         origin: 'user',
         permissions: [...permissions],
         current: true,
-        unavailable: null
+        unavailable: null,
+        logo: null
       }
     ],
     themes_select: ({ id }) =>

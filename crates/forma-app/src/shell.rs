@@ -243,6 +243,8 @@ pub struct ShellTheme {
     pub views: Option<Vec<String>>,
     /// What the theme draws itself (`draws` in its theme.json): the shell leaves those to it.
     pub draws: Vec<String>,
+    /// Where to load the theme's logo from, shown in place of its name.
+    pub logo: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -258,6 +260,7 @@ pub struct ThemeSettingValue {
 pub fn shell_info(state: State<'_, AppState>, caller: Caller) -> ApiResult<ShellInfo> {
     caller.shell_only()?;
     let theme = theme(&state)?;
+    let logo = crate::state::theme_logo_url(&theme);
     let manifest = theme.manifest.clone().unwrap_or_else(|| {
         // An available theme always has one; this keeps the menu working regardless.
         forma_core::themes::ThemeManifest::unnamed(&theme.id)
@@ -295,6 +298,7 @@ pub fn shell_info(state: State<'_, AppState>, caller: Caller) -> ApiResult<Shell
             settings,
             views: manifest.views,
             draws: manifest.draws,
+            logo,
         },
         forma_version: env!("CARGO_PKG_VERSION"),
     })
@@ -382,6 +386,9 @@ pub struct CoverInfo {
     pub batocera: String,
     /// The theme and its version, e.g. `Cyber 0.2.0`.
     pub theme: String,
+    /// The theme's logo, to show in place of its name; its version then follows it.
+    pub theme_logo: Option<String>,
+    pub theme_version: String,
     /// Screen margins for a TV's overscan, in percent per side.
     pub margins: u8,
     /// At boot on Batocera: the boot picture is under the see-through window, and the cover
@@ -393,11 +400,13 @@ pub struct CoverInfo {
 /// runs (and claims its token) before any of the theme's scripts.
 pub fn shell_tag(cover: &CoverInfo) -> String {
     format!(
-        "<script src=\"forma://localhost/shell/shell.js\" data-batocera=\"{}\" data-forma=\"{}\" data-theme=\"{}\" data-margins=\"{}\" \
-         data-see-through=\"{}\"></script>",
+        "<script src=\"forma://localhost/shell/shell.js\" data-batocera=\"{}\" data-forma=\"{}\" data-theme=\"{}\" data-theme-logo=\"{}\" \
+         data-theme-version=\"{}\" data-margins=\"{}\" data-see-through=\"{}\"></script>",
         attribute(&cover.batocera),
         attribute(env!("CARGO_PKG_VERSION")),
         attribute(&cover.theme),
+        attribute(cover.theme_logo.as_deref().unwrap_or_default()),
+        attribute(&cover.theme_version),
         cover.margins,
         u8::from(cover.see_through)
     )
@@ -507,6 +516,7 @@ mod tests {
             theme: "Neon \"<b>\" 2".into(),
             margins: 3,
             see_through: true,
+            ..Default::default()
         });
         assert!(tag.contains("data-see-through=\"1\""), "{tag}");
         assert!(tag.contains("data-batocera=\"43.1 2026/05/29\""), "{tag}");

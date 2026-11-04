@@ -41,6 +41,8 @@ export interface ShellInfo {
     views?: string[] | null;
     /** What the theme draws itself (`nowPlaying`): the shell leaves it to the theme. */
     draws?: string[];
+    /** Where to load the theme's logo from, shown in place of its name. */
+    logo?: string | null;
   };
   formaVersion: string;
 }
@@ -386,7 +388,8 @@ export class Shell {
     this.#menu.show(
       info ? `Forma ${info.formaVersion}`.trim() : 'Forma',
       items,
-      info ? `${info.theme.name} ${info.theme.version}`.trim() : undefined
+      info ? `${info.theme.name} ${info.theme.version}`.trim() : undefined,
+      info?.theme.logo ? { src: info.theme.logo, name: info.theme.name } : undefined
     );
     this.#menu.select(Math.min(at, items.length - 1));
     this.#changed();

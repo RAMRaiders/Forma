@@ -259,10 +259,13 @@ pub struct ThemeInfo {
     pub permissions: Vec<String>,
     pub current: bool,
     pub unavailable: Option<String>,
+    /// Where to load the theme's logo from, if it has one.
+    pub logo: Option<String>,
 }
 
 /// Re-scans the theme folders first, so a theme copied into `/userdata/themes-forma/` is
-/// listed without restarting Forma.
+/// listed without restarting Forma. The plain fallback theme and copies another stands in for
+/// are left out ([`crate::state::listed_themes`]).
 #[tauri::command]
 pub fn themes_list(state: State<'_, AppState>) -> Vec<ThemeInfo> {
     let found = forma_core::themes::discover(&state.bundled_themes, &state.paths);
@@ -274,11 +277,12 @@ pub fn themes_list(state: State<'_, AppState>) -> Vec<ThemeInfo> {
     drop(themes);
 
     let current = state.current_theme().map(|t| t.id);
-    state
+    let themes = state
         .themes
         .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .iter()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    crate::state::listed_themes(&themes, current.as_deref())
+        .into_iter()
         .map(|t| ThemeInfo {
             id: t.id.clone(),
             name: t.manifest.as_ref().map(|m| m.name.clone()),
@@ -291,6 +295,7 @@ pub fn themes_list(state: State<'_, AppState>) -> Vec<ThemeInfo> {
                 .unwrap_or_default(),
             current: current.as_deref() == Some(t.id.as_str()) && t.is_available(),
             unavailable: t.unavailable.clone(),
+            logo: crate::state::theme_logo_url(t),
         })
         .collect()
 }

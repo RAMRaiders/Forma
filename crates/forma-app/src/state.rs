@@ -16,7 +16,7 @@ use forma_core::options::Options;
 use forma_core::store::Store;
 use forma_core::sync::SyncHandle;
 use forma_core::system_settings::SystemSettings;
-use forma_core::themes::Theme;
+use forma_core::themes::{Theme, ThemeOrigin};
 use forma_core::thumbs::Thumbnailer;
 use forma_core::{Library, Paths};
 
@@ -122,6 +122,34 @@ pub fn pick_theme(themes: &[Theme], selected: Option<&str>) -> Option<String> {
         })
 }
 
+/// The themes the user is offered: not the plain fallback (Forma's safety net, listed only while
+/// it is in use), and not a copy that cannot load because another copy of the same theme
+/// stands in for it (an older bundled Cyber under a newer installed one).
+pub fn listed_themes<'a>(themes: &'a [Theme], current: Option<&str>) -> Vec<&'a Theme> {
+    themes
+        .iter()
+        .filter(|t| {
+            t.id != FALLBACK_THEME
+                || t.origin != ThemeOrigin::Bundled
+                || current == Some(FALLBACK_THEME)
+        })
+        .filter(|t| {
+            t.is_available()
+                || !themes
+                    .iter()
+                    .any(|other| other.id == t.id && other.is_available())
+        })
+        .collect()
+}
+
+/// The URL Forma's menus load a theme's logo from, if it declares one.
+pub fn theme_logo_url(theme: &Theme) -> Option<String> {
+    let logo = theme.manifest.as_ref()?.logo.as_ref()?;
+    theme
+        .is_available()
+        .then(|| format!("forma://localhost/theme/{}/{}", theme.id, logo))
+}
+
 impl Resolver for AppState {
     fn theme(&self, id: &str) -> Option<(PathBuf, Vec<String>)> {
         let theme = self.available_theme(id)?;
@@ -166,7 +194,6 @@ impl Resolver for AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use forma_core::themes::ThemeOrigin;
 
     fn theme(id: &str, available: bool) -> Theme {
         Theme {
@@ -177,6 +204,32 @@ mod tests {
             unavailable: (!available).then(|| "broken".into()),
             overrides: false,
         }
+    }
+
+    #[test]
+    fn offers_neither_the_fallback_nor_a_copy_another_stands_in_for() {
+        let mut old_cyber = theme("cyber", false);
+        old_cyber.unavailable = Some("replaced by version 0.8.0-dev, installed".into());
+        let mut new_cyber = theme("cyber", true);
+        new_cyber.origin = ThemeOrigin::User;
+        let all = [
+            theme("default", true),
+            old_cyber,
+            new_cyber,
+            theme("broken", false),
+        ];
+        let ids = |current| {
+            listed_themes(&all, current)
+                .iter()
+                .map(|t| (t.id.as_str(), t.is_available()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(ids(Some("cyber")), [("cyber", true), ("broken", false)]);
+        assert_eq!(
+            ids(Some("default")),
+            [("default", true), ("cyber", true), ("broken", false)],
+            "the fallback is listed while it is in use"
+        );
     }
 
     #[test]

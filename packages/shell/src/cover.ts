@@ -1,10 +1,13 @@
-import { el } from './ui/dom.js';
+import { el, themeLogo } from './ui/dom.js';
 
 /** What Forma puts on the shell's script tag for the cover (`CoverInfo` in forma-app). */
 export interface CoverInfo {
   batocera: string;
   forma: string;
   theme: string;
+  /** The theme's logo, drawn in place of its name, then its version. */
+  themeLogo: string;
+  themeVersion: string;
   /** Screen margins for a TV's overscan, percent per side. */
   margins: number;
   /**
@@ -26,6 +29,8 @@ export function coverInfo(script: HTMLOrSVGScriptElement | null): CoverInfo {
     batocera: data.batocera ?? '',
     forma: data.forma ?? '',
     theme: data.theme ?? '',
+    themeLogo: data.themeLogo ?? '',
+    themeVersion: data.themeVersion ?? '',
     margins: Math.min(10, Math.max(0, Number(data.margins) || 0)),
     seeThrough: data.seeThrough === '1'
   };
@@ -52,7 +57,7 @@ export class Cover {
       { class: 'versions' },
       info.batocera ? line(el('span', { class: 'batocera' }), 'Batocera', info.batocera) : null,
       line(el('img', { src: `${SYSTEM}forma-logo.svg`, alt: '' }), 'Forma', info.forma),
-      info.theme ? line(el('span', { class: 'dot' }), 'Theme', info.theme) : null
+      info.theme ? line(el('span', { class: 'dot' }), 'Theme', themeLine(info)) : null
     );
     const forma = el(
       'div',
@@ -98,7 +103,19 @@ export class Cover {
   }
 }
 
-function line(logo: HTMLElement, name: string, version: string): HTMLElement {
+/** The theme as its logo and version, or its name and version without a logo. */
+function themeLine(info: CoverInfo): Node | string {
+  if (!info.themeLogo) return info.theme;
+  const name = info.theme.slice(0, info.theme.length - info.themeVersion.length).trim();
+  return el(
+    'span',
+    { class: 'with-logo' },
+    themeLogo(info.themeLogo, name || info.theme),
+    info.themeVersion
+  );
+}
+
+function line(logo: HTMLElement, name: string, version: Node | string): HTMLElement {
   return el(
     'li',
     {},

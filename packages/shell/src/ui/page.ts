@@ -2,7 +2,7 @@ import type { InputEvent } from '@ramraiders/forma-sdk';
 import { FormaError } from '@ramraiders/forma-sdk';
 
 import { moveList } from '../logic/nav.js';
-import { el } from './dom.js';
+import { el, themeLogo } from './dom.js';
 import { type Ask, Keyboard } from './keyboard.js';
 
 export interface Row {
@@ -16,6 +16,8 @@ export interface Row {
   alt?: { label: string; run: () => unknown };
   /** Starts a group of rows, with this heading. */
   heading?: string;
+  /** A logo drawn in place of the label's name (`name`), followed by `text`. */
+  logo?: { src: string; name: string; text?: string };
 }
 
 /** A page left for a deeper one, to come back to where it was. */
@@ -216,7 +218,14 @@ export class Page {
               .filter(Boolean)
               .join(' ')
           },
-          el('span', { class: 'name' }, row.label),
+          row.logo
+            ? el(
+                'span',
+                { class: 'name' },
+                themeLogo(row.logo.src, row.logo.name),
+                row.logo.text ? el('span', { class: 'logo-text' }, row.logo.text) : null
+              )
+            : el('span', { class: 'name' }, row.label),
           row.adjust ? el('span', { class: 'adjust', 'aria-hidden': 'true' }, '◀ ▶') : '',
           el('span', { class: 'description' }, row.detail ?? '')
         )

@@ -205,6 +205,18 @@
   font-family: var(--mono);
 }
 
+/* The theme as its logo, followed by its version. */
+.cover .versions .with-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 1vh;
+}
+
+.cover .versions .with-logo .theme-logo {
+  width: auto;
+  height: 2.6vh;
+}
+
 /* ---- Menus ------------------------------------------------------------------------------ */
 
 .overlay {
@@ -360,6 +372,33 @@ li.selected .badge {
 
 .page li.info.selected .name {
   color: #fff;
+}
+
+/* A theme's logo where its name would be, its version after it. */
+.page .name:has(.theme-logo) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.page .theme-logo {
+  height: 1.6em;
+  width: auto;
+  max-width: 12em;
+}
+
+.page .logo-text {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.menu .note .theme-logo {
+  height: 1.4em;
+  width: auto;
+  max-width: 9em;
+  margin-right: 0.5em;
+  vertical-align: middle;
 }
 
 .page .adjust {

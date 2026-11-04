@@ -9,6 +9,8 @@ const info = {
   batocera: '43.1 2026/05/29',
   forma: '0.1.0',
   theme: 'Cyber 0.2.0',
+  themeLogo: '',
+  themeVersion: '0.2.0',
   margins: 2,
   seeThrough: false
 };
@@ -19,6 +21,8 @@ describe('Forma’s cover', () => {
     Object.assign(script.dataset, {
       batocera: '43.1',
       theme: 'Cyber 0.2.0',
+      themeLogo: 'forma://localhost/theme/cyber/logo.svg',
+      themeVersion: '0.2.0',
       margins: '40',
       seeThrough: '1'
     });
@@ -26,6 +30,8 @@ describe('Forma’s cover', () => {
       batocera: '43.1',
       forma: '',
       theme: 'Cyber 0.2.0',
+      themeLogo: 'forma://localhost/theme/cyber/logo.svg',
+      themeVersion: '0.2.0',
       margins: 10,
       seeThrough: true
     });
@@ -50,6 +56,17 @@ describe('Forma’s cover', () => {
     expect(cover.root.classList.contains('leaving')).toBe(true);
     vi.advanceTimersByTime(300);
     expect(cover.root.isConnected).toBe(false);
+  });
+
+  it('shows the theme’s logo in place of its name, then its version', () => {
+    const cover = new Cover({ ...info, themeLogo: 'forma://localhost/theme/cyber/logo.svg' });
+    const logo = cover.root.querySelector<HTMLImageElement>('.versions .theme-logo')!;
+    expect(logo.getAttribute('src')).toBe('forma://localhost/theme/cyber/logo.svg');
+    expect(logo.alt).toBe('Cyber');
+    expect(logo.parentElement!.textContent).toBe('0.2.0');
+    // A logo that cannot load leaves the name.
+    logo.dispatchEvent(new Event('error'));
+    expect(cover.root.querySelector('.versions .with-logo')!.textContent).toBe('Cyber0.2.0');
   });
 
   it('does not report the UI started when it goes over a theme that never started', () => {

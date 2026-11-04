@@ -391,6 +391,7 @@ export function interfaceScreen(
     const rows: Row[] = themes.map((t, i) => ({
       heading: i === 0 ? 'Theme' : undefined,
       label: `${t.name ?? t.id}${t.version ? ` ${t.version}` : ''}`,
+      logo: t.logo ? { src: t.logo, name: t.name ?? t.id, text: t.version ?? '' } : undefined,
       detail: t.current
         ? 'In use'
         : t.unavailable

@@ -178,6 +178,7 @@ export class Forma {
     };
 
     this.themes = {
+      /** The themes the user can pick: not Forma's plain fallback, nor a copy another stands in for. */
       list: () => invoke<ThemeInfo[]>('themes_list'),
       select: (id: string) => invoke<void>('themes_select', { id })
     };

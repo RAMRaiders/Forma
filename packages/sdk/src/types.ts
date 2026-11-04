@@ -153,6 +153,8 @@ export interface ThemeInfo {
   current: boolean;
   /** Why the theme cannot load, if it cannot. */
   unavailable: string | null;
+  /** Where to load the theme's logo from (`logo` in its theme.json), if it has one. */
+  logo: string | null;
 }
 
 export interface Controller {

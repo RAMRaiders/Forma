@@ -38,6 +38,14 @@ so you can build without a device.
 | `settings`    | The theme's own settings, shown in Forma's menu (see below).            |
 | `views`       | The only views the theme shows, by id, e.g. `["systems"]`. Absent, all. |
 | `draws`       | What the theme draws itself instead of Forma: `nowPlaying`, `status`.   |
+| `logo`        | An `.svg`, `.png` or `.webp` in the theme folder, e.g. `"logo.svg"`.    |
+
+With a `logo`, Forma's menus and its start-up cover show it in place of the theme's name: in
+Interface's theme list, at the top of the Start menu and beside the version on the cover. Draw
+it wide and short (about 4:1), legible at 30 px high, on a transparent background.
+
+Start → Interface lists the themes you can pick. Forma's plain **Default** theme is a safety net
+for when no other theme can start, so it is listed only while it is in use.
 
 ## Forma's menus, over every theme
 

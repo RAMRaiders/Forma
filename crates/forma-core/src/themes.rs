@@ -88,6 +88,9 @@ pub struct ThemeManifest {
     /// `ra:unlocked`). What happens stays Forma's.
     #[serde(default)]
     pub draws: Vec<String>,
+    /// The theme's logo (an SVG, PNG or WebP inside its folder), which Forma's menus and cover
+    /// show in place of its name.
+    pub logo: Option<String>,
     #[serde(rename = "$schema", default, skip_serializing)]
     pub schema: Option<String>,
 }
@@ -108,6 +111,7 @@ impl ThemeManifest {
             settings: Vec::new(),
             views: None,
             draws: Vec::new(),
+            logo: None,
             schema: None,
         }
     }
@@ -374,6 +378,26 @@ fn check(m: &ThemeManifest, dir: &Path) -> Result<(), String> {
     if !dir.join(entry).is_file() {
         return Err(format!("entry `{}` does not exist", m.entry));
     }
+    if let Some(logo) = &m.logo {
+        let path = Path::new(logo);
+        let image = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "svg" | "png" | "webp"));
+        if !image {
+            return Err(format!("logo `{logo}` must be an .svg, .png or .webp"));
+        }
+        if path.is_absolute()
+            || path
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+            || !dir.join(path).is_file()
+        {
+            return Err(format!(
+                "logo `{logo}` must be a file inside the theme folder"
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -457,6 +481,34 @@ mod tests {
         assert_eq!(
             reason(r#", "permissions": ["network"], "remote": ["https://cdn.example.com"]"#),
             None
+        );
+    }
+
+    #[test]
+    fn a_logo_must_be_an_image_in_the_theme_folder() {
+        let with_logo = |file: Option<&str>, logo: &str| {
+            let dir = tempfile::tempdir().unwrap();
+            write_theme(dir.path(), &manifest(&format!(r#", "logo": "{logo}""#)));
+            if let Some(file) = file {
+                std::fs::write(dir.path().join(file), "<svg/>").unwrap();
+            }
+            load(dir.path(), ThemeOrigin::User).unavailable
+        };
+        assert_eq!(with_logo(Some("logo.svg"), "logo.svg"), None);
+        assert!(
+            with_logo(None, "logo.svg")
+                .unwrap()
+                .contains("inside the theme folder")
+        );
+        assert!(
+            with_logo(None, "../logo.svg")
+                .unwrap()
+                .contains("inside the theme folder")
+        );
+        assert!(
+            with_logo(Some("logo.gif"), "logo.gif")
+                .unwrap()
+                .contains(".svg, .png or .webp")
         );
     }
 

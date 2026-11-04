@@ -9,3 +9,10 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   for (const child of children) if (child !== null) node.append(child);
   return node;
 }
+
+/** A theme's logo where its name would be; the name itself if the picture cannot load. */
+export function themeLogo(src: string, name: string): HTMLImageElement {
+  const img = el('img', { class: 'theme-logo', src, alt: name });
+  img.addEventListener('error', () => img.replaceWith(name));
+  return img;
+}
