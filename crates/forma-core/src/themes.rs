@@ -55,6 +55,10 @@ pub const PERMISSIONS: &[(&str, &str)] = &[
     ("system.update", "check for and install Batocera updates"),
     ("themes.manage", "install, update and remove themes"),
     (
+        "scraper.manage",
+        "scrape game details and media, and change the scraper's accounts",
+    ),
+    (
         "network",
         "load content from the internet (the origins listed in `remote`)",
     ),

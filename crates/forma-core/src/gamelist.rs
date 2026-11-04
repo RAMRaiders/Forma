@@ -13,7 +13,7 @@ use crate::xml::{self, Element};
 
 mod write;
 
-pub use write::{PlayStats, write_back};
+pub use write::{PlayStats, Tag, set_tags, write_back};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GamelistEntry {
@@ -53,6 +53,14 @@ const TEXT_FIELDS: &[(&str, &str, Kind)] = &[
     ("video", field::MEDIA_VIDEO, Kind::Media),
     ("fanart", field::MEDIA_FANART, Kind::Media),
     ("manual", field::MEDIA_MANUAL, Kind::Media),
+    ("boxback", field::MEDIA_BOXBACK, Kind::Media),
+    ("boxart", field::MEDIA_BOXART, Kind::Media),
+    ("wheel", field::MEDIA_WHEEL, Kind::Media),
+    ("titleshot", field::MEDIA_TITLESHOT, Kind::Media),
+    ("cartridge", field::MEDIA_CARTRIDGE, Kind::Media),
+    ("map", field::MEDIA_MAP, Kind::Media),
+    ("bezel", field::MEDIA_BEZEL, Kind::Media),
+    ("mix", field::MEDIA_MIX, Kind::Media),
 ];
 
 #[derive(Clone, Copy)]

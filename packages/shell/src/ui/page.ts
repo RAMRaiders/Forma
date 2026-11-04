@@ -109,6 +109,16 @@ export class Page {
     this.changed();
   }
 
+  /** Whether `build` is on screen, or a page under it that B comes back to. */
+  has(build: () => Row[] | Promise<Row[]>): boolean {
+    return this.open && (this.#build === build || this.#parents.some((l) => l.build === build));
+  }
+
+  /** Whether `build` is the page on screen. */
+  showing(build: () => Row[] | Promise<Row[]>): boolean {
+    return this.open && this.#build === build && !this.#busy;
+  }
+
   /** Builds the rows again from what Forma says now. */
   async refresh(): Promise<void> {
     // The selection follows its row: playing something adds rows above it, and A again must not

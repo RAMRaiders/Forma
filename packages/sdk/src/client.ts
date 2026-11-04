@@ -27,6 +27,9 @@ import type {
   StatusBar,
   SystemSummary,
   Magazine,
+  ScrapeScope,
+  ScraperSettings,
+  ScraperStatus,
   ThemeCatalogue,
   ThemeInfo,
   Unsubscribe,
@@ -117,6 +120,7 @@ export class Forma {
   readonly netplay;
   readonly collections;
   readonly magazines;
+  readonly scraper;
   readonly network;
   readonly bluetooth;
   readonly updates;
@@ -251,10 +255,6 @@ export class Forma {
     };
 
     /**
-     * The user's own lists of games, as EmulationStation keeps them; browse them in the
-     * `collections` view. Like favourites, they need no permission. Names are any case.
-     */
-    /**
      * Scanned magazines, read in Forma's own reader: a theme lists them (with covers from
      * `pageUrl(m, 0, …)`) and calls `open`; the reader, its controls and where the user left
      * off are Forma's. No permission needed.
@@ -277,6 +277,34 @@ export class Forma {
         }w=${Math.round(width)}`
     };
 
+    /**
+     * The scraper: details and media for games, from every source the user turns on, written
+     * where EmulationStation writes them (`images/`, `videos/`, `manuals/`, `gamelist.xml`).
+     * Forma's menu runs it; a theme with `scraper.manage` can too.
+     */
+    this.scraper = {
+      settings: () => invoke<ScraperSettings>('scraper_settings'),
+      /** Changes what is given and keeps the rest. `sources` is the whole list, in order. */
+      configure: (changes: {
+        sources?: { id: string; enabled: boolean }[];
+        media?: MediaKind[];
+        metadata?: boolean;
+        replace?: boolean;
+      }) => invoke<ScraperSettings>('scraper_configure', changes),
+      /** Sets one of a source's credentials; `null` clears it. */
+      setCredential: (source: string, key: string, value: string | null) =>
+        invoke<ScraperSettings>('scraper_set_credential', { source, key, value }),
+      /** Starts a run in the background; `scraper:progress` follows it. */
+      start: (scope: ScrapeScope) => invoke<ScraperStatus>('scraper_start', { scope }),
+      status: () => invoke<ScraperStatus>('scraper_status'),
+      /** Stops after the game it is on. */
+      stop: () => invoke<void>('scraper_stop')
+    };
+
+    /**
+     * The user's own lists of games, as EmulationStation keeps them; browse them in the
+     * `collections` view. Like favourites, they need no permission. Names are any case.
+     */
     this.collections = {
       list: () => invoke<Collection[]>('collections_list'),
       /** The collections a game is in. */

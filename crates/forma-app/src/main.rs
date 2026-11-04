@@ -13,6 +13,7 @@ mod options;
 mod permissions;
 mod protocol;
 mod ra_match;
+mod scraper;
 mod shell;
 mod splash;
 mod state;
@@ -53,6 +54,12 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         magazines::magazines_pages,
         magazines::magazines_set_page,
         magazines::magazines_open,
+        scraper::scraper_settings,
+        scraper::scraper_configure,
+        scraper::scraper_set_credential,
+        scraper::scraper_start,
+        scraper::scraper_status,
+        scraper::scraper_stop,
         commands::input_controllers,
         commands::system_quit,
         commands::system_power,

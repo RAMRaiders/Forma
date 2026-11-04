@@ -1,0 +1,192 @@
+//! Names, matching and the small text work every source needs.
+
+/// A name to search with: `Super Metroid (USA, Europe) [!]` → `Super Metroid`.
+pub fn search_name(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut depth = 0usize;
+    for c in name.chars() {
+        match c {
+            '(' | '[' => depth += 1,
+            ')' | ']' => depth = depth.saturating_sub(1),
+            _ if depth == 0 => out.push(c),
+            _ => {}
+        }
+    }
+    let out = out.replace('_', " ");
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// For comparing names: lower case, letters and digits only, a leading or trailing "the"
+/// dropped (`Legend of Zelda, The`).
+pub fn comparable(name: &str) -> String {
+    let lower = search_name(name).to_lowercase();
+    let lower = lower
+        .strip_suffix(", the")
+        .or_else(|| lower.strip_prefix("the "))
+        .unwrap_or(&lower)
+        .to_owned();
+    lower.chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
+/// The index of the candidate whose name matches `name` best: the same once compared, else
+/// one starting with it, else none.
+pub fn best_match<'a>(name: &str, candidates: impl IntoIterator<Item = &'a str>) -> Option<usize> {
+    let want = comparable(name);
+    if want.is_empty() {
+        return None;
+    }
+    let names: Vec<String> = candidates.into_iter().map(comparable).collect();
+    names.iter().position(|n| *n == want).or_else(|| {
+        names
+            .iter()
+            .position(|n| n.starts_with(&want) || want.starts_with(n.as_str()) && !n.is_empty())
+    })
+}
+
+/// Percent-encodes `text` for a URL's path or query.
+pub fn encode(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() * 3);
+    for b in text.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char);
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
+/// Text from HTML: tags dropped, paragraphs and breaks as new lines, entities decoded.
+pub fn strip_html(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    while let Some(lt) = rest.find('<') {
+        out.push_str(&rest[..lt]);
+        let Some(gt) = rest[lt..].find('>') else {
+            rest = "";
+            break;
+        };
+        let tag = rest[lt + 1..lt + gt].trim_start_matches('/').to_lowercase();
+        if tag.starts_with("br") || tag.starts_with('p') || tag.starts_with("li") {
+            out.push('\n');
+        }
+        rest = &rest[lt + gt + 1..];
+    }
+    out.push_str(rest);
+    let out = out
+        .replace("&nbsp;", " ")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&");
+    let lines: Vec<&str> = out.lines().map(str::trim).collect();
+    let mut joined = lines.join("\n");
+    while joined.contains("\n\n\n") {
+        joined = joined.replace("\n\n\n", "\n\n");
+    }
+    joined.trim().to_owned()
+}
+
+/// A date as a source gives it (`1994-03-19`, `1994`, `19940319`…) as `YYYY[-MM[-DD]]`, or
+/// `None` if it is not one.
+pub fn date(text: &str) -> Option<String> {
+    let digits: String = text.chars().filter(char::is_ascii_digit).collect();
+    let year = digits.get(..4)?;
+    if !(1950..=2100).contains(&year.parse::<u32>().ok()?) {
+        return None;
+    }
+    let month = digits.get(4..6).filter(|m| ("01"..="12").contains(m));
+    let day = digits.get(6..8).filter(|d| ("01"..="31").contains(d));
+    Some(match (month, day) {
+        (Some(m), Some(d)) => format!("{year}-{m}-{d}"),
+        (Some(m), None) => format!("{year}-{m}"),
+        _ => year.to_owned(),
+    })
+}
+
+/// Seconds since 1970 as `YYYY-MM-DD`.
+pub fn date_from_unix(seconds: i64) -> String {
+    let days = seconds.div_euclid(86_400);
+    // Howard Hinnant's civil_from_days.
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("{y:04}-{m:02}-{d:02}")
+}
+
+/// A JSON value as text: strings as they are, numbers written out, anything else `None`.
+/// Empty text is `None` too.
+pub fn json_text(v: Option<&serde_json::Value>) -> Option<String> {
+    let text = match v? {
+        serde_json::Value::String(s) => s.trim().to_owned(),
+        serde_json::Value::Number(n) => n.to_string(),
+        _ => return None,
+    };
+    (!text.is_empty()).then_some(text)
+}
+
+/// A JSON number, or a number in a string.
+pub fn json_number(v: Option<&serde_json::Value>) -> Option<f64> {
+    match v? {
+        serde_json::Value::Number(n) => n.as_f64(),
+        serde_json::Value::String(s) => s.trim().parse().ok(),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_lose_their_tags_and_match_loosely() {
+        assert_eq!(
+            search_name("Super Metroid (USA, Europe) [!]"),
+            "Super Metroid"
+        );
+        assert_eq!(search_name("sonic_the_hedgehog"), "sonic the hedgehog");
+        assert_eq!(
+            comparable("Legend of Zelda, The - A Link to the Past"),
+            "legendofzeldathealinktothepast"
+        );
+        assert_eq!(comparable("Legend of Zelda, The"), "legendofzelda");
+        assert_eq!(
+            best_match(
+                "Street Fighter II",
+                ["Street Fighter", "Street Fighter II", "SF II"]
+            ),
+            Some(1)
+        );
+        assert_eq!(
+            best_match("Contra", ["Contra III: The Alien Wars"]),
+            Some(0)
+        );
+        assert_eq!(best_match("Contra", ["Gradius"]), None);
+    }
+
+    #[test]
+    fn dates_html_and_urls() {
+        assert_eq!(date("1994-03-19").as_deref(), Some("1994-03-19"));
+        assert_eq!(date("1991").as_deref(), Some("1991"));
+        assert_eq!(date("19910201T000000").as_deref(), Some("1991-02-01"));
+        assert_eq!(date("unknown"), None);
+        assert_eq!(date_from_unix(765_158_400), "1994-04-01");
+        assert_eq!(
+            strip_html("<p>One &amp; two</p><p>Three<br>four</p>"),
+            "One & two\n\nThree\nfour"
+        );
+        assert_eq!(
+            encode("Mario & Luigi: 1/2"),
+            "Mario%20%26%20Luigi%3A%201%2F2"
+        );
+    }
+}

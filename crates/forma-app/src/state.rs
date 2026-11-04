@@ -52,6 +52,8 @@ pub struct AppState {
     pub system_settings: SystemSettings,
     /// Batocera's content downloader.
     pub store: Store,
+    /// The scraper's sources and its run.
+    pub scraper: crate::scraper::Scraping,
     /// The music player (mpv in the background).
     pub music: Player,
     /// Resized artwork, made in the background.

@@ -23,6 +23,7 @@ import {
   systemsScreen
 } from './ui/screens.js';
 import { magazinesScreen } from './ui/magazines.js';
+import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
 import { StatusView } from './ui/status.js';
@@ -378,6 +379,14 @@ export class Shell {
         section: 'Library'
       },
       {
+        id: 'scraper',
+        label: 'Scraper',
+        description: game
+          ? `Boxes, videos, manuals and details for ${game.name}, or everything`
+          : 'Boxes, videos, manuals and details from ScreenScraper, IGDB and more',
+        section: 'Library'
+      },
+      {
         id: 'ra',
         label: 'Achievements',
         description: 'Your RetroAchievements account and how achievements work',
@@ -430,7 +439,7 @@ export class Shell {
       {
         id: 'emulationstation',
         label: 'Switch to ES',
-        description: 'EmulationStation, for scraping; Forma returns at the next boot',
+        description: 'EmulationStation; Forma returns at the next boot',
         section: 'Power'
       },
       {
@@ -598,6 +607,8 @@ export class Shell {
       case 'magazines':
         m.close();
         return void this.openMagazines();
+      case 'scraper':
+        return show('Scraper', scraperScreen(this.forma, page, context));
       case 'collections':
         return show(
           'Collections',

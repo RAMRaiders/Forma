@@ -18,3 +18,6 @@ as `[]` instead of `{}`), but the field set should be checked against live respo
 | `lobby.json`   | `lobby.libretro.com/list/`                                            |
 
 IP addresses in `lobby.json` are from the documentation ranges (192.0.2.0/24, 198.51.100.0/24).
+
+- `libretro-boxart.png`: a 2×3 picture, served as the libretro thumbnails box for Super Mario
+  Bros. (World), for the scraper.

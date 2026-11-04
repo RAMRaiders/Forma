@@ -225,6 +225,27 @@ it is that theme and version and can load, and only then replaces the installed 
 in use reloads into the new version. Interface → Get more themes does this in Forma's own menu
 (since 1.18.0).
 
+## `scraper`
+
+Forma's scraper: details and media for games from ScreenScraper, TheGamesDB, IGDB, MobyGames,
+SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation writes them (see
+[the scraper](scraper.md)). Forma's menu runs it (Start → Scraper); a theme needs
+`scraper.manage`. Since 1.20.0.
+
+| Method                                                 | Does                                                                                              |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `settings()`                                           | Sources in order (with what each needs and gives), media kinds, choices                           |
+| `configure({ sources?, media?, metadata?, replace? })` | Changes those; `sources` is the whole list, in order                                              |
+| `setCredential(source, key, value)`                    | An API key or login; `null` clears it. Secrets are never read back                                |
+| `start(scope)`                                         | Scrapes `{ kind: 'game', id }`, `{ kind: 'system', name }` or `{ kind: 'all' }` in the background |
+| `status()`                                             | The run going on, or the last one                                                                 |
+| `stop()`                                               | Stops after the game it is on                                                                     |
+
+`scraper:progress` carries the status after each game and at the end. `MediaKind` now lists
+every kind ES knows (`thumbnail`, `image`, `titleshot`, `marquee`, `wheel`, `boxback`,
+`boxart`, `fanart`, `cartridge`, `map`, `bezel`, `mix`, `video`, `manual`), and `game.media`
+has whichever a game's `gamelist.xml` names.
+
 ## `magazines`
 
 Scanned magazines in `/userdata/magazines`: CBZ/ZIP, CBR/RAR, CB7/7Z, CBT/TAR and PDF files, and

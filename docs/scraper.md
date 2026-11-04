@@ -1,0 +1,55 @@
+# Scraper
+
+Forma's scraper finds metadata and media for games and writes them where EmulationStation
+does: media into `/userdata/roms/<system>/images|videos|manuals/`, metadata into the system's
+`gamelist.xml` (edited in place, as the [write-back](batocera-integration.md) does). Both
+frontends see the result. It runs from Forma's menu: Start → Scraper.
+
+## Sources
+
+All built into Forma; add-ons (see [add-ons](addons.md)) can add more. The user turns each on
+or off and puts them in order. For each field and each kind of media, the first source in that
+order that has it wins.
+
+| Source              | Needs                                             | Matches by                    | Gives                                                                                                                             |
+| ------------------- | ------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| ScreenScraper       | A developer ID and password, and the user's login | Hashes, then file name        | Everything: boxes 2D/3D/back, screenshots, titles, wheels, marquees, fan art, videos, manuals, maps, cartridges, bezels, metadata |
+| TheGamesDB          | An API key                                        | Name and platform             | Box front and back, fan art, screenshots, wheels/clear logos, banners, metadata                                                   |
+| IGDB                | A Twitch client ID and secret                     | Name and platform             | Covers, screenshots, artwork, metadata, ratings                                                                                   |
+| MobyGames           | An API key                                        | Name and platform             | Covers, screenshots, metadata                                                                                                     |
+| SteamGridDB         | An API key                                        | Name                          | Grids (covers), heroes (fan art), logos (wheels)                                                                                  |
+| ArcadeDB            | Nothing                                           | MAME short name (arcade only) | In-game and title shots, marquees, flyers, cabinets, videos, metadata                                                             |
+| libretro thumbnails | Nothing                                           | No-Intro / Redump name        | Box fronts, screenshots, title screens, logos                                                                                     |
+
+Platform IDs (ScreenScraper, TheGamesDB, IGDB) come from EmulationStation's own tables, keyed
+by the `<platform>` names in `es_systems.cfg`, with known errors corrected (see
+`crates/forma-core/src/scraper/platforms.tsv`). The libretro folder for each Batocera system
+is in `libretro.tsv`. MobyGames and SteamGridDB are searched by title alone.
+
+## What the user decides
+
+- Which sources, in which order, and their credentials.
+- Which media kinds to fetch: any of image (screenshot), thumbnail (box front), boxback,
+  box 3D, marquee, wheel (logo), fan art, title screen, cartridge, map, bezel, video, manual,
+  mix.
+- Missing only (the default) or replace what is there.
+- What to scrape: the selected game, a system, or every system.
+
+## Files
+
+Media are named as EmulationStation names them, e.g. `images/<rom>-thumb.png`,
+`images/<rom>-boxback.png`, `videos/<rom>-video.mp4`, `manuals/<rom>-manual.pdf`, and linked
+from `gamelist.xml` with the matching tags (`<thumbnail>`, `<boxback>`, `<video>`, `<manual>`…).
+
+## How a run goes
+
+One game at a time, in the background; Forma stays usable and the page shows where it is.
+For each game, Forma works out what is still wanted (the chosen kinds it lacks, and details
+if any are missing), then asks the turned-on sources that are set up, in order, until nothing
+is wanted. Each download is checked to be what it claims (a picture, a video, a PDF) before it
+is written, so an error page never becomes a box. A source that refuses its credentials or is
+over its quota is not asked again in that run, and the page says so. ROMs up to 256 MB are
+hashed for ScreenScraper; bigger ones are matched by name and size.
+
+Credentials are kept in Forma's settings (`scraper.credentials`), like EmulationStation keeps
+its own in `es_settings.cfg`. Secret ones are never sent back to a theme, or shown.

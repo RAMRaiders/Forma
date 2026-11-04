@@ -21,6 +21,45 @@ pub struct HttpError {
     pub message: String,
 }
 
+/// A request beyond a plain GET: a POST, or headers (a bearer token, a client ID).
+#[derive(Debug, Clone, Default)]
+pub struct HttpRequest {
+    /// `GET` or `POST`.
+    pub method: &'static str,
+    pub url: String,
+    pub headers: Vec<(String, String)>,
+    pub body: Option<Vec<u8>>,
+    /// The largest answer accepted, in bytes.
+    pub limit: u64,
+}
+
+impl HttpRequest {
+    pub fn get(url: impl Into<String>) -> Self {
+        Self {
+            method: "GET",
+            url: url.into(),
+            limit: MAX_BODY,
+            ..Self::default()
+        }
+    }
+
+    pub fn post(url: impl Into<String>, body: impl Into<Vec<u8>>) -> Self {
+        Self {
+            method: "POST",
+            url: url.into(),
+            body: Some(body.into()),
+            limit: MAX_BODY,
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub fn header(mut self, name: &str, value: impl Into<String>) -> Self {
+        self.headers.push((name.to_owned(), value.into()));
+        self
+    }
+}
+
 /// A blocking GET. Call it off the UI thread.
 pub trait Http: Send + Sync {
     fn get(&self, url: &str) -> std::result::Result<Vec<u8>, HttpError>;
@@ -29,6 +68,17 @@ pub trait Http: Send + Sync {
     fn download(&self, url: &str, limit: u64) -> std::result::Result<Vec<u8>, HttpError> {
         let _ = limit;
         self.get(url)
+    }
+
+    /// Any request. A client that only GETs answers plain GETs and refuses the rest.
+    fn send(&self, request: &HttpRequest) -> std::result::Result<Vec<u8>, HttpError> {
+        if request.method == "GET" && request.headers.is_empty() && request.body.is_none() {
+            return self.download(&request.url, request.limit);
+        }
+        Err(HttpError {
+            status: None,
+            message: format!("{} with headers is not supported here", request.method),
+        })
     }
 }
 
@@ -55,6 +105,53 @@ impl Default for UreqHttp {
 impl Http for UreqHttp {
     fn get(&self, url: &str) -> std::result::Result<Vec<u8>, HttpError> {
         self.download(url, MAX_BODY)
+    }
+
+    fn send(&self, request: &HttpRequest) -> std::result::Result<Vec<u8>, HttpError> {
+        let failed = |e: ureq::Error| HttpError {
+            status: match &e {
+                ureq::Error::StatusCode(code) => Some(*code),
+                _ => None,
+            },
+            message: e.to_string(),
+        };
+        let timeout = Some(Duration::from_secs(if request.limit > MAX_BODY {
+            600
+        } else {
+            30
+        }));
+        let mut response = if request.method == "POST" {
+            let mut builder = self.agent.post(&request.url);
+            for (k, v) in &request.headers {
+                builder = builder.header(k, v);
+            }
+            builder
+                .config()
+                .timeout_global(timeout)
+                .build()
+                .send(request.body.as_deref().unwrap_or_default())
+                .map_err(failed)?
+        } else {
+            let mut builder = self.agent.get(&request.url);
+            for (k, v) in &request.headers {
+                builder = builder.header(k, v);
+            }
+            builder
+                .config()
+                .timeout_global(timeout)
+                .build()
+                .call()
+                .map_err(failed)?
+        };
+        response
+            .body_mut()
+            .with_config()
+            .limit(request.limit)
+            .read_to_vec()
+            .map_err(|e| HttpError {
+                status: None,
+                message: e.to_string(),
+            })
     }
 
     fn download(&self, url: &str, limit: u64) -> std::result::Result<Vec<u8>, HttpError> {
