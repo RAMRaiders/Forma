@@ -54,6 +54,7 @@ const TEXT_FIELDS: &[(&str, &str, Kind)] = &[
     ("fanart", field::MEDIA_FANART, Kind::Media),
     ("manual", field::MEDIA_MANUAL, Kind::Media),
     ("boxback", field::MEDIA_BOXBACK, Kind::Media),
+    ("boxside", field::MEDIA_BOXSIDE, Kind::Media),
     ("boxart", field::MEDIA_BOXART, Kind::Media),
     ("wheel", field::MEDIA_WHEEL, Kind::Media),
     ("titleshot", field::MEDIA_TITLESHOT, Kind::Media),
@@ -237,6 +238,11 @@ mod tests {
         assert_eq!(
             Path::new(&f[field::MEDIA_IMAGE]),
             dir.join("images/Super Mario Bros. (World)-image.png")
+        );
+        // Forma's own tag: the box's spine.
+        assert_eq!(
+            Path::new(&f[field::MEDIA_BOXSIDE]),
+            dir.join("images/Super Mario Bros. (World)-boxside.png")
         );
     }
 

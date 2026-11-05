@@ -5,6 +5,7 @@
 		<name>Super Mario Bros.</name>
 		<desc>Mario &amp; Luigi save the Mushroom Kingdom. Caf&#233; included.</desc>
 		<image>./images/Super Mario Bros. (World)-image.png</image>
+		<boxside>./images/Super Mario Bros. (World)-boxside.png</boxside>
 		<marquee>./images/Super Mario Bros. (World)-marquee.png</marquee>
 		<video>./videos/Super Mario Bros. (World)-video.mp4</video>
 		<rating>0.9</rating>

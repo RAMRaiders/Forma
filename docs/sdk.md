@@ -301,8 +301,9 @@ SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation wr
 
 `scraper:progress` carries the status after each game and at the end. `MediaKind` now lists
 every kind ES knows (`thumbnail`, `image`, `titleshot`, `marquee`, `wheel`, `boxback`,
-`boxart`, `fanart`, `cartridge`, `map`, `bezel`, `mix`, `video`, `manual`), and `game.media`
-has whichever a game's `gamelist.xml` names.
+`boxart`, `fanart`, `cartridge`, `map`, `bezel`, `mix`, `video`, `manual`), plus Forma's own
+`boxside` (the box's spine, upright, from a `<boxside>` tag), and `game.media` has whichever a
+game's `gamelist.xml` names.
 
 ## `magazines`
 

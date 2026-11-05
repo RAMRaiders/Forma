@@ -5,9 +5,14 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 6;
+pub(crate) const SCHEMA_VERSION: i64 = 7;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7];
+
+/// The gamelist importer learned `boxside` (a box's spine): read every gamelist again, once.
+const V7: &str = r"
+DELETE FROM import_file WHERE path LIKE '%gamelist.xml';
+";
 
 /// The user's collections, as EmulationStation's `custom-<name>.cfg` files hold them (see
 /// `collections.rs`): the files stay the truth, this is their index for browsing. Paths are

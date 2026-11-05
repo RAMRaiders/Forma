@@ -102,6 +102,8 @@ export type MediaKind =
   | 'marquee'
   | 'wheel'
   | 'boxback'
+  /** The box's spine, upright: Forma's own `<boxside>` tag. */
+  | 'boxside'
   | 'boxart'
   | 'fanart'
   | 'cartridge'

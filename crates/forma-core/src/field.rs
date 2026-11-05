@@ -33,6 +33,8 @@ pub const MEDIA_VIDEO: &str = "media.video";
 pub const MEDIA_FANART: &str = "media.fanart";
 pub const MEDIA_MANUAL: &str = "media.manual";
 pub const MEDIA_BOXBACK: &str = "media.boxback";
+/// The box's spine, upright (Forma's own tag: ES has none).
+pub const MEDIA_BOXSIDE: &str = "media.boxside";
 /// A 3D box (ES's "alt boxart").
 pub const MEDIA_BOXART: &str = "media.boxart";
 /// A clear logo.

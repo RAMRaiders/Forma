@@ -284,6 +284,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -375,6 +376,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -580,6 +582,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -722,6 +725,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -944,6 +948,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -1205,6 +1210,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -1614,6 +1620,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -1792,6 +1799,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -2151,6 +2159,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -2518,6 +2527,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -2866,6 +2876,7 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "boxside": "boxside",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -3098,6 +3109,7 @@
       "lang": "en",
       "lastPlayed": "2026-01-01T12:00:00",
       "media": {
+        "boxside": "boxside",
         "image": "image",
         "marquee": "marquee",
         "video": "video"
