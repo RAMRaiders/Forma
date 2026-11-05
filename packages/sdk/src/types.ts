@@ -104,6 +104,14 @@ export type MediaKind =
   | 'boxback'
   /** The box's spine, upright: Forma's own `<boxside>` tag. */
   | 'boxside'
+  /** The whole cover laid flat (back, spine, front): Forma's own `<boxfull>`. */
+  | 'boxfull'
+  /** A wide banner: Forma's own `<banner>`. */
+  | 'banner'
+  /** An arcade game's flyer: Forma's own `<flyer>`. */
+  | 'flyer'
+  /** An arcade cabinet: Forma's own `<cabinet>`. */
+  | 'cabinet'
   | 'boxart'
   | 'fanart'
   | 'cartridge'

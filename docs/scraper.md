@@ -31,7 +31,7 @@ is in `libretro.tsv`. MobyGames and SteamGridDB are searched by title alone.
 - Which sources, in which order, and their credentials.
 - Which media kinds to fetch: any of image (screenshot), thumbnail (box front), boxback,
   box 3D, marquee, wheel (logo), fan art, title screen, cartridge, map, bezel, video, manual,
-  mix.
+  mix; and Forma's own: box spine, full box cover, banner, flyer and cabinet (arcade).
 - Missing only (the default) or replace what is there.
 - What to scrape: the selected game, a system, or every system.
 
@@ -40,6 +40,21 @@ is in `libretro.tsv`. MobyGames and SteamGridDB are searched by title alone.
 Media are named as EmulationStation names them, e.g. `images/<rom>-thumb.png`,
 `images/<rom>-boxback.png`, `videos/<rom>-video.mp4`, `manuals/<rom>-manual.pdf`, and linked
 from `gamelist.xml` with the matching tags (`<thumbnail>`, `<boxback>`, `<video>`, `<manual>`…).
+Forma's own kinds use their own tags and names the same way: `<boxside>` (`<rom>-boxside.jpg`),
+`<boxfull>`, `<banner>`, `<flyer>` and `<cabinet>`. EmulationStation does not read them.
+
+Which source gives which of Forma's own kinds:
+
+| Kind      | ScreenScraper | TheGamesDB | SteamGridDB | ArcadeDB |
+| --------- | ------------- | ---------- | ----------- | -------- |
+| `boxside` | `box-2D-side` |            |             |          |
+| `boxfull` | `box-texture` |            |             |          |
+| `banner`  | `steamgrid`   | `banner`   | wide grids  |          |
+| `flyer`   | `flyer`       |            |             | flyer    |
+| `cabinet` |               |            |             | cabinet  |
+
+ArcadeDB's flyer and cabinet also still fill `thumbnail` and `boxart`, and TheGamesDB's banner
+`marquee`, as EmulationStation's themes expect.
 
 ## How a run goes
 

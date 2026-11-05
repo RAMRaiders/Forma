@@ -5,9 +5,15 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 7;
+pub(crate) const SCHEMA_VERSION: i64 = 8;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8];
+
+/// The gamelist importer learned `boxfull`, `banner`, `flyer` and `cabinet`: read every
+/// gamelist again, once.
+const V8: &str = r"
+DELETE FROM import_file WHERE path LIKE '%gamelist.xml';
+";
 
 /// The gamelist importer learned `boxside` (a box's spine): read every gamelist again, once.
 const V7: &str = r"

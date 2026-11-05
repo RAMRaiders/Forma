@@ -22,12 +22,15 @@ static NEEDS: [Credential; 4] = [
 ];
 
 /// Its media types for each kind, best first.
-const TYPES: [(MediaKind, &[&str]); 14] = [
+const TYPES: [(MediaKind, &[&str]); 18] = [
     (MediaKind::Image, &["ss"]),
     (MediaKind::Titleshot, &["sstitle"]),
     (MediaKind::Thumbnail, &["box-2D"]),
     (MediaKind::Boxback, &["box-2D-back"]),
+    (MediaKind::Boxside, &["box-2D-side"]),
+    (MediaKind::Boxfull, &["box-texture"]),
     (MediaKind::Boxart, &["box-3D"]),
+    (MediaKind::Banner, &["steamgrid"]),
     (MediaKind::Marquee, &["screenmarqueesmall", "screenmarquee"]),
     (
         MediaKind::Wheel,
@@ -40,7 +43,19 @@ const TYPES: [(MediaKind, &[&str]); 14] = [
     (MediaKind::Mix, &["mixrbv2", "mixrbv1"]),
     (MediaKind::Video, &["video-normalized", "video"]),
     (MediaKind::Manual, &["manuel"]),
+    (MediaKind::Flyer, &["flyer"]),
 ];
+
+/// Every kind it has a media type for (no cabinets).
+const GIVES: [MediaKind; 18] = {
+    let mut kinds = [MediaKind::Image; 18];
+    let mut i = 0;
+    while i < TYPES.len() {
+        kinds[i] = TYPES[i].0;
+        i += 1;
+    }
+    kinds
+};
 
 const REGIONS: [&str; 8] = ["wor", "us", "eu", "ss", "uk", "fr", "de", "jp"];
 
@@ -59,7 +74,7 @@ impl Source for ScreenScraper {
         &NEEDS
     }
     fn gives(&self) -> &[MediaKind] {
-        &MediaKind::ALL
+        &GIVES
     }
 
     fn lookup(

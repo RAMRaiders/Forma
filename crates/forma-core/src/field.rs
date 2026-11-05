@@ -35,6 +35,14 @@ pub const MEDIA_MANUAL: &str = "media.manual";
 pub const MEDIA_BOXBACK: &str = "media.boxback";
 /// The box's spine, upright (Forma's own tag: ES has none).
 pub const MEDIA_BOXSIDE: &str = "media.boxside";
+/// The whole cover laid flat: back, spine and front (Forma's own).
+pub const MEDIA_BOXFULL: &str = "media.boxfull";
+/// A wide banner (Forma's own).
+pub const MEDIA_BANNER: &str = "media.banner";
+/// An arcade flyer (Forma's own).
+pub const MEDIA_FLYER: &str = "media.flyer";
+/// An arcade cabinet (Forma's own).
+pub const MEDIA_CABINET: &str = "media.cabinet";
 /// A 3D box (ES's "alt boxart").
 pub const MEDIA_BOXART: &str = "media.boxart";
 /// A clear logo.

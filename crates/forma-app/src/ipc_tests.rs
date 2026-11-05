@@ -755,7 +755,7 @@ fn scraper_settings_accounts_and_a_run_over_a_system() {
     assert_eq!(sources[0]["ready"], false);
     assert_eq!(sources[6]["id"], "libretro");
     assert_eq!(sources[6]["ready"], true);
-    assert_eq!(settings["mediaKinds"].as_array().unwrap().len(), 14);
+    assert_eq!(settings["mediaKinds"].as_array().unwrap().len(), 19);
 
     // Credentials: a secret is never sent back, only that it is set.
     h.call(

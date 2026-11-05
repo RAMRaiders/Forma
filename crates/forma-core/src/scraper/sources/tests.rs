@@ -56,7 +56,7 @@ impl Http for Api {
     }
 }
 
-const ALL: [MediaKind; 14] = MediaKind::ALL;
+const ALL: [MediaKind; 19] = MediaKind::ALL;
 
 fn query<'a>(system: &'a str, platforms: &'a [String], hashes: Option<&'a Hashes>) -> Query<'a> {
     Query {
@@ -110,7 +110,11 @@ fn screenscraper_matches_by_hash_and_picks_regions() {
                 {"type": "wheel-hd", "region": "wor", "url": "https://ss/wheel-hd"},
                 {"type": "video-normalized", "url": "https://ss/video"},
                 {"type": "manuel", "region": "us", "url": "https://ss/manual"},
-                {"type": "mixrbv2", "url": "https://ss/mix"}
+                {"type": "mixrbv2", "url": "https://ss/mix"},
+                {"type": "box-2D-side", "region": "us", "url": "https://ss/spine"},
+                {"type": "box-texture", "region": "us", "url": "https://ss/full"},
+                {"type": "steamgrid", "url": "https://ss/banner"},
+                {"type": "flyer", "region": "wor", "url": "https://ss/flyer"}
             ]
         }}})),
     )]);
@@ -163,6 +167,13 @@ fn screenscraper_matches_by_hash_and_picks_regions() {
     );
     assert_eq!(urls(MediaKind::Manual), ["https://ss/manual"]);
     assert_eq!(urls(MediaKind::Mix), ["https://ss/mix"]);
+    // Forma's own kinds: the spine, the full cover, the banner, the flyer.
+    assert_eq!(urls(MediaKind::Boxside), ["https://ss/spine"]);
+    assert_eq!(urls(MediaKind::Boxfull), ["https://ss/full"]);
+    assert_eq!(urls(MediaKind::Banner), ["https://ss/banner"]);
+    assert_eq!(urls(MediaKind::Flyer), ["https://ss/flyer"]);
+    let gives = find("screenscraper").gives().to_vec();
+    assert!(gives.contains(&MediaKind::Boxside) && !gives.contains(&MediaKind::Cabinet));
 }
 
 #[test]
@@ -203,6 +214,7 @@ fn thegamesdb_searches_by_platform_and_names_ids() {
                 "images": {"7": [
                     {"type": "boxart", "side": "back", "filename": "boxart/back/7-1.jpg"},
                     {"type": "boxart", "side": "front", "filename": "boxart/front/7-1.jpg"},
+                    {"type": "banner", "filename": "graphical/7-g.jpg"},
                     {"type": "clearlogo", "filename": "clearlogo/7.png"}
                 ]}
             }})),
@@ -253,6 +265,15 @@ fn thegamesdb_searches_by_platform_and_names_ids() {
                 "https://cdn/o/boxart/back/7-1.jpg".to_owned()
             ),
             (MediaKind::Wheel, "https://cdn/o/clearlogo/7.png".to_owned()),
+            // A banner: ES's marquee, and itself.
+            (
+                MediaKind::Marquee,
+                "https://cdn/o/graphical/7-g.jpg".to_owned()
+            ),
+            (
+                MediaKind::Banner,
+                "https://cdn/o/graphical/7-g.jpg".to_owned()
+            ),
         ]
     );
     // Names are fetched once a run.
@@ -383,6 +404,7 @@ fn arcadedb_by_short_name_for_arcade_only() {
             "game_name": "sf2", "title": "Street Fighter II: The World Warrior", "manufacturer": "Capcom",
             "url_image_ingame": "https://adb/?mame=sf2&type=ingame", "url_image_marquee": "https://adb/?mame=sf2&type=marquee",
             "url_image_flyer": "https://adb/?mame=sf2&type=flyer", "url_video_shortplay": "https://adb/v.mp4",
+            "url_image_cabinet": "https://adb/?mame=sf2&type=cabinet",
             "genre": "Fighter / Versus", "players": 2, "year": "1991",
             "history": "Arcade Video game published 35 years ago:\r\n\r\nStreet Fighter II...\n- TECHNICAL -\nstuff"
         }]})),
@@ -405,10 +427,14 @@ fn arcadedb_by_short_name_for_arcade_only() {
         found.metadata.description.as_deref(),
         Some("Street Fighter II...")
     );
-    assert!(found.media.contains(&(
-        MediaKind::Thumbnail,
-        "https://adb/?mame=sf2&type=flyer".into()
-    )));
+    for (kind, url) in [
+        (MediaKind::Thumbnail, "https://adb/?mame=sf2&type=flyer"),
+        (MediaKind::Flyer, "https://adb/?mame=sf2&type=flyer"),
+        (MediaKind::Boxart, "https://adb/?mame=sf2&type=cabinet"),
+        (MediaKind::Cabinet, "https://adb/?mame=sf2&type=cabinet"),
+    ] {
+        assert!(found.media.contains(&(kind, url.into())), "{kind:?}");
+    }
     // Not in its database: an empty result.
     let none = Api::new(vec![(
         "https://adb",

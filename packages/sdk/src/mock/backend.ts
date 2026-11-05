@@ -330,12 +330,17 @@ export function mockBackend(options: MockOptions = {}): Backend {
     ['marquee', 'Marquee'],
     ['wheel', 'Logo (wheel)'],
     ['boxback', 'Box back'],
+    ['boxside', 'Box spine'],
+    ['boxfull', 'Box, full cover'],
     ['boxart', '3D box'],
+    ['banner', 'Banner'],
     ['fanart', 'Fan art'],
     ['cartridge', 'Cartridge or disc'],
     ['map', 'Map'],
     ['bezel', 'Bezel'],
     ['mix', 'Mix'],
+    ['flyer', 'Flyer (arcade)'],
+    ['cabinet', 'Cabinet (arcade)'],
     ['video', 'Video'],
     ['manual', 'Manual']
   ];

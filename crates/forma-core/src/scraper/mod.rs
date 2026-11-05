@@ -41,9 +41,15 @@ pub enum MediaKind {
     /// The box front.
     Thumbnail,
     Boxback,
+    /// The box's spine, upright (Forma's own tag: ES has none).
+    Boxside,
+    /// The whole box cover laid flat: back, spine and front in one (Forma's own).
+    Boxfull,
     /// A 3D box.
     Boxart,
     Marquee,
+    /// A wide banner, as stores show (Forma's own).
+    Banner,
     /// A clear logo.
     Wheel,
     Fanart,
@@ -55,22 +61,31 @@ pub enum MediaKind {
     Mix,
     Video,
     Manual,
+    /// An arcade game's flyer: its "box" (Forma's own).
+    Flyer,
+    /// An arcade cabinet (Forma's own).
+    Cabinet,
 }
 
 impl MediaKind {
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 19] = [
         Self::Thumbnail,
         Self::Image,
         Self::Titleshot,
         Self::Marquee,
         Self::Wheel,
         Self::Boxback,
+        Self::Boxside,
+        Self::Boxfull,
         Self::Boxart,
+        Self::Banner,
         Self::Fanart,
         Self::Cartridge,
         Self::Map,
         Self::Bezel,
         Self::Mix,
+        Self::Flyer,
+        Self::Cabinet,
         Self::Video,
         Self::Manual,
     ];
@@ -81,7 +96,12 @@ impl MediaKind {
             Self::Image => "image",
             Self::Thumbnail => "thumbnail",
             Self::Boxback => "boxback",
+            Self::Boxside => "boxside",
+            Self::Boxfull => "boxfull",
             Self::Boxart => "boxart",
+            Self::Banner => "banner",
+            Self::Flyer => "flyer",
+            Self::Cabinet => "cabinet",
             Self::Marquee => "marquee",
             Self::Wheel => "wheel",
             Self::Fanart => "fanart",
@@ -100,7 +120,12 @@ impl MediaKind {
             Self::Image => "Screenshot",
             Self::Thumbnail => "Box",
             Self::Boxback => "Box back",
+            Self::Boxside => "Box spine",
+            Self::Boxfull => "Box, full cover",
             Self::Boxart => "3D box",
+            Self::Banner => "Banner",
+            Self::Flyer => "Flyer (arcade)",
+            Self::Cabinet => "Cabinet (arcade)",
             Self::Marquee => "Marquee",
             Self::Wheel => "Logo (wheel)",
             Self::Fanart => "Fan art",

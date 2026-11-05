@@ -18,7 +18,7 @@ const API: &str = "https://api.thegamesdb.net";
 
 static NEEDS: [Credential; 1] = [Credential::new("apiKey", "API key", true, true)];
 
-const GIVES: [MediaKind; 7] = [
+const GIVES: [MediaKind; 8] = [
     MediaKind::Thumbnail,
     MediaKind::Boxback,
     MediaKind::Image,
@@ -26,6 +26,7 @@ const GIVES: [MediaKind; 7] = [
     MediaKind::Wheel,
     MediaKind::Marquee,
     MediaKind::Titleshot,
+    MediaKind::Banner,
 ];
 
 /// Genres, developers and publishers come back as IDs; their names are fetched once a run.
@@ -174,6 +175,7 @@ pub(super) fn images(doc: &Value, id: &str) -> Vec<(MediaKind, String)> {
         (MediaKind::Fanart, "fanart", None),
         (MediaKind::Wheel, "clearlogo", None),
         (MediaKind::Marquee, "banner", None),
+        (MediaKind::Banner, "banner", None),
         (MediaKind::Titleshot, "titlescreen", None),
     ] {
         for image in list {

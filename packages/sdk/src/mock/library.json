@@ -284,7 +284,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -376,7 +380,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -582,7 +590,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -725,7 +737,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -948,7 +964,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -1210,7 +1230,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -1620,7 +1644,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -1799,7 +1827,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -2159,7 +2191,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -2527,7 +2563,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -2876,7 +2916,11 @@
             "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
+              "banner": "banner",
+              "boxfull": "boxfull",
               "boxside": "boxside",
+              "cabinet": "cabinet",
+              "flyer": "flyer",
               "image": "image",
               "marquee": "marquee",
               "video": "video"
@@ -3109,7 +3153,11 @@
       "lang": "en",
       "lastPlayed": "2026-01-01T12:00:00",
       "media": {
+        "banner": "banner",
+        "boxfull": "boxfull",
         "boxside": "boxside",
+        "cabinet": "cabinet",
+        "flyer": "flyer",
         "image": "image",
         "marquee": "marquee",
         "video": "video"

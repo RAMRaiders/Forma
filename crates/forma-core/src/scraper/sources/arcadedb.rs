@@ -9,13 +9,15 @@ use super::json;
 use crate::net::{Http, HttpRequest};
 use crate::scraper::platforms;
 
-const GIVES: [MediaKind; 6] = [
+const GIVES: [MediaKind; 8] = [
     MediaKind::Image,
     MediaKind::Titleshot,
     MediaKind::Marquee,
     MediaKind::Thumbnail,
     MediaKind::Boxart,
     MediaKind::Video,
+    MediaKind::Flyer,
+    MediaKind::Cabinet,
 ];
 
 pub struct ArcadeDb;
@@ -61,8 +63,12 @@ pub(super) fn parse(game: &Value) -> Found {
         (MediaKind::Image, &["url_image_ingame"][..]),
         (MediaKind::Titleshot, &["url_image_title"]),
         (MediaKind::Marquee, &["url_image_marquee"]),
+        // As ES has them (themes look for the flyer as the box, the cabinet as the 3D box), and
+        // as themselves.
         (MediaKind::Thumbnail, &["url_image_flyer"]),
         (MediaKind::Boxart, &["url_image_cabinet"]),
+        (MediaKind::Flyer, &["url_image_flyer"]),
+        (MediaKind::Cabinet, &["url_image_cabinet"]),
         (
             MediaKind::Video,
             &["url_video_shortplay_hd", "url_video_shortplay"],

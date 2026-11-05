@@ -10,7 +10,12 @@ const API: &str = "https://www.steamgriddb.com/api/v2";
 
 static NEEDS: [Credential; 1] = [Credential::new("apiKey", "API key", true, true)];
 
-const GIVES: [MediaKind; 3] = [MediaKind::Thumbnail, MediaKind::Fanart, MediaKind::Wheel];
+const GIVES: [MediaKind; 4] = [
+    MediaKind::Thumbnail,
+    MediaKind::Fanart,
+    MediaKind::Wheel,
+    MediaKind::Banner,
+];
 
 pub struct SteamGridDb;
 
@@ -63,6 +68,10 @@ impl Source for SteamGridDb {
                 format!("/grids/game/{id}?dimensions=600x900,342x482,660x930"),
             ),
             (MediaKind::Fanart, format!("/heroes/game/{id}")),
+            (
+                MediaKind::Banner,
+                format!("/grids/game/{id}?dimensions=460x215,920x430"),
+            ),
             (MediaKind::Wheel, format!("/logos/game/{id}")),
         ] {
             if !query.wanted.contains(&kind) {
