@@ -96,6 +96,9 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             paths.cache_dir().join("thumbs"),
             thumbs::DEFAULT_MAX_BYTES,
         )),
+        video: forma_core::video::VideoPlayer::new(Box::new(forma_core::music::Mpv::video(
+            paths.forma_dir().join("run").join("video.sock"),
+        ))),
         playing: AtomicBool::new(false),
         theme_ready: AtomicBool::new(false),
         ready_file: std::env::var_os("FORMA_READY_FILE").map(PathBuf::from),
@@ -161,7 +164,8 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         .title("Forma")
         .inner_size(1280.0, 720.0)
         .fullscreen(fullscreen())
-        .transparent(see_through)
+        // On Batocera, games' videos play under the window too (see `video_play`).
+        .transparent(see_through || state.on_batocera)
         .background_color(tauri::window::Color(
             4,
             6,

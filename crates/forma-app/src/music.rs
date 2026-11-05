@@ -338,19 +338,57 @@ pub fn video_sound(state: &AppState) -> bool {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct VideoAudio {
-    /// Play the video with its sound; `false`: muted (the user turned video sound off).
+pub struct VideoPlay {
+    /// The video is up, full screen under the page: the theme leaves its page see-through
+    /// where it should show. `false`: the game has none, or it could not play.
+    pub playing: bool,
+    /// Heard (Start → Audio → Video sound), the music lowered meanwhile.
     pub sound: bool,
 }
 
-/// A theme starts (`true`) or stops a game's video. With video sound on, the music goes down
-/// while it plays and back up after; a new page, or a game starting, brings it back too.
+/// Plays a game's video, full screen under the theme's page, and answers once it shows. With
+/// video sound on, the music goes down while it plays. A new page, or a game starting, stops it.
 #[tauri::command]
-pub async fn video_playing<R: Runtime>(app: AppHandle<R>, playing: bool) -> ApiResult<VideoAudio> {
+pub async fn video_play<R: Runtime>(app: AppHandle<R>, game_id: i64) -> ApiResult<VideoPlay> {
+    let window = app.get_webview_window("main");
     off_thread(app, move |state| {
         let sound = video_sound(state);
-        state.music.duck(playing && sound);
-        Ok(VideoAudio { sound })
+        let file = state
+            .library()
+            .game(game_id)?
+            .and_then(|g| g.media.get("video").cloned())
+            .map(std::path::PathBuf::from)
+            .filter(|f| f.is_file());
+        let Some(file) = file else {
+            return Ok(VideoPlay {
+                playing: false,
+                sound,
+            });
+        };
+        // Under the window: the window must let it through where the page does.
+        if let Some(window) = window {
+            let _ = window.set_background_color(Some(tauri::window::Color(4, 6, 12, 0)));
+        }
+        state.music.duck(sound);
+        let playing = state.video.play(&file, sound).unwrap_or_else(|e| {
+            eprintln!("forma: video: {e}");
+            false
+        });
+        if !playing && !state.video.playing() {
+            state.music.duck(false);
+        }
+        Ok(VideoPlay { playing, sound })
+    })
+    .await
+}
+
+/// Stops the game's video; the music comes back.
+#[tauri::command]
+pub async fn video_stop<R: Runtime>(app: AppHandle<R>) -> ApiResult<()> {
+    off_thread(app, |state| {
+        state.video.stop()?;
+        state.music.duck(false);
+        Ok(())
     })
     .await
 }

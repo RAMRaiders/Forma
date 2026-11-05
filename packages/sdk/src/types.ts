@@ -920,12 +920,17 @@ export interface MusicSource {
 }
 
 /**
- * What Forma says about a game's video a theme plays (`forma.video.playing`): whether to play
- * it with its sound. The user sets it in Start → Audio → Video sound (Forma's setting
- * `video.sound`); when it changes, Forma sends `settings:changed`.
+ * A game's video, played by Forma (`forma.video.play`): full screen, under the theme's page.
+ * The user turns its sound on or off in Start → Audio → Video sound (Forma's setting
+ * `video.sound`; a change comes as `settings:changed`).
  */
-export interface VideoAudio {
-  /** Play it with its sound; `false`: muted. */
+export interface VideoPlay {
+  /**
+   * It shows: leave the page see-through (transparent backgrounds) where it should be seen.
+   * `false`: the game has no video, or it could not play; show something else.
+   */
+  playing: boolean;
+  /** Heard, the music lowered meanwhile. */
   sound: boolean;
 }
 

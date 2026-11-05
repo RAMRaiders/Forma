@@ -207,17 +207,21 @@ reached. Ask with the widths `mediaUrl` will use. Nothing is downloaded, and vid
 ## `video`
 
 ```ts
-const { sound } = await forma.video.playing(true); // as a game's video starts
-player.muted = !sound;
-// …and as soon as it stops, is paused or leaves the screen:
-await forma.video.playing(false);
+const { playing } = await forma.video.play(game.id);
+if (playing) backdrop.classList.add("see-through"); // transparent where it should show
+// …and as soon as it should no longer be seen or heard:
+await forma.video.stop();
 ```
 
-Forma decides whether games' videos are heard: Start → Audio → Video sound (Forma's setting
-`video.sound`, on by default; a change comes as `settings:changed`, scope `system`). With sound
-on, Forma lowers the music while the video plays and brings it back after. It also brings it back
-when a game starts or the page reloads, so a theme that forgets cannot leave it quiet. No
-permission.
+Forma plays games' videos itself, full screen under the theme's page: a page's own `<video>`
+(WebKitGTK's player) garbles them on a Raspberry Pi. `play` resolves once the video shows;
+`playing: false` means the game has none or it could not play. The page then only has to be
+see-through where the video should be seen; what it draws over it stays. One plays at a time,
+on a loop. It stops by itself when a game starts or the page reloads.
+
+Whether it is heard is the user's choice: Start → Audio → Video sound (Forma's setting
+`video.sound`, on by default; a change comes as `settings:changed`, scope `system`, and the
+video playing follows). Heard, Forma lowers the music while it plays. No permission.
 
 ## `settings`
 

@@ -58,6 +58,8 @@ pub struct AppState {
     pub music: Player,
     /// Resized artwork, made in the background.
     pub thumbnails: Thumbnailer,
+    /// Games' videos (a second mpv, under the window).
+    pub video: forma_core::video::VideoPlayer,
     /// Opens magazines and makes their pages.
     pub magazines: forma_core::magazines::Reader,
     pub playing: AtomicBool,

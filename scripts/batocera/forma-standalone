@@ -51,14 +51,33 @@ back_to_emulationstation() {
     exit 0
 }
 
-# Forma's music player (mpv, named by its socket): it must not play on over EmulationStation.
+# Forma's music and video players (mpv, named by their sockets): they must not play on over
+# EmulationStation.
 stop_music() {
-    pkill -f '(^|/)mpv .*forma/run/mpv\.sock' || true
+    pkill -f '(^|/)mpv .*forma/run/(mpv|video)\.sock' || true
+}
+
+# Games' videos play in an mpv window (app id `forma-video`) under Forma's see-through window:
+# a labwc rule keeps it at the bottom and away from focus. Batocera may write labwc's config
+# afresh, so the rule goes back in at every start, and labwc reads it again.
+LABWC_RC=/userdata/system/.config/labwc/rc.xml
+VIDEO_RULE='<windowRule identifier="forma-video" ignoreFocusRequest="yes" skipTaskbar="yes" skipWindowSwitcher="yes"><action name="ToggleAlwaysOnBottom" /></windowRule>'
+keep_video_under() {
+    [ -f "$LABWC_RC" ] || return 0
+    grep -q 'identifier="forma-video"' "$LABWC_RC" && return 0
+    if grep -q '</windowRules>' "$LABWC_RC"; then
+        sed -i "s|</windowRules>|  $VIDEO_RULE\n  </windowRules>|" "$LABWC_RC"
+    else
+        sed -i "s|</labwc_config>|  <windowRules>$VIDEO_RULE</windowRules>\n</labwc_config>|" "$LABWC_RC"
+    fi
+    pkill -HUP -x labwc || true
+    log "labwc: games' videos kept under Forma"
 }
 
 mkdir -p "$(dirname "$LOG")"
 [ -x "$APP" ] || { log "no Forma at $APP; EmulationStation stays"; exit 1; }
 wait_for 60 wlr-randr || { log "no Wayland compositor; EmulationStation stays"; exit 1; }
+keep_video_under
 # Forma's boot picture (what Batocera showed while booting) under everything, from the moment
 # the compositor is up until Forma is ready: no black screen while Forma loads, and Forma's
 # window starts see-through over it.

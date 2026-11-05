@@ -33,6 +33,7 @@ pub mod themes;
 pub mod thumbs;
 mod time;
 pub mod updates;
+pub mod video;
 mod xml;
 
 #[cfg(test)]

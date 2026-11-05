@@ -379,9 +379,10 @@ describe('mock backend', () => {
 
   it('video: heard unless the user turned video sound off', async () => {
     const b = mockBackend({ permissions: ['settings.system'] });
-    expect(await b.invoke('video_playing', { playing: true })).toEqual({ sound: true });
+    expect(await b.invoke('video_play', { gameId: 1 })).toEqual({ playing: false, sound: true });
     await b.invoke('settings_set', { key: 'video.sound', value: false, scope: 'system' });
-    expect(await b.invoke('video_playing', { playing: true })).toEqual({ sound: false });
+    expect(await b.invoke('video_play', { gameId: 1 })).toEqual({ playing: false, sound: false });
+    expect(await b.invoke('video_stop')).toBeNull();
   });
 
   it('rejects unknown commands instead of answering null', async () => {

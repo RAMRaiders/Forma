@@ -284,6 +284,11 @@ pub fn settings_set<R: Runtime>(
     let stored = permissions::setting_key(&theme(&state)?, scope, &key, caller.shell)?;
     let json = value.as_ref().map(Value::to_string);
     state.library().set_setting(&stored, json.as_deref())?;
+    if stored == crate::music::VIDEO_SOUND_SETTING {
+        let sound = value.as_ref() != Some(&Value::Bool(false));
+        state.video.set_sound(sound);
+        state.music.duck(state.video.playing() && sound);
+    }
     if stored == achievements::API_KEY_SETTING || stored == achievements::USERNAME_SETTING {
         crate::ra_match::account_changed();
     }
@@ -538,6 +543,7 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
         },
     );
     set_playing_ui(app, &state, true);
+    let _ = state.video.stop();
     state.music.game(true);
     let started = SystemTime::now();
 

@@ -204,13 +204,13 @@ describe('Forma’s shell', () => {
     await openMenu('Audio');
     await vi.waitFor(() => expect(text('.page li.selected .name')).toEqual(['Video sound']));
     expect(text('.page li.selected .description')[0]).toMatch(/^On/);
-    expect(await forma.video.playing(true)).toEqual({ sound: true });
+    expect((await forma.video.play(1)).sound).toBe(true);
     await press('confirm');
     await vi.waitFor(() =>
       expect(text('.page li.selected .description')).toEqual(['Off: videos play muted'])
     );
     expect(await forma.settings.getSystem('video.sound')).toBe(false);
-    expect(await forma.video.playing(true)).toEqual({ sound: false });
+    expect((await forma.video.play(1)).sound).toBe(false);
     await press('right');
     await vi.waitFor(() => expect(text('.page li.selected .description')[0]).toMatch(/^On/));
   });

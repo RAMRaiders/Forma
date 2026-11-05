@@ -16,7 +16,7 @@ import type {
   MediaKind,
   MusicSource,
   MusicStatus,
-  VideoAudio,
+  VideoPlay,
   NetplayRoom,
   RoomFilter,
   NetworkStatus,
@@ -528,15 +528,19 @@ export class Forma {
     };
 
     /**
-     * Games' videos a theme plays (previews, snaps): Forma decides whether they are heard, and
-     * lowers the music while one is (back up when it stops, a game starts, or the page goes).
+     * Games' videos. Forma plays them itself, full screen under the theme's page (a page's own
+     * `<video>` breaks up on a Raspberry Pi), heard or not as the user chose, the music lowered
+     * meanwhile.
      */
     this.video = {
       /**
-       * A video starts (`true`) or stops. Play it muted unless the answer's `sound` is `true`;
-       * call it again with `false` as soon as it stops, is paused or is taken off screen.
+       * Plays a game's video on a loop, replacing any other, and resolves once it shows. Then
+       * leave the page see-through where it should be seen. It stops by itself when a game
+       * starts or the page reloads.
        */
-      playing: (playing: boolean) => invoke<VideoAudio>('video_playing', { playing })
+      play: (gameId: number) => invoke<VideoPlay>('video_play', { gameId }),
+      /** Stops it, as soon as it should no longer be seen or heard. */
+      stop: () => invoke<void>('video_stop')
     };
 
     /**

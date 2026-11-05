@@ -122,7 +122,8 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         music::music_radios,
         music::music_add_radio,
         music::music_remove_radio,
-        music::video_playing,
+        music::video_play,
+        music::video_stop,
         shell::shell_claim,
         shell::shell_set_open,
         shell::shell_started,
@@ -159,10 +160,14 @@ fn main() {
                 && let Some(state) = webview.try_state::<AppState>()
             {
                 state.shell.new_page();
-                // A video the old page played is gone with it: the music comes back.
-                if state.music.ducked() {
+                // A video the old page played goes with it, and the music comes back.
+                if state.music.ducked() || state.video.playing() {
                     let app = webview.app_handle().clone();
-                    std::thread::spawn(move || app.state::<AppState>().music.duck(false));
+                    std::thread::spawn(move || {
+                        let state = app.state::<AppState>();
+                        let _ = state.video.stop();
+                        state.music.duck(false);
+                    });
                 }
                 if payload.url().path().starts_with("/theme/") {
                     boot::watch_ready(webview.app_handle().clone());

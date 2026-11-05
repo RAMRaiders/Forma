@@ -11,15 +11,60 @@ use crate::error::{Error, Result};
 
 pub struct Mpv {
     socket: PathBuf,
+    /// What it is started with, besides its socket.
+    args: Vec<String>,
+    /// What it is, in errors: "the music player".
+    name: &'static str,
     child: Mutex<Option<std::process::Child>>,
 }
+
+/// The music player: sound only.
+const MUSIC_ARGS: &[&str] = &[
+    "--no-video",
+    "--idle=yes",
+    "--no-terminal",
+    "--audio-display=no",
+    "--really-quiet",
+];
+
+/// Games' videos: full screen, under Forma's window (a labwc rule keeps `forma-video` at the
+/// bottom; Forma's window is see-through where the video shows). No window while nothing plays,
+/// no keys or on-screen display of its own, filling the screen as a theme's `cover` would.
+const VIDEO_ARGS: &[&str] = &[
+    "--idle=yes",
+    "--force-window=no",
+    "--fs",
+    "--wayland-app-id=forma-video",
+    "--no-input-default-bindings",
+    "--input-vo-keyboard=no",
+    "--input-cursor=no",
+    "--cursor-autohide=always",
+    "--osc=no",
+    "--osd-level=0",
+    "--loop-file=inf",
+    "--panscan=1.0",
+    "--hwdec=no",
+    "--no-terminal",
+    "--really-quiet",
+];
 
 impl Mpv {
     /// `socket`: where mpv listens. Its path also names the process, so Batocera's scripts can
     /// stop it when the screen goes back to EmulationStation.
     pub fn new(socket: PathBuf) -> Self {
+        Self::with(socket, MUSIC_ARGS, "the music player")
+    }
+
+    /// The player of games' videos (see [`crate::video`]).
+    pub fn video(socket: PathBuf) -> Self {
+        Self::with(socket, VIDEO_ARGS, "the video player")
+    }
+
+    fn with(socket: PathBuf, args: &[&str], name: &'static str) -> Self {
         Self {
             socket,
+            args: args.iter().map(|a| (*a).to_owned()).collect(),
+            name,
             child: Mutex::new(None),
         }
     }
@@ -40,21 +85,13 @@ impl Mpv {
             std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
         }
         let started = crate::host::command("mpv")
-            .args([
-                "--no-video",
-                "--idle=yes",
-                "--no-terminal",
-                "--audio-display=no",
-                "--really-quiet",
-                &format!("--input-ipc-server={}", self.socket.display()),
-            ])
+            .args(&self.args)
+            .arg(format!("--input-ipc-server={}", self.socket.display()))
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
-            .map_err(|e| {
-                Error::Unsupported(format!("the music player (mpv) could not start: {e}"))
-            })?;
+            .map_err(|e| Error::Unsupported(format!("{} (mpv) could not start: {e}", self.name)))?;
         *child = Some(started);
         let deadline = Instant::now() + Duration::from_secs(3);
         while Instant::now() < deadline {
@@ -63,9 +100,10 @@ impl Mpv {
             }
             std::thread::sleep(Duration::from_millis(50));
         }
-        Err(Error::Unsupported(
-            "the music player (mpv) did not answer".into(),
-        ))
+        Err(Error::Unsupported(format!(
+            "{} (mpv) did not answer",
+            self.name
+        )))
     }
 
     #[cfg(unix)]
@@ -88,15 +126,15 @@ impl Backend for Mpv {
         self.start()?;
         let stream = self
             .connect()
-            .map_err(|e| Error::Network(format!("the music player went away: {e}")))?;
+            .map_err(|e| Error::Network(format!("{} went away: {e}", self.name)))?;
         let mut writer = &stream;
         let request = json!({ "command": command, "request_id": 1 });
         writeln!(writer, "{request}")
-            .map_err(|e| Error::Network(format!("the music player went away: {e}")))?;
+            .map_err(|e| Error::Network(format!("{} went away: {e}", self.name)))?;
         // Events can arrive before the answer; the answer carries our request id.
         for line in BufReader::new(&stream).lines() {
             let line =
-                line.map_err(|e| Error::Network(format!("the music player did not answer: {e}")))?;
+                line.map_err(|e| Error::Network(format!("{} did not answer: {e}", self.name)))?;
             let Ok(answer) = serde_json::from_str::<Value>(&line) else {
                 continue;
             };
@@ -105,11 +143,11 @@ impl Backend for Mpv {
             }
             return match answer.get("error").and_then(Value::as_str) {
                 Some("success") => Ok(answer.get("data").cloned().unwrap_or(Value::Null)),
-                Some(error) => Err(Error::Network(format!("the music player: {error}"))),
+                Some(error) => Err(Error::Network(format!("{}: {error}", self.name))),
                 None => Ok(Value::Null),
             };
         }
-        Err(Error::Network("the music player did not answer".into()))
+        Err(Error::Network(format!("{} did not answer", self.name)))
     }
 
     fn running(&self) -> bool {

@@ -97,6 +97,9 @@ impl Harness {
                 root.join("thumbs"),
                 forma_core::thumbs::DEFAULT_MAX_BYTES,
             )),
+            video: forma_core::video::VideoPlayer::new(Box::new(forma_core::music::Mpv::video(
+                root.join("video.sock"),
+            ))),
             playing: AtomicBool::new(false),
             theme_ready: AtomicBool::new(false),
             ready_file: Some(root.join("forma.ready")),
