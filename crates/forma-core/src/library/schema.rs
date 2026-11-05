@@ -5,13 +5,21 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 5;
+pub(crate) const SCHEMA_VERSION: i64 = 6;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6];
 
 /// The user's collections, as EmulationStation's `custom-<name>.cfg` files hold them (see
 /// `collections.rs`): the files stay the truth, this is their index for browsing. Paths are
 /// absolute, as in the files, so a game that is missing keeps its place.
+/// The gamelist importer learned new tags (`boxback`, `boxart`, `wheel`, `titleshot`,
+/// `cartridge`, `map`, `bezel`, `mix`): gamelists read before kept none of them, and are only
+/// read again when they change. Forgetting when they were read makes the next refresh read
+/// each one again, once. Do the same whenever the importer learns to read more.
+const V6: &str = r"
+DELETE FROM import_file WHERE path LIKE '%gamelist.xml';
+";
+
 const V5: &str = r"
 CREATE TABLE collection (
     name  TEXT PRIMARY KEY COLLATE NOCASE

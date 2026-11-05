@@ -251,6 +251,27 @@ fn reopens_a_database_on_disk_and_refuses_a_newer_schema() {
 }
 
 #[test]
+fn a_library_from_before_the_new_tags_reads_its_gamelists_again_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("library.db");
+    {
+        let mut lib = Library::open(&path).unwrap();
+        let report = lib.refresh(&fixture_paths()).unwrap();
+        assert_eq!(report.gamelists_imported, 3);
+    }
+    // As a database from before migration 6 was left.
+    let conn = Connection::open(&path).unwrap();
+    conn.pragma_update(None, "user_version", 5).unwrap();
+    drop(conn);
+
+    let mut lib = Library::open(&path).unwrap();
+    let report = lib.refresh(&fixture_paths()).unwrap();
+    assert_eq!(report.gamelists_imported, 3, "read again after the upgrade");
+    let report = lib.refresh(&fixture_paths()).unwrap();
+    assert_eq!(report.gamelists_unchanged, 3, "and only once");
+}
+
+#[test]
 fn helpers() {
     assert_eq!(players_max("1-2"), Some(2));
     assert_eq!(players_max("2+"), Some(2));
