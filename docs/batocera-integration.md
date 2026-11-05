@@ -207,8 +207,9 @@ Batocera box and a Raspberry Pi 4. **Not yet run:** it needs the hardware.
 ### What to build
 
 The **Spike AppImage** workflow (Actions tab → Run workflow) builds both on GitHub's own x86_64
-and arm64 runners and attaches them to the run as artifacts. It runs only when started by hand
-and publishes nothing. To build locally instead:
+and arm64 runners. It runs only when started by hand, and puts them on the branch's private
+pre-release, `spike-<branch>` (e.g. `spike-main`), replacing the previous run's:
+`gh release download spike-main -p 'forma-aarch64.AppImage'`. To build locally instead:
 
 `scripts/spike/build-appimage.sh amd64` (and `arm64`) builds the same AppImage in Docker, with
 WebKitGTK and the default theme inside, into `dist-spike/<arch>/`. Nothing in the repository's
