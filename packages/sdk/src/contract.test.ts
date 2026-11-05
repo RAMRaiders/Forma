@@ -62,6 +62,8 @@ describe('contract with the engine', () => {
       'lastPlayed',
       'gameTime',
       'raGameId',
+      'region',
+      'lang',
       'media'
     );
     for (const game of data.games) expect(sorted(game)).toEqual(expected);

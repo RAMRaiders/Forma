@@ -418,6 +418,8 @@ fn an_import_outranks_the_gamelist_and_the_user_outranks_both() {
         Some("Nintendo"),
         "gamelist shows through"
     );
+    assert_eq!(game.region.as_deref(), Some("wor"));
+    assert_eq!(game.lang.as_deref(), Some("en"));
     assert!(
         !game.favorite,
         "the user's choice still wins over the gamelist's favorite"

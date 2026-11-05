@@ -121,6 +121,8 @@ fn game(path: &str, name: &str) -> Game {
         last_played: None,
         game_time: 0,
         ra_game_id: None,
+        region: None,
+        lang: None,
         media: BTreeMap::new(),
     }
 }

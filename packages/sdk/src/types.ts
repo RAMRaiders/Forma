@@ -134,6 +134,10 @@ export interface Game {
   /** Total seconds played. */
   gameTime: number;
   raGameId: number | null;
+  /** As the gamelist gives it, e.g. `us`, `eu`, `jp`, `wor`. Since 1.22.0. */
+  region: string | null;
+  /** Languages, as the gamelist gives them, e.g. `en,fr,de`. Since 1.22.0. */
+  lang: string | null;
   /** Media kind → URL to load it from. */
   media: Partial<Record<MediaKind, string>>;
 }
