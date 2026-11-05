@@ -30,6 +30,7 @@ const MUSIC_ARGS: &[&str] = &[
 /// Games' videos: full screen, under Forma's window (a labwc rule keeps `forma-video` at the
 /// bottom; Forma's window is see-through where the video shows). No window while nothing plays,
 /// no keys or on-screen display of its own, filling the screen as a theme's `cover` would.
+/// Batocera's mpv has no Lua, so no `--osc` option (it refuses to start on one it lacks).
 const VIDEO_ARGS: &[&str] = &[
     "--idle=yes",
     "--force-window=no",
@@ -39,7 +40,6 @@ const VIDEO_ARGS: &[&str] = &[
     "--input-vo-keyboard=no",
     "--input-cursor=no",
     "--cursor-autohide=always",
-    "--osc=no",
     "--osd-level=0",
     "--loop-file=inf",
     "--panscan=1.0",
@@ -89,7 +89,8 @@ impl Mpv {
             .arg(format!("--input-ipc-server={}", self.socket.display()))
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            // Quiet but for what stops it (an option it lacks, say): in Forma's log.
+            .stderr(std::process::Stdio::inherit())
             .spawn()
             .map_err(|e| Error::Unsupported(format!("{} (mpv) could not start: {e}", self.name)))?;
         *child = Some(started);
