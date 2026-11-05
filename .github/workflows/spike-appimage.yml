@@ -1,16 +1,42 @@
-# Builds the Forma AppImages for the Batocera WebView spike (#39), for download as artifacts.
-# Manual only, and nothing is tagged, released or published. See docs/batocera-integration.md.
+# Builds the Forma AppImages for testing on Batocera boxes (#39). Manual only. Each run replaces
+# the branch's pre-release, `spike-<branch>` (the repository is private, so it is too), with
+# the AppImages of the commit it built: release files do not count against the Actions storage
+# that artifacts fill. Nothing else is tagged or published. See docs/batocera-integration.md.
 name: Spike AppImage
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: spike-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
+  release:
+    name: Pre-release for this commit
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        run: echo "tag=spike-$(echo '${{ github.ref_name }}' | tr -c 'A-Za-z0-9._\n-' '-')" >> "$GITHUB_OUTPUT"
+      - name: Replace the branch's pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
+            --title "Test build: ${{ github.ref_name }} @ ${GITHUB_SHA::7}" \
+            --notes "AppImages of ${GITHUB_SHA} on \`${{ github.ref_name }}\`, for testing on a Batocera box. Replaced by the next run on this branch."
+
   appimage:
     name: AppImage (${{ matrix.arch }})
+    needs: release
     strategy:
       fail-fast: false
       matrix:
@@ -71,9 +97,12 @@ jobs:
           npx tauri build --bundles appimage --config
           '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../build/themes/cyber":"themes/cyber","../../packages/theme-default/dist":"themes/default","../../packages/shell/dist":"shell"}}}'
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: forma-spike-${{ matrix.arch }}
-          path: target/release/bundle/appimage/*.AppImage
-          if-no-files-found: error
-          retention-days: 3
+      - name: Attach it to the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          files=(target/release/bundle/appimage/*.AppImage)
+          [ -f "${files[0]}" ] || { echo "::error::no AppImage was built"; exit 1; }
+          cp "${files[0]}" "forma-${{ matrix.arch }}.AppImage"
+          gh release upload "$TAG" "forma-${{ matrix.arch }}.AppImage" --clobber
