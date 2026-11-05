@@ -1504,6 +1504,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
       radios.splice(at, 1);
       return null;
     },
+    // The mock has no music to lower: only the answer.
+    video_playing: () => ({ sound: settings.get('video.sound') !== false }),
     system_quit: () => power(),
     system_power: () => power(),
     launch_game: ({ id }) => {

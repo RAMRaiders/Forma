@@ -919,6 +919,16 @@ export interface MusicSource {
   tracks: number;
 }
 
+/**
+ * What Forma says about a game's video a theme plays (`forma.video.playing`): whether to play
+ * it with its sound. The user sets it in Start → Audio → Video sound (Forma's setting
+ * `video.sound`); when it changes, Forma sends `settings:changed`.
+ */
+export interface VideoAudio {
+  /** Play it with its sound; `false`: muted. */
+  sound: boolean;
+}
+
 export interface MusicStatus {
   state: 'stopped' | 'playing' | 'paused';
   source: MusicSource | null;

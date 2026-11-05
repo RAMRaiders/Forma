@@ -193,6 +193,21 @@ connman's own check). `network` is `null` off a Batocera box. No permission: it 
 and no network name. Forma's shell draws it; a theme restyles it or draws its own (see
 [theme authoring](theme-authoring.md)).
 
+## `video`
+
+```ts
+const { sound } = await forma.video.playing(true); // as a game's video starts
+player.muted = !sound;
+// …and as soon as it stops, is paused or leaves the screen:
+await forma.video.playing(false);
+```
+
+Forma decides whether games' videos are heard: Start → Audio → Video sound (Forma's setting
+`video.sound`, on by default; a change comes as `settings:changed`, scope `system`). With sound
+on, Forma lowers the music while the video plays and brings it back after. It also brings it back
+when a game starts or the page reloads, so a theme that forgets cannot leave it quiet. No
+permission.
+
 ## `settings`
 
 | Method                                    | Scope                                     |

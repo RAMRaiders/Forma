@@ -14,6 +14,8 @@ import { catalogueScreen, themeScreen } from './themes.js';
 /** Music: what plays, the controls, and everything there is to play. */
 /** Forma's setting for how long a new song is shown, in seconds (0: not at all). */
 const SONG_SECONDS_SETTING = 'music.songSeconds';
+/** Forma's setting: games' videos play with their sound, the music lowered meanwhile. */
+const VIDEO_SOUND_SETTING = 'video.sound';
 const SONG_SECONDS_DEFAULT = 8;
 /** The lengths the menu steps through. */
 const SONG_SECONDS = [0, 3, 5, 8, 10, 15, 20, 30];
@@ -26,11 +28,15 @@ export function musicScreen(forma: Forma, page: Page): () => Promise<Row[]> {
     });
 
   return async () => {
-    const [status, sources, shown] = await Promise.all([
+    const [status, sources, shown, videoSound] = await Promise.all([
       forma.music.status(),
       forma.music.sources(),
-      forma.settings.getSystem<number>(SONG_SECONDS_SETTING).catch(() => null)
+      forma.settings.getSystem<number>(SONG_SECONDS_SETTING).catch(() => null),
+      forma.settings.getSystem<boolean>(VIDEO_SOUND_SETTING).catch(() => null)
     ]);
+    const heard = videoSound !== false;
+    const toggleVideoSound = () =>
+      page.run('…', () => forma.settings.setSystem(VIDEO_SOUND_SETTING, !heard));
     const seconds = typeof shown === 'number' ? shown : SONG_SECONDS_DEFAULT;
     const showFor = (step: -1 | 1) => {
       const at = SONG_SECONDS.indexOf(seconds);
@@ -41,7 +47,17 @@ export function musicScreen(forma: Forma, page: Page): () => Promise<Row[]> {
       return page.run('…', () => forma.settings.setSystem(SONG_SECONDS_SETTING, next));
     };
     shuffle ??= status.shuffle;
-    const rows: Row[] = [{ label: nowPlaying(status), detail: playingDetail(status) }];
+    const rows: Row[] = [
+      {
+        label: 'Video sound',
+        detail: heard
+          ? 'On: the music goes quiet while a game’s video plays'
+          : 'Off: videos play muted',
+        adjust: toggleVideoSound,
+        run: toggleVideoSound
+      },
+      { label: nowPlaying(status), detail: playingDetail(status) }
+    ];
     if (status.state !== 'stopped') {
       rows.push(
         {

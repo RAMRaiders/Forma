@@ -370,6 +370,13 @@ describe('mock backend', () => {
     ).rejects.toMatchObject({ code: 'permissionDenied' });
   });
 
+  it('video: heard unless the user turned video sound off', async () => {
+    const b = mockBackend({ permissions: ['settings.system'] });
+    expect(await b.invoke('video_playing', { playing: true })).toEqual({ sound: true });
+    await b.invoke('settings_set', { key: 'video.sound', value: false, scope: 'system' });
+    expect(await b.invoke('video_playing', { playing: true })).toEqual({ sound: false });
+  });
+
   it('rejects unknown commands instead of answering null', async () => {
     await expect(mockBackend().invoke('rm_rf')).rejects.toMatchObject({ code: 'notFound' });
   });

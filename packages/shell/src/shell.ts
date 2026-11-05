@@ -412,8 +412,8 @@ export class Shell {
       },
       {
         id: 'music',
-        label: 'Music',
-        description: 'Folders, playlists and web radios',
+        label: 'Audio',
+        description: 'Video sound, music folders, playlists and web radios',
         section: 'Settings'
       },
       {
@@ -623,7 +623,7 @@ export class Shell {
           })
         );
       case 'music':
-        return show('Music', musicScreen(this.forma, page));
+        return show('Audio', musicScreen(this.forma, page));
       case 'ra':
         return show('RetroAchievements', retroAchievementsScreen(this.forma, page));
       case 'netplay':

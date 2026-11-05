@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.23.0', false);
+  const forma = new Forma(backend, '1.24.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -127,10 +127,10 @@ describe('Forma’s shell', () => {
 
   it('goes back to its menu on B from a page, on the entry it came from', async () => {
     const { press, text, shell, openMenu } = start(['settings.system']);
-    await openMenu('Music');
-    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Music']));
+    await openMenu('Audio');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Audio']));
     await press('back');
-    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Music']));
+    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Audio']));
     expect(shell.open).toBe(true);
     // B in the menu itself closes it.
     await press('back');
@@ -184,7 +184,7 @@ describe('Forma’s shell', () => {
 
   it('sets how long a new song shows, from the music page', async () => {
     const { press, text, openMenu, forma } = start(['settings.system']);
-    await openMenu('Music');
+    await openMenu('Audio');
     await vi.waitFor(() => expect(text('.page li .name')).toContain('Show each new song'));
     for (let i = 0; i < 30 && text('.page li.selected .name')[0] !== 'Show each new song'; i++) {
       await press('down');
@@ -197,6 +197,22 @@ describe('Forma’s shell', () => {
     expect(await forma.settings.getSystem('music.songSeconds')).toBe(10);
     for (let i = 0; i < 6; i++) await press('left');
     await vi.waitFor(() => expect(text('.page li.selected .description')).toEqual(['Off']));
+  });
+
+  it('turns video sound off and on, from the audio page', async () => {
+    const { press, text, openMenu, forma } = start(['settings.system']);
+    await openMenu('Audio');
+    await vi.waitFor(() => expect(text('.page li.selected .name')).toEqual(['Video sound']));
+    expect(text('.page li.selected .description')[0]).toMatch(/^On/);
+    expect(await forma.video.playing(true)).toEqual({ sound: true });
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(text('.page li.selected .description')).toEqual(['Off: videos play muted'])
+    );
+    expect(await forma.settings.getSystem('video.sound')).toBe(false);
+    expect(await forma.video.playing(true)).toEqual({ sound: false });
+    await press('right');
+    await vi.waitFor(() => expect(text('.page li.selected .description')[0]).toMatch(/^On/));
   });
 
   it('keeps to the views a theme says it shows: one, and there is nothing to pick', async () => {
@@ -539,7 +555,7 @@ describe('Forma’s shell', () => {
       'Achievements',
       'Netplay',
       'Interface',
-      'Music',
+      'Audio',
       'Games',
       'System',
       'Add-ons',
@@ -610,7 +626,7 @@ describe('Forma’s shell', () => {
     expect(at()).toBe('Achievements');
     await press('right');
     await press('down');
-    expect(at()).toBe('Music');
+    expect(at()).toBe('Audio');
     await press('right');
     await press('right');
     expect(at()).toBe('System');
@@ -761,21 +777,22 @@ describe('Forma’s shell', () => {
 describe('Forma’s settings pages', () => {
   it('music: picks a playlist, shows it playing, and adds a web radio', async () => {
     const { press, text, openMenu } = start(['music.manage']);
-    await openMenu('Music');
+    await openMenu('Audio');
     const rows = () => text('.page > .panel li .name');
     await vi.waitFor(() => expect(rows()).toContain('Chiptune'));
-    expect(rows()[0]).toBe('Nothing playing');
+    expect(rows().slice(0, 2)).toEqual(['Video sound', 'Nothing playing']);
     expect(text('.page li.heading')).toEqual([
       'Folders and playlists',
       'Web radios',
       'From add-ons'
     ]);
 
-    // Down to Chiptune: Nothing playing, Volume, Shuffle, Show each new song, Music, Chiptune.
-    for (let i = 0; i < 5; i++) await press('down');
+    // Down to Chiptune: Video sound, Nothing playing, Volume, Shuffle, Show each new song, Music,
+    // Chiptune.
+    for (let i = 0; i < 6; i++) await press('down');
     expect(text('.page li.selected .name')).toEqual(['Chiptune']);
     await press('confirm');
-    await vi.waitFor(() => expect(rows()[0]).toBe('Track 1'));
+    await vi.waitFor(() => expect(rows()[1]).toBe('Track 1'));
     // Rows were added above it (Pause, Next…): the selection stayed on Chiptune.
     expect(text('.page li.selected .name')).toEqual(['Chiptune']);
     expect(rows()).toContain('Pause');

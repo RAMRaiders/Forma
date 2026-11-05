@@ -101,7 +101,26 @@ struct State {
     volume: u8,
     /// Paused by Forma for a game, so resumed after it; a pause the user chose stays.
     paused_for_game: bool,
+    /// Lowered while a game's video plays with its sound, so the video is heard over it.
+    ducked: bool,
 }
+
+impl State {
+    /// What mpv plays at: the user's volume, or a part of it while a video is heard.
+    fn heard(&self) -> u8 {
+        if self.ducked {
+            (u16::from(self.volume) * u16::from(DUCKED_PERCENT) / 100) as u8
+        } else {
+            self.volume
+        }
+    }
+}
+
+/// How loud the music stays, in percent of its volume, while a video plays with its sound.
+pub const DUCKED_PERCENT: u8 = 20;
+/// The music goes down (or back up) over this long, in this many steps.
+const DUCK_STEPS: u32 = 6;
+const DUCK_STEP: std::time::Duration = std::time::Duration::from_millis(60);
 
 pub struct Player {
     library: Library,
@@ -140,7 +159,7 @@ impl Player {
             .find(|s| s.id == source_id)
             .ok_or_else(|| Error::Invalid(format!("nothing to play called `{source_id}`")))?;
         let playable = self.library.resolve(source_id)?;
-        let volume = self.state().volume;
+        let volume = self.state().heard();
         self.backend
             .send(json!(["set_property", "volume", volume]))?;
         self.backend
@@ -208,13 +227,57 @@ impl Player {
     }
 
     pub fn set_volume(&self, volume: u8) -> Result<Status> {
-        let volume = volume.min(100);
-        self.state().volume = volume;
+        let heard = {
+            let mut state = self.state();
+            state.volume = volume.min(100);
+            state.heard()
+        };
         if self.backend.running() {
             self.backend
-                .send(json!(["set_property", "volume", volume]))?;
+                .send(json!(["set_property", "volume", heard]))?;
         }
         self.status()
+    }
+
+    /// A game's video starts playing with its sound (`true`), or stops: the music goes down to
+    /// [`DUCKED_PERCENT`] of its volume, in a short fade, and back up after. The volume the user
+    /// set, and [`Status::volume`], stay as they are.
+    pub fn duck(&self, on: bool) {
+        let (from, to) = {
+            let mut state = self.state();
+            if state.ducked == on {
+                return;
+            }
+            let from = state.heard();
+            state.ducked = on;
+            (from, state.heard())
+        };
+        if !self.backend.running() {
+            return;
+        }
+        for step in 1..=DUCK_STEPS {
+            let at = i32::from(from)
+                + (i32::from(to) - i32::from(from)) * step as i32 / DUCK_STEPS as i32;
+            // Another duck (or a volume change) since: that one has the last word.
+            if self.state().ducked != on {
+                return;
+            }
+            if self
+                .backend
+                .send(json!(["set_property", "volume", at]))
+                .is_err()
+            {
+                return;
+            }
+            if step < DUCK_STEPS {
+                std::thread::sleep(DUCK_STEP);
+            }
+        }
+    }
+
+    /// The music is lowered for a video.
+    pub fn ducked(&self) -> bool {
+        self.state().ducked
     }
 
     /// A game starts (`true`) or ends: music playing pauses for it, and comes back after.
@@ -224,6 +287,14 @@ impl Player {
         }
         let mut state = self.state();
         if playing {
+            // A video lowered the music: the game ends it, and the music comes back at its own
+            // volume after.
+            if state.ducked {
+                state.ducked = false;
+                let _ = self
+                    .backend
+                    .send(json!(["set_property", "volume", state.volume]));
+            }
             let was_playing =
                 self.property("pause").ok() == Some(Value::Bool(false)) && state.source.is_some();
             if was_playing
@@ -524,5 +595,65 @@ mod tests {
         assert_eq!(player.status().unwrap().volume, 100);
         assert!(player.play("folder:Nope", false).is_err());
         assert!(commands(fake).is_empty());
+    }
+
+    #[test]
+    fn a_video_with_sound_lowers_the_music_and_its_end_brings_it_back() {
+        let (_dir, fake, player) = player();
+        player.play("folder:Chiptune", false).unwrap();
+        player.duck(true);
+        assert!(player.ducked());
+        assert_eq!(fake.props.lock().unwrap()["volume"], json!(12), "20% of 60");
+        assert_eq!(
+            player.status().unwrap().volume,
+            60,
+            "the user's volume stays"
+        );
+
+        // The volume changed meanwhile: still lowered, from the new one.
+        player.set_volume(80).unwrap();
+        assert_eq!(fake.props.lock().unwrap()["volume"], json!(16));
+
+        player.duck(false);
+        assert_eq!(fake.props.lock().unwrap()["volume"], json!(80));
+        let volumes: Vec<i64> = fake
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|c| c[1] == "volume")
+            .map(|c| c[2].as_i64().unwrap())
+            .collect();
+        assert!(
+            volumes.windows(2).filter(|w| w[0] < w[1]).count() > 2,
+            "it fades back up in steps: {volumes:?}"
+        );
+    }
+
+    #[test]
+    fn ducking_twice_does_nothing_more_and_a_game_ends_it() {
+        let (_dir, fake, player) = player();
+        player.play("folder:Chiptune", false).unwrap();
+        player.duck(true);
+        let sent = fake.sent.lock().unwrap().len();
+        player.duck(true);
+        assert_eq!(fake.sent.lock().unwrap().len(), sent);
+
+        fake.props
+            .lock()
+            .unwrap()
+            .insert("pause".into(), json!(false));
+        player.game(true);
+        assert!(!player.ducked());
+        assert_eq!(fake.props.lock().unwrap()["volume"], json!(60));
+    }
+
+    #[test]
+    fn ducking_without_music_only_remembers_it() {
+        let (_dir, fake, player) = player();
+        player.duck(true);
+        assert!(commands(fake).is_empty(), "never starts mpv");
+        player.play("folder:Chiptune", false).unwrap();
+        assert_eq!(fake.props.lock().unwrap()["volume"], json!(12));
     }
 }

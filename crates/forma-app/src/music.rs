@@ -322,3 +322,35 @@ mod tests {
         assert_eq!(new_song(None, &status(None, PlayState::Playing), 8), None);
     }
 }
+
+/// Forma's setting for whether games' videos play with their sound (`true`, the default).
+pub const VIDEO_SOUND_SETTING: &str = "video.sound";
+
+/// Whether games' videos are heard: Start → Audio → Video sound.
+pub fn video_sound(state: &AppState) -> bool {
+    state
+        .library()
+        .setting_text(VIDEO_SOUND_SETTING)
+        .ok()
+        .flatten()
+        .is_none_or(|v| v.trim() != "false")
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoAudio {
+    /// Play the video with its sound; `false`: muted (the user turned video sound off).
+    pub sound: bool,
+}
+
+/// A theme starts (`true`) or stops a game's video. With video sound on, the music goes down
+/// while it plays and back up after; a new page, or a game starting, brings it back too.
+#[tauri::command]
+pub async fn video_playing<R: Runtime>(app: AppHandle<R>, playing: bool) -> ApiResult<VideoAudio> {
+    off_thread(app, move |state| {
+        let sound = video_sound(state);
+        state.music.duck(playing && sound);
+        Ok(VideoAudio { sound })
+    })
+    .await
+}

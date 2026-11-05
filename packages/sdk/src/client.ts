@@ -16,6 +16,7 @@ import type {
   MediaKind,
   MusicSource,
   MusicStatus,
+  VideoAudio,
   NetplayRoom,
   RoomFilter,
   NetworkStatus,
@@ -133,6 +134,7 @@ export class Forma {
   readonly options;
   readonly store;
   readonly music;
+  readonly video;
   readonly shell;
   readonly status;
 
@@ -514,6 +516,18 @@ export class Forma {
       addRadio: (name: string, url: string) => invoke<void>('music_add_radio', { name, url }),
       /** Needs `music.manage`. */
       removeRadio: (url: string) => invoke<void>('music_remove_radio', { url })
+    };
+
+    /**
+     * Games' videos a theme plays (previews, snaps): Forma decides whether they are heard, and
+     * lowers the music while one is (back up when it stops, a game starts, or the page goes).
+     */
+    this.video = {
+      /**
+       * A video starts (`true`) or stops. Play it muted unless the answer's `sound` is `true`;
+       * call it again with `false` as soon as it stops, is paused or is taken off screen.
+       */
+      playing: (playing: boolean) => invoke<VideoAudio>('video_playing', { playing })
     };
 
     /**
