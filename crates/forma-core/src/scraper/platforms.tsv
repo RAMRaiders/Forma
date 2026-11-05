@@ -1,0 +1,188 @@
+# platform	screenscraper	thegamesdb	igdb
+# From batocera-emulationstation's scraper tables (ScreenScraper.cpp, GamesDBJSONScraper.cpp,
+# IGDBScraper.cpp), keyed by es_systems.cfg <platform> names. Corrected: psx IGDB 131 -> 7
+# (131 is the Nintendo PlayStation prototype), zxspectrum IGDB 2 -> 26.
+3do	29	25	50
+3ds	17	4912	37
+actionmax	81		
+adam	89		68
+advision	78	4974	
+amiga	64	4911	16
+amigacd32	130	4947	114
+amigacdtv	129	129	158
+amstradcpc	65	4914	25
+apfm1000		4969	
+apple2	86	4942	75
+apple2gs	217	217	115
+arcade	75	23	52
+arcadia	94	4963	
+archimedes	84	4944	116
+arduboy	263		
+astrocade	44	4968	91
+astrocde	44	4968	91
+atari2600	26	22	59
+atari5200	40	26	66
+atari7800	41	27	60
+atari800	43	4943	89769
+atarijaguar	27	28	62
+atarijaguarcd	171	29	410
+atarilynx	28	4924	61
+atarist	42	4937	63
+atom	36		116
+atomiswave	53	53	52
+bbc	37		69
+bbc	37	5013	
+bbcmicro	37		69
+bk	93		
+c16	99		
+c20	73	4945	71
+c64	66	40	15
+camplynx	88		
+cannonball			
+cassettevision	300	4965	
+cavestory	135	135	
+cdi	133	4917	117
+channelf	80	4928	127
+chihiro			52
+coco	144	4941	
+colecovision	48	31	68
+cpet	240	5008	90
+cplus4	99	5007	94
+creativision	241	5005	
+crvision	241	5005	
+daphne	49	23	
+dragon32	91		
+dreamcast	23	16	23
+easyrpg	231		
+electron	85	4954	134
+fds	106	4936	
+fm7	97	4978	152
+fmtowns	253	4932	118
+fpinball	199	199	
+gamate	266	5004	
+gameandwatch	52	4950	307
+gamecom	121	4940	
+gamegear	21	20	35
+gamepock	95		
+gb	9	4	33
+gb2players	9	4	33
+gba	12	5	24
+gbc	10	41	22
+gbc2players	10	41	22
+gc	13	2	21
+genesis	1	18	29
+gmaster	103		
+gp32	101	5015	
+gx4000	87	87	25
+ignore			
+imageviewer			
+intellivision	115	32	67
+invalid			
+j2me	302		
+jaguar	27	28	62
+laseractive			
+lcdgames	75	4951	
+loopy	98		
+lowresnx	244		
+lutro	206	206	
+macintosh	146	37	
+mastersystem	2	35	64
+megacd	20	21	78
+megadrive	1	36	
+megaduck	90	4948	
+model3	55		
+moonlight	138	1	
+mrboom			
+msx	113	4929	27
+msx2	116		
+msx2+	117		
+msx2turbor	118		
+multivision	109	4949	84
+n3ds	17	4912	37
+n64	14	3	4
+n64dd	122		4
+naomi	56	23	
+nds	15	8	20
+neogeo	142	24	79
+neogeocd	70	4956	136
+nes	3	7	18
+ngage	30		
+ngp	25	4922	119
+ngpc	82	4923	120
+o2em	104	4927	133
+odyssey2	104	4927	133
+openbor	214	214	
+oric	131	131	
+oricatmos	131	131	
+palm	219	219	
+pc	135	1	13
+pc88	221	4933	125
+pc98	208	4934	149
+pcarcade	269	23	52
+pcengine	31	34	86
+pcenginecd	114	4955	150
+pcfx	72	4930	274
+pet	240	5008	90
+pico	250	4958	339
+pico8	234		
+pokemini	211	4957	
+prboom	135	1	
+ps2	58	11	8
+ps3	59	12	9
+ps4	60	4919	
+psp	61	13	38
+psvita	62	39	46
+psx	57	10	7
+pv1000	74	4964	
+samcoupe	213	4979	
+satellaview	107	6	306
+saturn	22	17	32
+scummvm	123		6
+scv	67	4966	376
+sega32x	19	33	30
+sg-1000	109	4949	84
+sg1000	109	4949	84
+sgb	127		
+snes	4	6	19
+snes-msu1	210	6	19
+socrates		4998	
+solarus	223	223	
+sonicretro	0		
+spectravideo	218	218	
+sufami	108	6	
+supergrafx	105	34	128
+supervision	207	4959	415
+supracan	100		
+switch	225	4971	130
+teknoparrot	269	23	52
+thomson	141	141	156
+ti99	205	4953	129
+ti99_4a	205	4953	129
+tic80	222		
+trs-80	144	4941	126
+tutor		4960	
+tyrquake	135	1	
+uzebox	216	216	
+vc4000	281		
+vectrex	102	4939	70
+vic20	73	4945	71
+videopac	104	4927	133
+vircon32	272		
+virtualboy	11	4918	87
+vis		4982	
+vpinball	198	198	
+vsmile	120	4988	
+wasm4	262		
+watara	207	4959	415
+wii	16	9	5
+wiiu	18	38	41
+windows	138	1	
+wonderswan	45	4925	57
+wonderswancolor	46	4926	123
+x1	220	4977	77
+x68000	79	4931	121
+xbox	32	14	11
+xbox360	33	15	12
+xegs	43	30	65
+zx81	77	77	373
+zxspectrum	76	4913	26

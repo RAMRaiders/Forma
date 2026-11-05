@@ -30,6 +30,15 @@ pub struct PlayStats<'a> {
     pub last_played: Option<&'a str>,
 }
 
+/// What to do with one tag of a game's entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Tag {
+    /// Write this value (escaped for XML).
+    Set(String),
+    /// Take the tag out.
+    Remove,
+}
+
 /// Updates the entry for `rom` (relative to `system_dir`) in `system_dir/gamelist.xml`,
 /// adding the entry, or the file, if there is none. Returns whether the file changed: when it
 /// already says the same, it is not touched, so the watcher sees nothing.
@@ -39,6 +48,38 @@ pub fn write_back(
     rom: &Path,
     stats: &PlayStats<'_>,
 ) -> Result<bool> {
+    set_tags(system_dir, paths, rom, stats.name, &stats_tags(stats))
+}
+
+/// The tags ES keeps for play stats, in the order it writes them.
+fn stats_tags(stats: &PlayStats<'_>) -> Vec<(&'static str, Tag)> {
+    let mut tags = vec![(
+        "favorite",
+        if stats.favorite {
+            Tag::Set("true".into())
+        } else {
+            // ES writes nothing for false, so the tag goes.
+            Tag::Remove
+        },
+    )];
+    if stats.play_count > 0 {
+        tags.push(("playcount", Tag::Set(stats.play_count.to_string())));
+    }
+    if let Some(at) = stats.last_played {
+        tags.push(("lastplayed", Tag::Set(es_date_time(at))));
+    }
+    tags
+}
+
+/// Sets (or removes) `tags` in the entry for `rom`, leaving every other byte of the file as it
+/// was; adds the entry, named `name`, if there is none. Returns whether the file changed.
+pub fn set_tags(
+    system_dir: &Path,
+    paths: &Paths,
+    rom: &Path,
+    name: &str,
+    tags: &[(&str, Tag)],
+) -> Result<bool> {
     let file = system_dir.join("gamelist.xml");
     let old = match std::fs::read_to_string(&file) {
         Ok(text) => text,
@@ -47,10 +88,11 @@ pub fn write_back(
         }
         Err(e) => return Err(Error::io(&file, e)),
     };
-    let new = updated(&old, system_dir, paths, rom, stats).map_err(|message| Error::Parse {
-        path: file.clone(),
-        message: format!("{message}; not written back"),
-    })?;
+    let new =
+        updated(&old, system_dir, paths, rom, name, tags).map_err(|message| Error::Parse {
+            path: file.clone(),
+            message: format!("{message}; not written"),
+        })?;
     if new == old && file.exists() {
         return Ok(false);
     }
@@ -75,25 +117,15 @@ struct GameSpan {
     children: Vec<Child>,
 }
 
-/// The tags written back, in the order ES writes them.
-const TAGS: [&str; 3] = ["favorite", "playcount", "lastplayed"];
-
 fn updated(
     xml_text: &str,
     system_dir: &Path,
     paths: &Paths,
     rom: &Path,
-    stats: &PlayStats<'_>,
+    name: &str,
+    tags: &[(&str, Tag)],
 ) -> std::result::Result<String, String> {
     let (games, root_close) = spans(xml_text)?;
-    let wanted = |tag: &str| -> Option<String> {
-        match tag {
-            "favorite" => stats.favorite.then(|| "true".to_owned()),
-            "playcount" => (stats.play_count > 0).then(|| stats.play_count.to_string()),
-            "lastplayed" => stats.last_played.map(es_date_time),
-            _ => None,
-        }
-    };
 
     // (start, end, replacement), applied from the end so earlier offsets stay valid.
     let mut edits: Vec<(usize, usize, String)> = Vec::new();
@@ -104,24 +136,27 @@ fn updated(
         }
         found = true;
         let indent = child_indent(xml_text, game);
-        for tag in TAGS {
-            let existing: Vec<&Child> = game.children.iter().filter(|c| c.name == tag).collect();
-            match (wanted(tag), existing.first()) {
-                (Some(value), Some(child)) => {
-                    let element = format!("<{tag}>{value}</{tag}>");
+        for (tag, what) in tags {
+            let existing: Vec<&Child> = game.children.iter().filter(|c| c.name == *tag).collect();
+            match (what, existing.first()) {
+                (Tag::Set(value), Some(child)) => {
+                    let element = format!("<{tag}>{}</{tag}>", escape(value.as_str()));
                     if xml_text[child.start..child.end] != element {
                         edits.push((child.start, child.end, element));
                     }
                 }
-                (Some(value), None) => {
+                (Tag::Set(value), None) => {
                     let at = trim_end_at(xml_text, game.close);
-                    edits.push((at, at, format!("{indent}<{tag}>{value}</{tag}>")));
+                    edits.push((
+                        at,
+                        at,
+                        format!("{indent}<{tag}>{}</{tag}>", escape(value.as_str())),
+                    ));
                 }
-                // Not a favourite: ES writes nothing for false, so the tag goes.
-                (None, Some(child)) if tag == "favorite" => {
+                (Tag::Remove, Some(child)) => {
                     edits.push((trim_end_at(xml_text, child.start), child.end, String::new()));
                 }
-                _ => {}
+                (Tag::Remove, None) => {}
             }
             // A second copy of the tag would contradict the first: drop it.
             for extra in existing.iter().skip(1) {
@@ -131,13 +166,15 @@ fn updated(
     }
     if !found {
         let mut entry = format!(
-            "\n\t<game>\n\t\t<path>./{}</path>\n\t\t<name>{}</name>",
-            escape(rom.to_string_lossy()),
-            escape(stats.name)
+            "\n\t<game>\n\t\t<path>./{}</path>",
+            escape(rom.to_string_lossy())
         );
-        for tag in TAGS {
-            if let Some(value) = wanted(tag) {
-                entry.push_str(&format!("\n\t\t<{tag}>{value}</{tag}>"));
+        if !tags.iter().any(|(t, _)| *t == "name") {
+            entry.push_str(&format!("\n\t\t<name>{}</name>", escape(name)));
+        }
+        for (tag, what) in tags {
+            if let Tag::Set(value) = what {
+                entry.push_str(&format!("\n\t\t<{tag}>{}</{tag}>", escape(value.as_str())));
             }
         }
         entry.push_str("\n\t</game>");
@@ -286,7 +323,15 @@ mod tests {
     }
 
     fn run(xml_text: &str, rom: &str, s: &PlayStats<'_>) -> String {
-        updated(xml_text, &dir(), &fixture_paths(), Path::new(rom), s).unwrap()
+        updated(
+            xml_text,
+            &dir(),
+            &fixture_paths(),
+            Path::new(rom),
+            s.name,
+            &stats_tags(s),
+        )
+        .unwrap()
     }
 
     const LIST: &str = "<?xml version=\"1.0\"?>\n<gameList>\n\t<game id=\"7\" source=\"ss\">\n\
@@ -355,7 +400,8 @@ mod tests {
             &dir(),
             &fixture_paths(),
             Path::new("a.nes"),
-            &stats(true, 1, None),
+            "A",
+            &stats_tags(&stats(true, 1, None)),
         );
         assert!(err.is_err());
     }

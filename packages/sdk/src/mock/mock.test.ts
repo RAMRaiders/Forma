@@ -7,6 +7,8 @@ import type {
   Game,
   GameEnd,
   NetworkStatus,
+  ScraperSettings,
+  ScraperStatus,
   WifiNetwork
 } from '../types.js';
 import { mockBackend } from './backend.js';
@@ -365,5 +367,57 @@ describe('mock backend', () => {
 
   it('rejects unknown commands instead of answering null', async () => {
     await expect(mockBackend().invoke('rm_rf')).rejects.toMatchObject({ code: 'notFound' });
+  });
+
+  it('scraper: sources in order, credentials kept secret, a run with progress', async () => {
+    const b = mockBackend({ permissions: ['scraper.manage'] });
+    const settings = await b.invoke<ScraperSettings>('scraper_settings');
+    expect(settings.sources.map((s) => s.id)).toEqual([
+      'screenscraper',
+      'thegamesdb',
+      'igdb',
+      'mobygames',
+      'steamgriddb',
+      'arcadedb',
+      'libretro'
+    ]);
+    expect(settings.sources.filter((s) => s.ready).map((s) => s.id)).toEqual([
+      'arcadedb',
+      'libretro'
+    ]);
+    const after = await b.invoke<ScraperSettings>('scraper_set_credential', {
+      source: 'thegamesdb',
+      key: 'apiKey',
+      value: 'hush'
+    });
+    const tgdb = after.sources.find((s) => s.id === 'thegamesdb')!;
+    expect(tgdb.ready).toBe(true);
+    expect(tgdb.needs[0]).toMatchObject({ set: true, value: null });
+    const moved = await b.invoke<ScraperSettings>('scraper_configure', {
+      sources: [{ id: 'libretro', enabled: true }],
+      media: ['video', 'thumbnail'],
+      replace: true
+    });
+    expect(moved.sources[0]!.id).toBe('libretro');
+    expect(moved.sources).toHaveLength(7);
+    expect(moved.media).toEqual(['thumbnail', 'video']);
+
+    const seen: ScraperStatus[] = [];
+    b.listen('scraper:progress', (s) => seen.push(s as ScraperStatus));
+    const started = await b.invoke<ScraperStatus>('scraper_start', {
+      scope: { kind: 'system', name: 'nes' }
+    });
+    expect(started).toMatchObject({ running: true, done: 0 });
+    await expect(b.invoke('scraper_start', { scope: { kind: 'all' } })).rejects.toMatchObject({
+      code: 'busy'
+    });
+    await vi.waitFor(() => expect(seen.at(-1)?.running).toBe(false));
+    const done = await b.invoke<ScraperStatus>('scraper_status');
+    expect(done.done).toBe(started.total);
+    expect(done.found + done.notFound).toBe(started.total);
+
+    await expect(mockBackend().invoke('scraper_settings')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
   });
 });

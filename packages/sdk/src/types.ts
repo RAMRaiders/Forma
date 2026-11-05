@@ -13,7 +13,22 @@ export interface SystemSummary {
   gameCount: number;
 }
 
-export type MediaKind = 'image' | 'thumbnail' | 'marquee' | 'video' | 'fanart' | 'manual';
+/** A kind of media, as EmulationStation names it (and its `gamelist.xml` tag). */
+export type MediaKind =
+  | 'thumbnail'
+  | 'image'
+  | 'titleshot'
+  | 'marquee'
+  | 'wheel'
+  | 'boxback'
+  | 'boxart'
+  | 'fanart'
+  | 'cartridge'
+  | 'map'
+  | 'bezel'
+  | 'mix'
+  | 'video'
+  | 'manual';
 
 export interface Game {
   id: number;
@@ -167,6 +182,67 @@ export interface ThemeInfo {
   logo: string | null;
 }
 
+/** Something the user enters for a scraper source. Secret values are never sent back. */
+export interface ScraperCredential {
+  key: string;
+  label: string;
+  secret: boolean;
+  /** The source is not asked without it. */
+  required: boolean;
+  set: boolean;
+  /** What was entered, for one that is not secret. */
+  value: string | null;
+}
+
+/** A place the scraper asks, in the user's order. */
+export interface ScraperSource {
+  id: string;
+  name: string;
+  /** What it gives and what it needs, in a line. */
+  about: string;
+  enabled: boolean;
+  /** Every required credential is entered. */
+  ready: boolean;
+  needs: ScraperCredential[];
+  gives: MediaKind[];
+  /** It has text (descriptions, dates…), not only media. */
+  metadata: boolean;
+}
+
+export interface ScraperSettings {
+  /** In the order they are asked: the first with an answer wins, per field and per kind. */
+  sources: ScraperSource[];
+  /** The kinds to fetch. */
+  media: MediaKind[];
+  /** Every kind there is, with its name. */
+  mediaKinds: { kind: MediaKind; label: string }[];
+  /** Fetch text: name, description, developer, publisher, genre, players, date, rating. */
+  metadata: boolean;
+  /** Replace what games have; otherwise only fill what is missing. */
+  replace: boolean;
+}
+
+/** What to scrape. */
+export type ScrapeScope =
+  { kind: 'game'; id: number } | { kind: 'system'; name: string } | { kind: 'all' };
+
+/** A scraper run, going on or the last one. */
+export interface ScraperStatus {
+  running: boolean;
+  /** A game's name, a system's, or `Everything`. */
+  scope: string | null;
+  total: number;
+  done: number;
+  found: number;
+  notFound: number;
+  /** Games that already had everything asked for. */
+  skipped: number;
+  current: string | null;
+  /** The latest problems, e.g. a source refusing its credentials. */
+  problems: string[];
+  stopped: boolean;
+}
+
 /**
  * A magazine in `/userdata/magazines`: a CBZ/ZIP, CBR/RAR, CB7/7Z, CBT/TAR or PDF file, or a
  * folder of page images. Folders below group them.
@@ -292,6 +368,8 @@ export interface EventMap {
   'nav:open': NavOpen;
   /** Forma's shell is asked to open its magazines (`id`: one of them; `null`: the list). */
   'magazines:open': { id: string | null };
+  /** After each game of a scraper run, and when it ends. */
+  'scraper:progress': ScraperStatus;
   /** A setting changed in Forma's menu: one of the theme's own, or Forma's (`display.margins`). */
   'settings:changed': SettingsChanged;
   'music:changed': MusicStatus;

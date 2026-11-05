@@ -32,3 +32,14 @@ pub const MEDIA_MARQUEE: &str = "media.marquee";
 pub const MEDIA_VIDEO: &str = "media.video";
 pub const MEDIA_FANART: &str = "media.fanart";
 pub const MEDIA_MANUAL: &str = "media.manual";
+pub const MEDIA_BOXBACK: &str = "media.boxback";
+/// A 3D box (ES's "alt boxart").
+pub const MEDIA_BOXART: &str = "media.boxart";
+/// A clear logo.
+pub const MEDIA_WHEEL: &str = "media.wheel";
+pub const MEDIA_TITLESHOT: &str = "media.titleshot";
+pub const MEDIA_CARTRIDGE: &str = "media.cartridge";
+pub const MEDIA_MAP: &str = "media.map";
+pub const MEDIA_BEZEL: &str = "media.bezel";
+/// A composite of screenshot, box and logo.
+pub const MEDIA_MIX: &str = "media.mix";

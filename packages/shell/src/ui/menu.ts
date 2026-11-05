@@ -172,6 +172,10 @@ const ICONS: Record<string, string> = {
   magazines: svg(
     '<path d="M3 5.5c3-1.3 6-1.3 9 .5v13c-3-1.8-6-1.8-9-.5z"/><path d="M21 5.5c-3-1.3-6-1.3-9 .5v13c3-1.8 6-1.8 9-.5z"/><path d="M5.5 9h4M5.5 12h4M14.5 9h4M14.5 12h4"/>'
   ),
+  // A magnifier over a picture.
+  scraper: svg(
+    '<rect x="3" y="4" width="13" height="11" rx="1.5"/><path d="M3 12l3.5-3.5 3 3 2-2 4.5 4.5"/><circle cx="16.5" cy="16.5" r="3.5"/><path d="M19 19l2.5 2.5"/>'
+  ),
   collections: svg(
     '<rect x="4" y="9" width="16" height="11" rx="2"/><path d="M6 6h12M8 3h8"/><path d="M8 13h8M8 16h5"/>'
   ),

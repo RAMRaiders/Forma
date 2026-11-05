@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.19.0', false);
+  const forma = new Forma(backend, '1.20.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -298,6 +298,61 @@ describe('Forma’s shell', () => {
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
   });
 
+  it('scraper: runs in the background, chooses what to fetch, sets up a source', async () => {
+    const { press, text, openMenu } = start(['scraper.manage']);
+    await openMenu('Scraper');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    const selected = () => text('.page li.selected .name')[0];
+    const goTo = async (label: string) => {
+      for (let i = 0; i < 40 && selected() !== label; i++) await press('down');
+      expect(selected()).toBe(label);
+    };
+    await vi.waitFor(() =>
+      expect([...rows(), ...text('.page .note')]).toContain('Scrape everything')
+    );
+    expect(text('.page li.heading')).toEqual([
+      'Scrape',
+      'Sources, asked in this order',
+      'What to fetch'
+    ]);
+    expect(rows()).toContain('ScreenScraper');
+    expect(rows()).toContain('Manual');
+    const at = (label: string) => details()[rows().indexOf(label)];
+    expect(at('ScreenScraper')).toBe('On · needs setting up: A');
+    expect(at('libretro thumbnails')).toBe('On · nothing to set up');
+
+    // Everything, in the background: the page follows it to the end.
+    await goTo('Scrape everything');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows().some((r) => r.startsWith('Last: Everything'))).toBe(true));
+    expect(at('Last: Everything')).toMatch(/^\d+ found · \d+ not found$/);
+
+    // Manuals on.
+    expect(at('Manual')).toBe('Off');
+    await goTo('Manual');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Manual')).toBe('On'));
+
+    // TheGamesDB's key, typed on the keyboard.
+    await press('up');
+    for (let i = 0; i < 40 && selected() !== 'TheGamesDB'; i++) await press('up');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['TheGamesDB']));
+    await vi.waitFor(() => expect(rows()).toContain('API key'));
+    await goTo('API key');
+    expect(details()[rows().indexOf('API key')]).toBe('Needed: A to enter');
+    await press('confirm');
+    expect(text('.keyboard h2')).toEqual(['API key']);
+    for (const key of 'abc123') window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+    await press('start');
+    await vi.waitFor(() =>
+      expect(details()[rows().indexOf('API key')]).toBe('Entered · Y to clear')
+    );
+    await press('back');
+    await vi.waitFor(() => expect(at('TheGamesDB')).toBe('On · set up'));
+  });
+
   it('magazines: a theme opens one in Forma’s reader', async () => {
     const { text, forma } = start();
     await forma.magazines.open('Edge/Edge 9.cbz');
@@ -347,6 +402,7 @@ describe('Forma’s shell', () => {
       'Views',
       'Downloads',
       'Magazines',
+      'Scraper',
       'Achievements',
       'Netplay',
       'Interface',
@@ -407,14 +463,18 @@ describe('Forma’s shell', () => {
       });
       top += Math.ceil(own.length / 4) * 50 + 20;
     }
-    expect(tiles.length).toBe(15);
+    expect(tiles.length).toBe(16);
     const at = () => text('.menu li.selected .name')[0];
     expect(at()).toBe('Collections');
     await press('right');
     expect(at()).toBe('Views');
     await press('down');
+    // the next row has one tile: the nearest across
+    expect(at()).toBe('Scraper');
+    await press('down');
     // the tile below, in the next row
-    expect(at()).toBe('Netplay');
+    expect(at()).toBe('Achievements');
+    await press('right');
     await press('down');
     expect(at()).toBe('Music');
     await press('right');
@@ -437,7 +497,7 @@ describe('Forma’s shell', () => {
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 13; i++) await press('down');
+    for (let i = 0; i < 14; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
@@ -463,7 +523,7 @@ describe('Forma’s shell', () => {
   it('switches theme, and sets the theme’s own settings, from Interface', async () => {
     const { press, text, settings, forma } = start(['settings.system']);
     await press('start');
-    for (let i = 0; i < 6; i++) await press('down');
+    for (let i = 0; i < 7; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Interface']));
     expect(text('.page li.heading')).toEqual(['Theme', 'Screen', 'Look', 'This theme']);
@@ -493,14 +553,19 @@ describe('Forma’s shell', () => {
         name: 'Cyber',
         version: '0.7.12',
         origin: 'bundled',
+        author: null,
+        description: null,
         permissions: [],
+        permissionDescriptions: [],
+        removable: false,
+        update: null,
         current: true,
         unavailable: null,
         logo: 'forma://localhost/theme/cyber/logo.svg'
       }
     ]);
     await press('start');
-    for (let i = 0; i < 6; i++) await press('down');
+    for (let i = 0; i < 7; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(root.querySelector('.page .theme-logo')).not.toBeNull());
     const logo = root.querySelector<HTMLImageElement>('.page .theme-logo')!;
@@ -529,7 +594,7 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 11; i++) await press('down');
+    for (let i = 0; i < 12; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Network']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');

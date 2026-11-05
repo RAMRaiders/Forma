@@ -10,6 +10,10 @@ import type { Backend } from '../backend.js';
 import { type ErrorCode, FormaError } from '../errors.js';
 import type {
   BluetoothDevice,
+  MediaKind,
+  ScraperSettings,
+  ScraperSource,
+  ScraperStatus,
   Browse,
   Collection,
   RaSession,
@@ -125,6 +129,146 @@ export function mockBackend(options: MockOptions = {}): Backend {
       `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="990"><rect width="100%" height="100%" fill="#f4efe1"/><text x="50%" y="45%" font-size="64" text-anchor="middle">${title}</text><text x="50%" y="55%" font-size="48" text-anchor="middle">page {page}</text></svg>`
     ).replace('%7Bpage%7D', '{page}')}#`
   }));
+  // The scraper: the built-in sources (two need nothing), the user's choices, and a run that
+  // moves on a timer.
+  const kindLabels: [MediaKind, string][] = [
+    ['thumbnail', 'Box'],
+    ['image', 'Screenshot'],
+    ['titleshot', 'Title screen'],
+    ['marquee', 'Marquee'],
+    ['wheel', 'Logo (wheel)'],
+    ['boxback', 'Box back'],
+    ['boxart', '3D box'],
+    ['fanart', 'Fan art'],
+    ['cartridge', 'Cartridge or disc'],
+    ['map', 'Map'],
+    ['bezel', 'Bezel'],
+    ['mix', 'Mix'],
+    ['video', 'Video'],
+    ['manual', 'Manual']
+  ];
+  const key = (k: string, label: string, secret = true, required = true) => ({
+    key: k,
+    label,
+    secret,
+    required
+  });
+  type MockSource = Omit<ScraperSource, 'enabled' | 'ready' | 'needs'> & {
+    needs: ReturnType<typeof key>[];
+  };
+  const scraperSources: MockSource[] = [
+    {
+      id: 'screenscraper',
+      name: 'ScreenScraper',
+      about: 'Every kind of media, matched by the ROM’s hash',
+      needs: [
+        key('devId', 'Developer ID', false),
+        key('devPassword', 'Developer password'),
+        key('user', 'Username', false, false),
+        key('password', 'Password', true, false)
+      ],
+      gives: kindLabels.map(([k]) => k),
+      metadata: true
+    },
+    {
+      id: 'thegamesdb',
+      name: 'TheGamesDB',
+      about: 'Boxes, fan art, logos and screenshots, by name',
+      needs: [key('apiKey', 'API key')],
+      gives: ['thumbnail', 'boxback', 'image', 'fanart', 'wheel', 'marquee', 'titleshot'],
+      metadata: true
+    },
+    {
+      id: 'igdb',
+      name: 'IGDB',
+      about: 'Covers, screenshots, artwork and full details',
+      needs: [
+        key('clientId', 'Twitch client ID', false),
+        key('clientSecret', 'Twitch client secret')
+      ],
+      gives: ['thumbnail', 'image', 'fanart'],
+      metadata: true
+    },
+    {
+      id: 'mobygames',
+      name: 'MobyGames',
+      about: 'Covers, screenshots, descriptions and genres',
+      needs: [key('apiKey', 'API key')],
+      gives: ['thumbnail', 'image'],
+      metadata: true
+    },
+    {
+      id: 'steamgriddb',
+      name: 'SteamGridDB',
+      about: 'Community covers, heroes and logos',
+      needs: [key('apiKey', 'API key')],
+      gives: ['thumbnail', 'fanart', 'wheel'],
+      metadata: false
+    },
+    {
+      id: 'arcadedb',
+      name: 'ArcadeDB',
+      about: 'Arcade games by their MAME name. Nothing to set up',
+      needs: [],
+      gives: ['image', 'titleshot', 'marquee', 'thumbnail', 'boxart', 'video'],
+      metadata: true
+    },
+    {
+      id: 'libretro',
+      name: 'libretro thumbnails',
+      about: 'Boxes, screenshots, title screens and logos. Nothing to set up',
+      needs: [],
+      gives: ['thumbnail', 'image', 'titleshot', 'wheel'],
+      metadata: false
+    }
+  ];
+  let scraperChoice = scraperSources.map((s) => ({ id: s.id, enabled: true }));
+  let scraperMedia: MediaKind[] = ['thumbnail', 'image', 'marquee', 'wheel', 'video'];
+  let scraperMetadata = true;
+  let scraperReplace = false;
+  const scraperCredentials = new Map<string, Map<string, string>>();
+  let scraperStatus: ScraperStatus = {
+    running: false,
+    scope: null,
+    total: 0,
+    done: 0,
+    found: 0,
+    notFound: 0,
+    skipped: 0,
+    current: null,
+    problems: [],
+    stopped: false
+  };
+  let scraperStop = false;
+  const scraperAllowed = () => {
+    if (!permissions.has('scraper.manage')) {
+      fail('permissionDenied', 'theme `mock` needs the `scraper.manage` permission');
+    }
+  };
+  const scraperSettings = (): ScraperSettings => ({
+    sources: scraperChoice.flatMap((c) => {
+      const s = scraperSources.find((x) => x.id === c.id);
+      if (!s) return [];
+      const mine = scraperCredentials.get(s.id) ?? new Map<string, string>();
+      return [
+        {
+          ...s,
+          enabled: c.enabled,
+          ready: s.needs.filter((n) => n.required).every((n) => mine.has(n.key)),
+          needs: s.needs.map((n) => ({
+            ...n,
+            set: mine.has(n.key),
+            value: n.secret ? null : (mine.get(n.key) ?? null)
+          }))
+        }
+      ];
+    }),
+    media: kindLabels.map(([k]) => k).filter((k) => scraperMedia.includes(k)),
+    mediaKinds: kindLabels.map(([kind, label]) => ({ kind, label })),
+    metadata: scraperMetadata,
+    replace: scraperReplace
+  });
+
   // The theme catalogue: a newer Neon, and a theme not installed yet.
   const catalogue: CatalogueTheme[] = [
     {
@@ -425,6 +569,101 @@ export function mockBackend(options: MockOptions = {}): Backend {
     },
     magazines_open: ({ id }) => {
       emit('magazines:open', { id: (id as string | null) ?? null });
+      return null;
+    },
+    scraper_settings: () => {
+      scraperAllowed();
+      return scraperSettings();
+    },
+    scraper_configure: ({ sources, media, metadata, replace }) => {
+      scraperAllowed();
+      if (Array.isArray(sources)) {
+        const given = (sources as { id: string; enabled: boolean }[]).filter((c) =>
+          scraperSources.some((s) => s.id === c.id)
+        );
+        scraperChoice = [
+          ...given,
+          ...scraperChoice.filter((c) => !given.some((g) => g.id === c.id))
+        ];
+      }
+      if (Array.isArray(media)) scraperMedia = media as MediaKind[];
+      if (typeof metadata === 'boolean') scraperMetadata = metadata;
+      if (typeof replace === 'boolean') scraperReplace = replace;
+      return scraperSettings();
+    },
+    scraper_set_credential: ({ source, key: k, value }) => {
+      scraperAllowed();
+      const s = scraperSources.find((x) => x.id === source);
+      if (!s) fail('notFound', `no source \`${String(source)}\``);
+      if (!s.needs.some((n) => n.key === k)) fail('invalid', `${s.name} has no \`${String(k)}\``);
+      const mine = scraperCredentials.get(s.id) ?? new Map<string, string>();
+      const v = typeof value === 'string' ? value.trim() : '';
+      if (v) mine.set(String(k), v);
+      else mine.delete(String(k));
+      scraperCredentials.set(s.id, mine);
+      return scraperSettings();
+    },
+    scraper_start: ({ scope }) => {
+      scraperAllowed();
+      if (scraperStatus.running) fail('busy', 'the scraper is already running');
+      const sc = scope as { kind: string; id?: number; name?: string };
+      const list = [...games.values()].filter((g) =>
+        sc.kind === 'game' ? g.id === sc.id : sc.kind === 'system' ? g.system === sc.name : true
+      );
+      if (sc.kind === 'game' && list.length === 0) fail('notFound', `no game ${String(sc.id)}`);
+      const label =
+        sc.kind === 'game'
+          ? list[0]!.name
+          : sc.kind === 'system'
+            ? (snapshot.systems.find((x) => x.name === sc.name)?.fullname ??
+              fail('notFound', `no system \`${String(sc.name)}\``))
+            : 'Everything';
+      scraperStop = false;
+      scraperStatus = {
+        running: true,
+        scope: label,
+        total: list.length,
+        done: 0,
+        found: 0,
+        notFound: 0,
+        skipped: 0,
+        current: null,
+        problems: [],
+        stopped: false
+      };
+      const started = structuredClone(scraperStatus);
+      const step = (i: number) => {
+        if (scraperStop || i >= list.length) {
+          scraperStatus = {
+            ...scraperStatus,
+            running: false,
+            current: null,
+            stopped: scraperStop
+          };
+          emit('scraper:progress', structuredClone(scraperStatus));
+          return;
+        }
+        scraperStatus = { ...scraperStatus, current: list[i]!.name };
+        emit('scraper:progress', structuredClone(scraperStatus));
+        setTimeout(() => {
+          // Every third game is not found, to show both.
+          const found = i % 3 !== 2;
+          scraperStatus = {
+            ...scraperStatus,
+            done: i + 1,
+            found: scraperStatus.found + (found ? 1 : 0),
+            notFound: scraperStatus.notFound + (found ? 0 : 1)
+          };
+          step(i + 1);
+        }, 10);
+      };
+      setTimeout(() => step(0), 0);
+      return started;
+    },
+    scraper_status: () => structuredClone(scraperStatus),
+    scraper_stop: () => {
+      scraperAllowed();
+      scraperStop = true;
       return null;
     },
     collections_list: (): Collection[] =>

@@ -71,6 +71,7 @@ impl Harness {
             bluetooth: forma_core::bluetooth::Bluetooth::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             store: forma_core::store::Store::default(),
+            scraper: crate::scraper::Scraping::default(),
             system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             options: Options::new(
                 Box::new(SystemShell),
@@ -189,6 +190,10 @@ impl Http for FixtureHttp {
             "themes-catalogue.json"
         } else if url.ends_with("/theme-neon-1.0.0.zip") {
             "theme-neon-1.0.0.zip"
+        } else if url.contains("thumbnails.libretro.com")
+            && url.contains("/Named_Boxarts/Super%20Mario%20Bros.%20%28World%29.png")
+        {
+            "libretro-boxart.png"
         } else {
             return Err(HttpError {
                 status: Some(404),
@@ -675,6 +680,97 @@ fn lists_magazines_serves_their_pages_and_remembers_the_page() {
         .call("magazines_pages", json!({ "id": "../roms" }))
         .unwrap_err();
     assert_eq!(code(&err), "invalid");
+}
+
+#[test]
+fn scraper_settings_accounts_and_a_run_over_a_system() {
+    let h = Harness::new(&["scraper.manage"]);
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    let sources = settings["sources"].as_array().unwrap();
+    assert_eq!(sources.len(), 7);
+    assert_eq!(sources[0]["id"], "screenscraper");
+    assert_eq!(sources[0]["ready"], false);
+    assert_eq!(sources[6]["id"], "libretro");
+    assert_eq!(sources[6]["ready"], true);
+    assert_eq!(settings["mediaKinds"].as_array().unwrap().len(), 14);
+
+    // Credentials: a secret is never sent back, only that it is set.
+    h.call(
+        "scraper_set_credential",
+        json!({ "source": "screenscraper", "key": "devId", "value": "forma" }),
+    )
+    .unwrap();
+    let after = h
+        .call(
+            "scraper_set_credential",
+            json!({ "source": "screenscraper", "key": "devPassword", "value": "hush" }),
+        )
+        .unwrap();
+    let needs = &after["sources"][0]["needs"];
+    assert_eq!(needs[0]["value"], "forma");
+    assert_eq!(needs[1]["set"], true);
+    assert_eq!(needs[1]["value"], Value::Null);
+    assert_eq!(after["sources"][0]["ready"], true);
+    let err = h
+        .call(
+            "scraper_set_credential",
+            json!({ "source": "screenscraper", "key": "apiKey", "value": "x" }),
+        )
+        .unwrap_err();
+    assert_eq!(code(&err), "invalid");
+
+    // Only libretro, only boxes, replacing what is there.
+    let only_libretro: Vec<Value> = sources
+        .iter()
+        .map(|s| json!({ "id": s["id"], "enabled": s["id"] == "libretro" }))
+        .collect();
+    let configured = h
+        .call(
+            "scraper_configure",
+            json!({ "sources": only_libretro, "media": ["thumbnail"], "metadata": false, "replace": true }),
+        )
+        .unwrap();
+    assert_eq!(configured["media"], json!(["thumbnail"]));
+    assert_eq!(configured["replace"], true);
+
+    let events = Arc::new(Mutex::new(0));
+    let seen = events.clone();
+    h.window
+        .listen_any("scraper:progress", move |_| *seen.lock().unwrap() += 1);
+    let started = h
+        .call(
+            "scraper_start",
+            json!({ "scope": { "kind": "system", "name": "nes" } }),
+        )
+        .unwrap();
+    assert_eq!(started["running"], true);
+    let total = started["total"].as_u64().unwrap();
+    assert!(total >= 3, "{started}");
+    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+    let status = loop {
+        let status = h.call("scraper_status", json!({})).unwrap();
+        if status["running"] == false {
+            break status;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "still running: {status}"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert_eq!(status["done"], total);
+    assert_eq!(status["found"], 1, "{status}");
+    assert_eq!(status["notFound"].as_u64().unwrap(), total - 1);
+    let nes = h.state().paths.userdata.join("roms/nes");
+    let saved = std::fs::read(nes.join("images/Super Mario Bros. (World)-thumb.png")).unwrap();
+    assert!(saved.starts_with(b"\x89PNG"));
+    let list = std::fs::read_to_string(nes.join("gamelist.xml")).unwrap();
+    assert!(list.contains("<thumbnail>./images/Super Mario Bros. (World)-thumb.png</thumbnail>"));
+    assert!(*events.lock().unwrap() > 0);
+
+    let denied = Harness::new(&[]);
+    let err = denied.call("scraper_settings", json!({})).unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
 }
 
 #[test]
