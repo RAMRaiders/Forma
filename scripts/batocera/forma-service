@@ -24,8 +24,9 @@ case "$1" in
         # Anchored, so it does not match a shell whose command line merely mentions the script.
         pkill -f '^/bin/bash /userdata/system/forma/bin/forma-standalone'
         app_pids | xargs -r kill
-        # Its music player, which would otherwise play on.
-        pkill -f '(^|/)mpv .*forma/run/mpv\.sock'
+        # Its music and video players, which would otherwise play on: a video left running kept
+        # decoding in the background for hours.
+        pkill -f '(^|/)mpv .*forma/run/(mpv|video)\.sock'
         ;;
     status)
         if [ -n "$(app_pids)" ]; then echo "Forma is running"; else echo "Forma is not running"; fi
