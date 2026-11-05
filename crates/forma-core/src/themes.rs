@@ -146,12 +146,24 @@ pub struct ThemeSetting {
     /// A heading the menu groups settings under, e.g. `Look`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// The lists on which Select offers it too, under the theme's logo: e.g. `["games"]` for a
+    /// setting about how games are shown. It stays under Interface as well.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub select: Vec<SelectList>,
     #[serde(rename = "type")]
     pub kind: SettingKind,
     /// For a `choice`: the values it can take, in order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub choices: Vec<SettingChoice>,
     pub default: serde_json::Value,
+}
+
+/// A list a theme shows (its `list` in `setContext`), on which Select offers a setting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SelectList {
+    Systems,
+    Games,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -633,7 +645,8 @@ mod tests {
             { "key": "board", "label": "Board", "group": "Look", "type": "choice",
               "choices": [{ "value": "on", "label": "On" }, { "value": "off", "label": "Off" }],
               "default": "on" },
-            { "key": "motion", "label": "Animations", "type": "toggle", "default": true }
+            { "key": "motion", "label": "Animations", "type": "toggle", "default": true,
+              "select": ["games"] }
         ]"#;
         assert_eq!(reason(settings), None);
         let dir = tempfile::tempdir().unwrap();
@@ -645,6 +658,8 @@ mod tests {
         assert!(board.accepts(&serde_json::json!("off")));
         assert!(!board.accepts(&serde_json::json!("dim")));
         assert!(motion.accepts(&serde_json::json!(false)));
+        assert_eq!(board.select, []);
+        assert_eq!(motion.select, [SelectList::Games]);
         assert!(!motion.accepts(&serde_json::json!("false")));
 
         let r = |extra: &str| reason(extra).unwrap();
@@ -666,6 +681,11 @@ mod tests {
         assert!(
             r(r#", "settings": [{ "key": "a", "label": "A", "type": "slider", "default": 1 }]"#)
                 .contains("theme.json")
+        );
+        assert!(
+            r(r#", "settings": [{ "key": "a", "label": "A", "type": "toggle", "default": true, "select": ["menus"] }]"#)
+                .contains("theme.json"),
+            "Select is offered only on the lists themes show"
         );
     }
 

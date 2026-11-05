@@ -15,10 +15,13 @@ import { Menu, type MenuItem } from './ui/menu.js';
 import { NetworkScreen } from './ui/network.js';
 import { Page } from './ui/page.js';
 import {
+  type ThemeOnSelect,
   type ThemeSettingValue,
+  gamesScreen,
   interfaceScreen,
   musicScreen,
   netplayScreen,
+  onSelect,
   retroAchievementsScreen,
   systemsScreen
 } from './ui/screens.js';
@@ -474,11 +477,14 @@ export class Shell {
 
   /**
    * Select: Forma's options for what the theme shows (its `list` in `setContext`). Showing
-   * systems, their order; elsewhere, for now, the views list.
+   * systems, their order; showing games, the theme's own settings for a game list, under its
+   * logo (those it marks `"select": ["games"]`); elsewhere, the views list.
    */
   async #openContext(): Promise<void> {
     const info = await this.#loadInfo();
-    if (info?.context?.list !== 'systems') return this.#openViews();
+    const list = info?.context?.list;
+    const offers = onSelect(info?.theme.settings ?? [], list ?? '').length > 0;
+    if (list !== 'systems' && !(list === 'games' && offers)) return this.#openViews();
     const views = themeViews(await this.forma.nav.views().catch(() => []), info);
     const openViews =
       views.length > 1
@@ -487,8 +493,19 @@ export class Shell {
             void this.#openViews();
           }
         : undefined;
+    const theme: ThemeOnSelect = {
+      theme: async () => {
+        const now = await this.#loadInfo();
+        return now
+          ? { name: now.theme.name, logo: now.theme.logo, settings: now.theme.settings }
+          : null;
+      },
+      setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value)
+    };
     this.#pageKind = 'context';
-    await this.#page.show('Systems', systemsScreen(this.forma, this.#page, openViews));
+    await (list === 'systems'
+      ? this.#page.show('Systems', systemsScreen(this.forma, this.#page, openViews, theme))
+      : this.#page.show('Games', gamesScreen(this.#page, theme, openViews)));
     this.#changed();
   }
 
