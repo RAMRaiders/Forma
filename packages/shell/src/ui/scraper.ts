@@ -234,37 +234,46 @@ function sourceScreen(forma: Forma, page: Page, id: string): () => Promise<Row[]
         adjust: move
       }
     ];
-    rows.push(
-      ...s.needs.map((n, i) => ({
-        heading: i === 0 ? 'Account' : undefined,
-        label: n.label,
-        detail: n.set
-          ? n.secret
-            ? 'Entered · Y to clear'
-            : `${n.value ?? ''} · Y to clear`
-          : n.required
-            ? 'Needed: A to enter'
-            : 'Optional: A to enter',
-        run: async () => {
-          const typed = await page.ask({
-            title: n.label,
-            value: n.secret ? '' : (n.value ?? ''),
-            secret: n.secret
-          });
-          if (typed === null) return;
-          await page.run('Saving…', async () => {
-            await forma.scraper.setCredential(id, n.key, typed);
-            return typed.trim() ? `${n.label} saved` : `${n.label} cleared`;
-          });
-        },
-        alt: n.set
-          ? {
-              label: 'Clear',
-              run: saving(page, () => forma.scraper.setCredential(id, n.key, null))
-            }
-          : undefined
-      }))
-    );
+    rows.push(...accountRows(forma, page, id, s));
     return rows;
   };
+}
+
+/** A source's account: each thing to enter, typed on the keyboard; Y clears it. */
+function accountRows(
+  forma: Forma,
+  page: Page,
+  id: string,
+  s: Pick<ScraperSource, 'needs'>,
+  heading = 'Account'
+): Row[] {
+  return s.needs.map((n, i) => ({
+    heading: i === 0 ? heading : undefined,
+    label: n.label,
+    detail: n.set
+      ? n.secret
+        ? 'Entered · Y to clear'
+        : `${n.value ?? ''} · Y to clear`
+      : n.required
+        ? 'Needed: A to enter'
+        : 'Optional: A to enter',
+    run: async () => {
+      const typed = await page.ask({
+        title: n.label,
+        value: n.secret ? '' : (n.value ?? ''),
+        secret: n.secret
+      });
+      if (typed === null) return;
+      await page.run('Saving…', async () => {
+        await forma.scraper.setCredential(id, n.key, typed);
+        return typed.trim() ? `${n.label} saved` : `${n.label} cleared`;
+      });
+    },
+    alt: n.set
+      ? {
+          label: 'Clear',
+          run: saving(page, () => forma.scraper.setCredential(id, n.key, null))
+        }
+      : undefined
+  }));
 }

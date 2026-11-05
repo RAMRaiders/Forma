@@ -19,6 +19,7 @@ pub const SYSTEM_CONTROLLERS: &str = "system.controllers";
 pub const SYSTEM_UPDATE: &str = "system.update";
 pub const THEMES_MANAGE: &str = "themes.manage";
 pub const SCRAPER_MANAGE: &str = "scraper.manage";
+pub const ADDONS_MANAGE: &str = "addons.manage";
 
 pub fn require(theme: &Theme, permission: &str) -> ApiResult<()> {
     if theme.has_permission(permission) {

@@ -10,12 +10,7 @@ use super::super::{
 use super::json;
 use crate::net::{Http, HttpRequest};
 
-const NEEDS: [Credential; 1] = [Credential {
-    key: "apiKey",
-    label: "API key",
-    secret: true,
-    required: true,
-}];
+static NEEDS: [Credential; 1] = [Credential::new("apiKey", "API key", true, true)];
 
 const GIVES: [MediaKind; 2] = [MediaKind::Thumbnail, MediaKind::Image];
 

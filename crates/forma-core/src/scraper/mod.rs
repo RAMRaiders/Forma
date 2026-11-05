@@ -12,11 +12,17 @@ pub mod platforms;
 mod sources;
 mod text;
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
 pub use engine::{Outcome, scrape_game};
+
+/// A date as a source gives it, as `YYYY[-MM[-DD]]`.
+pub fn text_date(text: &str) -> Option<String> {
+    text::date(text)
+}
 pub use sources::builtin;
 
 use crate::net::Http;
@@ -230,14 +236,25 @@ pub enum LookupError {
 }
 
 /// Something the user enters for a source: an API key, a login.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Credential {
-    pub key: &'static str,
-    pub label: &'static str,
+    pub key: Cow<'static, str>,
+    pub label: Cow<'static, str>,
     pub secret: bool,
     /// Needed for the source to be asked at all.
     pub required: bool,
+}
+
+impl Credential {
+    pub const fn new(key: &'static str, label: &'static str, secret: bool, required: bool) -> Self {
+        Self {
+            key: Cow::Borrowed(key),
+            label: Cow::Borrowed(label),
+            secret,
+            required,
+        }
+    }
 }
 
 /// The user's credentials for one source.
@@ -274,10 +291,11 @@ pub trait Source: Send + Sync {
 
     /// Whether `credentials` has every required one.
     fn ready(&self, credentials: &Credentials) -> bool {
-        self.needs()
-            .iter()
-            .filter(|c| c.required)
-            .all(|c| credentials.get(c.key).is_some_and(|v| !v.trim().is_empty()))
+        self.needs().iter().filter(|c| c.required).all(|c| {
+            credentials
+                .get(c.key.as_ref())
+                .is_some_and(|v| !v.trim().is_empty())
+        })
     }
 }
 

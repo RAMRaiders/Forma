@@ -27,6 +27,10 @@ import type {
   StatusBar,
   SystemSummary,
   Magazine,
+  AddonActionResult,
+  AddonInfo,
+  AddonPage,
+  CatalogueAddon,
   ScrapeScope,
   ScraperSettings,
   ScraperStatus,
@@ -121,6 +125,7 @@ export class Forma {
   readonly collections;
   readonly magazines;
   readonly scraper;
+  readonly addons;
   readonly network;
   readonly bluetooth;
   readonly updates;
@@ -275,6 +280,32 @@ export class Forma {
         `${magazine.pageUrl.replace('{page}', String(page))}${
           magazine.pageUrl.includes('?') ? '&' : '?'
         }w=${Math.round(width)}`
+    };
+
+    /**
+     * Forma add-ons: what is installed, turning them on and off, removing them, and the
+     * catalogue's. Forma's menu manages them; a theme needs `addons.manage`.
+     */
+    this.addons = {
+      list: () => invoke<AddonInfo[]>('addons_list'),
+      setEnabled: (id: string, enabled: boolean) =>
+        invoke<AddonInfo[]>('addons_set_enabled', { id, enabled }),
+      remove: (id: string) => invoke<void>('addons_remove', { id }),
+      /** Fetched at most every few hours; offline, the last one, `stale`. */
+      catalogue: () => invoke<Fetched<{ addons: CatalogueAddon[] }>>('addons_catalogue'),
+      /**
+       * Installs or updates one from the catalogue. An add-on with a system part installs only
+       * from Forma's own catalogue, and its install script runs then.
+       */
+      install: (id: string) => invoke<AddonInfo>('addons_install', { id }),
+      /** Sets one of its settings; `null` clears it. */
+      setSetting: (id: string, key: string, value: string | null) =>
+        invoke<AddonInfo[]>('addons_set_setting', { id, key, value }),
+      /** One of a `menu` add-on's pages; `[]` is its first. */
+      page: (id: string, path: string[] = []) => invoke<AddonPage>('addons_page', { id, path }),
+      /** Does what a row of its page asks: `input` is the text typed, or `-1`/`1` to adjust. */
+      action: (id: string, action: string, input?: string | number) =>
+        invoke<AddonActionResult>('addons_action', { id, action, input: input ?? null })
     };
 
     /**

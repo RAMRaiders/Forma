@@ -7,6 +7,11 @@ import type {
   Game,
   GameEnd,
   NetworkStatus,
+  AddonActionResult,
+  AddonInfo,
+  AddonPage,
+  CatalogueAddon,
+  Fetched,
   ScraperSettings,
   ScraperStatus,
   WifiNetwork
@@ -357,7 +362,7 @@ describe('mock backend', () => {
     expect(heard).toEqual(['playing', 'paused', 'paused']);
     expect((await b.invoke<{ volume: number }>('music_status')).volume).toBe(100);
     await b.invoke('music_add_radio', { name: 'Lofi', url: 'https://lofi.example/live' });
-    expect((await b.invoke<{ id: string }[]>('music_sources')).at(-1)!.id).toBe(
+    expect((await b.invoke<{ id: string }[]>('music_sources')).map((s) => s.id)).toContain(
       'radio:https://lofi.example/live'
     );
     await expect(
@@ -379,11 +384,13 @@ describe('mock backend', () => {
       'mobygames',
       'steamgriddb',
       'arcadedb',
-      'libretro'
+      'libretro',
+      'addon:example-boxes'
     ]);
     expect(settings.sources.filter((s) => s.ready).map((s) => s.id)).toEqual([
       'arcadedb',
-      'libretro'
+      'libretro',
+      'addon:example-boxes'
     ]);
     const after = await b.invoke<ScraperSettings>('scraper_set_credential', {
       source: 'thegamesdb',
@@ -399,7 +406,7 @@ describe('mock backend', () => {
       replace: true
     });
     expect(moved.sources[0]!.id).toBe('libretro');
-    expect(moved.sources).toHaveLength(7);
+    expect(moved.sources).toHaveLength(8);
     expect(moved.media).toEqual(['thumbnail', 'video']);
 
     const seen: ScraperStatus[] = [];
@@ -418,6 +425,80 @@ describe('mock backend', () => {
 
     await expect(mockBackend().invoke('scraper_settings')).rejects.toMatchObject({
       code: 'permissionDenied'
+    });
+  });
+
+  it('add-ons: list, catalogue, install, turn off (leaving the scraper), remove', async () => {
+    const b = mockBackend({ permissions: ['addons.manage', 'scraper.manage'] });
+    const listed = await b.invoke<AddonInfo[]>('addons_list');
+    expect(listed.map((a) => [a.id, a.update])).toEqual([
+      ['example-boxes', '1.1.0'],
+      ['web-radios', null]
+    ]);
+    const cat = await b.invoke<Fetched<{ addons: CatalogueAddon[] }>>('addons_catalogue');
+    expect(cat.data.addons.map((a) => [a.id, a.installed, a.update])).toEqual([
+      ['example-boxes', '1.0.0', true],
+      ['arcade-flyers', null, false],
+      ['web-radios', '1.0.0', false],
+      ['fm-tuner', null, false]
+    ]);
+    const added = await b.invoke<AddonInfo>('addons_install', { id: 'arcade-flyers' });
+    expect(added.scraperSource).toBe('addon:arcade-flyers');
+    const sources = async () =>
+      (await b.invoke<ScraperSettings>('scraper_settings')).sources.map((s) => s.id);
+    expect(await sources()).toContain('addon:arcade-flyers');
+    await b.invoke('addons_set_enabled', { id: 'arcade-flyers', enabled: false });
+    expect(await sources()).not.toContain('addon:arcade-flyers');
+    await b.invoke('addons_remove', { id: 'arcade-flyers' });
+    expect((await b.invoke<AddonInfo[]>('addons_list')).map((a) => a.id)).toEqual([
+      'example-boxes',
+      'web-radios'
+    ]);
+    await expect(mockBackend().invoke('addons_list')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+  });
+
+  it('add-ons: radios in music, settings, menu pages and actions, a system part', async () => {
+    const b = mockBackend({ permissions: ['addons.manage', 'music.manage'] });
+    const radios = async () =>
+      (await b.invoke<{ id: string; name: string }[]>('music_sources'))
+        .filter((s) => s.id.startsWith('addon:web-radios:'))
+        .map((s) => s.name);
+    expect(await radios()).toEqual(['Chip FM', 'Arcade Lounge']);
+    const after = await b.invoke<AddonInfo[]>('addons_set_setting', {
+      id: 'web-radios',
+      key: 'station',
+      value: 'https://mine.example/live'
+    });
+    expect(after[1]!.settings[0]).toMatchObject({ set: true, value: 'https://mine.example/live' });
+    expect(await radios()).toEqual(['Chip FM', 'Arcade Lounge', 'Your station']);
+    await expect(
+      b.invoke('addons_set_setting', { id: 'web-radios', key: 'nope', value: 'x' })
+    ).rejects.toMatchObject({ code: 'invalid' });
+
+    const page = await b.invoke<AddonPage>('addons_page', { id: 'web-radios', path: [] });
+    expect(page.rows[0]).toMatchObject({ heading: 'Stations', label: 'Chip FM' });
+    expect(page.rows.at(-1)!.open).toEqual(['about']);
+    const about = await b.invoke<AddonPage>('addons_page', { id: 'web-radios', path: ['about'] });
+    expect(about.title).toBe('About');
+    await expect(b.invoke('addons_page', { id: 'example-boxes', path: [] })).rejects.toBeTruthy();
+
+    const tuner = await b.invoke<AddonInfo>('addons_install', { id: 'fm-tuner' });
+    expect([tuner.system, tuner.verified, tuner.menu?.label]).toEqual([true, true, 'FM tuner']);
+    const done = await b.invoke<AddonActionResult>('addons_action', {
+      id: 'fm-tuner',
+      action: 'tune',
+      input: '99.1'
+    });
+    expect(done.notify).toBe('Tuned to 99.1');
+    const tuned = await b.invoke<AddonPage>('addons_page', { id: 'fm-tuner', path: [] });
+    expect(tuned.rows[0]!.detail).toBe('99.1');
+
+    await b.invoke('addons_set_enabled', { id: 'web-radios', enabled: false });
+    expect(await radios()).toEqual([]);
+    await expect(b.invoke('addons_page', { id: 'web-radios', path: [] })).rejects.toMatchObject({
+      code: 'invalid'
     });
   });
 });

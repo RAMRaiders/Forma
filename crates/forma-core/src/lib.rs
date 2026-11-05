@@ -4,6 +4,7 @@
 //! hierarchy views, launching games and normalising input. It must not depend on Tauri, so it
 //! can be tested on any machine and reused by other hosts.
 
+pub mod addons;
 pub mod batocera;
 pub mod bluetooth;
 mod error;
@@ -43,7 +44,7 @@ pub use paths::Paths;
 
 /// Version of the theme-facing API this core implements. Themes declare the range they need in
 /// `theme.json` (`"sdk": "^1"`) and `@ramraiders/forma-sdk` checks it against this value at startup.
-pub const SDK_API_VERSION: &str = "1.20.0";
+pub const SDK_API_VERSION: &str = "1.21.0";
 
 #[cfg(test)]
 mod tests {

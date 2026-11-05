@@ -23,6 +23,7 @@ import {
   systemsScreen
 } from './ui/screens.js';
 import { magazinesScreen } from './ui/magazines.js';
+import { addonsScreen } from './ui/addons.js';
 import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
@@ -425,6 +426,12 @@ export class Shell {
         section: 'Settings'
       },
       {
+        id: 'addons',
+        label: 'Add-ons',
+        description: 'Extend Forma: more scraper sources and more, from the catalogue',
+        section: 'Settings'
+      },
+      {
         id: 'controllers',
         label: 'Controllers',
         description: 'Pads in use, Bluetooth pairing',
@@ -607,6 +614,11 @@ export class Shell {
       case 'magazines':
         m.close();
         return void this.openMagazines();
+      case 'addons':
+        return show(
+          'Add-ons',
+          addonsScreen(this.forma, page, (m) => this.notify(m))
+        );
       case 'scraper':
         return show('Scraper', scraperScreen(this.forma, page, context));
       case 'collections':

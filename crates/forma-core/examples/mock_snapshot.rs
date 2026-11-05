@@ -102,6 +102,7 @@ fn snapshot() -> String {
     let music = music::Library {
         music: paths.music_dir(),
         fallback: Path::new("/nonexistent").to_path_buf(),
+        addon_radios: Default::default(),
     };
     let music = json!({ "sources": music.sources(), "radios": music.radios() });
 

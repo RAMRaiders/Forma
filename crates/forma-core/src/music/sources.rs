@@ -49,6 +49,9 @@ pub struct Library {
     pub music: PathBuf,
     /// Batocera's own music, played when the music folder has none.
     pub fallback: PathBuf,
+    /// Web radios from `music` add-ons, by add-on id: listed after the user's own, with ids
+    /// `addon:<id>:<url>`. Forma fills it from the add-ons (see `crate::addons`).
+    pub addon_radios: std::sync::RwLock<Vec<(String, Radio)>>,
 }
 
 impl Library {
@@ -107,7 +110,30 @@ impl Library {
                 tracks: 0,
             });
         }
+        for (addon, radio) in self.addon_radios() {
+            out.push(Source {
+                id: format!("addon:{addon}:{}", radio.url),
+                kind: SourceKind::Radio,
+                name: radio.name,
+                tracks: 0,
+            });
+        }
         out
+    }
+
+    fn addon_radios(&self) -> Vec<(String, Radio)> {
+        self.addon_radios
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Replaces the add-ons' radios.
+    pub fn set_addon_radios(&self, radios: Vec<(String, Radio)>) {
+        *self
+            .addon_radios
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = radios;
     }
 
     /// What to load for `id`, or why not.
@@ -137,6 +163,14 @@ impl Library {
                 .find(|r| r.url == rest)
                 .map(|r| Playable::Url(r.url))
                 .ok_or_else(unknown),
+            "addon" => {
+                let (addon, url) = rest.split_once(':').ok_or_else(unknown)?;
+                self.addon_radios()
+                    .into_iter()
+                    .find(|(a, r)| a == addon && r.url == url)
+                    .map(|(_, r)| Playable::Url(r.url))
+                    .ok_or_else(unknown)
+            }
             _ => Err(unknown()),
         }
     }
@@ -310,7 +344,11 @@ mod tests {
         )
         .unwrap();
         let fallback = dir.path().join("batocera-music");
-        let lib = Library { music, fallback };
+        let lib = Library {
+            music,
+            fallback,
+            addon_radios: Default::default(),
+        };
         (dir, lib)
     }
 
@@ -397,6 +435,7 @@ mod tests {
         let lib = Library {
             music: dir.path().join("music"),
             fallback,
+            addon_radios: Default::default(),
         };
         let sources = lib.sources();
         assert_eq!(sources.len(), 1);

@@ -14,19 +14,9 @@ use super::json;
 use crate::net::{Http, HttpRequest};
 use crate::scraper::platforms;
 
-const NEEDS: [Credential; 2] = [
-    Credential {
-        key: "clientId",
-        label: "Twitch client ID",
-        secret: false,
-        required: true,
-    },
-    Credential {
-        key: "clientSecret",
-        label: "Twitch client secret",
-        secret: true,
-        required: true,
-    },
+static NEEDS: [Credential; 2] = [
+    Credential::new("clientId", "Twitch client ID", false, true),
+    Credential::new("clientSecret", "Twitch client secret", true, true),
 ];
 
 const GIVES: [MediaKind; 3] = [MediaKind::Thumbnail, MediaKind::Image, MediaKind::Fanart];

@@ -9,6 +9,10 @@
 import type { Backend } from '../backend.js';
 import { type ErrorCode, FormaError } from '../errors.js';
 import type {
+  AddonInfo,
+  AddonPage,
+  AddonRow,
+  CatalogueAddon,
   BluetoothDevice,
   MediaKind,
   ScraperSettings,
@@ -129,6 +133,194 @@ export function mockBackend(options: MockOptions = {}): Backend {
       `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="990"><rect width="100%" height="100%" fill="#f4efe1"/><text x="50%" y="45%" font-size="64" text-anchor="middle">${title}</text><text x="50%" y="55%" font-size="48" text-anchor="middle">page {page}</text></svg>`
     ).replace('%7Bpage%7D', '{page}')}#`
   }));
+  // Add-ons: two installed (a scraper, joining the scraper's sources, and web radios with a
+  // menu page), two more in the catalogue (a scraper, and a tuner with a system part).
+  const addonCatalogue: CatalogueAddon[] = [
+    {
+      id: 'example-boxes',
+      name: 'Example boxes',
+      version: '1.1.0',
+      author: 'RAM Raiders',
+      description: 'Box art from example.com.',
+      permissions: ['network'],
+      permissionDescriptions: ['reach the internet sites it lists, and only those'],
+      installed: null,
+      update: false,
+      runsHere: true
+    },
+    {
+      id: 'arcade-flyers',
+      name: 'Arcade flyers',
+      version: '0.3.0',
+      author: null,
+      description: 'Flyers for arcade games.',
+      permissions: ['network'],
+      permissionDescriptions: ['reach the internet sites it lists, and only those'],
+      installed: null,
+      update: false,
+      runsHere: true
+    },
+    {
+      id: 'web-radios',
+      name: 'Web radios',
+      version: '1.0.0',
+      author: 'RAM Raiders',
+      description: 'Game music stations.',
+      permissions: ['network'],
+      permissionDescriptions: ['reach the internet sites it lists, and only those'],
+      installed: null,
+      update: false,
+      runsHere: true
+    },
+    {
+      id: 'fm-tuner',
+      name: 'FM tuner',
+      version: '0.1.0',
+      author: 'RAM Raiders',
+      description: 'Drives a USB FM tuner.',
+      permissions: ['network', 'system'],
+      permissionDescriptions: [
+        'reach the internet sites it lists, and only those',
+        'install and run its own programs with full control of this machine'
+      ],
+      installed: null,
+      update: false,
+      runsHere: true
+    }
+  ];
+  /** What each add-on asks the user for. */
+  const setting = (k: string, label: string, secret: boolean) => ({
+    key: k,
+    label,
+    secret,
+    required: false
+  });
+  const addonDecls: Record<string, ReturnType<typeof setting>[]> = {
+    'example-boxes': [setting('token', 'Token', true)],
+    'arcade-flyers': [setting('token', 'Token', true)],
+    'web-radios': [setting('station', 'Your own station', false)]
+  };
+  const radioStations = [
+    { name: 'Chip FM', url: 'https://radio.example.com/chip' },
+    { name: 'Arcade Lounge', url: 'https://radio.example.com/lounge' }
+  ];
+  const addonSetting = (id: string, k: string) => scraperCredentials.get(`addon:${id}`)?.get(k);
+  /** The web radios add-on's stations, with the user's own. */
+  const addonStations = () => {
+    const own = addonSetting('web-radios', 'station');
+    return own ? [...radioStations, { name: 'Your station', url: own }] : radioStations;
+  };
+  let tunedTo: string | null = null;
+  const addonsInstalled = new Map<string, AddonInfo>([
+    [
+      'example-boxes',
+      {
+        id: 'example-boxes',
+        name: 'Example boxes',
+        version: '1.0.0',
+        author: 'RAM Raiders',
+        description: 'Box art from example.com.',
+        provides: ['scraper'],
+        permissions: ['network'],
+        permissionDescriptions: ['reach the internet sites it lists, and only those'],
+        hosts: ['https://boxes.example.com'],
+        enabled: true,
+        problem: null,
+        scraperSource: 'addon:example-boxes',
+        settings: [],
+        menu: null,
+        system: false,
+        verified: true,
+        update: '1.1.0'
+      }
+    ],
+    [
+      'web-radios',
+      {
+        id: 'web-radios',
+        name: 'Web radios',
+        version: '1.0.0',
+        author: 'RAM Raiders',
+        description: 'Game music stations.',
+        provides: ['music', 'menu'],
+        permissions: ['network'],
+        permissionDescriptions: ['reach the internet sites it lists, and only those'],
+        hosts: ['https://radio.example.com'],
+        enabled: true,
+        problem: null,
+        scraperSource: null,
+        settings: [],
+        menu: { label: 'Web radios', description: 'Stations, and your own' },
+        system: false,
+        verified: true,
+        update: null
+      }
+    ]
+  ]);
+  const addonsAllowed = () => {
+    if (!permissions.has('addons.manage')) {
+      fail('permissionDenied', 'theme `mock` needs the `addons.manage` permission');
+    }
+  };
+  const withSettings = (a: AddonInfo): AddonInfo => ({
+    ...structuredClone(a),
+    settings: (addonDecls[a.id] ?? []).map((d) => {
+      const value = addonSetting(a.id, d.key) ?? null;
+      return { ...d, set: value !== null, value: d.secret ? null : value };
+    })
+  });
+  const addonsList = () => [...addonsInstalled.values()].map(withSettings);
+  const addonRunning = (id: unknown) => {
+    const a = addonsInstalled.get(String(id));
+    if (!a) fail('notFound', `no add-on \`${String(id)}\``);
+    if (!a.enabled) fail('invalid', `${a.id} is turned off`);
+    if (!a.menu) fail('internal', `${a.id}: it has no pages`);
+    return a;
+  };
+  /** The pages of the menu add-ons in the mock: web radios, and the FM tuner once installed. */
+  const addonPage = (id: string, path: string[]): AddonPage => {
+    const row = (r: Partial<AddonRow> & { label: string }): AddonRow => ({
+      detail: null,
+      heading: null,
+      action: null,
+      adjust: null,
+      open: null,
+      ask: null,
+      alt: null,
+      ...r
+    });
+    if (id === 'fm-tuner') {
+      return {
+        title: 'FM tuner',
+        rows: [
+          row({
+            label: 'Frequency',
+            detail: tunedTo ?? 'Not tuned',
+            action: 'tune',
+            ask: { title: 'Frequency', secret: false, value: tunedTo }
+          })
+        ]
+      };
+    }
+    if (path[0] === 'about') {
+      return { title: 'About', rows: [row({ label: 'Stations from radio.example.com' })] };
+    }
+    return {
+      title: 'Web radios',
+      rows: [
+        ...addonStations().map((st, i) =>
+          row({
+            heading: i === 0 ? 'Stations' : null,
+            label: st.name,
+            detail: st.url,
+            action: `play:${st.url}`
+          })
+        ),
+        row({ heading: 'More', label: 'About', open: ['about'] })
+      ]
+    };
+  };
+
   // The scraper: the built-in sources (two need nothing), the user's choices, and a run that
   // moves on a timer.
   const kindLabels: [MediaKind, string][] = [
@@ -245,9 +437,27 @@ export function mockBackend(options: MockOptions = {}): Backend {
       fail('permissionDenied', 'theme `mock` needs the `scraper.manage` permission');
     }
   };
+  const allScraperSources = (): MockSource[] => [
+    ...scraperSources,
+    ...[...addonsInstalled.values()]
+      .filter((a) => a.enabled && a.scraperSource)
+      .map((a) => ({
+        id: a.scraperSource!,
+        name: a.name,
+        about: a.description ?? '',
+        needs: addonDecls[a.id] ?? [],
+        gives: ['thumbnail'] as MediaKind[],
+        metadata: false
+      }))
+  ];
   const scraperSettings = (): ScraperSettings => ({
-    sources: scraperChoice.flatMap((c) => {
-      const s = scraperSources.find((x) => x.id === c.id);
+    sources: [
+      ...scraperChoice,
+      ...allScraperSources()
+        .filter((s) => !scraperChoice.some((c) => c.id === s.id))
+        .map((s) => ({ id: s.id, enabled: true }))
+    ].flatMap((c) => {
+      const s = allScraperSources().find((x) => x.id === c.id);
       if (!s) return [];
       const mine = scraperCredentials.get(s.id) ?? new Map<string, string>();
       return [
@@ -309,6 +519,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
     ...snapshot.music.sources.filter((s) => s.kind !== 'radio'),
     ...radios.map((r) => ({
       id: `radio:${r.url}`,
+      kind: 'radio' as const,
+      name: r.name,
+      tracks: 0
+    })),
+    ...(addonsInstalled.get('web-radios')?.enabled ? addonStations() : []).map((r) => ({
+      id: `addon:web-radios:${r.url}`,
       kind: 'radio' as const,
       name: r.name,
       tracks: 0
@@ -571,6 +787,99 @@ export function mockBackend(options: MockOptions = {}): Backend {
       emit('magazines:open', { id: (id as string | null) ?? null });
       return null;
     },
+    addons_list: () => {
+      addonsAllowed();
+      return addonsList();
+    },
+    addons_set_enabled: ({ id, enabled }) => {
+      addonsAllowed();
+      const a = addonsInstalled.get(String(id));
+      if (!a) fail('notFound', `no add-on \`${String(id)}\``);
+      a.enabled = Boolean(enabled);
+      return addonsList();
+    },
+    addons_remove: ({ id }) => {
+      addonsAllowed();
+      if (!addonsInstalled.delete(String(id)))
+        fail('invalid', `no add-on \`${String(id)}\` is installed`);
+      return null;
+    },
+    addons_catalogue: () => {
+      addonsAllowed();
+      return {
+        data: {
+          addons: addonCatalogue.map((c) => {
+            const mine = addonsInstalled.get(c.id);
+            return {
+              ...c,
+              installed: mine?.version ?? null,
+              update: Boolean(mine?.version && mine.version !== c.version)
+            };
+          })
+        },
+        stale: false,
+        fetchedAt: '2026-11-04T12:00:00'
+      };
+    },
+    addons_install: ({ id }) => {
+      addonsAllowed();
+      const c = addonCatalogue.find((x) => x.id === id);
+      if (!c) fail('notFound', `no add-on \`${String(id)}\` in the catalogue`);
+      const scraper = !['web-radios', 'fm-tuner'].includes(c.id);
+      const info: AddonInfo = {
+        id: c.id,
+        name: c.name,
+        version: c.version,
+        author: c.author,
+        description: c.description,
+        provides: scraper ? ['scraper'] : ['menu'],
+        permissions: c.permissions,
+        permissionDescriptions: c.permissionDescriptions,
+        hosts: [`https://${c.id}.example.com`],
+        enabled: addonsInstalled.get(c.id)?.enabled ?? true,
+        problem: null,
+        scraperSource: scraper ? `addon:${c.id}` : null,
+        settings: [],
+        menu: scraper ? null : { label: c.name, description: c.description },
+        system: c.permissions.includes('system'),
+        verified: true,
+        update: null
+      };
+      addonsInstalled.set(c.id, info);
+      return withSettings(info);
+    },
+    addons_set_setting: ({ id, key: k, value }) => {
+      addonsAllowed();
+      const a = addonsInstalled.get(String(id));
+      if (!a) fail('notFound', `no add-on \`${String(id)}\``);
+      if (!(addonDecls[a.id] ?? []).some((d) => d.key === k)) {
+        fail('invalid', `${a.id} has no setting \`${String(k)}\``);
+      }
+      const mine = scraperCredentials.get(`addon:${a.id}`) ?? new Map<string, string>();
+      const v = typeof value === 'string' ? value.trim() : '';
+      if (v) mine.set(String(k), v);
+      else mine.delete(String(k));
+      scraperCredentials.set(`addon:${a.id}`, mine);
+      return addonsList();
+    },
+    addons_page: ({ id, path }) => {
+      addonsAllowed();
+      const a = addonRunning(id);
+      return addonPage(a.id, Array.isArray(path) ? path.map(String) : []);
+    },
+    addons_action: ({ id, action, input }) => {
+      addonsAllowed();
+      const a = addonRunning(id);
+      const what = String(action);
+      if (a.id === 'fm-tuner' && what === 'tune') {
+        tunedTo = String(input);
+        return { notify: `Tuned to ${tunedTo}`, open: null, back: false };
+      }
+      if (what.startsWith('play:')) {
+        return { notify: `Playing ${what.slice(5)}`, open: null, back: false };
+      }
+      return { notify: `nothing called ${what}`, open: null, back: false };
+    },
     scraper_settings: () => {
       scraperAllowed();
       return scraperSettings();
@@ -579,7 +888,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperAllowed();
       if (Array.isArray(sources)) {
         const given = (sources as { id: string; enabled: boolean }[]).filter((c) =>
-          scraperSources.some((s) => s.id === c.id)
+          allScraperSources().some((s) => s.id === c.id)
         );
         scraperChoice = [
           ...given,
@@ -593,7 +902,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     },
     scraper_set_credential: ({ source, key: k, value }) => {
       scraperAllowed();
-      const s = scraperSources.find((x) => x.id === source);
+      const s = allScraperSources().find((x) => x.id === source);
       if (!s) fail('notFound', `no source \`${String(source)}\``);
       if (!s.needs.some((n) => n.key === k)) fail('invalid', `${s.name} has no \`${String(k)}\``);
       const mine = scraperCredentials.get(s.id) ?? new Map<string, string>();

@@ -71,7 +71,7 @@ impl Harness {
             bluetooth: forma_core::bluetooth::Bluetooth::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             store: forma_core::store::Store::default(),
-            scraper: crate::scraper::Scraping::default(),
+            scraper: crate::scraper::Scraping::new(Arc::new(FixtureHttp), Arc::new(FakeShell)),
             system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             options: Options::new(
                 Box::new(SystemShell),
@@ -83,6 +83,7 @@ impl Harness {
                 forma_core::music::Library {
                     music: paths.music_dir(),
                     fallback: root.join("no-music"),
+                    addon_radios: Default::default(),
                 },
                 Box::new(forma_core::music::Mpv::new(root.join("mpv.sock"))),
                 root.join("run"),
@@ -175,6 +176,15 @@ impl Harness {
     }
 }
 
+/// Runs nothing; says what it was asked to run.
+struct FakeShell;
+
+impl forma_core::host::Shell for FakeShell {
+    fn run(&self, program: &str, args: &[&str]) -> forma_core::Result<String> {
+        Ok(format!("{program} {}", args.join(" ")))
+    }
+}
+
 /// Answers from `fixtures/http`, like the services would.
 struct FixtureHttp;
 
@@ -190,9 +200,15 @@ impl Http for FixtureHttp {
             "themes-catalogue.json"
         } else if url.ends_with("/theme-neon-1.0.0.zip") {
             "theme-neon-1.0.0.zip"
-        } else if url.contains("thumbnails.libretro.com")
-            && url.contains("/Named_Boxarts/Super%20Mario%20Bros.%20%28World%29.png")
+        } else if url.ends_with("/addon-example-boxes-1.0.0.zip") {
+            "addon-example-boxes-1.0.0.zip"
+        } else if url.ends_with("/addon-radio-box-1.0.0.zip") {
+            "addon-radio-box-1.0.0.zip"
+        } else if url.starts_with("https://boxes.example.com/")
+            || url.contains("thumbnails.libretro.com")
+                && url.contains("/Named_Boxarts/Super%20Mario%20Bros.%20%28World%29.png")
         {
+            // The add-on's box host, and libretro's box for one game.
             "libretro-boxart.png"
         } else {
             return Err(HttpError {
@@ -774,6 +790,110 @@ fn scraper_settings_accounts_and_a_run_over_a_system() {
 }
 
 #[test]
+fn an_addon_installs_from_the_catalogue_joins_the_scraper_and_goes() {
+    let h = Harness::new(&["addons.manage", "scraper.manage"]);
+    assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
+    let catalogue = h.call("addons_catalogue", json!({})).unwrap();
+    let entry = &catalogue["data"]["addons"][0];
+    assert_eq!(entry["id"], "example-boxes");
+    assert_eq!(entry["installed"], Value::Null);
+    assert_eq!(
+        entry["permissionDescriptions"][0],
+        "reach the internet sites it lists, and only those"
+    );
+
+    let installed = h
+        .call("addons_install", json!({ "id": "example-boxes" }))
+        .unwrap();
+    assert_eq!(installed["version"], "1.0.0");
+    assert_eq!(installed["enabled"], true);
+    assert_eq!(installed["hosts"], json!(["https://boxes.example.com"]));
+    assert_eq!(installed["scraperSource"], "addon:example-boxes");
+    let catalogue = h.call("addons_catalogue", json!({})).unwrap();
+    assert_eq!(catalogue["data"]["addons"][0]["installed"], "1.0.0");
+
+    // It is the scraper's last source, and set up (its token is optional).
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    let sources = settings["sources"].as_array().unwrap();
+    assert_eq!(sources.len(), 8);
+    assert_eq!(sources[7]["id"], "addon:example-boxes");
+    assert_eq!(sources[7]["ready"], true);
+    assert_eq!(sources[7]["needs"][0]["label"], "Token");
+
+    // Only the add-on, boxes only: every NES game gets one.
+    let only: Vec<Value> = sources
+        .iter()
+        .map(|s| json!({ "id": s["id"], "enabled": s["id"] == "addon:example-boxes" }))
+        .collect();
+    h.call(
+        "scraper_configure",
+        json!({ "sources": only, "media": ["thumbnail"], "metadata": false, "replace": true }),
+    )
+    .unwrap();
+    let started = h
+        .call(
+            "scraper_start",
+            json!({ "scope": { "kind": "system", "name": "nes" } }),
+        )
+        .unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    let status = loop {
+        let status = h.call("scraper_status", json!({})).unwrap();
+        if status["running"] == false {
+            break status;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "still running: {status}"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert_eq!(status["found"], started["total"], "{status}");
+    let nes = h.state().paths.userdata.join("roms/nes");
+    let made: Vec<String> = std::fs::read_dir(nes.join("images"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.ends_with("-thumb.png"))
+        .collect();
+    assert!(
+        made.contains(&"Homebrew Demo-thumb.png".to_owned()),
+        "{made:?} {status}"
+    );
+
+    // Off: gone from the scraper, still installed.
+    let listed = h
+        .call(
+            "addons_set_enabled",
+            json!({ "id": "example-boxes", "enabled": false }),
+        )
+        .unwrap();
+    assert_eq!(listed[0]["enabled"], false);
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 7);
+    h.call(
+        "addons_set_enabled",
+        json!({ "id": "example-boxes", "enabled": true }),
+    )
+    .unwrap();
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 8);
+
+    h.call("addons_remove", json!({ "id": "example-boxes" }))
+        .unwrap();
+    assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 7);
+    let err = h
+        .call("addons_install", json!({ "id": "nope" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "notFound");
+    let denied = Harness::new(&["scraper.manage"]);
+    let err = denied.call("addons_list", json!({})).unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+}
+
+#[test]
 fn a_game_session_runs_records_and_reports_its_events() {
     let h = Harness::new(&[]);
     let events = Arc::new(Mutex::new(Vec::new()));
@@ -1071,4 +1191,102 @@ fn ra_matches_reports_each_ra_system_of_the_library() {
         systems.iter().all(|s| s["system"] != "ports"),
         "no RA console"
     );
+}
+
+#[test]
+fn a_radio_addon_adds_stations_and_pages_and_runs_its_system_part() {
+    let h = Harness::new(&["addons.manage", "music.manage"]);
+    let installed = h
+        .call("addons_install", json!({ "id": "radio-box" }))
+        .unwrap();
+    assert_eq!(installed["verified"], true);
+    assert_eq!(installed["system"], true);
+    assert_eq!(installed["menu"]["label"], "Radio box");
+    assert_eq!(
+        installed["permissionDescriptions"][1],
+        "install and run its own programs with full control of this machine"
+    );
+
+    // Its stations are in Music, after the user's own.
+    let radio = |sources: &Value| -> Vec<String> {
+        sources
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|s| s["id"].as_str().unwrap().starts_with("addon:radio-box:"))
+            .map(|s| s["name"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let sources = h.call("music_sources", json!({})).unwrap();
+    assert_eq!(radio(&sources), ["Chip FM", "Arcade Lounge"]);
+
+    // A setting it reads: a third station.
+    let after = h
+        .call(
+            "addons_set_setting",
+            json!({ "id": "radio-box", "key": "station", "value": "https://radio.example.com/mine" }),
+        )
+        .unwrap();
+    assert_eq!(
+        after[0]["settings"][0]["value"],
+        "https://radio.example.com/mine"
+    );
+    let sources = h.call("music_sources", json!({})).unwrap();
+    assert_eq!(
+        radio(&sources),
+        ["Chip FM", "Arcade Lounge", "Your station"]
+    );
+    assert!(
+        h.call(
+            "addons_set_setting",
+            json!({ "id": "radio-box", "key": "nope", "value": "x" })
+        )
+        .is_err()
+    );
+
+    // Its pages, drawn by Forma.
+    let page = h
+        .call("addons_page", json!({ "id": "radio-box", "path": [] }))
+        .unwrap();
+    assert_eq!(page["title"], "Radio box");
+    assert_eq!(page["rows"][0]["heading"], "Stations");
+    assert_eq!(page["rows"][3]["action"], "tune");
+    assert_eq!(page["rows"][3]["ask"]["title"], "Frequency");
+    assert_eq!(page["rows"][4]["open"], json!(["about"]));
+    let about = h
+        .call(
+            "addons_page",
+            json!({ "id": "radio-box", "path": ["about"] }),
+        )
+        .unwrap();
+    assert_eq!(about["rows"][0]["label"], "A test add-on");
+
+    // An action runs its system command (the fake shell says what it ran).
+    let done = h
+        .call(
+            "addons_action",
+            json!({ "id": "radio-box", "action": "tune", "input": "99.1" }),
+        )
+        .unwrap();
+    let notify = done["notify"].as_str().unwrap();
+    assert!(
+        notify.starts_with("sh ") && notify.ends_with("system/tune.sh 99.1"),
+        "{notify}"
+    );
+
+    // Off: no stations, no pages.
+    h.call(
+        "addons_set_enabled",
+        json!({ "id": "radio-box", "enabled": false }),
+    )
+    .unwrap();
+    assert!(radio(&h.call("music_sources", json!({})).unwrap()).is_empty());
+    assert!(
+        h.call("addons_page", json!({ "id": "radio-box", "path": [] }))
+            .is_err()
+    );
+
+    h.call("addons_remove", json!({ "id": "radio-box" }))
+        .unwrap();
+    assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
 }
