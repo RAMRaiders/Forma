@@ -84,6 +84,10 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             &paths.userdata,
         ),
         music,
+        magazines: forma_core::magazines::Reader::new(
+            &paths,
+            Box::new(forma_core::magazines::HostTools),
+        ),
         thumbnails: Thumbnailer::spawn(Thumbs::new(
             paths.cache_dir().join("thumbs"),
             thumbs::DEFAULT_MAX_BYTES,

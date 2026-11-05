@@ -37,6 +37,31 @@ pub trait Resolver {
     fn cover(&self) -> crate::shell::CoverInfo;
     /// A file of Forma's shell (`shell.js`), the menus drawn over every theme.
     fn shell_file(&self, name: &str) -> Option<PathBuf>;
+    /// Page `page` (from 0) of a magazine, as a JPEG about `width` wide (see `magazines`).
+    fn magazine_page(&self, id: &str, page: usize, width: u32) -> Option<PathBuf> {
+        let _ = (id, page, width);
+        None
+    }
+}
+
+/// A magazine's page URL, with `{page}` for the page number (from 0): `forma.magazines.pageUrl`
+/// fills it in and asks for a width.
+pub fn magazine_url(id: &str) -> String {
+    let path: Vec<String> = id.split('/').map(percent_encode).collect();
+    format!("{ORIGIN}/magazine/{{page}}/{}", path.join("/"))
+}
+
+fn percent_encode(segment: &str) -> String {
+    segment
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) {
+                (b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect()
 }
 
 /// Forma's logo, for its cover.
@@ -100,6 +125,23 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
             {
                 Some(file) => serve(&file, range, None),
                 None => status(StatusCode::NOT_FOUND, "no such media"),
+            }
+        }
+        (Some("magazine"), Some(page), Some(id)) => {
+            let width = request
+                .uri()
+                .query()
+                .and_then(|q| q.split('&').find_map(|p| p.strip_prefix("w=")))
+                .and_then(|w| w.parse::<u32>().ok())
+                .filter(|w| (1..=MAX_WIDTH).contains(w))
+                .unwrap_or(1280);
+            match page
+                .parse()
+                .ok()
+                .and_then(|page| resolver.magazine_page(id, page, width))
+            {
+                Some(file) => serve(&file, None, None),
+                None => status(StatusCode::NOT_FOUND, "no such page"),
             }
         }
         (Some("system"), Some("forma-logo.svg"), None) => Response::builder()

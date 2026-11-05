@@ -167,6 +167,23 @@ export interface ThemeInfo {
   logo: string | null;
 }
 
+/**
+ * A magazine in `/userdata/magazines`: a CBZ/ZIP, CBR/RAR, CB7/7Z, CBT/TAR or PDF file, or a
+ * folder of page images. Folders below group them.
+ */
+export interface Magazine {
+  /** Its path below the magazines folder, `/`-separated. */
+  id: string;
+  title: string;
+  /** The folders it is in, `/`-separated; `''` at the top. */
+  folder: string;
+  format: 'zip' | 'rar' | 'sevenzip' | 'tar' | 'pdf' | 'folder';
+  /** Where the user left it (from 0), if they opened it before. */
+  page: number | null;
+  /** Its pages' URL with `{page}` in it: use `magazines.pageUrl`. */
+  pageUrl: string;
+}
+
 /** A theme in the catalogue (`themes.catalogue()`), to install or update from Forma. */
 export interface CatalogueTheme {
   id: string;
@@ -273,6 +290,8 @@ export interface LibraryChanged {
 export interface EventMap {
   /** The user picked a view in Forma's views list (Select): show it. */
   'nav:open': NavOpen;
+  /** Forma's shell is asked to open its magazines (`id`: one of them; `null`: the list). */
+  'magazines:open': { id: string | null };
   /** A setting changed in Forma's menu: one of the theme's own, or Forma's (`display.margins`). */
   'settings:changed': SettingsChanged;
   'music:changed': MusicStatus;

@@ -38,6 +38,7 @@ import type {
   ThemeInfo,
   CatalogueTheme,
   Fetched,
+  Magazine,
   ThemeCatalogue,
   Unsubscribe,
   ViewInfo,
@@ -72,6 +73,8 @@ interface Snapshot {
 }
 
 const snapshot = data as unknown as Snapshot;
+/** How many pages each mock magazine has. */
+const MAGAZINE_PAGES = 8;
 
 type Handler = (payload: unknown) => void;
 
@@ -108,6 +111,20 @@ export function mockBackend(options: MockOptions = {}): Backend {
       logo: null
     }
   ];
+  // Two magazines of drawn pages, so a reader has something to turn.
+  const reading = new Map<string, number>();
+  const magazines: Omit<Magazine, 'page'>[] = [
+    ['Retro Gamer 1.pdf', 'Retro Gamer 1', '', 'pdf'],
+    ['Edge/Edge 9.cbz', 'Edge 9', 'Edge', 'zip']
+  ].map(([id, title, folder, format]) => ({
+    id: id!,
+    title: title!,
+    folder: folder!,
+    format: format as Magazine['format'],
+    pageUrl: `data:image/svg+xml,${encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="990"><rect width="100%" height="100%" fill="#f4efe1"/><text x="50%" y="45%" font-size="64" text-anchor="middle">${title}</text><text x="50%" y="55%" font-size="48" text-anchor="middle">page {page}</text></svg>`
+    ).replace('%7Bpage%7D', '{page}')}#`
+  }));
   // The theme catalogue: a newer Neon, and a theme not installed yet.
   const catalogue: CatalogueTheme[] = [
     {
@@ -396,6 +413,20 @@ export function mockBackend(options: MockOptions = {}): Backend {
 
   const commands: Record<string, (args: Record<string, unknown>) => unknown> = {
     sdk_api_version: () => snapshot.apiVersion,
+    magazines_list: (): Magazine[] =>
+      magazines.map((m) => ({ ...m, page: reading.get(m.id) ?? null })),
+    magazines_pages: ({ id }) =>
+      magazines.some((m) => m.id === id)
+        ? MAGAZINE_PAGES
+        : fail('invalid', `no magazine \`${String(id)}\``),
+    magazines_set_page: ({ id, page }) => {
+      reading.set(String(id), Number(page));
+      return null;
+    },
+    magazines_open: ({ id }) => {
+      emit('magazines:open', { id: (id as string | null) ?? null });
+      return null;
+    },
     collections_list: (): Collection[] =>
       sortedCollections().map((name) => ({
         name,

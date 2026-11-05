@@ -87,6 +87,10 @@ impl Harness {
                 root.join("run"),
                 60,
             ),
+            magazines: forma_core::magazines::Reader::new(
+                &paths,
+                Box::new(forma_core::magazines::HostTools),
+            ),
             thumbnails: forma_core::thumbs::Thumbnailer::spawn(forma_core::thumbs::Thumbs::new(
                 root.join("thumbs"),
                 forma_core::thumbs::DEFAULT_MAX_BYTES,
@@ -626,6 +630,51 @@ fn installs_a_theme_from_the_catalogue_and_marks_updates() {
         .call("themes_install", json!({ "id": "neon" }))
         .unwrap_err();
     assert_eq!(code(&err), "permissionDenied");
+}
+
+#[test]
+fn lists_magazines_serves_their_pages_and_remembers_the_page() {
+    let h = Harness::new(&[]);
+    let paths = h.state().paths.clone();
+    let issue = paths.userdata.join("magazines/Edge/Edge 9");
+    std::fs::create_dir_all(&issue).unwrap();
+    // A 1×1 PNG.
+    const PNG: &[u8] = &[
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6,
+        0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 218, 99, 100, 248, 207, 80,
+        15, 0, 3, 134, 1, 128, 90, 52, 125, 107, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+    ];
+    for page in ["001.png", "002.png"] {
+        std::fs::write(issue.join(page), PNG).unwrap();
+    }
+
+    let list = h.call("magazines_list", json!({})).unwrap();
+    assert_eq!(list[0]["id"], "Edge/Edge 9");
+    assert_eq!(list[0]["folder"], "Edge");
+    assert_eq!(list[0]["format"], "folder");
+    assert_eq!(list[0]["page"], Value::Null);
+    assert_eq!(
+        list[0]["pageUrl"],
+        "forma://localhost/magazine/{page}/Edge/Edge%209"
+    );
+    let pages = h
+        .call("magazines_pages", json!({ "id": "Edge/Edge 9" }))
+        .unwrap();
+    assert_eq!(pages, 2);
+    let page = crate::protocol::Resolver::magazine_page(&*h.state(), "Edge/Edge 9", 1, 640);
+    assert!(page.is_some_and(|f| f.is_file()));
+
+    h.call(
+        "magazines_set_page",
+        json!({ "id": "Edge/Edge 9", "page": 1 }),
+    )
+    .unwrap();
+    let list = h.call("magazines_list", json!({})).unwrap();
+    assert_eq!(list[0]["page"], 1);
+    let err = h
+        .call("magazines_pages", json!({ "id": "../roms" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "invalid");
 }
 
 #[test]

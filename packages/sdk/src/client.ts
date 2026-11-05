@@ -26,6 +26,7 @@ import type {
   ShellContext,
   StatusBar,
   SystemSummary,
+  Magazine,
   ThemeCatalogue,
   ThemeInfo,
   Unsubscribe,
@@ -115,6 +116,7 @@ export class Forma {
   readonly ra;
   readonly netplay;
   readonly collections;
+  readonly magazines;
   readonly network;
   readonly bluetooth;
   readonly updates;
@@ -252,6 +254,29 @@ export class Forma {
      * The user's own lists of games, as EmulationStation keeps them; browse them in the
      * `collections` view. Like favourites, they need no permission. Names are any case.
      */
+    /**
+     * Scanned magazines, read in Forma's own reader: a theme lists them (with covers from
+     * `pageUrl(m, 0, …)`) and calls `open`; the reader, its controls and where the user left
+     * off are Forma's. No permission needed.
+     */
+    this.magazines = {
+      list: () => invoke<Magazine[]>('magazines_list'),
+      /** How many pages it has; the first time, a big archive takes a moment. */
+      pages: (id: string) => invoke<number>('magazines_pages', { id }),
+      /** Remembers the page the user is on (from 0). */
+      setPage: (id: string, page: number) => invoke<void>('magazines_set_page', { id, page }),
+      /** Opens Forma's reader on a magazine, or Forma's magazines list (no `id`). */
+      open: (id?: string) => invoke<void>('magazines_open', { id: id ?? null }),
+      /**
+       * A page (from 0) as an image about `width` pixels wide: ask for what is drawn, which on
+       * a Raspberry Pi is much lighter than the full scan.
+       */
+      pageUrl: (magazine: Pick<Magazine, 'pageUrl'>, page: number, width = 1280) =>
+        `${magazine.pageUrl.replace('{page}', String(page))}${
+          magazine.pageUrl.includes('?') ? '&' : '?'
+        }w=${Math.round(width)}`
+    };
+
     this.collections = {
       list: () => invoke<Collection[]>('collections_list'),
       /** The collections a game is in. */
