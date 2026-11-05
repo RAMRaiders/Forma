@@ -1,5 +1,5 @@
 {
-  "apiVersion": "1.21.0",
+  "apiVersion": "1.22.0",
   "batocera": [
     {
       "choices": [],
@@ -149,6 +149,7 @@
             "genre": null,
             "hidden": false,
             "id": 10,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Alter Ego",
@@ -158,6 +159,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "homebrew"
           },
@@ -169,6 +171,7 @@
             "genre": null,
             "hidden": false,
             "id": 5,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Chrono Trigger (USA)",
@@ -178,6 +181,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -189,6 +193,7 @@
             "genre": "Role Playing Game",
             "hidden": false,
             "id": 9,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Final Fantasy VII",
@@ -198,6 +203,7 @@
             "publisher": "Sony Computer Entertainment",
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": "1997-09-07",
             "system": "psx"
           },
@@ -209,6 +215,7 @@
             "genre": null,
             "hidden": false,
             "id": 1,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Homebrew Demo",
@@ -218,6 +225,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "nes"
           },
@@ -229,6 +237,7 @@
             "genre": null,
             "hidden": false,
             "id": 7,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Sonic The Hedgehog (USA, Europe)",
@@ -238,6 +247,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -249,6 +259,7 @@
             "genre": null,
             "hidden": false,
             "id": 8,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Streets of Rage 2 (USA)",
@@ -258,6 +269,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -269,6 +281,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -282,6 +295,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           },
@@ -293,6 +307,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 6,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Super Metroid",
@@ -302,6 +317,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -313,6 +329,7 @@
             "genre": "Action / Adventure",
             "hidden": false,
             "id": 3,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "The Legend of Zelda",
@@ -322,6 +339,7 @@
             "publisher": "Nintendo",
             "raGameId": null,
             "rating": 0.85,
+            "region": null,
             "releaseDate": "1986-02-21",
             "system": "nes"
           }
@@ -354,6 +372,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -367,6 +386,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           }
@@ -389,6 +409,7 @@
             "genre": null,
             "hidden": false,
             "id": 10,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Alter Ego",
@@ -398,6 +419,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "homebrew"
           },
@@ -409,6 +431,7 @@
             "genre": null,
             "hidden": false,
             "id": 5,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Chrono Trigger (USA)",
@@ -418,6 +441,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -429,6 +453,7 @@
             "genre": null,
             "hidden": false,
             "id": 1,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Homebrew Demo",
@@ -438,6 +463,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "nes"
           },
@@ -449,6 +475,7 @@
             "genre": null,
             "hidden": false,
             "id": 7,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Sonic The Hedgehog (USA, Europe)",
@@ -458,6 +485,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -469,6 +497,7 @@
             "genre": null,
             "hidden": false,
             "id": 8,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Streets of Rage 2 (USA)",
@@ -478,6 +507,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           }
@@ -507,6 +537,7 @@
             "genre": "Action / Adventure",
             "hidden": false,
             "id": 3,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "The Legend of Zelda",
@@ -516,6 +547,7 @@
             "publisher": "Nintendo",
             "raGameId": null,
             "rating": 0.85,
+            "region": null,
             "releaseDate": "1986-02-21",
             "system": "nes"
           }
@@ -545,6 +577,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -558,6 +591,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           },
@@ -569,6 +603,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 6,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Super Metroid",
@@ -578,6 +613,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           }
@@ -607,6 +643,7 @@
             "genre": "Role Playing Game",
             "hidden": false,
             "id": 9,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Final Fantasy VII",
@@ -616,6 +653,7 @@
             "publisher": "Sony Computer Entertainment",
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": "1997-09-07",
             "system": "psx"
           }
@@ -681,6 +719,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -694,6 +733,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           }
@@ -723,6 +763,7 @@
             "genre": null,
             "hidden": false,
             "id": 10,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Alter Ego",
@@ -732,6 +773,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "homebrew"
           },
@@ -743,6 +785,7 @@
             "genre": null,
             "hidden": false,
             "id": 5,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Chrono Trigger (USA)",
@@ -752,6 +795,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -763,6 +807,7 @@
             "genre": null,
             "hidden": false,
             "id": 1,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Homebrew Demo",
@@ -772,6 +817,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "nes"
           },
@@ -783,6 +829,7 @@
             "genre": null,
             "hidden": false,
             "id": 7,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Sonic The Hedgehog (USA, Europe)",
@@ -792,6 +839,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -803,6 +851,7 @@
             "genre": null,
             "hidden": false,
             "id": 8,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Streets of Rage 2 (USA)",
@@ -812,6 +861,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           }
@@ -846,6 +896,7 @@
             "genre": "Action / Adventure",
             "hidden": false,
             "id": 3,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "The Legend of Zelda",
@@ -855,6 +906,7 @@
             "publisher": "Nintendo",
             "raGameId": null,
             "rating": 0.85,
+            "region": null,
             "releaseDate": "1986-02-21",
             "system": "nes"
           }
@@ -889,6 +941,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -902,6 +955,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           },
@@ -913,6 +967,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 6,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Super Metroid",
@@ -922,6 +977,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           }
@@ -956,6 +1012,7 @@
             "genre": "Role Playing Game",
             "hidden": false,
             "id": 9,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Final Fantasy VII",
@@ -965,6 +1022,7 @@
             "publisher": "Sony Computer Entertainment",
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": "1997-09-07",
             "system": "psx"
           }
@@ -1042,6 +1100,7 @@
             "genre": null,
             "hidden": false,
             "id": 10,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Alter Ego",
@@ -1051,6 +1110,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "homebrew"
           }
@@ -1120,6 +1180,7 @@
             "genre": null,
             "hidden": false,
             "id": 1,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Homebrew Demo",
@@ -1129,6 +1190,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "nes"
           },
@@ -1140,6 +1202,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -1153,6 +1216,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           },
@@ -1164,6 +1228,7 @@
             "genre": "Action / Adventure",
             "hidden": false,
             "id": 3,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "The Legend of Zelda",
@@ -1173,6 +1238,7 @@
             "publisher": "Nintendo",
             "raGameId": null,
             "rating": 0.85,
+            "region": null,
             "releaseDate": "1986-02-21",
             "system": "nes"
           }
@@ -1212,6 +1278,7 @@
             "genre": null,
             "hidden": false,
             "id": 5,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Chrono Trigger (USA)",
@@ -1221,6 +1288,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -1232,6 +1300,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 6,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Super Metroid",
@@ -1241,6 +1310,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           }
@@ -1316,6 +1386,7 @@
             "genre": null,
             "hidden": false,
             "id": 7,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Sonic The Hedgehog (USA, Europe)",
@@ -1325,6 +1396,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -1336,6 +1408,7 @@
             "genre": null,
             "hidden": false,
             "id": 8,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Streets of Rage 2 (USA)",
@@ -1345,6 +1418,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           }
@@ -1414,6 +1488,7 @@
             "genre": "Role Playing Game",
             "hidden": false,
             "id": 9,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Final Fantasy VII",
@@ -1423,6 +1498,7 @@
             "publisher": "Sony Computer Entertainment",
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": "1997-09-07",
             "system": "psx"
           }
@@ -1535,6 +1611,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -1548,6 +1625,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           }
@@ -1577,6 +1655,7 @@
             "genre": null,
             "hidden": false,
             "id": 10,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Alter Ego",
@@ -1586,6 +1665,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "homebrew"
           }
@@ -1620,6 +1700,7 @@
             "genre": null,
             "hidden": false,
             "id": 7,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Sonic The Hedgehog (USA, Europe)",
@@ -1629,6 +1710,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -1640,6 +1722,7 @@
             "genre": null,
             "hidden": false,
             "id": 8,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Streets of Rage 2 (USA)",
@@ -1649,6 +1732,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           }
@@ -1683,6 +1767,7 @@
             "genre": null,
             "hidden": false,
             "id": 1,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Homebrew Demo",
@@ -1692,6 +1777,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "nes"
           },
@@ -1703,6 +1789,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -1716,6 +1803,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           },
@@ -1727,6 +1815,7 @@
             "genre": "Action / Adventure",
             "hidden": false,
             "id": 3,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "The Legend of Zelda",
@@ -1736,6 +1825,7 @@
             "publisher": "Nintendo",
             "raGameId": null,
             "rating": 0.85,
+            "region": null,
             "releaseDate": "1986-02-21",
             "system": "nes"
           }
@@ -1770,6 +1860,7 @@
             "genre": "Role Playing Game",
             "hidden": false,
             "id": 9,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Final Fantasy VII",
@@ -1779,6 +1870,7 @@
             "publisher": "Sony Computer Entertainment",
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": "1997-09-07",
             "system": "psx"
           }
@@ -1813,6 +1905,7 @@
             "genre": null,
             "hidden": false,
             "id": 5,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Chrono Trigger (USA)",
@@ -1822,6 +1915,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -1833,6 +1927,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 6,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Super Metroid",
@@ -1842,6 +1937,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           }
@@ -1960,6 +2056,7 @@
             "genre": null,
             "hidden": false,
             "id": 10,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Alter Ego",
@@ -1969,6 +2066,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "homebrew"
           }
@@ -2028,6 +2126,7 @@
             "genre": null,
             "hidden": false,
             "id": 1,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Homebrew Demo",
@@ -2037,6 +2136,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "nes"
           },
@@ -2048,6 +2148,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -2061,6 +2162,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           },
@@ -2072,6 +2174,7 @@
             "genre": "Action / Adventure",
             "hidden": false,
             "id": 3,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "The Legend of Zelda",
@@ -2081,6 +2184,7 @@
             "publisher": "Nintendo",
             "raGameId": null,
             "rating": 0.85,
+            "region": null,
             "releaseDate": "1986-02-21",
             "system": "nes"
           }
@@ -2115,6 +2219,7 @@
             "genre": null,
             "hidden": false,
             "id": 5,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Chrono Trigger (USA)",
@@ -2124,6 +2229,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -2135,6 +2241,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 6,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Super Metroid",
@@ -2144,6 +2251,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           }
@@ -2209,6 +2317,7 @@
             "genre": null,
             "hidden": false,
             "id": 7,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Sonic The Hedgehog (USA, Europe)",
@@ -2218,6 +2327,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -2229,6 +2339,7 @@
             "genre": null,
             "hidden": false,
             "id": 8,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Streets of Rage 2 (USA)",
@@ -2238,6 +2349,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           }
@@ -2297,6 +2409,7 @@
             "genre": "Role Playing Game",
             "hidden": false,
             "id": 9,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Final Fantasy VII",
@@ -2306,6 +2419,7 @@
             "publisher": "Sony Computer Entertainment",
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": "1997-09-07",
             "system": "psx"
           }
@@ -2401,6 +2515,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -2414,6 +2529,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           }
@@ -2436,6 +2552,7 @@
             "genre": "Action / Adventure",
             "hidden": false,
             "id": 3,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "The Legend of Zelda",
@@ -2445,6 +2562,7 @@
             "publisher": "Nintendo",
             "raGameId": null,
             "rating": 0.85,
+            "region": null,
             "releaseDate": "1986-02-21",
             "system": "nes"
           },
@@ -2456,6 +2574,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 6,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Super Metroid",
@@ -2465,6 +2584,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -2476,6 +2596,7 @@
             "genre": null,
             "hidden": false,
             "id": 1,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Homebrew Demo",
@@ -2485,6 +2606,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "nes"
           },
@@ -2496,6 +2618,7 @@
             "genre": null,
             "hidden": false,
             "id": 7,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Sonic The Hedgehog (USA, Europe)",
@@ -2505,6 +2628,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -2516,6 +2640,7 @@
             "genre": "Role Playing Game",
             "hidden": false,
             "id": 9,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Final Fantasy VII",
@@ -2525,6 +2650,7 @@
             "publisher": "Sony Computer Entertainment",
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": "1997-09-07",
             "system": "psx"
           },
@@ -2536,6 +2662,7 @@
             "genre": null,
             "hidden": false,
             "id": 10,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Alter Ego",
@@ -2545,6 +2672,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "homebrew"
           },
@@ -2556,6 +2684,7 @@
             "genre": null,
             "hidden": false,
             "id": 5,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Chrono Trigger (USA)",
@@ -2565,6 +2694,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -2576,6 +2706,7 @@
             "genre": null,
             "hidden": false,
             "id": 8,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Streets of Rage 2 (USA)",
@@ -2585,6 +2716,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           }
@@ -2607,6 +2739,7 @@
             "genre": null,
             "hidden": false,
             "id": 10,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Alter Ego",
@@ -2616,6 +2749,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "homebrew"
           }
@@ -2645,6 +2779,7 @@
             "genre": null,
             "hidden": false,
             "id": 7,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Sonic The Hedgehog (USA, Europe)",
@@ -2654,6 +2789,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           },
@@ -2665,6 +2801,7 @@
             "genre": null,
             "hidden": false,
             "id": 8,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Streets of Rage 2 (USA)",
@@ -2674,6 +2811,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "megadrive"
           }
@@ -2703,6 +2841,7 @@
             "genre": null,
             "hidden": false,
             "id": 1,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Homebrew Demo",
@@ -2712,6 +2851,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "nes"
           },
@@ -2723,6 +2863,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 2,
+            "lang": "en",
             "lastPlayed": "2026-01-01T12:00:00",
             "media": {
               "image": "image",
@@ -2736,6 +2877,7 @@
             "publisher": "Nintendo",
             "raGameId": 1446,
             "rating": 0.9,
+            "region": "wor",
             "releaseDate": "1985-09-13",
             "system": "nes"
           },
@@ -2747,6 +2889,7 @@
             "genre": "Action / Adventure",
             "hidden": false,
             "id": 3,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "The Legend of Zelda",
@@ -2756,6 +2899,7 @@
             "publisher": "Nintendo",
             "raGameId": null,
             "rating": 0.85,
+            "region": null,
             "releaseDate": "1986-02-21",
             "system": "nes"
           }
@@ -2785,6 +2929,7 @@
             "genre": "Role Playing Game",
             "hidden": false,
             "id": 9,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Final Fantasy VII",
@@ -2794,6 +2939,7 @@
             "publisher": "Sony Computer Entertainment",
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": "1997-09-07",
             "system": "psx"
           }
@@ -2823,6 +2969,7 @@
             "genre": null,
             "hidden": false,
             "id": 5,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Chrono Trigger (USA)",
@@ -2832,6 +2979,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           },
@@ -2843,6 +2991,7 @@
             "genre": "Platform",
             "hidden": false,
             "id": 6,
+            "lang": null,
             "lastPlayed": null,
             "media": {},
             "name": "Super Metroid",
@@ -2852,6 +3001,7 @@
             "publisher": null,
             "raGameId": null,
             "rating": null,
+            "region": null,
             "releaseDate": null,
             "system": "snes"
           }
@@ -2923,6 +3073,7 @@
       "genre": null,
       "hidden": false,
       "id": 1,
+      "lang": null,
       "lastPlayed": null,
       "media": {},
       "name": "Homebrew Demo",
@@ -2932,6 +3083,7 @@
       "publisher": null,
       "raGameId": null,
       "rating": null,
+      "region": null,
       "releaseDate": null,
       "system": "nes"
     },
@@ -2943,6 +3095,7 @@
       "genre": "Platform",
       "hidden": false,
       "id": 2,
+      "lang": "en",
       "lastPlayed": "2026-01-01T12:00:00",
       "media": {
         "image": "image",
@@ -2956,6 +3109,7 @@
       "publisher": "Nintendo",
       "raGameId": 1446,
       "rating": 0.9,
+      "region": "wor",
       "releaseDate": "1985-09-13",
       "system": "nes"
     },
@@ -2967,6 +3121,7 @@
       "genre": "Action / Adventure",
       "hidden": false,
       "id": 3,
+      "lang": null,
       "lastPlayed": null,
       "media": {},
       "name": "The Legend of Zelda",
@@ -2976,6 +3131,7 @@
       "publisher": "Nintendo",
       "raGameId": null,
       "rating": 0.85,
+      "region": null,
       "releaseDate": "1986-02-21",
       "system": "nes"
     },
@@ -2987,6 +3143,7 @@
       "genre": null,
       "hidden": false,
       "id": 5,
+      "lang": null,
       "lastPlayed": null,
       "media": {},
       "name": "Chrono Trigger (USA)",
@@ -2996,6 +3153,7 @@
       "publisher": null,
       "raGameId": null,
       "rating": null,
+      "region": null,
       "releaseDate": null,
       "system": "snes"
     },
@@ -3007,6 +3165,7 @@
       "genre": "Platform",
       "hidden": false,
       "id": 6,
+      "lang": null,
       "lastPlayed": null,
       "media": {},
       "name": "Super Metroid",
@@ -3016,6 +3175,7 @@
       "publisher": null,
       "raGameId": null,
       "rating": null,
+      "region": null,
       "releaseDate": null,
       "system": "snes"
     },
@@ -3027,6 +3187,7 @@
       "genre": null,
       "hidden": false,
       "id": 7,
+      "lang": null,
       "lastPlayed": null,
       "media": {},
       "name": "Sonic The Hedgehog (USA, Europe)",
@@ -3036,6 +3197,7 @@
       "publisher": null,
       "raGameId": null,
       "rating": null,
+      "region": null,
       "releaseDate": null,
       "system": "megadrive"
     },
@@ -3047,6 +3209,7 @@
       "genre": null,
       "hidden": false,
       "id": 8,
+      "lang": null,
       "lastPlayed": null,
       "media": {},
       "name": "Streets of Rage 2 (USA)",
@@ -3056,6 +3219,7 @@
       "publisher": null,
       "raGameId": null,
       "rating": null,
+      "region": null,
       "releaseDate": null,
       "system": "megadrive"
     },
@@ -3067,6 +3231,7 @@
       "genre": "Role Playing Game",
       "hidden": false,
       "id": 9,
+      "lang": null,
       "lastPlayed": null,
       "media": {},
       "name": "Final Fantasy VII",
@@ -3076,6 +3241,7 @@
       "publisher": "Sony Computer Entertainment",
       "raGameId": null,
       "rating": null,
+      "region": null,
       "releaseDate": "1997-09-07",
       "system": "psx"
     },
@@ -3087,6 +3253,7 @@
       "genre": null,
       "hidden": false,
       "id": 10,
+      "lang": null,
       "lastPlayed": null,
       "media": {},
       "name": "Alter Ego",
@@ -3096,6 +3263,7 @@
       "publisher": null,
       "raGameId": null,
       "rating": null,
+      "region": null,
       "releaseDate": null,
       "system": "homebrew"
     }

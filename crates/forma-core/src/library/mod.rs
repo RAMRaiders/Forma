@@ -76,13 +76,17 @@ pub struct Game {
     /// Total seconds played.
     pub game_time: i64,
     pub ra_game_id: Option<i64>,
+    /// As the gamelist gives it, e.g. `us`, `eu`, `jp`, `wor`.
+    pub region: Option<String>,
+    /// Languages, as the gamelist gives them, e.g. `en,fr,de`.
+    pub lang: Option<String>,
     /// Media kind (`image`, `video`, `marquee`…) to absolute path.
     pub media: BTreeMap<String, String>,
 }
 
 pub(crate) const GAME_COLUMNS: &str = "g.id, g.system, g.path, g.name, g.description, g.developer, \
      g.publisher, g.genre, g.players, g.release_date, g.rating, g.favorite, g.hidden, \
-     g.play_count, g.last_played, g.ra_game_id, g.game_time";
+     g.play_count, g.last_played, g.ra_game_id, g.game_time, g.region, g.lang";
 
 /// Systems with visible games, and how many; counted from the `game_visible` index alone.
 const SYSTEMS_SQL: &str =
@@ -340,6 +344,8 @@ impl Library {
                     last_played: r.get(14)?,
                     ra_game_id: r.get(15)?,
                     game_time: r.get(16)?,
+                    region: r.get(17)?,
+                    lang: r.get(18)?,
                     media: BTreeMap::new(),
                 })
             })?
