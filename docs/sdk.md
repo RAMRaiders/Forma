@@ -204,6 +204,10 @@ meanwhile: slow on a Raspberry Pi. `prepareMedia` has it made ahead, nearest (fi
 after whatever a screen is waiting for, so the games next to the one shown appear at once when
 reached. Ask with the widths `mediaUrl` will use. Nothing is downloaded, and videos are ignored.
 
+`prepareList(view, path, around, pictures)` does the same for a whole game list as it opens:
+the `pictures` (`{ kind, width }`) of up to 300 of its games, nearest the selection (`around`)
+first, after anything else waits, and never while a game runs. The next list replaces it.
+
 ## `video`
 
 ```ts

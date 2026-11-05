@@ -171,6 +171,23 @@ export class Forma {
       prepareMedia: (items: { gameId: number; kind: MediaKind; width: number }[]) =>
         invoke<void>('library_prepare_media', {
           items: items.map((i) => ({ ...i, width: Math.round(i.width) }))
+        }),
+      /**
+       * A game list just opened (`view` at `path`, the selection at `around`): Forma makes the
+       * `pictures` of up to 300 of its games ahead, nearest the selection first, when nothing
+       * else waits and not while a game runs. The next call replaces this one.
+       */
+      prepareList: (
+        view: string,
+        path: string[],
+        around: number,
+        pictures: { kind: MediaKind; width: number }[]
+      ) =>
+        invoke<void>('library_prepare_list', {
+          view,
+          path,
+          around: Math.max(0, Math.round(around)),
+          pictures: pictures.map((p) => ({ ...p, width: Math.round(p.width) }))
         })
     };
 

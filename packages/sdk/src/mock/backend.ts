@@ -1507,6 +1507,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     // The mock has no music to lower: only the answer.
     // The mock serves pictures as they are: nothing to make ahead.
     library_prepare_media: () => null,
+    library_prepare_list: () => null,
     // The mock has no player: a game's video never shows, and the page stays as it is.
     video_play: () => ({ playing: false, sound: settings.get('video.sound') !== false }),
     video_stop: () => null,

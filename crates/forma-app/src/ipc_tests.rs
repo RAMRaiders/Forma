@@ -304,6 +304,32 @@ fn prepares_pictures_ahead_and_ignores_what_it_cannot() {
 }
 
 #[test]
+fn prepares_a_lists_pictures_around_the_selection_wherever_it_is() {
+    let h = Harness::new(&[]);
+    for around in [0, 1, 999] {
+        h.call(
+            "library_prepare_list",
+            json!({ "view": "systems", "path": ["nes"], "around": around,
+                    "pictures": [{ "kind": "image", "width": 320 }, { "kind": "video", "width": 1 }] }),
+        )
+        .unwrap();
+    }
+    // Not a game list: nothing to do.
+    h.call(
+        "library_prepare_list",
+        json!({ "view": "systems", "path": [], "around": 0, "pictures": [] }),
+    )
+    .unwrap();
+    let err = h
+        .call(
+            "library_prepare_list",
+            json!({ "view": "nope", "path": [], "around": 0, "pictures": [] }),
+        )
+        .unwrap_err();
+    assert_eq!(code(&err), "notFound");
+}
+
+#[test]
 fn search_and_favourites() {
     let h = Harness::new(&[]);
     let hits = h

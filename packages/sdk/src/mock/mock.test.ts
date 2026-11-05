@@ -375,6 +375,14 @@ describe('mock backend', () => {
     expect(
       await b.invoke('library_prepare_media', { items: [{ gameId: 1, kind: 'image', width: 320 }] })
     ).toBeNull();
+    expect(
+      await b.invoke('library_prepare_list', {
+        view: 'systems',
+        path: ['nes'],
+        around: 0,
+        pictures: []
+      })
+    ).toBeNull();
   });
 
   it('video: heard unless the user turned video sound off', async () => {

@@ -194,7 +194,8 @@ impl Thumbs {
 
 /// [`Thumbs`] with a background worker: asks are answered at once, from the cache or with
 /// "not yet", and missing thumbnails are made one at a time: those a screen asks for now first,
-/// then those [`Thumbnailer::prepare`] asks for ahead of time, the latest first.
+/// then those [`Thumbnailer::prepare`] asks for ahead of time, the latest first, then a whole
+/// list's ([`Thumbnailer::prepare_list`]), unless [`Thumbnailer::pause`]d.
 pub struct Thumbnailer {
     thumbs: Arc<Thumbs>,
     work: Arc<Work>,
@@ -208,7 +209,11 @@ struct Queue {
     now: VecDeque<Job>,
     /// Asked for ahead of time, the latest asked at the front: after those.
     ahead: VecDeque<Job>,
+    /// A whole list's, nearest the selection first: when nothing else waits, and not paused.
+    list: VecDeque<Job>,
     queued: HashSet<Job>,
+    /// A game runs: the list's work waits (what a screen asks for still comes).
+    paused: bool,
     closed: bool,
 }
 
@@ -262,12 +267,37 @@ impl Work {
             if let Some(job) = q.now.pop_front().or_else(|| q.ahead.pop_front()) {
                 return Some(job);
             }
+            if !q.paused
+                && let Some(job) = q.list.pop_front()
+            {
+                return Some(job);
+            }
             q = self.ready.wait(q).unwrap_or_else(PoisonError::into_inner);
         }
     }
 
     fn done(&self, job: &Job) {
         self.lock().queued.remove(job);
+    }
+
+    /// A new list's work, in place of the last list's.
+    fn set_list(&self, jobs: Vec<Job>) {
+        let mut q = self.lock();
+        for old in std::mem::take(&mut q.list) {
+            q.queued.remove(&old);
+        }
+        for job in jobs {
+            if q.queued.insert(job.clone()) {
+                q.list.push_back(job);
+            }
+        }
+        drop(q);
+        self.ready.notify_one();
+    }
+
+    fn set_paused(&self, paused: bool) {
+        self.lock().paused = paused;
+        self.ready.notify_one();
     }
 }
 
@@ -316,6 +346,24 @@ impl Thumbnailer {
         }
         self.work.push((source.to_path_buf(), width), false);
         false
+    }
+}
+
+impl Thumbnailer {
+    /// A list just opened: its pictures, nearest the selection first, made when nothing else
+    /// waits, in place of the last list's. Those made already are left out.
+    pub fn prepare_list(&self, pictures: impl IntoIterator<Item = (PathBuf, u32)>) {
+        let jobs = pictures
+            .into_iter()
+            .map(|(source, width)| (source, bucket(width)))
+            .filter(|(source, width)| self.thumbs.cached(source, *width).is_none())
+            .collect();
+        self.work.set_list(jobs);
+    }
+
+    /// A game runs (`true`): the list's work waits until it ends, leaving the CPU to it.
+    pub fn pause(&self, paused: bool) {
+        self.work.set_paused(paused);
     }
 }
 
@@ -502,5 +550,23 @@ mod tests {
             std::thread::sleep(Duration::from_millis(20));
         }
         assert_eq!(dims(&thumbnailer.file_for(&source, 1000)), (1280, 720));
+    }
+
+    #[test]
+    fn a_list_comes_last_waits_while_paused_and_a_new_list_replaces_it() {
+        let work = Work::default();
+        let job = |n: &str| (PathBuf::from(n), 320);
+        work.set_list(vec![job("old")]);
+        work.set_list(vec![job("near"), job("far")]);
+        work.push(job("ahead"), false);
+        work.push(job("shown"), true);
+        assert_eq!(work.next().unwrap(), job("shown"));
+        assert_eq!(work.next().unwrap(), job("ahead"));
+        work.set_paused(true);
+        assert!(work.lock().list.len() == 2, "waiting, not dropped");
+        work.set_paused(false);
+        assert_eq!(work.next().unwrap(), job("near"));
+        assert_eq!(work.next().unwrap(), job("far"));
+        assert!(!work.lock().queued.contains(&job("old")));
     }
 }

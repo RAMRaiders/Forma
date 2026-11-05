@@ -123,6 +123,73 @@ pub async fn library_prepare_media<R: Runtime>(
     .await
 }
 
+/// A picture of every game in a list: `kind` at about `width` px.
+#[derive(Debug, Deserialize)]
+pub struct Picture {
+    kind: String,
+    width: u32,
+}
+
+/// How many games of a list, around the selection, have their pictures made ahead.
+const LIST_AROUND: u32 = 300;
+
+/// A theme opened a game list: the pictures of up to [`LIST_AROUND`] of its games, nearest
+/// `around` (the selection) first, are made in the background when nothing else waits, and not
+/// while a game runs. The next list replaces this one's.
+#[tauri::command]
+pub async fn library_prepare_list<R: Runtime>(
+    app: AppHandle<R>,
+    view: String,
+    path: Vec<String>,
+    around: u32,
+    pictures: Vec<Picture>,
+) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        let view = state
+            .views()
+            .get(&view)
+            .cloned()
+            .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no view `{view}`")))?;
+        let offset = around.saturating_sub(LIST_AROUND / 2);
+        let page = Page {
+            offset,
+            limit: LIST_AROUND,
+        };
+        let Listing::Games { items, .. } = state.library().browse(&view, &path, page)?.listing
+        else {
+            return Ok(());
+        };
+        if items.is_empty() {
+            return Ok(());
+        }
+        // Outward from the selection: it, then one either side, two either side…
+        let at = ((around - offset) as usize).min(items.len() - 1);
+        let mut order: Vec<usize> = Vec::with_capacity(items.len());
+        for d in 0..items.len() {
+            if at + d < items.len() {
+                order.push(at + d);
+            }
+            if d > 0 && d <= at {
+                order.push(at - d);
+            }
+        }
+        let jobs = order.into_iter().flat_map(|i| {
+            let game = &items[i];
+            pictures.iter().filter_map(move |p| {
+                if matches!(p.kind.as_str(), "video" | "manual") || p.width == 0 {
+                    return None;
+                }
+                game.media
+                    .get(&p.kind)
+                    .map(|src| (std::path::PathBuf::from(src), p.width.min(4096)))
+            })
+        });
+        state.thumbnails.prepare_list(jobs);
+        Ok(())
+    })
+    .await
+}
+
 #[tauri::command]
 pub fn library_search(
     state: State<'_, AppState>,
@@ -544,6 +611,7 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
     );
     set_playing_ui(app, &state, true);
     let _ = state.video.stop();
+    state.thumbnails.pause(true);
     state.music.game(true);
     let started = SystemTime::now();
 
@@ -569,6 +637,7 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
     state.playing.store(false, Ordering::SeqCst);
     set_playing_ui(app, &state, false);
     state.music.game(false);
+    state.thumbnails.pause(false);
     let _ = app.emit(
         EVENT_GAME_END,
         GameEvent::End {
