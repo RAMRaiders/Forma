@@ -75,7 +75,7 @@ A theme works with the menus in three ways:
 - **What is on screen.** `forma.shell.setContext({ view, system, game, list })` as the
   selection moves; the menu then offers options for that game and system, the views list marks
   the view shown, and Select opens Forma's options for the `list` shown (for `systems`, their
-  order). Systems come from `library.systems()` already in the user's order: keep it.
+  order) and the theme's own settings for it (see below). Systems come from `library.systems()` already in the user's order: keep it.
 - **Views.** When the user picks a view in Forma's list, the theme receives `nav:open` with its
   id and shows it. Forma keeps which view to open with (`nav.defaultView()`).
 - **Its own settings.** Declare them in `theme.json`; Forma's menu shows them under Interface,
@@ -100,7 +100,25 @@ A theme works with the menus in three ways:
 ]
 ```
 
-`type` is `toggle` (`true`/`false`) or `choice` (one of `choices`, by `value`). A setting whose
+A setting can also be offered on **Select** while the theme shows a list, with
+`"select": ["games"]` (or `"systems"`). Select's page then has a row with the theme's logo,
+opening a page of those settings. Use it for how the theme shows that list, such as its view
+of a game list:
+
+```json
+{
+  "key": "gamesView",
+  "label": "View",
+  "group": "Games",
+  "select": ["games"],
+  "type": "choice",
+  "choices": [{ "value": "immersive", "label": "Immersive" }],
+  "default": "immersive"
+}
+```
+
+The setting stays under Interface too. `select` needs Forma's SDK 1.23 (`"sdk": "^1.23"`):
+an older Forma does not know the field and will not load the theme. `type` is `toggle` (`true`/`false`) or `choice` (one of `choices`, by `value`). A setting whose
 `default` it cannot take, an empty `choices` or a key listed twice keeps the theme from loading,
 with the reason in Forma's theme list.
 

@@ -369,6 +369,8 @@ export interface ThemeSettingValue {
   label: string;
   description?: string;
   group?: string;
+  /** The lists on which Select offers it too, under the theme's logo. */
+  select?: ('systems' | 'games')[];
   type: 'toggle' | 'choice';
   choices?: { value: string; label: string }[];
   default: unknown;
@@ -466,35 +468,83 @@ export function interfaceScreen(
     let group: string | null = null;
     for (const s of settings) {
       const heading = s.group ?? 'This theme';
-      const row = settingRow(s, page, hooks);
+      const row = themeSettingRow(s, page, (key, value) => hooks.setThemeSetting(key, value));
       if (heading !== group) row.heading = heading;
       group = heading;
       rows.push(row);
     }
     return rows;
   };
+}
 
-  function settingRow(s: ThemeSettingValue, page: Page, hooks: InterfaceHooks): Row {
-    const set = (value: unknown) => page.run('…', () => hooks.setThemeSetting(s.key, value));
-    if (s.type === 'toggle') {
-      const flip = () => set(!s.value);
-      return {
-        label: `${s.label}: ${s.value ? 'On' : 'Off'}`,
-        detail: s.description,
-        run: flip,
-        adjust: flip
-      };
-    }
-    const values = (s.choices ?? []).map((c) => c.value);
-    const pick = (step: -1 | 1) => set(cycle(values, String(s.value), step));
-    const name = s.choices?.find((c) => c.value === s.value)?.label ?? String(s.value);
+/** One of the theme's own settings as a row: A or left/right changes it. */
+export function themeSettingRow(
+  s: ThemeSettingValue,
+  page: Page,
+  setThemeSetting: (key: string, value: unknown) => Promise<void>
+): Row {
+  const set = (value: unknown) => page.run('…', () => setThemeSetting(s.key, value));
+  if (s.type === 'toggle') {
+    const flip = () => set(!s.value);
     return {
-      label: `${s.label}: ${name}`,
+      label: `${s.label}: ${s.value ? 'On' : 'Off'}`,
       detail: s.description,
-      adjust: pick,
-      run: () => pick(1)
+      run: flip,
+      adjust: flip
     };
   }
+  const values = (s.choices ?? []).map((c) => c.value);
+  const pick = (step: -1 | 1) =>
+    set(values[(values.indexOf(String(s.value)) + step + values.length) % values.length]);
+  const name = s.choices?.find((c) => c.value === s.value)?.label ?? String(s.value);
+  return {
+    label: `${s.label}: ${name}`,
+    detail: s.description,
+    adjust: pick,
+    run: () => pick(1)
+  };
+}
+
+/** What Select's page needs to offer the theme's own settings for the list shown. */
+export interface ThemeOnSelect {
+  /** The theme's settings now, fresh after every change. */
+  theme: () => Promise<{
+    name: string;
+    logo?: string | null;
+    settings: ThemeSettingValue[];
+  } | null>;
+  setThemeSetting: (key: string, value: unknown) => Promise<void>;
+}
+
+/** The theme's settings that Select offers on `list`. */
+export function onSelect(settings: ThemeSettingValue[], list: string): ThemeSettingValue[] {
+  return settings.filter((s) => s.select?.includes(list as 'systems' | 'games'));
+}
+
+/**
+ * The theme's own row on Select's page: its logo, opening a page of the settings it offers on
+ * `list`. `null` when it offers none there.
+ */
+export async function themeSelectRow(
+  page: Page,
+  list: string,
+  hooks: ThemeOnSelect
+): Promise<Row | null> {
+  const theme = await hooks.theme();
+  if (!theme || onSelect(theme.settings, list).length === 0) return null;
+  const build = async () => {
+    const now = await hooks.theme();
+    return onSelect(now?.settings ?? [], list).map((s) =>
+      themeSettingRow(s, page, hooks.setThemeSetting)
+    );
+  };
+  return {
+    heading: theme.name,
+    label: theme.name,
+    ...(theme.logo ? { logo: { src: theme.logo, name: theme.name } } : {}),
+    detail: `How ${theme.name} shows them`,
+    run: () => page.push(theme.name, build)
+  };
 }
 
 /** Forma's setting for how every theme lists systems (`SystemsOrder` in the SDK). */
@@ -510,7 +560,12 @@ const SYSTEMS_ORDERS: { value: SystemsOrder; label: string }[] = [
  * Select's page while the theme shows systems: the order they are listed in, for every theme;
  * and the views list, when the theme shows more than one.
  */
-export function systemsScreen(forma: Forma, page: Page, views?: () => void): () => Promise<Row[]> {
+export function systemsScreen(
+  forma: Forma,
+  page: Page,
+  views?: () => void,
+  theme?: ThemeOnSelect
+): () => Promise<Row[]> {
   return async () => {
     const saved = await forma.settings.getSystem<string>(SYSTEMS_ORDER_SETTING).catch(() => null);
     const at = Math.max(
@@ -532,6 +587,26 @@ export function systemsScreen(forma: Forma, page: Page, views?: () => void): () 
         run: () => pick(1)
       }
     ];
+    const own = theme ? await themeSelectRow(page, 'systems', theme) : null;
+    if (own) rows.push(own);
+    if (views) rows.push({ heading: 'Views', label: 'Change view…', run: views });
+    return rows;
+  };
+}
+
+/**
+ * Select's page while the theme shows games: the theme's own row, for the settings it offers
+ * on a game list; and the views list, when the theme shows more than one.
+ */
+export function gamesScreen(
+  page: Page,
+  theme: ThemeOnSelect,
+  views?: () => void
+): () => Promise<Row[]> {
+  return async () => {
+    const rows: Row[] = [];
+    const own = await themeSelectRow(page, 'games', theme);
+    if (own) rows.push(own);
     if (views) rows.push({ heading: 'Views', label: 'Change view…', run: views });
     return rows;
   };

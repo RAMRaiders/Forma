@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.22.0', false);
+  const forma = new Forma(backend, '1.23.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -86,7 +86,7 @@ function start(
     expect(text('.menu li.selected .name')).toEqual([label]);
     await press('confirm');
   };
-  return { shell, root, press, text, forma, open, opened, settings, openMenu, backend };
+  return { shell, root, press, text, forma, open, opened, settings, openMenu, backend, theme };
 }
 
 describe('Forma’s shell', () => {
@@ -477,6 +477,42 @@ describe('Forma’s shell', () => {
     await press('left');
     await press('left');
     await vi.waitFor(() => expect(text('.page li .name')).toEqual(['Order: Year']));
+    await press('select');
+    expect(shell.open).toBe(false);
+  });
+
+  it('on Select over games, offers the theme’s own settings for them, under its logo', async () => {
+    const { press, text, theme, settings, shell, root } = start(
+      [],
+      { view: 'systems', list: 'games' },
+      ['systems']
+    );
+    theme.logo = 'forma://theme/logo.svg';
+    theme.settings.push({
+      key: 'gamesView',
+      label: 'View',
+      select: ['games'],
+      type: 'choice',
+      choices: [
+        { value: 'immersive', label: 'Immersive' },
+        { value: 'shelf', label: 'Shelf' }
+      ],
+      default: 'immersive',
+      value: 'immersive'
+    });
+    await press('select');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Games']));
+    expect(root.querySelector<HTMLImageElement>('.page li img')?.getAttribute('src')).toBe(
+      'forma://theme/logo.svg'
+    );
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Neon']));
+    expect(text('.page li .name')).toEqual(['View: Immersive']);
+    await press('right');
+    await vi.waitFor(() => expect(text('.page li .name')).toEqual(['View: Shelf']));
+    expect(settings).toEqual([['gamesView', 'shelf']]);
+    await press('back');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Games']));
     await press('select');
     expect(shell.open).toBe(false);
   });
