@@ -23,7 +23,7 @@ function start(
   draws: string[] = []
 ) {
   const backend = mockBackend({ playMs: 50, permissions });
-  const forma = new Forma(backend, '1.20.0', false);
+  const forma = new Forma(backend, '1.21.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
@@ -353,6 +353,48 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(at('TheGamesDB')).toBe('On · set up'));
   });
 
+  it('add-ons: installed ones, a page each with settings and switches, and the catalogue', async () => {
+    const { press, text, openMenu } = start(['addons.manage', 'scraper.manage']);
+    await openMenu('Add-ons');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    const at = (label: string) => details()[rows().indexOf(label)];
+    const selected = () => text('.page li.selected .name')[0];
+    const goTo = async (label: string) => {
+      for (let i = 0; i < 40 && selected() !== label; i++) await press('down');
+      expect(selected()).toBe(label);
+    };
+    await vi.waitFor(() => expect(rows()).toEqual(['Example boxes 1.0.0', 'Get more add-ons…']));
+    expect(at('Example boxes 1.0.0')).toBe('On · update to 1.1.0');
+
+    // Its page: where it may go, its setting (from the scraper), off.
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Example boxes']));
+    await vi.waitFor(() => expect(rows()).toContain('Token'));
+    expect(rows()).toContain('boxes.example.com');
+    expect(text('.page li.heading')).toEqual(['It may', 'Settings', 'Add-on']);
+    await goTo('Use it');
+    expect(at('Use it')).toBe('On · in Start → Scraper’s sources');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Use it')).toBe('Off'));
+    await press('back');
+    await vi.waitFor(() => expect(at('Example boxes 1.0.0')).toBe('Off · update to 1.1.0'));
+
+    // The catalogue: install takes two presses.
+    await goTo('Get more add-ons…');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Arcade flyers 0.3.0'));
+    await goTo('Arcade flyers 0.3.0');
+    await press('confirm');
+    expect(text('.toast')[0]).toBe(
+      'Arcade flyers may: reach the internet sites it lists, and only those. Press A again to install'
+    );
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Arcade flyers 0.3.0')).toBe('Installed'));
+    await press('back');
+    await vi.waitFor(() => expect(rows()).toContain('Arcade flyers 0.3.0'));
+  });
+
   it('magazines: a theme opens one in Forma’s reader', async () => {
     const { text, forma } = start();
     await forma.magazines.open('Edge/Edge 9.cbz');
@@ -409,6 +451,7 @@ describe('Forma’s shell', () => {
       'Music',
       'Games',
       'System',
+      'Add-ons',
       'Controllers',
       'Network',
       'Switch to ES',
@@ -463,7 +506,7 @@ describe('Forma’s shell', () => {
       });
       top += Math.ceil(own.length / 4) * 50 + 20;
     }
-    expect(tiles.length).toBe(16);
+    expect(tiles.length).toBe(17);
     const at = () => text('.menu li.selected .name')[0];
     expect(at()).toBe('Collections');
     await press('right');
@@ -482,6 +525,10 @@ describe('Forma’s shell', () => {
     expect(at()).toBe('System');
     await press('down');
     // the next row down, nearest across
+    expect(at()).toBe('Add-ons');
+    await press('down');
+    expect(at()).toBe('Controllers');
+    await press('right');
     expect(at()).toBe('Network');
     await press('down');
     expect(at()).toBe('Restart');
@@ -497,7 +544,7 @@ describe('Forma’s shell', () => {
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 14; i++) await press('down');
+    for (let i = 0; i < 15; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
@@ -594,7 +641,7 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 12; i++) await press('down');
+    for (let i = 0; i < 13; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Network']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');

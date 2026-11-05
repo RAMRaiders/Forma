@@ -16,12 +16,7 @@ use crate::scraper::platforms;
 
 const API: &str = "https://api.thegamesdb.net";
 
-const NEEDS: [Credential; 1] = [Credential {
-    key: "apiKey",
-    label: "API key",
-    secret: true,
-    required: true,
-}];
+static NEEDS: [Credential; 1] = [Credential::new("apiKey", "API key", true, true)];
 
 const GIVES: [MediaKind; 7] = [
     MediaKind::Thumbnail,

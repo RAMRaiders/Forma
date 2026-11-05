@@ -4,7 +4,10 @@
 
 use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
+
+use forma_core::addons::runtime::ScraperAddon;
+use forma_core::net::Http;
 
 use forma_core::scraper::{
     self, CONFIG_SETTING, CREDENTIALS_SETTING, Config, Credential, MediaKind, Source, SourceChoice,
@@ -24,26 +27,63 @@ pub const EVENT_SCRAPER_PROGRESS: &str = "scraper:progress";
 /// How many problems a run keeps to show.
 const PROBLEMS_KEPT: usize = 20;
 
-/// The sources, and the run going on (or the last one).
+/// The sources (built in, then add-ons), and the run going on (or the last one).
 pub struct Scraping {
-    pub sources: Vec<Box<dyn Source>>,
+    sources: RwLock<Arc<Vec<Box<dyn Source>>>>,
+    /// The add-ons' sources must be read again (at start, and after an add-on changed).
+    stale: AtomicBool,
+    /// How add-ons reach the network: theirs, so a script never holds Forma's state.
+    addon_http: Arc<dyn Http>,
     status: Mutex<RunStatus>,
     stop: Arc<AtomicBool>,
 }
 
-impl Default for Scraping {
-    fn default() -> Self {
-        Self::new(scraper::builtin())
-    }
-}
-
 impl Scraping {
-    pub fn new(sources: Vec<Box<dyn Source>>) -> Self {
+    pub fn new(addon_http: Arc<dyn Http>) -> Self {
         Self {
-            sources,
+            sources: RwLock::new(Arc::new(scraper::builtin())),
+            stale: AtomicBool::new(true),
+            addon_http,
             status: Mutex::new(RunStatus::default()),
             stop: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// The add-ons changed: read them again before the sources are next used.
+    pub fn addons_changed(&self) {
+        self.stale.store(true, Ordering::SeqCst);
+    }
+
+    /// Every source: built in, then each usable scraper add-on that is turned on. A run holds
+    /// its own copy, so changing add-ons never waits for it.
+    pub fn sources(&self, state: &AppState) -> Arc<Vec<Box<dyn Source>>> {
+        if self.stale.swap(false, Ordering::SeqCst) {
+            let disabled = forma_core::addons::disabled(
+                state
+                    .library()
+                    .setting(forma_core::addons::DISABLED_SETTING)
+                    .ok()
+                    .flatten()
+                    .as_deref(),
+            );
+            let mut all = scraper::builtin();
+            for addon in forma_core::addons::discover(&state.paths) {
+                if disabled.contains(&addon.id) {
+                    continue;
+                }
+                if let Some(source) = ScraperAddon::new(&addon, self.addon_http.clone()) {
+                    all.push(Box::new(source));
+                }
+            }
+            *self
+                .sources
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(all);
+        }
+        self.sources
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 
     fn status(&self) -> std::sync::MutexGuard<'_, RunStatus> {
@@ -78,8 +118,8 @@ pub struct RunStatus {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CredentialInfo {
-    pub key: &'static str,
-    pub label: &'static str,
+    pub key: String,
+    pub label: String,
     pub secret: bool,
     pub required: bool,
     /// Whether the user entered it.
@@ -122,24 +162,28 @@ pub struct ScraperSettings {
     pub replace: bool,
 }
 
-fn load(state: &AppState) -> ApiResult<(Config, BTreeMap<String, scraper::Credentials>)> {
+type Loaded = (
+    Arc<Vec<Box<dyn Source>>>,
+    Config,
+    BTreeMap<String, scraper::Credentials>,
+);
+
+fn load(state: &AppState) -> ApiResult<Loaded> {
+    let sources = state.scraper.sources(state);
     let library = state.library();
-    let config = Config::load(
-        library.setting(CONFIG_SETTING)?.as_deref(),
-        &state.scraper.sources,
-    );
+    let config = Config::load(library.setting(CONFIG_SETTING)?.as_deref(), &sources);
     let credentials = scraper::load_credentials(library.setting(CREDENTIALS_SETTING)?.as_deref());
-    Ok((config, credentials))
+    Ok((sources, config, credentials))
 }
 
 fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
-    let (config, credentials) = load(state)?;
+    let (all, config, credentials) = load(state)?;
     let empty = scraper::Credentials::new();
     let sources = config
         .sources
         .iter()
         .filter_map(|choice| {
-            let source = state.scraper.sources.iter().find(|s| s.id() == choice.id)?;
+            let source = all.iter().find(|s| s.id() == choice.id)?;
             let mine = credentials.get(source.id()).unwrap_or(&empty);
             Some(SourceInfo {
                 id: source.id().to_owned(),
@@ -151,10 +195,10 @@ fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
                     .needs()
                     .iter()
                     .map(|c: &Credential| {
-                        let value = mine.get(c.key).filter(|v| !v.trim().is_empty());
+                        let value = mine.get(c.key.as_ref()).filter(|v| !v.trim().is_empty());
                         CredentialInfo {
-                            key: c.key,
-                            label: c.label,
+                            key: c.key.to_string(),
+                            label: c.label.to_string(),
                             secret: c.secret,
                             required: c.required,
                             set: value.is_some(),
@@ -206,7 +250,7 @@ pub async fn scraper_configure<R: Runtime>(
 ) -> ApiResult<ScraperSettings> {
     off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
-        let (mut config, _) = load(state)?;
+        let (all, mut config, _) = load(state)?;
         if let Some(sources) = sources {
             config.sources = sources;
         }
@@ -222,7 +266,7 @@ pub async fn scraper_configure<R: Runtime>(
         // Through `load` again: unknown sources dropped, missing ones added.
         let config = Config::load(
             Some(&serde_json::to_string(&config).map_err(internal)?),
-            &state.scraper.sources,
+            &all,
         );
         state.library().set_setting(
             CONFIG_SETTING,
@@ -244,19 +288,17 @@ pub async fn scraper_set_credential<R: Runtime>(
 ) -> ApiResult<ScraperSettings> {
     off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
-        let known = state
-            .scraper
-            .sources
+        let (all, _, mut credentials) = load(state)?;
+        let known = all
             .iter()
             .find(|s| s.id() == source)
             .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no source `{source}`")))?;
-        if !known.needs().iter().any(|c| c.key == key) {
+        if !known.needs().iter().any(|c| c.key == key.as_str()) {
             return Err(ApiError::new(
                 ErrorCode::Invalid,
                 format!("{} has no `{key}`", known.name()),
             ));
         }
-        let (_, mut credentials) = load(state)?;
         let mine = credentials.entry(source.clone()).or_default();
         match value.map(|v| v.trim().to_owned()).filter(|v| !v.is_empty()) {
             Some(v) => {
@@ -374,7 +416,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, ids: &[i64]) {
     let emit = |status: &RunStatus| {
         let _ = app.emit(EVENT_SCRAPER_PROGRESS, status);
     };
-    let (config, credentials) = match load(&state) {
+    let (sources, config, credentials) = match load(&state) {
         Ok(loaded) => loaded,
         Err(e) => {
             let mut status = state.scraper.status();
@@ -407,7 +449,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, ids: &[i64]) {
         let outcome = scraper::scrape_game(
             &*state.http,
             &state.paths,
-            &state.scraper.sources,
+            &sources,
             &config,
             &credentials,
             &game,
@@ -436,7 +478,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, ids: &[i64]) {
         // Every source is out of service: nothing more can be found.
         let usable = config.sources.iter().filter(|c| c.enabled).any(|c| {
             !out_of_service.contains(&c.id)
-                && state.scraper.sources.iter().any(|s| {
+                && sources.iter().any(|s| {
                     s.id() == c.id && s.ready(credentials.get(&c.id).unwrap_or(&BTreeMap::new()))
                 })
         });

@@ -71,7 +71,7 @@ impl Harness {
             bluetooth: forma_core::bluetooth::Bluetooth::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             store: forma_core::store::Store::default(),
-            scraper: crate::scraper::Scraping::default(),
+            scraper: crate::scraper::Scraping::new(Arc::new(FixtureHttp)),
             system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             options: Options::new(
                 Box::new(SystemShell),
@@ -190,9 +190,13 @@ impl Http for FixtureHttp {
             "themes-catalogue.json"
         } else if url.ends_with("/theme-neon-1.0.0.zip") {
             "theme-neon-1.0.0.zip"
-        } else if url.contains("thumbnails.libretro.com")
-            && url.contains("/Named_Boxarts/Super%20Mario%20Bros.%20%28World%29.png")
+        } else if url.ends_with("/addon-example-boxes-1.0.0.zip") {
+            "addon-example-boxes-1.0.0.zip"
+        } else if url.starts_with("https://boxes.example.com/")
+            || url.contains("thumbnails.libretro.com")
+                && url.contains("/Named_Boxarts/Super%20Mario%20Bros.%20%28World%29.png")
         {
+            // The add-on's box host, and libretro's box for one game.
             "libretro-boxart.png"
         } else {
             return Err(HttpError {
@@ -770,6 +774,110 @@ fn scraper_settings_accounts_and_a_run_over_a_system() {
 
     let denied = Harness::new(&[]);
     let err = denied.call("scraper_settings", json!({})).unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+}
+
+#[test]
+fn an_addon_installs_from_the_catalogue_joins_the_scraper_and_goes() {
+    let h = Harness::new(&["addons.manage", "scraper.manage"]);
+    assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
+    let catalogue = h.call("addons_catalogue", json!({})).unwrap();
+    let entry = &catalogue["data"]["addons"][0];
+    assert_eq!(entry["id"], "example-boxes");
+    assert_eq!(entry["installed"], Value::Null);
+    assert_eq!(
+        entry["permissionDescriptions"][0],
+        "reach the internet sites it lists, and only those"
+    );
+
+    let installed = h
+        .call("addons_install", json!({ "id": "example-boxes" }))
+        .unwrap();
+    assert_eq!(installed["version"], "1.0.0");
+    assert_eq!(installed["enabled"], true);
+    assert_eq!(installed["hosts"], json!(["https://boxes.example.com"]));
+    assert_eq!(installed["scraperSource"], "addon:example-boxes");
+    let catalogue = h.call("addons_catalogue", json!({})).unwrap();
+    assert_eq!(catalogue["data"]["addons"][0]["installed"], "1.0.0");
+
+    // It is the scraper's last source, and set up (its token is optional).
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    let sources = settings["sources"].as_array().unwrap();
+    assert_eq!(sources.len(), 8);
+    assert_eq!(sources[7]["id"], "addon:example-boxes");
+    assert_eq!(sources[7]["ready"], true);
+    assert_eq!(sources[7]["needs"][0]["label"], "Token");
+
+    // Only the add-on, boxes only: every NES game gets one.
+    let only: Vec<Value> = sources
+        .iter()
+        .map(|s| json!({ "id": s["id"], "enabled": s["id"] == "addon:example-boxes" }))
+        .collect();
+    h.call(
+        "scraper_configure",
+        json!({ "sources": only, "media": ["thumbnail"], "metadata": false, "replace": true }),
+    )
+    .unwrap();
+    let started = h
+        .call(
+            "scraper_start",
+            json!({ "scope": { "kind": "system", "name": "nes" } }),
+        )
+        .unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    let status = loop {
+        let status = h.call("scraper_status", json!({})).unwrap();
+        if status["running"] == false {
+            break status;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "still running: {status}"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert_eq!(status["found"], started["total"], "{status}");
+    let nes = h.state().paths.userdata.join("roms/nes");
+    let made: Vec<String> = std::fs::read_dir(nes.join("images"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.ends_with("-thumb.png"))
+        .collect();
+    assert!(
+        made.contains(&"Homebrew Demo-thumb.png".to_owned()),
+        "{made:?} {status}"
+    );
+
+    // Off: gone from the scraper, still installed.
+    let listed = h
+        .call(
+            "addons_set_enabled",
+            json!({ "id": "example-boxes", "enabled": false }),
+        )
+        .unwrap();
+    assert_eq!(listed[0]["enabled"], false);
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 7);
+    h.call(
+        "addons_set_enabled",
+        json!({ "id": "example-boxes", "enabled": true }),
+    )
+    .unwrap();
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 8);
+
+    h.call("addons_remove", json!({ "id": "example-boxes" }))
+        .unwrap();
+    assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
+    let settings = h.call("scraper_settings", json!({})).unwrap();
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 7);
+    let err = h
+        .call("addons_install", json!({ "id": "nope" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "notFound");
+    let denied = Harness::new(&["scraper.manage"]);
+    let err = denied.call("addons_list", json!({})).unwrap_err();
     assert_eq!(code(&err), "permissionDenied");
 }
 

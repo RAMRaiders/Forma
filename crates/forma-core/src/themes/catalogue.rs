@@ -29,7 +29,7 @@ pub const CATALOGUE_URL_SETTING: &str = "themes.catalogueUrl";
 const MAX_AGE: Duration = Duration::from_secs(6 * 3600);
 
 /// The largest package Forma downloads.
-const MAX_PACKAGE: u64 = 128 * 1024 * 1024;
+pub(crate) const MAX_PACKAGE: u64 = 128 * 1024 * 1024;
 
 /// Unpacked, a package may not grow past this (a zip bomb stops here).
 const MAX_UNPACKED: u64 = 512 * 1024 * 1024;
@@ -62,6 +62,9 @@ pub struct CatalogueTheme {
 #[serde(rename_all = "camelCase")]
 pub struct Catalogue {
     pub themes: Vec<CatalogueTheme>,
+    /// Forma add-ons (see `docs/addons.md`): the same fields, `sdk` being the Forma API range
+    /// in the add-on's `addon.json`, and `permissions` its own.
+    pub addons: Vec<CatalogueTheme>,
     /// Entries left out, and why: a catalogue with one broken entry still lists the rest.
     pub skipped: Vec<String>,
 }
@@ -69,6 +72,10 @@ pub struct Catalogue {
 impl Catalogue {
     pub fn find(&self, id: &str) -> Option<&CatalogueTheme> {
         self.themes.iter().find(|t| t.id == id)
+    }
+
+    pub fn find_addon(&self, id: &str) -> Option<&CatalogueTheme> {
+        self.addons.iter().find(|t| t.id == id)
     }
 
     /// The catalogue's version of `theme`, if it is newer than the one installed and this
@@ -89,7 +96,10 @@ impl CatalogueTheme {
 
 #[derive(Deserialize)]
 struct Raw {
+    #[serde(default)]
     themes: Vec<serde_json::Value>,
+    #[serde(default)]
+    addons: Vec<serde_json::Value>,
 }
 
 /// Reads a catalogue. Entries that are not well formed (an id that is not kebab-case, a
@@ -97,31 +107,44 @@ struct Raw {
 pub fn parse(body: &[u8]) -> std::result::Result<Catalogue, String> {
     let raw: Raw = serde_json::from_slice(body).map_err(|e| e.to_string())?;
     let mut out = Catalogue::default();
-    for value in raw.themes {
-        let label = value
-            .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("(no id)")
-            .to_owned();
+    out.themes = entries(raw.themes, "", &mut out.skipped);
+    out.addons = entries(raw.addons, "add-on ", &mut out.skipped);
+    Ok(out)
+}
+
+fn entries(
+    values: Vec<serde_json::Value>,
+    what: &str,
+    skipped: &mut Vec<String>,
+) -> Vec<CatalogueTheme> {
+    let mut out: Vec<CatalogueTheme> = Vec::new();
+    for value in values {
+        let label = format!(
+            "{what}{}",
+            value
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("(no id)")
+        );
         let entry = match serde_json::from_value::<CatalogueTheme>(value) {
             Ok(entry) => entry,
             Err(e) => {
-                out.skipped.push(format!("{label}: {e}"));
+                skipped.push(format!("{label}: {e}"));
                 continue;
             }
         };
         match check_entry(&entry) {
-            Err(why) => out.skipped.push(format!("{label}: {why}")),
-            Ok(()) if out.find(&entry.id).is_some() => {
-                out.skipped.push(format!("{label}: listed twice"));
+            Err(why) => skipped.push(format!("{label}: {why}")),
+            Ok(()) if out.iter().any(|t| t.id == entry.id) => {
+                skipped.push(format!("{label}: listed twice"));
             }
-            Ok(()) => out.themes.push(entry),
+            Ok(()) => out.push(entry),
         }
     }
-    Ok(out)
+    out
 }
 
-fn check_entry(e: &CatalogueTheme) -> std::result::Result<(), String> {
+pub(crate) fn check_entry(e: &CatalogueTheme) -> std::result::Result<(), String> {
     let kebab = !e.id.is_empty()
         && e.id.split('-').all(|p| {
             !p.is_empty()
@@ -241,7 +264,7 @@ fn unpack_and_check(package: &[u8], work: &Path, entry: &CatalogueTheme) -> Resu
 }
 
 /// Extracts every file, refusing paths that leave the folder, links, and runaway sizes.
-fn unpack(package: &[u8], into: &Path) -> std::result::Result<(), String> {
+pub(crate) fn unpack(package: &[u8], into: &Path) -> std::result::Result<(), String> {
     let mut archive =
         zip::ZipArchive::new(std::io::Cursor::new(package)).map_err(|e| e.to_string())?;
     let mut total = 0u64;
@@ -295,7 +318,7 @@ fn theme_root(work: &Path) -> Option<PathBuf> {
 
 /// Puts `new` at `target`: the old copy moves aside first and goes once the new one is in, so
 /// a failure halfway leaves the old theme where it was.
-fn swap_in(new: &Path, target: &Path) -> Result<()> {
+pub(crate) fn swap_in(new: &Path, target: &Path) -> Result<()> {
     let old = target.with_file_name(format!(
         ".old-{}",
         target
@@ -328,7 +351,7 @@ fn swap_in(new: &Path, target: &Path) -> Result<()> {
     Ok(())
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write;
     bytes.iter().fold(String::new(), |mut s, b| {
         let _ = write!(s, "{b:02x}");
@@ -429,6 +452,7 @@ mod tests {
         let v2 = package("1.1.0");
         let catalogue = Catalogue {
             themes: vec![entry(&v2, "1.1.0")],
+            addons: vec![],
             skipped: vec![],
         };
         assert_eq!(catalogue.update_for(&theme).unwrap().version, "1.1.0");

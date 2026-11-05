@@ -1,6 +1,7 @@
 // Prevents an additional console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod addons;
 mod api;
 mod bluetooth;
 mod boot;
@@ -60,6 +61,11 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         scraper::scraper_start,
         scraper::scraper_status,
         scraper::scraper_stop,
+        addons::addons_list,
+        addons::addons_set_enabled,
+        addons::addons_remove,
+        addons::addons_catalogue,
+        addons::addons_install,
         commands::input_controllers,
         commands::system_quit,
         commands::system_power,

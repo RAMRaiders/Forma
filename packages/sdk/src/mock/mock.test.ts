@@ -7,6 +7,9 @@ import type {
   Game,
   GameEnd,
   NetworkStatus,
+  AddonInfo,
+  CatalogueAddon,
+  Fetched,
   ScraperSettings,
   ScraperStatus,
   WifiNetwork
@@ -379,11 +382,13 @@ describe('mock backend', () => {
       'mobygames',
       'steamgriddb',
       'arcadedb',
-      'libretro'
+      'libretro',
+      'addon:example-boxes'
     ]);
     expect(settings.sources.filter((s) => s.ready).map((s) => s.id)).toEqual([
       'arcadedb',
-      'libretro'
+      'libretro',
+      'addon:example-boxes'
     ]);
     const after = await b.invoke<ScraperSettings>('scraper_set_credential', {
       source: 'thegamesdb',
@@ -399,7 +404,7 @@ describe('mock backend', () => {
       replace: true
     });
     expect(moved.sources[0]!.id).toBe('libretro');
-    expect(moved.sources).toHaveLength(7);
+    expect(moved.sources).toHaveLength(8);
     expect(moved.media).toEqual(['thumbnail', 'video']);
 
     const seen: ScraperStatus[] = [];
@@ -417,6 +422,31 @@ describe('mock backend', () => {
     expect(done.found + done.notFound).toBe(started.total);
 
     await expect(mockBackend().invoke('scraper_settings')).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+  });
+
+  it('add-ons: list, catalogue, install, turn off (leaving the scraper), remove', async () => {
+    const b = mockBackend({ permissions: ['addons.manage', 'scraper.manage'] });
+    const listed = await b.invoke<AddonInfo[]>('addons_list');
+    expect(listed.map((a) => [a.id, a.update])).toEqual([['example-boxes', '1.1.0']]);
+    const cat = await b.invoke<Fetched<{ addons: CatalogueAddon[] }>>('addons_catalogue');
+    expect(cat.data.addons.map((a) => [a.id, a.installed, a.update])).toEqual([
+      ['example-boxes', '1.0.0', true],
+      ['arcade-flyers', null, false]
+    ]);
+    const added = await b.invoke<AddonInfo>('addons_install', { id: 'arcade-flyers' });
+    expect(added.scraperSource).toBe('addon:arcade-flyers');
+    const sources = async () =>
+      (await b.invoke<ScraperSettings>('scraper_settings')).sources.map((s) => s.id);
+    expect(await sources()).toContain('addon:arcade-flyers');
+    await b.invoke('addons_set_enabled', { id: 'arcade-flyers', enabled: false });
+    expect(await sources()).not.toContain('addon:arcade-flyers');
+    await b.invoke('addons_remove', { id: 'arcade-flyers' });
+    expect((await b.invoke<AddonInfo[]>('addons_list')).map((a) => a.id)).toEqual([
+      'example-boxes'
+    ]);
+    await expect(mockBackend().invoke('addons_list')).rejects.toMatchObject({
       code: 'permissionDenied'
     });
   });

@@ -21,3 +21,5 @@ IP addresses in `lobby.json` are from the documentation ranges (192.0.2.0/24, 19
 
 - `libretro-boxart.png`: a 2×3 picture, served as the libretro thumbnails box for Super Mario
   Bros. (World), for the scraper.
+- `addon-example-boxes-1.0.0.zip`: a scraper add-on (in the catalogue's `addons` list) that
+  gives every game a box from `boxes.example.com`, served as `libretro-boxart.png`.

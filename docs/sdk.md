@@ -225,6 +225,21 @@ it is that theme and version and can load, and only then replaces the installed 
 in use reloads into the new version. Interface → Get more themes does this in Forma's own menu
 (since 1.18.0).
 
+## `addons`
+
+Forma add-ons (see [add-ons](addons.md)): Forma's menu manages them (Start → Add-ons); a theme
+needs `addons.manage`. Since 1.21.0.
+
+| Method               | Does                                                                                                      |
+| -------------------- | --------------------------------------------------------------------------------------------------------- |
+| `list()`             | Installed add-ons: version, what they provide, may do and reach, on or off, why one cannot run, an update |
+| `setEnabled(id, on)` | Turns one on or off; a scraper add-on joins or leaves the scraper's sources                               |
+| `remove(id)`         | Deletes one                                                                                               |
+| `catalogue()`        | The catalogue's add-ons, with what is installed                                                           |
+| `install(id)`        | Installs or updates one from the catalogue                                                                |
+
+A scraper add-on's settings are its credentials in `scraper` (`scraperSource` is its id there).
+
 ## `scraper`
 
 Forma's scraper: details and media for games from ScreenScraper, TheGamesDB, IGDB, MobyGames,

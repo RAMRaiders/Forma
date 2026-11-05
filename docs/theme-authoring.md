@@ -198,6 +198,7 @@ Remote origins must be `https://` and need the `network` permission.
 | `settings.emulators` | Emulator, core and game options (Batocera only)                                             |
 | `settings.system`    | Reading and writing Forma settings, beyond the theme's own                                  |
 | `themes.manage`      | Installing, updating and removing themes                                                    |
+| `addons.manage`      | Installing, turning on or off and removing Forma add-ons                                    |
 | `scraper.manage`     | Scraping game details and media, and the scraper's settings and accounts                    |
 | `network`            | Loading from the origins listed in `remote`                                                 |
 

@@ -9,6 +9,8 @@
 import type { Backend } from '../backend.js';
 import { type ErrorCode, FormaError } from '../errors.js';
 import type {
+  AddonInfo,
+  CatalogueAddon,
   BluetoothDevice,
   MediaKind,
   ScraperSettings,
@@ -129,6 +131,61 @@ export function mockBackend(options: MockOptions = {}): Backend {
       `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="990"><rect width="100%" height="100%" fill="#f4efe1"/><text x="50%" y="45%" font-size="64" text-anchor="middle">${title}</text><text x="50%" y="55%" font-size="48" text-anchor="middle">page {page}</text></svg>`
     ).replace('%7Bpage%7D', '{page}')}#`
   }));
+  // Add-ons: one installed (a scraper, joining the scraper's sources), one more in the
+  // catalogue.
+  const addonCatalogue: CatalogueAddon[] = [
+    {
+      id: 'example-boxes',
+      name: 'Example boxes',
+      version: '1.1.0',
+      author: 'RAM Raiders',
+      description: 'Box art from example.com.',
+      permissions: ['network'],
+      permissionDescriptions: ['reach the internet sites it lists, and only those'],
+      installed: null,
+      update: false,
+      runsHere: true
+    },
+    {
+      id: 'arcade-flyers',
+      name: 'Arcade flyers',
+      version: '0.3.0',
+      author: null,
+      description: 'Flyers for arcade games.',
+      permissions: ['network'],
+      permissionDescriptions: ['reach the internet sites it lists, and only those'],
+      installed: null,
+      update: false,
+      runsHere: true
+    }
+  ];
+  const addonsInstalled = new Map<string, AddonInfo>([
+    [
+      'example-boxes',
+      {
+        id: 'example-boxes',
+        name: 'Example boxes',
+        version: '1.0.0',
+        author: 'RAM Raiders',
+        description: 'Box art from example.com.',
+        provides: ['scraper'],
+        permissions: ['network'],
+        permissionDescriptions: ['reach the internet sites it lists, and only those'],
+        hosts: ['https://boxes.example.com'],
+        enabled: true,
+        problem: null,
+        scraperSource: 'addon:example-boxes',
+        update: '1.1.0'
+      }
+    ]
+  ]);
+  const addonsAllowed = () => {
+    if (!permissions.has('addons.manage')) {
+      fail('permissionDenied', 'theme `mock` needs the `addons.manage` permission');
+    }
+  };
+  const addonsList = () => [...addonsInstalled.values()].map((a) => structuredClone(a));
+
   // The scraper: the built-in sources (two need nothing), the user's choices, and a run that
   // moves on a timer.
   const kindLabels: [MediaKind, string][] = [
@@ -245,9 +302,27 @@ export function mockBackend(options: MockOptions = {}): Backend {
       fail('permissionDenied', 'theme `mock` needs the `scraper.manage` permission');
     }
   };
+  const allScraperSources = (): MockSource[] => [
+    ...scraperSources,
+    ...[...addonsInstalled.values()]
+      .filter((a) => a.enabled && a.scraperSource)
+      .map((a) => ({
+        id: a.scraperSource!,
+        name: a.name,
+        about: a.description ?? '',
+        needs: [key('token', 'Token', true, false)],
+        gives: ['thumbnail'] as MediaKind[],
+        metadata: false
+      }))
+  ];
   const scraperSettings = (): ScraperSettings => ({
-    sources: scraperChoice.flatMap((c) => {
-      const s = scraperSources.find((x) => x.id === c.id);
+    sources: [
+      ...scraperChoice,
+      ...allScraperSources()
+        .filter((s) => !scraperChoice.some((c) => c.id === s.id))
+        .map((s) => ({ id: s.id, enabled: true }))
+    ].flatMap((c) => {
+      const s = allScraperSources().find((x) => x.id === c.id);
       if (!s) return [];
       const mine = scraperCredentials.get(s.id) ?? new Map<string, string>();
       return [
@@ -571,6 +646,62 @@ export function mockBackend(options: MockOptions = {}): Backend {
       emit('magazines:open', { id: (id as string | null) ?? null });
       return null;
     },
+    addons_list: () => {
+      addonsAllowed();
+      return addonsList();
+    },
+    addons_set_enabled: ({ id, enabled }) => {
+      addonsAllowed();
+      const a = addonsInstalled.get(String(id));
+      if (!a) fail('notFound', `no add-on \`${String(id)}\``);
+      a.enabled = Boolean(enabled);
+      return addonsList();
+    },
+    addons_remove: ({ id }) => {
+      addonsAllowed();
+      if (!addonsInstalled.delete(String(id)))
+        fail('invalid', `no add-on \`${String(id)}\` is installed`);
+      return null;
+    },
+    addons_catalogue: () => {
+      addonsAllowed();
+      return {
+        data: {
+          addons: addonCatalogue.map((c) => {
+            const mine = addonsInstalled.get(c.id);
+            return {
+              ...c,
+              installed: mine?.version ?? null,
+              update: Boolean(mine?.version && mine.version !== c.version)
+            };
+          })
+        },
+        stale: false,
+        fetchedAt: '2026-11-04T12:00:00'
+      };
+    },
+    addons_install: ({ id }) => {
+      addonsAllowed();
+      const c = addonCatalogue.find((x) => x.id === id);
+      if (!c) fail('notFound', `no add-on \`${String(id)}\` in the catalogue`);
+      const info: AddonInfo = {
+        id: c.id,
+        name: c.name,
+        version: c.version,
+        author: c.author,
+        description: c.description,
+        provides: ['scraper'],
+        permissions: c.permissions,
+        permissionDescriptions: c.permissionDescriptions,
+        hosts: [`https://${c.id}.example.com`],
+        enabled: addonsInstalled.get(c.id)?.enabled ?? true,
+        problem: null,
+        scraperSource: `addon:${c.id}`,
+        update: null
+      };
+      addonsInstalled.set(c.id, info);
+      return structuredClone(info);
+    },
     scraper_settings: () => {
       scraperAllowed();
       return scraperSettings();
@@ -579,7 +710,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperAllowed();
       if (Array.isArray(sources)) {
         const given = (sources as { id: string; enabled: boolean }[]).filter((c) =>
-          scraperSources.some((s) => s.id === c.id)
+          allScraperSources().some((s) => s.id === c.id)
         );
         scraperChoice = [
           ...given,
@@ -593,7 +724,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     },
     scraper_set_credential: ({ source, key: k, value }) => {
       scraperAllowed();
-      const s = scraperSources.find((x) => x.id === source);
+      const s = allScraperSources().find((x) => x.id === source);
       if (!s) fail('notFound', `no source \`${String(source)}\``);
       if (!s.needs.some((n) => n.key === k)) fail('invalid', `${s.name} has no \`${String(k)}\``);
       const mine = scraperCredentials.get(s.id) ?? new Map<string, string>();

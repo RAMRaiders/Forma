@@ -14,31 +14,11 @@ use crate::scraper::text::encode;
 
 pub struct ScreenScraper;
 
-const NEEDS: [Credential; 4] = [
-    Credential {
-        key: "devId",
-        label: "Developer ID",
-        secret: false,
-        required: true,
-    },
-    Credential {
-        key: "devPassword",
-        label: "Developer password",
-        secret: true,
-        required: true,
-    },
-    Credential {
-        key: "user",
-        label: "Username",
-        secret: false,
-        required: false,
-    },
-    Credential {
-        key: "password",
-        label: "Password",
-        secret: true,
-        required: false,
-    },
+static NEEDS: [Credential; 4] = [
+    Credential::new("devId", "Developer ID", false, true),
+    Credential::new("devPassword", "Developer password", true, true),
+    Credential::new("user", "Username", false, false),
+    Credential::new("password", "Password", true, false),
 ];
 
 /// Its media types for each kind, best first.

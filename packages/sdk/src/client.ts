@@ -27,6 +27,8 @@ import type {
   StatusBar,
   SystemSummary,
   Magazine,
+  AddonInfo,
+  CatalogueAddon,
   ScrapeScope,
   ScraperSettings,
   ScraperStatus,
@@ -121,6 +123,7 @@ export class Forma {
   readonly collections;
   readonly magazines;
   readonly scraper;
+  readonly addons;
   readonly network;
   readonly bluetooth;
   readonly updates;
@@ -275,6 +278,21 @@ export class Forma {
         `${magazine.pageUrl.replace('{page}', String(page))}${
           magazine.pageUrl.includes('?') ? '&' : '?'
         }w=${Math.round(width)}`
+    };
+
+    /**
+     * Forma add-ons: what is installed, turning them on and off, removing them, and the
+     * catalogue's. Forma's menu manages them; a theme needs `addons.manage`.
+     */
+    this.addons = {
+      list: () => invoke<AddonInfo[]>('addons_list'),
+      setEnabled: (id: string, enabled: boolean) =>
+        invoke<AddonInfo[]>('addons_set_enabled', { id, enabled }),
+      remove: (id: string) => invoke<void>('addons_remove', { id }),
+      /** Fetched at most every few hours; offline, the last one, `stale`. */
+      catalogue: () => invoke<Fetched<{ addons: CatalogueAddon[] }>>('addons_catalogue'),
+      /** Installs or updates one from the catalogue. */
+      install: (id: string) => invoke<AddonInfo>('addons_install', { id })
     };
 
     /**

@@ -1,16 +1,19 @@
-# Add-ons (design)
+# Add-ons
 
-Add-ons extend Forma itself: more scraper sources, integrations, new menu pages. They are not
-Batocera's store packages and not themes. This is the design for #76; follow-up tickets build
-it.
+Add-ons extend Forma itself; they are not Batocera's store packages and not themes. For now an
+add-on can provide one thing, a **scraper source**: it joins Forma's scraper beside the built-in
+sources, ordered, switched on and off and set up like them (see [the scraper](scraper.md)).
+Start → Add-ons installs them from the catalogue, shows what each may do and reach, turns them
+on and off, updates and removes them.
 
 ## What an add-on is
 
-A folder with an `addon.json` manifest and JavaScript (ES2020 modules; written in TS and built
-like a theme). Forma runs it in an embedded **QuickJS** engine (`rquickjs`, about 1 MB), one
-runtime per add-on, on its own thread, with a memory limit and a time limit per call. QuickJS
-has no file system, network or process access of its own: an add-on reaches only what Forma
-hands it.
+A folder named after its id in `/userdata/system/forma/addons/`, with an `addon.json` and one
+JavaScript module (ES2020; write it in TypeScript and bundle it to one file, as a theme is
+built). Forma runs it in an embedded **QuickJS** engine (`rquickjs`): a fresh runtime for each
+call, with a 64 MB memory limit and a 60 s deadline (its requests included), so nothing carries
+over and a runaway script is stopped. QuickJS has no file system, network or process access of
+its own, and there is no module loader: the add-on reaches only what Forma hands it.
 
 ```json
 {
@@ -19,42 +22,74 @@ hands it.
   "version": "1.0.0",
   "author": "You",
   "description": "Box art from example.com",
-  "forma": "^1",
+  "sdk": "^1",
   "entry": "main.js",
   "provides": ["scraper"],
   "permissions": ["network"],
   "hosts": ["https://api.example.com", "https://cdn.example.com"],
-  "settings": [{ "key": "apiKey", "label": "API key", "type": "secret" }]
+  "settings": [{ "key": "apiKey", "label": "API key", "secret": true, "required": true }],
+  "scraper": { "gives": ["thumbnail", "image"], "metadata": true }
 }
 ```
 
+Forma checks it before running anything: a kebab-case id matching the folder, an `sdk` range
+this Forma satisfies, only `provides` and `permissions` it knows, `hosts` that are plain
+`https://` origins (and only with `network`), and an `entry` file inside the folder (4 MB at
+most). One that fails is listed with the reason and never run.
+
 ## What it may do
 
-Through a `forma` object that Forma injects, gated by the manifest:
+A frozen `forma` object, and standard JavaScript:
 
-- `forma.http.get/post(url, options)`: only to the `hosts` it declares, with `network`.
-- `forma.settings.get(key)`: its own settings, which Forma's menu shows (Start → Add-ons →
-  the add-on) from `settings`, secrets included.
+- `forma.http.get(url, headers?)`, `forma.http.post(url, body, headers?)` and
+  `forma.http.request({ method, url, headers, body })`: synchronous; they return
+  `{ status, body, json() }` (an HTTP error is a `status`, not an exception) and throw for a
+  URL that is not on one of its `hosts` (same scheme, host and port) or a network failure.
+- `forma.settings.get(key)`: what the user entered for one of its `settings`, or `null`.
 - `forma.log(...)`, to Forma's log.
-- What it `provides` decides what Forma calls. A `scraper` exports
-  `lookup(query) → { metadata, media }`, the same shape Forma's built-in sources return, and
-  joins the scraper's source list, ordered and switched on and off by the user like the others.
 
-No file access: Forma downloads the media an add-on names and writes them itself.
+### A scraper
+
+The module exports `lookup(query)` (it may be `async`). The query:
+
+```ts
+{
+  system: string;         // the Batocera system, e.g. "snes"
+  platforms: string[];    // its es_systems.cfg <platform> names
+  fileName: string;       // "Super Metroid (USA).sfc"
+  stem: string;           // "Super Metroid (USA)"
+  name: string;           // a name to search with: "Super Metroid"
+  size: number;
+  hashes: { crc32: string; md5: string; sha1: string } | null;
+  wanted: MediaKind[];    // the kinds still wanted: ask only for these
+  wantsMetadata: boolean;
+}
+```
+
+It returns `null` when it does not know the game, or:
+
+```ts
+{
+  metadata?: { name?, description?, developer?, publisher?, genre?, players?, releaseDate?, rating? };
+  media?: { kind: MediaKind; url: string }[];  // best first; several per kind are tried in order
+}
+```
+
+`releaseDate` is `YYYY`, `YYYY-MM` or `YYYY-MM-DD`; `rating` from 0 to 1. Forma downloads the
+media itself and checks each is what it claims; URLs not on the add-on's `hosts` are dropped.
+Its settings are entered in Forma's menu, on its page or as its source in the scraper.
 
 ## Lifecycle
 
-- Installed from the catalogue (`RAMRaiders/forma-themes`, an `addons` list beside `themes`)
-  with the same checks as themes: SHA-256, id and version match, the manifest valid, the
-  `forma` range satisfied. Before installing, the menu shows the permissions and hosts it asks
-  for.
-- Start → Add-ons: installed add-ons with their version, what they ask for, enable or disable,
-  update (when the catalogue has a newer one) and remove; and Get more add-ons.
-- Folders in `/userdata/system/forma/addons/<id>/`. A disabled add-on is not loaded. One that
-  throws or exceeds its limits is stopped and marked failed, and Forma carries on.
+- The catalogue (`RAMRaiders/forma-themes`) has an `addons` list beside `themes`, with the same
+  fields (`sdk` being the add-on's range) and the same checks on install: SHA-256, the package
+  holding that id and version, and the manifest valid. Installing asks for a second press after
+  saying what it may do.
+- Turned off (Forma setting `addons.disabled`), an add-on is not loaded. Updates come from the
+  catalogue; removing deletes its folder.
+- A theme can do the same through `forma.addons` with the `addons.manage` permission.
 
-## Follow-ups
+## Still to come
 
-1. The runtime: rquickjs, limits, the injected `forma` API, a scraper add-on joining the scraper.
-2. The add-on manager in the menu and the catalogue's `addons` list.
-3. `create-forma-addon`, as `create-forma-theme` is for themes.
+- `create-forma-addon`, as `create-forma-theme` is for themes (#109).
+- More things to provide, as Forma grows places for them.

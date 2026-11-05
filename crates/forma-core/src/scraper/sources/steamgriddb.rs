@@ -8,12 +8,7 @@ use crate::net::{Http, HttpRequest};
 
 const API: &str = "https://www.steamgriddb.com/api/v2";
 
-const NEEDS: [Credential; 1] = [Credential {
-    key: "apiKey",
-    label: "API key",
-    secret: true,
-    required: true,
-}];
+static NEEDS: [Credential; 1] = [Credential::new("apiKey", "API key", true, true)];
 
 const GIVES: [MediaKind; 3] = [MediaKind::Thumbnail, MediaKind::Fanart, MediaKind::Wheel];
 

@@ -13,6 +13,44 @@ export interface SystemSummary {
   gameCount: number;
 }
 
+/** A Forma add-on installed on this machine (see `docs/addons.md`). */
+export interface AddonInfo {
+  id: string;
+  name: string;
+  version: string | null;
+  author: string | null;
+  description: string | null;
+  /** What it adds to Forma: `scraper` for now. */
+  provides: string[];
+  permissions: string[];
+  /** What each of `permissions` lets it do, in words. */
+  permissionDescriptions: string[];
+  /** The only sites it may reach. */
+  hosts: string[];
+  enabled: boolean;
+  /** Why it cannot run, if it cannot. */
+  problem: string | null;
+  /** Its id among the scraper's sources, for a scraper add-on: its settings are set there. */
+  scraperSource: string | null;
+  /** A newer version in the catalogue this Forma can run. */
+  update: string | null;
+}
+
+/** An add-on in the catalogue. */
+export interface CatalogueAddon {
+  id: string;
+  name: string;
+  version: string;
+  author: string | null;
+  description: string | null;
+  permissions: string[];
+  permissionDescriptions: string[];
+  /** The version installed, if any. */
+  installed: string | null;
+  update: boolean;
+  runsHere: boolean;
+}
+
 /** A kind of media, as EmulationStation names it (and its `gamelist.xml` tag). */
 export type MediaKind =
   | 'thumbnail'

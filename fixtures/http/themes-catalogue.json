@@ -28,5 +28,18 @@
       "download": "https://example.com/x.zip",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
     }
+  ],
+  "addons": [
+    {
+      "id": "example-boxes",
+      "name": "Example boxes",
+      "version": "1.0.0",
+      "author": "RAM Raiders",
+      "description": "Box art from example.com, to test add-ons with.",
+      "sdk": "^1",
+      "permissions": ["network"],
+      "download": "https://example.com/addon-example-boxes-1.0.0.zip",
+      "sha256": "81359c603d4fc36c11de17cff83a133f40b0715f874cd30325fedd0cab7e4110"
+    }
   ]
 }
