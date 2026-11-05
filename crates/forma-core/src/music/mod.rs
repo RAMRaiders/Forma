@@ -393,6 +393,7 @@ mod tests {
         let lib = Library {
             music,
             fallback: dir.path().join("none"),
+            addon_radios: Default::default(),
         };
         let player = Player::new(lib, Box::new(fake), dir.path().join("run"), 60);
         (dir, fake, player)

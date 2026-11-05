@@ -364,10 +364,33 @@ describe('Forma’s shell', () => {
       for (let i = 0; i < 40 && selected() !== label; i++) await press('down');
       expect(selected()).toBe(label);
     };
-    await vi.waitFor(() => expect(rows()).toEqual(['Example boxes 1.0.0', 'Get more add-ons…']));
+    await vi.waitFor(() =>
+      expect(rows()).toEqual([
+        'Web radios',
+        'Example boxes 1.0.0',
+        'Web radios 1.0.0',
+        'Get more add-ons…'
+      ])
+    );
+    expect(text('.page li.heading')).toEqual(['Open', 'Installed', 'More']);
     expect(at('Example boxes 1.0.0')).toBe('On · update to 1.1.0');
 
-    // Its page: where it may go, its setting (from the scraper), off.
+    // A menu add-on's pages, drawn by Forma: its rows, a deeper page, an action.
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Chip FM', 'Arcade Lounge', 'About']));
+    expect(text('.page li.heading')).toEqual(['Stations', 'More']);
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(text('.toast')).toContain('Playing https://radio.example.com/chip')
+    );
+    await goTo('About');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Stations from radio.example.com']));
+    await press('back');
+    await press('back');
+
+    // Its page: where it may go, its setting, off.
+    await goTo('Example boxes 1.0.0');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Example boxes']));
     await vi.waitFor(() => expect(rows()).toContain('Token'));
@@ -380,6 +403,14 @@ describe('Forma’s shell', () => {
     await press('back');
     await vi.waitFor(() => expect(at('Example boxes 1.0.0')).toBe('Off · update to 1.1.0'));
 
+    // A setting it reads: typed on the keyboard.
+    await goTo('Web radios 1.0.0');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Your own station'));
+    expect(rows()[0]).toBe('Open Web radios');
+    expect(at('Your own station')).toBe('Optional: A to enter');
+    await press('back');
+
     // The catalogue: install takes two presses.
     await goTo('Get more add-ons…');
     await press('confirm');
@@ -391,8 +422,32 @@ describe('Forma’s shell', () => {
     );
     await press('confirm');
     await vi.waitFor(() => expect(at('Arcade flyers 0.3.0')).toBe('Installed'));
+
+    // One with a system part says so before it installs.
+    await goTo('FM tuner 0.1.0');
+    await press('confirm');
+    expect(text('.toast')[0]).toContain('It gets full control of this machine. Press A again');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('FM tuner 0.1.0')).toBe('Installed'));
     await press('back');
     await vi.waitFor(() => expect(rows()).toContain('Arcade flyers 0.3.0'));
+    expect(rows().slice(0, 2)).toEqual(['Web radios', 'FM tuner']);
+
+    // Its page: what typed goes to its action, and the page shows what it did.
+    await goTo('FM tuner 0.1.0');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Its programs'));
+    expect(at('Its programs')).toBe('From Forma’s catalogue: installed with it, removed with it');
+    expect(rows()[0]).toBe('Open FM tuner');
+    await goTo('Open FM tuner');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Frequency')).toBe('Not tuned'));
+    await press('confirm');
+    expect(text('.keyboard h2')).toEqual(['Frequency']);
+    for (const key of '99.1') window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+    await press('start');
+    await vi.waitFor(() => expect(text('.toast')).toContain('Tuned to 99.1'));
+    await vi.waitFor(() => expect(at('Frequency')).toBe('99.1'));
   });
 
   it('magazines: a theme opens one in Forma’s reader', async () => {
@@ -674,7 +729,11 @@ describe('Forma’s settings pages', () => {
     const rows = () => text('.page > .panel li .name');
     await vi.waitFor(() => expect(rows()).toContain('Chiptune'));
     expect(rows()[0]).toBe('Nothing playing');
-    expect(text('.page li.heading')).toEqual(['Folders and playlists', 'Web radios']);
+    expect(text('.page li.heading')).toEqual([
+      'Folders and playlists',
+      'Web radios',
+      'From add-ons'
+    ]);
 
     // Down to Chiptune: Nothing playing, Volume, Shuffle, Show each new song, Music, Chiptune.
     for (let i = 0; i < 5; i++) await press('down');

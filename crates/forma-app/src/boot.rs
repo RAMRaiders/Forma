@@ -76,9 +76,10 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         bluetooth: forma_core::bluetooth::Bluetooth::new(Box::new(SystemShell), &paths),
         batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
         store: forma_core::store::Store::default(),
-        scraper: crate::scraper::Scraping::new(std::sync::Arc::new(
-            forma_core::net::UreqHttp::default(),
-        )),
+        scraper: crate::scraper::Scraping::new(
+            std::sync::Arc::new(forma_core::net::UreqHttp::default()),
+            std::sync::Arc::new(forma_core::host::SystemShell),
+        ),
         system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
         options: Options::new(
             Box::new(SystemShell),
@@ -282,6 +283,7 @@ fn music_player(paths: &Paths, library: &Library) -> Player {
         music::Library {
             music: paths.music_dir(),
             fallback: BATOCERA_MUSIC.into(),
+            addon_radios: Default::default(),
         },
         Box::new(Mpv::new(run.join("mpv.sock"))),
         run,

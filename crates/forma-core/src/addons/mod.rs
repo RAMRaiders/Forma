@@ -1,8 +1,15 @@
 //! Forma add-ons (see `docs/addons.md`): folders in `/userdata/system/forma/addons/<id>/`, each
 //! with an `addon.json` and one JavaScript file that Forma runs in QuickJS ([`runtime`]). An
 //! add-on reaches only what Forma hands it: HTTP to the hosts it declares, its own settings
-//! and a log. What it `provides` decides what Forma calls; for now, `scraper`: it joins the
-//! scraper's sources, ordered and set up like the built-in ones.
+//! and a log. What it `provides` decides what Forma calls:
+//!
+//! - `scraper`: a source beside the built-in ones (`lookup(query)`);
+//! - `music`: web radios in Forma's Music page (`stations()`);
+//! - `menu`: pages in Forma's own menu (`page(path)` and `action(id, input)`), drawn by Forma.
+//!
+//! An add-on from Forma's own catalogue may also have a **system part**: scripts Forma runs with
+//! full rights when it installs and removes it, and commands its pages can run. Anywhere else,
+//! an add-on with a system part is refused: only reviewed, checksummed add-ons get that trust.
 
 pub mod runtime;
 
@@ -24,13 +31,23 @@ use crate::themes::satisfies;
 pub const DISABLED_SETTING: &str = "addons.disabled";
 
 /// What add-ons may provide.
-pub const PROVIDES: [&str; 1] = ["scraper"];
+pub const PROVIDES: [&str; 3] = ["scraper", "music", "menu"];
 
 /// What an add-on may ask for, and what it means, for the user to read before installing.
-pub const PERMISSIONS: [(&str, &str); 1] = [(
-    "network",
-    "reach the internet sites it lists, and only those",
-)];
+pub const PERMISSIONS: [(&str, &str); 2] = [
+    (
+        "network",
+        "reach the internet sites it lists, and only those",
+    ),
+    (
+        "system",
+        "install and run its own programs with full control of this machine",
+    ),
+];
+
+/// Written by [`install`] beside an add-on from Forma's own catalogue: the package's hash.
+/// Without it, an add-on's system part never runs.
+const VERIFIED_FILE: &str = ".forma-verified";
 
 /// The largest entry file.
 const MAX_CODE: u64 = 4 << 20;
@@ -63,6 +80,37 @@ fn main_js() -> String {
     "main.js".to_owned()
 }
 
+/// For a `menu` add-on: its tile in Forma's menu.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuDecl {
+    pub label: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// The system part: shell scripts in the add-on's folder, run with Forma's rights (root on
+/// Batocera). `commands` are what its pages may run, by name.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemDecl {
+    #[serde(default)]
+    pub install: Option<String>,
+    #[serde(default)]
+    pub remove: Option<String>,
+    #[serde(default)]
+    pub commands: std::collections::BTreeMap<String, String>,
+}
+
+impl SystemDecl {
+    fn scripts(&self) -> impl Iterator<Item = &String> {
+        self.install
+            .iter()
+            .chain(&self.remove)
+            .chain(self.commands.values())
+    }
+}
+
 /// `addon.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -90,6 +138,16 @@ pub struct Manifest {
     pub settings: Vec<SettingDecl>,
     #[serde(default)]
     pub scraper: Option<ScraperDecl>,
+    #[serde(default)]
+    pub menu: Option<MenuDecl>,
+    #[serde(default)]
+    pub system: Option<SystemDecl>,
+}
+
+impl Manifest {
+    pub fn provides(&self, what: &str) -> bool {
+        self.provides.iter().any(|p| p == what)
+    }
 }
 
 /// An add-on folder, and whether it can run.
@@ -102,6 +160,9 @@ pub struct Addon {
     pub manifest: Option<Manifest>,
     /// Why it cannot run, if it cannot.
     pub problem: Option<String>,
+    /// Installed from Forma's own catalogue, as the catalogue listed it: its system part may
+    /// run.
+    pub verified: bool,
 }
 
 impl Addon {
@@ -150,6 +211,7 @@ fn read(dir: &Path) -> Addon {
         dir: dir.to_path_buf(),
         manifest: None,
         problem: Some(why),
+        verified: false,
     };
     let file = dir.join("addon.json");
     let text = match std::fs::read_to_string(&file) {
@@ -160,12 +222,19 @@ fn read(dir: &Path) -> Addon {
         Ok(m) => m,
         Err(e) => return fail(folder, format!("addon.json: {e}")),
     };
-    let problem = check(&manifest, dir).err();
+    let verified = dir.join(VERIFIED_FILE).is_file();
+    let mut problem = check(&manifest, dir).err();
+    if problem.is_none() && manifest.system.is_some() && !verified {
+        problem = Some(
+            "it has a system part, which runs only when installed from Forma's catalogue".into(),
+        );
+    }
     Addon {
         id: manifest.id.clone(),
         dir: dir.to_path_buf(),
         manifest: Some(manifest),
         problem,
+        verified,
     }
 }
 
@@ -207,6 +276,18 @@ fn check(m: &Manifest, dir: &Path) -> std::result::Result<(), String> {
     if m.provides.iter().any(|p| p == "scraper") && m.scraper.is_none() {
         return Err("a scraper add-on needs a `scraper` section".into());
     }
+    if m.provides("menu") && m.menu.is_none() {
+        return Err("a menu add-on needs a `menu` section".into());
+    }
+    let wants_system = m.permissions.iter().any(|p| p == "system");
+    if m.system.is_some() != wants_system {
+        return Err("a system part and the `system` permission go together".into());
+    }
+    if let Some(system) = &m.system {
+        for script in system.scripts() {
+            inside(dir, script)?;
+        }
+    }
     if let Some(p) = m
         .permissions
         .iter()
@@ -228,24 +309,50 @@ fn check(m: &Manifest, dir: &Path) -> std::result::Result<(), String> {
     {
         return Err(format!("setting `{}` is empty or listed twice", s.key));
     }
-    let entry = Path::new(&m.entry);
-    if entry.is_absolute()
-        || entry
+    let size = inside(dir, &m.entry)?;
+    if size > MAX_CODE {
+        return Err(format!("`{}` is over {} MB", m.entry, MAX_CODE >> 20));
+    }
+    Ok(())
+}
+
+/// Checks `file` is a file inside `dir`; returns its size.
+fn inside(dir: &Path, file: &str) -> std::result::Result<u64, String> {
+    let path = Path::new(file);
+    if path.is_absolute()
+        || path
             .components()
             .any(|c| !matches!(c, std::path::Component::Normal(_)))
     {
-        return Err(format!(
-            "entry `{}` must be a file inside the add-on",
-            m.entry
-        ));
+        return Err(format!("`{file}` must be a file inside the add-on"));
     }
-    match std::fs::metadata(dir.join(entry)) {
-        Ok(meta) if meta.is_file() && meta.len() <= MAX_CODE => Ok(()),
-        Ok(meta) if meta.is_file() => Err(format!("`{}` is over {} MB", m.entry, MAX_CODE >> 20)),
-        _ => Err(format!("no `{}`", m.entry)),
+    match std::fs::symlink_metadata(dir.join(path)) {
+        Ok(meta) if meta.is_file() => Ok(meta.len()),
+        _ => Err(format!("no `{file}`")),
     }
 }
 
+/// Runs one of the system part's scripts with `args`, from the add-on's folder. Only for a
+/// verified add-on.
+pub fn run_script(
+    shell: &dyn crate::host::Shell,
+    addon: &Addon,
+    script: &str,
+    args: &[&str],
+) -> Result<String> {
+    if !addon.verified {
+        return Err(Error::Invalid(format!(
+            "{} is not from Forma's catalogue: its system part does not run",
+            addon.id
+        )));
+    }
+    inside(&addon.dir, script).map_err(Error::Invalid)?;
+    let path = addon.dir.join(script);
+    let path = path.to_string_lossy();
+    let mut all = vec![path.as_ref()];
+    all.extend_from_slice(args);
+    shell.run("sh", &all)
+}
 /// What each of an add-on's permissions lets it do, in words.
 pub fn permission_descriptions(m: &Manifest) -> Vec<String> {
     m.permissions
@@ -269,11 +376,23 @@ pub fn disabled(stored: Option<&str>) -> HashSet<String> {
 }
 
 /// Deletes an installed add-on.
-pub fn remove(paths: &Paths, id: &str) -> Result<()> {
+pub fn remove(shell: &dyn crate::host::Shell, paths: &Paths, id: &str) -> Result<()> {
     if !kebab(id) {
         return Err(Error::Invalid(format!("`{id}` is not an add-on id")));
     }
     let dir = addons_dir(paths).join(id);
+    let addon = load(&dir);
+    if let Some(script) = addon
+        .manifest
+        .as_ref()
+        .and_then(|m| m.system.as_ref())
+        .and_then(|s| s.remove.as_ref())
+        .filter(|_| addon.verified)
+    {
+        // It undoes what it installed; a failure is reported, and the folder stays so it can
+        // be tried again.
+        run_script(shell, &addon, script, &[])?;
+    }
     let meta = std::fs::symlink_metadata(&dir)
         .map_err(|_| Error::Invalid(format!("no add-on `{id}` is installed")))?;
     if meta.file_type().is_symlink() {
@@ -283,8 +402,16 @@ pub fn remove(paths: &Paths, id: &str) -> Result<()> {
     }
 }
 
-/// Downloads, checks and installs an add-on from the catalogue, replacing an installed copy.
-pub fn install(http: &dyn Http, paths: &Paths, entry: &CatalogueTheme) -> Result<Addon> {
+/// Downloads, checks and installs an add-on from a catalogue, replacing an installed copy.
+/// `official`: the catalogue is Forma's own, so an add-on with a system part may install and
+/// its install script runs; from any other catalogue such an add-on is refused.
+pub fn install(
+    http: &dyn Http,
+    shell: &dyn crate::host::Shell,
+    paths: &Paths,
+    entry: &CatalogueTheme,
+    official: bool,
+) -> Result<Addon> {
     if !satisfies(&entry.sdk, SDK_API_VERSION) {
         return Err(Error::Invalid(format!(
             "{} {} needs Forma API {}; this Forma has {SDK_API_VERSION}",
@@ -333,12 +460,36 @@ pub fn install(http: &dyn Http, paths: &Paths, entry: &CatalogueTheme) -> Result
                 manifest.id, manifest.version, entry.id, entry.version
             )));
         }
-        if let Some(why) = &addon.problem {
+        let system = manifest.system.clone();
+        if system.is_some() && !official {
+            return Err(bad(
+                "it has a system part, and only add-ons from Forma's own catalogue may".into(),
+            ));
+        }
+        if let Some(why) = addon
+            .problem
+            .as_ref()
+            .filter(|p| !p.starts_with("it has a system part"))
+        {
             return Err(bad(why.clone()));
+        }
+        // Only Forma marks an add-on verified: a package's own mark goes.
+        let _ = std::fs::remove_file(inner.join(VERIFIED_FILE));
+        if system.is_some() {
+            std::fs::write(inner.join(VERIFIED_FILE), &entry.sha256)
+                .map_err(|e| Error::io(&inner, e))?;
         }
         let target = root.join(&entry.id);
         swap_in(&inner, &target)?;
-        Ok(load(&target))
+        let installed = load(&target);
+        if let Some(script) = system.as_ref().and_then(|s| s.install.as_ref())
+            && let Err(e) = run_script(shell, &installed, script, &[])
+        {
+            // Half installed is worse than not: take it out again.
+            let _ = std::fs::remove_dir_all(&target);
+            return Err(bad(format!("its install script failed: {e}")));
+        }
+        Ok(installed)
     })();
     let _ = std::fs::remove_dir_all(&work);
     result

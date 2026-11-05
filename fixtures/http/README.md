@@ -23,3 +23,5 @@ IP addresses in `lobby.json` are from the documentation ranges (192.0.2.0/24, 19
   Bros. (World), for the scraper.
 - `addon-example-boxes-1.0.0.zip`: a scraper add-on (in the catalogue's `addons` list) that
   gives every game a box from `boxes.example.com`, served as `libretro-boxart.png`.
+- `addon-radio-box-1.0.0.zip`: a `music` and `menu` add-on with a system part: two web
+  radios (and one from its setting), a page with a sub-page, and a `tune` command.

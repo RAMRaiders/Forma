@@ -1,14 +1,22 @@
-import type { AddonInfo, Forma } from '@ramraiders/forma-sdk';
+import type { AddonInfo, AddonRow, Forma } from '@ramraiders/forma-sdk';
 import type { Page, Row } from './page.js';
-import { accountRows } from './scraper.js';
 
 /** How long a first press of Remove or Install waits for the second. */
 const CONFIRM_MS = 3000;
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+const KINDS: Record<string, string> = {
+  scraper: 'a scraper source',
+  music: 'web radios in Music',
+  menu: 'pages in this menu'
+};
+
 const provides = (a: Pick<AddonInfo, 'provides'>) =>
-  a.provides.map((p) => (p === 'scraper' ? 'a scraper source' : p)).join(', ');
+  a.provides.map((p) => KINDS[p] ?? p).join(', ');
+
+/** Whether it has pages to open now. */
+const opens = (a: AddonInfo) => Boolean(a.menu && a.enabled && !a.problem);
 
 function detail(a: AddonInfo): string {
   if (a.problem) return `Cannot run: ${a.problem}`;
@@ -28,9 +36,10 @@ function mayRows(permissionDescriptions: string[], hosts: string[], heading: str
 }
 
 /**
- * Start → Add-ons: what is installed, each opening its page, and the catalogue. Add-ons
- * extend Forma itself (a scraper source, for now); they run sandboxed and reach only the sites
- * they list.
+ * Start → Add-ons: the pages of the add-ons that have some, what is installed (each opening
+ * its page), and the catalogue. Add-ons extend Forma itself: scraper sources, web radios,
+ * pages in this menu. Their scripts run sandboxed and reach only the sites they list; a
+ * system part (programs of their own) only from Forma's catalogue.
  */
 export function addonsScreen(
   forma: Forma,
@@ -39,13 +48,21 @@ export function addonsScreen(
 ): () => Promise<Row[]> {
   return async () => {
     const installed = await forma.addons.list();
-    const rows: Row[] = installed.map((a, i) => ({
-      heading: i === 0 ? 'Installed' : undefined,
-      label: a.version ? `${a.name} ${a.version}` : a.name,
-      detail: detail(a),
-      run: () => page.push(a.name, addonScreen(forma, page, notify, a.id))
+    const rows: Row[] = installed.filter(opens).map((a, i) => ({
+      heading: i === 0 ? 'Open' : undefined,
+      label: a.menu!.label,
+      detail: a.menu!.description ?? a.name,
+      run: () => page.push(a.menu!.label, addonPages(forma, page, a.id, []))
     }));
-    if (rows.length === 0) {
+    rows.push(
+      ...installed.map((a, i) => ({
+        heading: i === 0 ? 'Installed' : undefined,
+        label: a.version ? `${a.name} ${a.version}` : a.name,
+        detail: detail(a),
+        run: () => page.push(a.name, addonScreen(forma, page, notify, a.id))
+      }))
+    );
+    if (installed.length === 0) {
       rows.push({ heading: 'Installed', label: 'No add-ons yet', detail: 'Get some below' });
     }
     rows.push({
@@ -69,22 +86,30 @@ function addonScreen(
   return async () => {
     const a = (await forma.addons.list()).find((x) => x.id === id);
     if (!a) return [{ label: 'This add-on is no longer installed' }];
-    const rows: Row[] = [
+    const rows: Row[] = [];
+    if (opens(a)) {
+      rows.push({
+        label: `Open ${a.menu!.label}`,
+        run: () => page.push(a.menu!.label, addonPages(forma, page, a.id, []))
+      });
+    }
+    rows.push(
       { label: 'Version', detail: a.version ?? 'Not given' },
       { label: 'Adds', detail: provides(a) || 'Nothing this Forma knows' }
-    ];
+    );
     if (a.author) rows.push({ label: 'Made by', detail: a.author });
     if (a.description) rows.push({ label: a.description });
     if (a.problem) rows.push({ label: 'Cannot run', detail: a.problem });
     rows.push(...mayRows(a.permissionDescriptions, a.hosts, 'It may'));
-
-    // A scraper add-on's settings are its account among the scraper's sources.
-    if (a.scraperSource && a.enabled) {
-      const source = (await forma.scraper.settings()).sources.find((s) => s.id === a.scraperSource);
-      if (source && source.needs.length > 0) {
-        rows.push(...accountRows(forma, page, source.id, source, 'Settings'));
-      }
+    if (a.system) {
+      rows.push({
+        label: 'Its programs',
+        detail: a.verified
+          ? 'From Forma’s catalogue: installed with it, removed with it'
+          : 'Not from Forma’s catalogue, so they never run'
+      });
     }
+    rows.push(...settingRows(forma, page, a));
 
     const toggle = () =>
       page.run('Saving…', async () => {
@@ -168,7 +193,10 @@ function catalogueScreen(
                 if (now > (confirmUntil.get(c.id) ?? 0)) {
                   confirmUntil.set(c.id, now + CONFIRM_MS);
                   const may = c.permissionDescriptions.join('; ') || 'nothing beyond running';
-                  notify(`${c.name} may: ${may}. Press A again to install`);
+                  const warn = c.permissions.includes('system')
+                    ? ' It gets full control of this machine.'
+                    : '';
+                  notify(`${c.name} may: ${may}.${warn} Press A again to install`);
                   return;
                 }
                 confirmUntil.delete(c.id);
@@ -181,5 +209,97 @@ function catalogueScreen(
     }
     if (data.addons.length === 0) rows.push({ label: 'No add-ons in the catalogue yet' });
     return rows;
+  };
+}
+
+/** An add-on's settings, typed on the keyboard; Y clears one. */
+function settingRows(forma: Forma, page: Page, a: AddonInfo): Row[] {
+  return a.settings.map((n, i) => ({
+    heading: i === 0 ? 'Settings' : undefined,
+    label: n.label,
+    detail: n.set
+      ? n.secret
+        ? 'Entered · Y to clear'
+        : `${n.value ?? ''} · Y to clear`
+      : n.required
+        ? 'Needed: A to enter'
+        : 'Optional: A to enter',
+    run: async () => {
+      const typed = await page.ask({
+        title: n.label,
+        value: n.secret ? '' : (n.value ?? ''),
+        secret: n.secret
+      });
+      if (typed === null) return;
+      await page.run('Saving…', async () => {
+        await forma.addons.setSetting(a.id, n.key, typed);
+        return typed.trim() ? `${n.label} saved` : `${n.label} cleared`;
+      });
+    },
+    alt: n.set
+      ? {
+          label: 'Clear',
+          run: () =>
+            page.run('Saving…', async () => {
+              await forma.addons.setSetting(a.id, n.key, null);
+            })
+        }
+      : undefined
+  }));
+}
+
+/**
+ * One of an add-on's pages, drawn as Forma draws its own: the add-on gives rows, Forma does
+ * the rest (the pad, the keyboard, the theme). A row opens a deeper page or asks the add-on to
+ * act; what the add-on answers (a message, a page to open, back) Forma does.
+ */
+function addonPages(forma: Forma, page: Page, id: string, path: string[]): () => Promise<Row[]> {
+  const act = async (action: string, input?: string | number) => {
+    let next: { open: string[] | null; back: boolean } = { open: null, back: false };
+    await page.run('Working…', async () => {
+      const done = await forma.addons.action(id, action, input);
+      next = done;
+      return done.notify ?? undefined;
+    });
+    if (next.back) await page.pop();
+    else if (next.open)
+      await page.push(next.open.at(-1) ?? '', addonPages(forma, page, id, next.open));
+  };
+  const row = (r: AddonRow): Row => {
+    const out: Row = {
+      label: r.label,
+      detail: r.detail ?? undefined,
+      heading: r.heading ?? undefined
+    };
+    if (r.open) {
+      const to = r.open;
+      out.run = () => page.push(r.label, addonPages(forma, page, id, to));
+    } else if (r.action) {
+      const action = r.action;
+      out.run = r.ask
+        ? async () => {
+            const typed = await page.ask({
+              title: r.ask!.title,
+              value: r.ask!.value ?? '',
+              secret: r.ask!.secret
+            });
+            if (typed !== null) await act(action, typed);
+          }
+        : () => act(action);
+    }
+    if (r.adjust) {
+      const adjust = r.adjust;
+      out.adjust = (step) => act(adjust, step);
+    }
+    if (r.alt) {
+      const alt = r.alt;
+      out.alt = { label: alt.label, run: () => act(alt.action) };
+    }
+    return out;
+  };
+  return async () => {
+    const shown = await forma.addons.page(id, path);
+    const rows = shown.rows.map(row);
+    return rows.length > 0 ? rows : [{ label: 'Nothing here' }];
   };
 }

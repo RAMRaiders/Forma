@@ -6,7 +6,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-use forma_core::addons::runtime::ScraperAddon;
+use forma_core::addons::runtime::{ScraperAddon, Script};
+use forma_core::host::Shell;
 use forma_core::net::Http;
 
 use forma_core::scraper::{
@@ -34,16 +35,22 @@ pub struct Scraping {
     stale: AtomicBool,
     /// How add-ons reach the network: theirs, so a script never holds Forma's state.
     addon_http: Arc<dyn Http>,
+    /// What runs a verified add-on's system part.
+    addon_shell: Arc<dyn Shell>,
+    /// The music add-ons' stations must be fetched again.
+    pub music_stale: AtomicBool,
     status: Mutex<RunStatus>,
     stop: Arc<AtomicBool>,
 }
 
 impl Scraping {
-    pub fn new(addon_http: Arc<dyn Http>) -> Self {
+    pub fn new(addon_http: Arc<dyn Http>, addon_shell: Arc<dyn Shell>) -> Self {
         Self {
             sources: RwLock::new(Arc::new(scraper::builtin())),
             stale: AtomicBool::new(true),
             addon_http,
+            addon_shell,
+            music_stale: AtomicBool::new(true),
             status: Mutex::new(RunStatus::default()),
             stop: Arc::new(AtomicBool::new(false)),
         }
@@ -52,6 +59,16 @@ impl Scraping {
     /// The add-ons changed: read them again before the sources are next used.
     pub fn addons_changed(&self) {
         self.stale.store(true, Ordering::SeqCst);
+        self.music_stale.store(true, Ordering::SeqCst);
+    }
+
+    /// An add-on's script, ready to call; `None` for one that cannot run.
+    pub fn script(&self, addon: &forma_core::addons::Addon) -> Option<Script> {
+        Script::new(addon, self.addon_http.clone(), self.addon_shell.clone())
+    }
+
+    pub fn shell(&self) -> &dyn Shell {
+        &*self.addon_shell
     }
 
     /// Every source: built in, then each usable scraper add-on that is turned on. A run holds
@@ -71,7 +88,10 @@ impl Scraping {
                 if disabled.contains(&addon.id) {
                     continue;
                 }
-                if let Some(source) = ScraperAddon::new(&addon, self.addon_http.clone()) {
+                if let Some(source) = self
+                    .script(&addon)
+                    .and_then(|script| ScraperAddon::new(&addon, script))
+                {
                     all.push(Box::new(source));
                 }
             }

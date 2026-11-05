@@ -240,7 +240,7 @@ function sourceScreen(forma: Forma, page: Page, id: string): () => Promise<Row[]
 }
 
 /** A source's account: each thing to enter, typed on the keyboard; Y clears it. */
-export function accountRows(
+function accountRows(
   forma: Forma,
   page: Page,
   id: string,

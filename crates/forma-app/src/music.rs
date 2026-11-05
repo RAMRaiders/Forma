@@ -36,7 +36,11 @@ async fn act<R: Runtime>(
 /// Folders, playlists and radios there are to play.
 #[tauri::command]
 pub async fn music_sources<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<Source>> {
-    off_thread(app, |state| Ok(state.music.library().sources())).await
+    off_thread(app, |state| {
+        crate::addons::refresh_radios(state);
+        Ok(state.music.library().sources())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -193,6 +197,9 @@ pub fn menu_music<R: Runtime>(app: &AppHandle<R>, on: bool) {
                 .is_none_or(|s| s == "true"),
         )
     };
+    if saved.as_deref().is_some_and(|id| id.starts_with("addon:")) {
+        crate::addons::refresh_radios(&state);
+    }
     let sources = state.music.library().sources();
     let pick = saved
         .filter(|id| sources.iter().any(|s| &s.id == id))

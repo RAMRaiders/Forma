@@ -71,7 +71,7 @@ impl Harness {
             bluetooth: forma_core::bluetooth::Bluetooth::new(Box::new(SystemShell), &paths),
             batocera: BatoceraSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             store: forma_core::store::Store::default(),
-            scraper: crate::scraper::Scraping::new(Arc::new(FixtureHttp)),
+            scraper: crate::scraper::Scraping::new(Arc::new(FixtureHttp), Arc::new(FakeShell)),
             system_settings: SystemSettings::new(Box::new(SystemShell), &paths.batocera_conf()),
             options: Options::new(
                 Box::new(SystemShell),
@@ -83,6 +83,7 @@ impl Harness {
                 forma_core::music::Library {
                     music: paths.music_dir(),
                     fallback: root.join("no-music"),
+                    addon_radios: Default::default(),
                 },
                 Box::new(forma_core::music::Mpv::new(root.join("mpv.sock"))),
                 root.join("run"),
@@ -175,6 +176,15 @@ impl Harness {
     }
 }
 
+/// Runs nothing; says what it was asked to run.
+struct FakeShell;
+
+impl forma_core::host::Shell for FakeShell {
+    fn run(&self, program: &str, args: &[&str]) -> forma_core::Result<String> {
+        Ok(format!("{program} {}", args.join(" ")))
+    }
+}
+
 /// Answers from `fixtures/http`, like the services would.
 struct FixtureHttp;
 
@@ -192,6 +202,8 @@ impl Http for FixtureHttp {
             "theme-neon-1.0.0.zip"
         } else if url.ends_with("/addon-example-boxes-1.0.0.zip") {
             "addon-example-boxes-1.0.0.zip"
+        } else if url.ends_with("/addon-radio-box-1.0.0.zip") {
+            "addon-radio-box-1.0.0.zip"
         } else if url.starts_with("https://boxes.example.com/")
             || url.contains("thumbnails.libretro.com")
                 && url.contains("/Named_Boxarts/Super%20Mario%20Bros.%20%28World%29.png")
@@ -1179,4 +1191,102 @@ fn ra_matches_reports_each_ra_system_of_the_library() {
         systems.iter().all(|s| s["system"] != "ports"),
         "no RA console"
     );
+}
+
+#[test]
+fn a_radio_addon_adds_stations_and_pages_and_runs_its_system_part() {
+    let h = Harness::new(&["addons.manage", "music.manage"]);
+    let installed = h
+        .call("addons_install", json!({ "id": "radio-box" }))
+        .unwrap();
+    assert_eq!(installed["verified"], true);
+    assert_eq!(installed["system"], true);
+    assert_eq!(installed["menu"]["label"], "Radio box");
+    assert_eq!(
+        installed["permissionDescriptions"][1],
+        "install and run its own programs with full control of this machine"
+    );
+
+    // Its stations are in Music, after the user's own.
+    let radio = |sources: &Value| -> Vec<String> {
+        sources
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|s| s["id"].as_str().unwrap().starts_with("addon:radio-box:"))
+            .map(|s| s["name"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let sources = h.call("music_sources", json!({})).unwrap();
+    assert_eq!(radio(&sources), ["Chip FM", "Arcade Lounge"]);
+
+    // A setting it reads: a third station.
+    let after = h
+        .call(
+            "addons_set_setting",
+            json!({ "id": "radio-box", "key": "station", "value": "https://radio.example.com/mine" }),
+        )
+        .unwrap();
+    assert_eq!(
+        after[0]["settings"][0]["value"],
+        "https://radio.example.com/mine"
+    );
+    let sources = h.call("music_sources", json!({})).unwrap();
+    assert_eq!(
+        radio(&sources),
+        ["Chip FM", "Arcade Lounge", "Your station"]
+    );
+    assert!(
+        h.call(
+            "addons_set_setting",
+            json!({ "id": "radio-box", "key": "nope", "value": "x" })
+        )
+        .is_err()
+    );
+
+    // Its pages, drawn by Forma.
+    let page = h
+        .call("addons_page", json!({ "id": "radio-box", "path": [] }))
+        .unwrap();
+    assert_eq!(page["title"], "Radio box");
+    assert_eq!(page["rows"][0]["heading"], "Stations");
+    assert_eq!(page["rows"][3]["action"], "tune");
+    assert_eq!(page["rows"][3]["ask"]["title"], "Frequency");
+    assert_eq!(page["rows"][4]["open"], json!(["about"]));
+    let about = h
+        .call(
+            "addons_page",
+            json!({ "id": "radio-box", "path": ["about"] }),
+        )
+        .unwrap();
+    assert_eq!(about["rows"][0]["label"], "A test add-on");
+
+    // An action runs its system command (the fake shell says what it ran).
+    let done = h
+        .call(
+            "addons_action",
+            json!({ "id": "radio-box", "action": "tune", "input": "99.1" }),
+        )
+        .unwrap();
+    let notify = done["notify"].as_str().unwrap();
+    assert!(
+        notify.starts_with("sh ") && notify.ends_with("system/tune.sh 99.1"),
+        "{notify}"
+    );
+
+    // Off: no stations, no pages.
+    h.call(
+        "addons_set_enabled",
+        json!({ "id": "radio-box", "enabled": false }),
+    )
+    .unwrap();
+    assert!(radio(&h.call("music_sources", json!({})).unwrap()).is_empty());
+    assert!(
+        h.call("addons_page", json!({ "id": "radio-box", "path": [] }))
+            .is_err()
+    );
+
+    h.call("addons_remove", json!({ "id": "radio-box" }))
+        .unwrap();
+    assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
 }

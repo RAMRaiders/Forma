@@ -95,7 +95,9 @@ export function musicScreen(forma: Forma, page: Page): () => Promise<Row[]> {
         return `Playing ${s.name}`;
       });
     const lists = sources.filter((s) => s.kind !== 'radio');
-    const radios = sources.filter((s) => s.kind === 'radio');
+    const radios = sources.filter((s) => s.kind === 'radio' && s.id.startsWith('radio:'));
+    // A music add-on's stations: played like the user's, removed with the add-on.
+    const fromAddons = sources.filter((s) => s.kind === 'radio' && !s.id.startsWith('radio:'));
     lists.forEach((s, i) =>
       rows.push({
         heading: i === 0 ? 'Folders and playlists' : undefined,
@@ -135,6 +137,14 @@ export function musicScreen(forma: Forma, page: Page): () => Promise<Row[]> {
         });
       }
     });
+    fromAddons.forEach((s, i) =>
+      rows.push({
+        heading: i === 0 ? 'From add-ons' : undefined,
+        label: s.name,
+        detail: status.source?.id === s.id ? 'Playing' : '',
+        run: play(s)
+      })
+    );
     return rows;
   };
 }

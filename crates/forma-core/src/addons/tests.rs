@@ -5,8 +5,9 @@ use std::sync::{Arc, Mutex};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
-use super::runtime::{ScraperAddon, allowed, call};
+use super::runtime::{ScraperAddon, Script, allowed, call, stations};
 use super::*;
+use crate::host::Shell;
 use crate::net::{HttpError, HttpRequest};
 use crate::scraper::{Credentials, MediaKind, Query, Source};
 use crate::themes::catalogue::{CatalogueTheme, hex};
@@ -40,6 +41,33 @@ fn echo(body: &'static str) -> Arc<Echo> {
     })
 }
 
+/// Records what it is asked to run; fails when told to.
+#[derive(Default)]
+struct Recorder {
+    ran: Mutex<Vec<Vec<String>>>,
+    fail: bool,
+}
+
+impl Shell for Recorder {
+    fn run(&self, program: &str, args: &[&str]) -> crate::error::Result<String> {
+        let mut all = vec![program.to_owned()];
+        all.extend(args.iter().map(|a| (*a).to_owned()));
+        self.ran.lock().unwrap().push(all);
+        if self.fail {
+            return Err(Error::Invalid("exit 1".into()));
+        }
+        Ok(format!("ran {}", args.get(1).copied().unwrap_or("")))
+    }
+}
+
+struct NoShell;
+
+impl Shell for NoShell {
+    fn run(&self, _: &str, _: &[&str]) -> crate::error::Result<String> {
+        panic!("nothing should run");
+    }
+}
+
 const HOSTS: &[&str] = &["https://api.example.com", "https://cdn.example.com:8443"];
 
 fn hosts() -> Vec<String> {
@@ -53,7 +81,16 @@ fn run(
 ) -> std::result::Result<serde_json::Value, String> {
     let mut settings = Credentials::new();
     settings.insert("apiKey".into(), "k3y".into());
-    call("test", code, &hosts(), &settings, http, "lookup", &input)
+    call(
+        "test",
+        code,
+        &hosts(),
+        &settings,
+        http,
+        None,
+        "lookup",
+        &input,
+    )
 }
 
 #[test]
@@ -225,7 +262,8 @@ fn a_scraper_addon_is_a_source() {
     ));
     assert!(addon.usable(), "{:?}", addon.problem);
     let http = echo(r#"{"title":"Super Metroid","cover":"https://cdn.example.com:8443/c.png"}"#);
-    let source = ScraperAddon::new(&addon, http).unwrap();
+    let script = Script::new(&addon, http, Arc::new(NoShell)).unwrap();
+    let source = ScraperAddon::new(&addon, script).unwrap();
     assert_eq!(source.id(), "addon:example");
     assert_eq!(source.needs()[0].key, "apiKey");
     assert!(!source.ready(&BTreeMap::new()));
@@ -393,7 +431,14 @@ fn installs_lists_disables_and_removes() {
         ("example/addon.json", &manifest("example").to_string()),
         ("example/main.js", SCRAPER),
     ]);
-    let installed = install(&Package(package.clone()), &paths, &entry(&package, "1.0.0")).unwrap();
+    let installed = install(
+        &Package(package.clone()),
+        &NoShell,
+        &paths,
+        &entry(&package, "1.0.0"),
+        true,
+    )
+    .unwrap();
     assert!(installed.usable(), "{:?}", installed.problem);
     assert_eq!(discover(&paths).len(), 1);
     assert!(addons_dir(&paths).join("example/main.js").is_file());
@@ -402,19 +447,32 @@ fn installs_lists_disables_and_removes() {
     let mut wrong = entry(&package, "1.0.0");
     wrong.sha256 = "0".repeat(64);
     assert!(
-        install(&Package(package.clone()), &paths, &wrong)
+        install(&Package(package.clone()), &NoShell, &paths, &wrong, true)
             .unwrap_err()
             .to_string()
             .contains("does not match")
     );
-    let err = install(&Package(package.clone()), &paths, &entry(&package, "2.0.0")).unwrap_err();
+    let err = install(
+        &Package(package.clone()),
+        &NoShell,
+        &paths,
+        &entry(&package, "2.0.0"),
+        true,
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("not example 2.0.0"), "{err}");
     let bad = zip(&[("addon.json", &manifest("example").to_string())]);
     assert!(
-        install(&Package(bad.clone()), &paths, &entry(&bad, "1.0.0"))
-            .unwrap_err()
-            .to_string()
-            .contains("no `main.js`")
+        install(
+            &Package(bad.clone()),
+            &NoShell,
+            &paths,
+            &entry(&bad, "1.0.0"),
+            true
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("no `main.js`")
     );
     assert!(discover(&paths)[0].usable());
     assert_eq!(
@@ -425,8 +483,207 @@ fn installs_lists_disables_and_removes() {
 
     assert!(disabled(Some(r#"["example"]"#)).contains("example"));
     assert!(disabled(None).is_empty());
-    remove(&paths, "example").unwrap();
+    remove(&NoShell, &paths, "example").unwrap();
     assert!(discover(&paths).is_empty());
-    assert!(remove(&paths, "example").is_err());
-    assert!(remove(&paths, "../x").is_err());
+    assert!(remove(&NoShell, &paths, "example").is_err());
+    assert!(remove(&NoShell, &paths, "../x").is_err());
+}
+
+fn system_manifest(id: &str) -> serde_json::Value {
+    json!({
+        "id": id, "name": "Radio box", "version": "1.0.0", "sdk": "^1",
+        "provides": ["music", "menu"], "permissions": ["network", "system"],
+        "hosts": ["https://api.example.com"],
+        "menu": { "label": "Radio box", "description": "Stations and a tuner" },
+        "system": { "install": "system/install.sh", "remove": "system/remove.sh",
+                    "commands": { "tune": "system/tune.sh" } }
+    })
+}
+
+const RADIO: &str = r#"
+export function stations() {
+  return [
+    { name: 'Chip', url: 'https://radio.example.com/chip' },
+    { name: 'Not audio', url: 'file:///etc/passwd' },
+    { url: 'http://radio.example.com/plain' }
+  ];
+}
+export function page(input) {
+  return { rows: [{ label: forma.system.run('tune', ['99.1', 'fm']) }] };
+}"#;
+
+fn system_package(id: &str) -> Vec<u8> {
+    zip(&[
+        (
+            &format!("{id}/addon.json"),
+            &system_manifest(id).to_string(),
+        ),
+        (&format!("{id}/main.js"), RADIO),
+        (&format!("{id}/system/install.sh"), "echo installing"),
+        (&format!("{id}/system/remove.sh"), "echo removing"),
+        (&format!("{id}/system/tune.sh"), "echo tuned"),
+    ])
+}
+
+fn radio_entry(package: &[u8]) -> CatalogueTheme {
+    CatalogueTheme {
+        id: "radio-box".into(),
+        name: "Radio box".into(),
+        permissions: vec!["network".into(), "system".into()],
+        ..entry(package, "1.0.0")
+    }
+}
+
+#[test]
+fn a_system_part_runs_only_from_the_official_catalogue() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths {
+        userdata: dir.path().to_path_buf(),
+        systems_cfg: dir.path().join("x"),
+    };
+    let package = system_package("radio-box");
+
+    // From another catalogue: refused, nothing run.
+    let err = install(
+        &Package(package.clone()),
+        &NoShell,
+        &paths,
+        &radio_entry(&package),
+        false,
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("only add-ons from Forma's own catalogue"),
+        "{err}"
+    );
+    assert!(discover(&paths).is_empty());
+
+    // Copied in by hand: listed, but it does not run.
+    let by_hand = write_addon(
+        &addons_dir(&paths),
+        "radio-box",
+        system_manifest("radio-box"),
+        RADIO,
+    );
+    std::fs::create_dir_all(by_hand.join("system")).unwrap();
+    for f in ["install.sh", "remove.sh", "tune.sh"] {
+        std::fs::write(by_hand.join("system").join(f), "echo").unwrap();
+    }
+    let listed = load(&by_hand);
+    assert!(!listed.usable());
+    assert!(
+        listed
+            .problem
+            .unwrap()
+            .contains("runs only when installed from Forma's catalogue")
+    );
+    assert!(Script::new(&load(&by_hand), echo(""), Arc::new(NoShell)).is_none());
+    std::fs::remove_dir_all(&by_hand).unwrap();
+
+    // From Forma's catalogue: installed, its install script run from its folder.
+    let shell = Arc::new(Recorder::default());
+    let addon = install(
+        &Package(package.clone()),
+        &*shell,
+        &paths,
+        &radio_entry(&package),
+        true,
+    )
+    .unwrap();
+    assert!(addon.usable() && addon.verified, "{:?}", addon.problem);
+    let ran = shell.ran.lock().unwrap().clone();
+    assert_eq!(ran.len(), 1);
+    assert_eq!(ran[0][0], "sh");
+    assert!(
+        ran[0][1].ends_with("radio-box/system/install.sh"),
+        "{ran:?}"
+    );
+
+    // Its stations: streams only.
+    let script = Script::new(&addon, echo(""), shell.clone()).unwrap();
+    let radios = stations(&script, &Credentials::new()).unwrap();
+    let urls: Vec<&str> = radios.iter().map(|r| r.url.as_str()).collect();
+    assert_eq!(
+        urls,
+        [
+            "https://radio.example.com/chip",
+            "http://radio.example.com/plain"
+        ]
+    );
+    assert_eq!(radios[1].name, "http://radio.example.com/plain");
+
+    // Its pages may run its declared commands, with arguments.
+    let page = script
+        .call(&Credentials::new(), "page", &json!({}))
+        .unwrap();
+    assert_eq!(page["rows"][0]["label"], "ran 99.1");
+    assert_eq!(
+        shell.ran.lock().unwrap().last().unwrap()[2..],
+        ["99.1".to_owned(), "fm".to_owned()]
+    );
+    let err = script
+        .call(&Credentials::new(), "page", &json!({}))
+        .map(|_| ());
+    assert!(err.is_ok());
+    let undeclared = r#"export function page() { try { forma.system.run('rm', ['-rf', '/']); } catch (e) { return e.message; } }"#;
+    let dir2 = addons_dir(&paths).join("radio-box");
+    std::fs::write(dir2.join("main.js"), undeclared).unwrap();
+    let script = Script::new(&load(&dir2), echo(""), shell.clone()).unwrap();
+    assert_eq!(
+        script
+            .call(&Credentials::new(), "page", &json!({}))
+            .unwrap(),
+        json!("it has no command `rm`")
+    );
+
+    // Removing runs its remove script first.
+    remove(&*shell, &paths, "radio-box").unwrap();
+    assert!(shell.ran.lock().unwrap().last().unwrap()[1].ends_with("system/remove.sh"));
+    assert!(discover(&paths).is_empty());
+
+    // A failing install script leaves nothing behind.
+    let failing = Recorder {
+        fail: true,
+        ..Recorder::default()
+    };
+    let err = install(
+        &Package(package.clone()),
+        &failing,
+        &paths,
+        &radio_entry(&package),
+        true,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("install script failed"), "{err}");
+    assert!(discover(&paths).is_empty());
+}
+
+#[test]
+fn a_package_cannot_mark_itself_verified() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths {
+        userdata: dir.path().to_path_buf(),
+        systems_cfg: dir.path().join("x"),
+    };
+    let manifest = json!({ "id": "sly", "name": "Sly", "version": "1.0.0", "sdk": "^1", "provides": ["scraper"], "scraper": { "gives": ["thumbnail"] } });
+    let package = zip(&[
+        ("sly/addon.json", &manifest.to_string()),
+        ("sly/main.js", "export function lookup() { return null; }"),
+        ("sly/.forma-verified", "trust me"),
+    ]);
+    let entry = CatalogueTheme {
+        id: "sly".into(),
+        name: "Sly".into(),
+        ..entry(&package, "1.0.0")
+    };
+    let addon = install(&Package(package.clone()), &NoShell, &paths, &entry, false).unwrap();
+    assert!(!addon.verified);
+    assert!(!addon.dir.join(".forma-verified").exists());
+}
+
+#[test]
+fn a_plain_addon_has_no_system() {
+    let out = run("export function lookup() { try { forma.system.run('x'); } catch (e) { return e.message; } }", echo(""), json!({})).unwrap();
+    assert_eq!(out, json!("this add-on has no system part"));
 }

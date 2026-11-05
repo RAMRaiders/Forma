@@ -6,9 +6,11 @@
 //!   `forma.http.request({ method, url, headers, body })` → `{ status, body, json() }`,
 //!   synchronous, only to the add-on's `hosts`;
 //! - `forma.settings.get(key)`: what the user entered for one of its `settings`;
-//! - `forma.log(...)`.
+//! - `forma.log(...)`;
+//! - `forma.system.run(name, args?)` → its output: one of the system part's `commands`, for
+//!   an add-on from Forma's catalogue only (it throws for any other).
 //!
-//! No files, no processes, no `import` of other modules.
+//! No files, no processes of its own, no `import` of other modules.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -31,7 +33,7 @@ const MAX_RESPONSE: u64 = 16 << 20;
 
 /// Sets up `forma` from the natives, then hides them.
 const PRELUDE: &str = r"
-(function (request, setting, log) {
+(function (request, setting, log, run) {
   const call = (o) => {
     const r = JSON.parse(request(JSON.stringify(o)));
     if (r.error !== undefined) throw new Error(r.error);
@@ -45,12 +47,20 @@ const PRELUDE: &str = r"
       post: (url, body, headers) => call({ method: 'POST', url: String(url), headers: headers || {}, body: typeof body === 'string' ? body : JSON.stringify(body) })
     }),
     settings: Object.freeze({ get: (key) => setting(String(key)) ?? null }),
-    log: (...parts) => log(parts.map((p) => (typeof p === 'string' ? p : JSON.stringify(p))).join(' '))
+    log: (...parts) => log(parts.map((p) => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ')),
+    system: Object.freeze({
+      run: (name, args) => {
+        const r = JSON.parse(run(String(name), JSON.stringify((args || []).map(String))));
+        if (r.error !== undefined) throw new Error(r.error);
+        return r.output;
+      }
+    })
   });
-})(__formaRequest, __formaSetting, __formaLog);
+})(__formaRequest, __formaSetting, __formaLog, __formaRun);
 delete globalThis.__formaRequest;
 delete globalThis.__formaSetting;
 delete globalThis.__formaLog;
+delete globalThis.__formaRun;
 ";
 
 /// Whether `url` is on one of `hosts` (origins): the same scheme, host and port.
@@ -71,12 +81,14 @@ pub fn allowed(url: &str, hosts: &[String]) -> bool {
 
 /// Runs `function` from the add-on's module with `input`, and returns what it returns (a
 /// promise is awaited) as JSON.
+#[allow(clippy::too_many_arguments)]
 pub fn call(
     addon_id: &str,
     code: &str,
     hosts: &[String],
     settings: &Credentials,
     http: Arc<dyn Http>,
+    system: Option<System>,
     function: &str,
     input: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
@@ -112,6 +124,11 @@ pub fn call(
             .set("__formaSetting", setting)
             .map_err(|e| e.to_string())?;
         globals.set("__formaLog", log).map_err(|e| e.to_string())?;
+        let run = Function::new(ctx.clone(), move |name: String, args: String| -> String {
+            run_command(system.as_ref(), &name, &args)
+        })
+        .map_err(|e| e.to_string())?;
+        globals.set("__formaRun", run).map_err(|e| e.to_string())?;
         ctx.eval::<(), _>(PRELUDE)
             .catch(&ctx)
             .map_err(|e| format!("Forma's setup failed: {e}"))?;
@@ -149,6 +166,88 @@ pub fn call(
             .unwrap_or_else(|| "null".into());
         serde_json::from_str(&text).map_err(|e| e.to_string())
     })
+}
+
+/// What an add-on's system part may run: its shell, and the add-on (verified).
+#[derive(Clone)]
+pub struct System {
+    pub shell: Arc<dyn crate::host::Shell>,
+    pub addon: Addon,
+}
+
+fn run_command(system: Option<&System>, name: &str, args: &str) -> String {
+    let answer = (|| -> Result<String, String> {
+        let system = system.ok_or("this add-on has no system part")?;
+        let script = system
+            .addon
+            .manifest
+            .as_ref()
+            .and_then(|m| m.system.as_ref())
+            .and_then(|s| s.commands.get(name))
+            .ok_or_else(|| format!("it has no command `{name}`"))?;
+        let args: Vec<String> = serde_json::from_str(args).map_err(|e| e.to_string())?;
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        super::run_script(&*system.shell, &system.addon, script, &args).map_err(|e| e.to_string())
+    })();
+    match answer {
+        Ok(output) => json!({ "output": output }).to_string(),
+        Err(e) => json!({ "error": e }).to_string(),
+    }
+}
+
+/// An add-on's script, ready to call: its code and what it may reach.
+#[derive(Clone)]
+pub struct Script {
+    pub addon_id: String,
+    code: Arc<str>,
+    hosts: Vec<String>,
+    http: Arc<dyn Http>,
+    system: Option<System>,
+}
+
+impl Script {
+    /// `None` for an add-on that cannot run. `shell` runs its system part, if it has one.
+    pub fn new(
+        addon: &Addon,
+        http: Arc<dyn Http>,
+        shell: Arc<dyn crate::host::Shell>,
+    ) -> Option<Self> {
+        let m = addon.manifest.as_ref().filter(|_| addon.usable())?;
+        let code = std::fs::read_to_string(addon.dir.join(&m.entry)).ok()?;
+        Some(Self {
+            addon_id: m.id.clone(),
+            code: code.into(),
+            hosts: m.hosts.clone(),
+            http,
+            system: m.system.is_some().then(|| System {
+                shell,
+                addon: addon.clone(),
+            }),
+        })
+    }
+
+    /// Calls `function` with `input`; see [`call`].
+    pub fn call(
+        &self,
+        settings: &Credentials,
+        function: &str,
+        input: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        call(
+            &self.addon_id,
+            &self.code,
+            &self.hosts,
+            settings,
+            self.http.clone(),
+            self.system.clone(),
+            function,
+            input,
+        )
+    }
+
+    pub fn hosts(&self) -> &[String] {
+        &self.hosts
+    }
 }
 
 /// A request from the script: `{ method, url, headers, body }` → `{ status, body }`, or
@@ -207,48 +306,42 @@ fn request(http: &dyn Http, hosts: &[String], text: &str, deadline: Instant) -> 
 /// are its credentials.
 pub struct ScraperAddon {
     id: String,
-    addon_id: String,
     name: String,
     about: String,
-    code: String,
-    hosts: Vec<String>,
+    script: Script,
     needs: Vec<Credential>,
     gives: Vec<MediaKind>,
     metadata: bool,
-    http: Arc<dyn Http>,
+}
+
+/// An add-on's settings, as the scraper's credentials take them.
+pub fn credentials_of(m: &Manifest) -> Vec<Credential> {
+    m.settings
+        .iter()
+        .map(|s| Credential {
+            key: s.key.clone().into(),
+            label: s.label.clone().into(),
+            secret: s.secret,
+            required: s.required,
+        })
+        .collect()
 }
 
 impl ScraperAddon {
     /// `None` for an add-on that cannot run or is not a scraper.
-    pub fn new(addon: &Addon, http: Arc<dyn Http>) -> Option<Self> {
+    pub fn new(addon: &Addon, script: Script) -> Option<Self> {
         let m: &Manifest = addon.manifest.as_ref().filter(|_| addon.usable())?;
-        let scraper = m
-            .scraper
-            .as_ref()
-            .filter(|_| m.provides.iter().any(|p| p == "scraper"))?;
-        let code = std::fs::read_to_string(addon.dir.join(&m.entry)).ok()?;
+        let scraper = m.scraper.as_ref().filter(|_| m.provides("scraper"))?;
         Some(Self {
             id: format!("addon:{}", m.id),
-            addon_id: m.id.clone(),
             name: m.name.clone(),
             about: m.description.clone().unwrap_or_else(|| {
                 format!("An add-on by {}", m.author.as_deref().unwrap_or("someone"))
             }),
-            code,
-            hosts: m.hosts.clone(),
-            needs: m
-                .settings
-                .iter()
-                .map(|s| Credential {
-                    key: s.key.clone().into(),
-                    label: s.label.clone().into(),
-                    secret: s.secret,
-                    required: s.required,
-                })
-                .collect(),
+            script,
+            needs: credentials_of(m),
             gives: scraper.gives.clone(),
             metadata: scraper.metadata,
-            http,
         })
     }
 }
@@ -290,17 +383,11 @@ impl Source for ScraperAddon {
             "wanted": query.wanted,
             "wantsMetadata": query.wants_metadata,
         });
-        let out = call(
-            &self.addon_id,
-            &self.code,
-            &self.hosts,
-            credentials,
-            self.http.clone(),
-            "lookup",
-            &input,
-        )
-        .map_err(LookupError::Failed)?;
-        Ok(found(&out, &self.hosts))
+        let out = self
+            .script
+            .call(credentials, "lookup", &input)
+            .map_err(LookupError::Failed)?;
+        Ok(found(&out, self.script.hosts()))
     }
 }
 
@@ -341,4 +428,30 @@ pub fn found(v: &serde_json::Value, hosts: &[String]) -> Option<Found> {
         })
         .collect();
     Some(Found { metadata, media })
+}
+
+/// A `music` add-on's web radios: `stations()` returns `[{ name, url }]`. Only `http(s)://`
+/// streams are kept, 500 at most.
+pub fn stations(
+    script: &Script,
+    settings: &Credentials,
+) -> Result<Vec<crate::music::Radio>, String> {
+    let out = script.call(settings, "stations", &json!({}))?;
+    Ok(out
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|s| {
+            let url = s["url"].as_str()?.trim();
+            let name = s["name"].as_str().map_or(url, str::trim);
+            (url.starts_with("https://") || url.starts_with("http://")).then(|| {
+                crate::music::Radio {
+                    name: name.to_owned(),
+                    url: url.to_owned(),
+                }
+            })
+        })
+        .take(500)
+        .collect())
 }

@@ -20,7 +20,10 @@ export interface AddonInfo {
   version: string | null;
   author: string | null;
   description: string | null;
-  /** What it adds to Forma: `scraper` for now. */
+  /**
+   * What it adds to Forma: `scraper` (a source beside the built-in ones), `music` (web radios
+   * in Music), `menu` (pages in Forma's menu, see `menu`).
+   */
   provides: string[];
   permissions: string[];
   /** What each of `permissions` lets it do, in words. */
@@ -30,10 +33,50 @@ export interface AddonInfo {
   enabled: boolean;
   /** Why it cannot run, if it cannot. */
   problem: string | null;
-  /** Its id among the scraper's sources, for a scraper add-on: its settings are set there. */
+  /** Its id among the scraper's sources, for a scraper add-on. */
   scraperSource: string | null;
+  /** What the user enters for it (`addons.setSetting`); secret values are never sent back. */
+  settings: ScraperCredential[];
+  /** Its tile in Forma's menu, for a `menu` add-on: its pages come from `addons.page`. */
+  menu: { label: string; description: string | null } | null;
+  /** It has a system part: scripts run with full control of the machine. */
+  system: boolean;
+  /** Installed from Forma's own catalogue, so a system part may run. */
+  verified: boolean;
   /** A newer version in the catalogue this Forma can run. */
   update: string | null;
+}
+
+/**
+ * A row of an add-on's page, drawn by Forma in its own menu. A (or Enter) does what the row
+ * says: `open` a sub-page, or `action` (after asking for text, with `ask`); left and right send
+ * `adjust` with `-1` or `1`; Y sends `alt.action`.
+ */
+export interface AddonRow {
+  label: string;
+  detail: string | null;
+  heading: string | null;
+  action: string | null;
+  adjust: string | null;
+  open: string[] | null;
+  ask: { title: string; secret: boolean; value: string | null } | null;
+  alt: { label: string; action: string } | null;
+}
+
+/** One of an add-on's pages: `path` is `[]` for its first, then what its rows `open`. */
+export interface AddonPage {
+  title: string | null;
+  rows: AddonRow[];
+}
+
+/** What an add-on's action asked Forma to do next. */
+export interface AddonActionResult {
+  /** A message for the user. */
+  notify: string | null;
+  /** A page to open. */
+  open: string[] | null;
+  /** Go back a page. */
+  back: boolean;
 }
 
 /** An add-on in the catalogue. */
@@ -862,7 +905,10 @@ export interface BluetoothPairing {
 /** Something the music player can play. Its `id` is stable: a theme can remember it. */
 export interface MusicSource {
   id: string;
-  /** A folder of the music folder (sub-folders included), a playlist file, or a web radio. */
+  /**
+   * A folder of the music folder (sub-folders included), a playlist file, or a web radio (the
+   * user's, `radio:<url>`, or a `music` add-on's, `addon:<id>:<url>`).
+   */
   kind: 'folder' | 'playlist' | 'radio';
   name: string;
   /** 0 for a radio. */
