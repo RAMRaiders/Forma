@@ -13,13 +13,12 @@
 //!   original", so it is not decoded again.
 //! - The cache is bounded and safe to delete at any time.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::mpsc::{self, Sender};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
@@ -194,63 +193,136 @@ impl Thumbs {
 }
 
 /// [`Thumbs`] with a background worker: asks are answered at once, from the cache or with
-/// "not yet", and missing thumbnails are made one at a time.
+/// "not yet", and missing thumbnails are made one at a time: those a screen asks for now first,
+/// then those [`Thumbnailer::prepare`] asks for ahead of time, the latest first.
 pub struct Thumbnailer {
     thumbs: Arc<Thumbs>,
-    tx: Mutex<Sender<(PathBuf, u32)>>,
-    queued: Arc<Mutex<HashSet<(PathBuf, u32)>>>,
+    work: Arc<Work>,
 }
+
+type Job = (PathBuf, u32);
+
+#[derive(Default)]
+struct Queue {
+    /// Asked for by a screen showing it: next.
+    now: VecDeque<Job>,
+    /// Asked for ahead of time, the latest asked at the front: after those.
+    ahead: VecDeque<Job>,
+    queued: HashSet<Job>,
+    closed: bool,
+}
+
+#[derive(Default)]
+struct Work {
+    queue: Mutex<Queue>,
+    ready: Condvar,
+}
+
+impl Work {
+    fn lock(&self) -> std::sync::MutexGuard<'_, Queue> {
+        self.queue.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Queues `job`; `now` moves one already waiting ahead of time to the front.
+    fn push(&self, job: Job, now: bool) {
+        let mut q = self.lock();
+        if !q.queued.insert(job.clone()) {
+            if now && let Some(at) = q.ahead.iter().position(|j| *j == job) {
+                q.ahead.remove(at);
+                q.now.push_back(job);
+            } else if !now && let Some(at) = q.ahead.iter().position(|j| *j == job) {
+                // Asked ahead again: the most recent asks are the nearest to the screen.
+                q.ahead.remove(at);
+                q.ahead.push_front(job);
+            }
+            return;
+        }
+        if now {
+            q.now.push_back(job);
+        } else {
+            q.ahead.push_front(job);
+            // Only so much ahead: the oldest asks are the furthest from the screen by now.
+            while q.ahead.len() > MAX_AHEAD {
+                if let Some(old) = q.ahead.pop_back() {
+                    q.queued.remove(&old);
+                }
+            }
+        }
+        drop(q);
+        self.ready.notify_one();
+    }
+
+    /// The next job, waiting for one; `None` once closed.
+    fn next(&self) -> Option<Job> {
+        let mut q = self.lock();
+        loop {
+            if q.closed {
+                return None;
+            }
+            if let Some(job) = q.now.pop_front().or_else(|| q.ahead.pop_front()) {
+                return Some(job);
+            }
+            q = self.ready.wait(q).unwrap_or_else(PoisonError::into_inner);
+        }
+    }
+
+    fn done(&self, job: &Job) {
+        self.lock().queued.remove(job);
+    }
+}
+
+/// At most this many thumbnails wait to be made ahead of time.
+const MAX_AHEAD: usize = 256;
 
 impl Thumbnailer {
     /// One worker: on a Pi, decoding in parallel with scrolling costs more than it saves. It
     /// stops when the thumbnailer is dropped.
     pub fn spawn(thumbs: Thumbs) -> Self {
         let thumbs = Arc::new(thumbs);
-        let queued: Arc<Mutex<HashSet<(PathBuf, u32)>>> = Arc::default();
-        let (tx, rx) = mpsc::channel::<(PathBuf, u32)>();
-        let (worker_thumbs, worker_queued) = (thumbs.clone(), queued.clone());
+        let work = Arc::new(Work::default());
+        let (worker_thumbs, worker_work) = (thumbs.clone(), work.clone());
         let _ = std::thread::Builder::new()
             .name("forma-thumbs".into())
             .spawn(move || {
-                for job in rx {
+                while let Some(job) = worker_work.next() {
                     let _ = worker_thumbs.generate(&job.0, job.1);
-                    worker_queued
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .remove(&job);
+                    worker_work.done(&job);
                 }
             });
-        Self {
-            thumbs,
-            tx: Mutex::new(tx),
-            queued,
-        }
+        Self { thumbs, work }
     }
 
     /// The file to serve for `source` at `width`: the thumbnail when it is ready, else the
-    /// original, with the thumbnail queued for next time.
+    /// original, with the thumbnail made next.
     pub fn file_for(&self, source: &Path, width: u32) -> PathBuf {
         let width = bucket(width);
         match self.thumbs.cached(source, width) {
             Some(Cached::Thumbnail(file)) => file,
             Some(Cached::UseOriginal) => source.to_path_buf(),
             None => {
-                let job = (source.to_path_buf(), width);
-                let fresh = self
-                    .queued
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .insert(job.clone());
-                if fresh {
-                    let _ = self
-                        .tx
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .send(job);
-                }
+                self.work.push((source.to_path_buf(), width), true);
                 source.to_path_buf()
             }
         }
+    }
+
+    /// Makes the thumbnail of `source` at `width` ahead of time, when nothing shown waits: a
+    /// theme asks for the games next to the one on screen, so they show at once when reached.
+    /// `true` if it is ready already.
+    pub fn prepare(&self, source: &Path, width: u32) -> bool {
+        let width = bucket(width);
+        if self.thumbs.cached(source, width).is_some() {
+            return true;
+        }
+        self.work.push((source.to_path_buf(), width), false);
+        false
+    }
+}
+
+impl Drop for Thumbnailer {
+    fn drop(&mut self) {
+        self.work.lock().closed = true;
+        self.work.ready.notify_all();
     }
 }
 
@@ -380,5 +452,55 @@ mod tests {
             assert!(Instant::now() < deadline, "the worker never made it");
             std::thread::sleep(Duration::from_millis(20));
         }
+    }
+
+    #[test]
+    fn what_a_screen_asks_for_comes_before_what_is_prepared_ahead() {
+        let work = Work::default();
+        let job = |n: &str| (PathBuf::from(n), 320);
+        work.push(job("far"), false);
+        work.push(job("near"), false);
+        work.push(job("shown"), true);
+        // Asked ahead, then shown: it moves up.
+        work.push(job("far"), true);
+        work.push(job("near"), false);
+        let order: Vec<_> = std::iter::from_fn(|| {
+            let q = work.lock();
+            let empty = q.now.is_empty() && q.ahead.is_empty();
+            drop(q);
+            (!empty).then(|| work.next().unwrap().0)
+        })
+        .collect();
+        assert_eq!(order, [job("shown").0, job("far").0, job("near").0]);
+    }
+
+    #[test]
+    fn only_so_much_waits_ahead_the_oldest_asks_dropped() {
+        let work = Work::default();
+        for i in 0..MAX_AHEAD + 10 {
+            work.push((PathBuf::from(i.to_string()), 320), false);
+        }
+        let q = work.lock();
+        assert_eq!(q.ahead.len(), MAX_AHEAD);
+        assert_eq!(q.queued.len(), MAX_AHEAD);
+        assert_eq!(
+            q.ahead.front().unwrap().0,
+            PathBuf::from((MAX_AHEAD + 9).to_string())
+        );
+    }
+
+    #[test]
+    fn prepared_ahead_it_is_served_small_from_the_first_ask() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = opaque(dir.path(), "fanart.png", 1600, 900);
+        let thumbnailer =
+            Thumbnailer::spawn(Thumbs::new(dir.path().join("cache"), DEFAULT_MAX_BYTES));
+        assert!(!thumbnailer.prepare(&source, 1000));
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !thumbnailer.prepare(&source, 1000) {
+            assert!(Instant::now() < deadline, "the worker never made it");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(dims(&thumbnailer.file_for(&source, 1000)), (1280, 720));
     }
 }

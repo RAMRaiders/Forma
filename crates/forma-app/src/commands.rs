@@ -12,7 +12,7 @@ use forma_core::net::{Fetched, achievements, netplay};
 use forma_core::network::{EthernetConfig, Joined, NetworkStatus, WifiNetwork};
 use forma_core::themes::{Theme, ThemeOrigin};
 use forma_core::{Game, SDK_API_VERSION, SystemSummary};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
@@ -82,6 +82,45 @@ pub fn library_systems(state: State<'_, AppState>) -> ApiResult<Vec<SystemSummar
 #[tauri::command]
 pub fn library_game(state: State<'_, AppState>, id: i64) -> ApiResult<Option<Game>> {
     Ok(state.library().game(id)?.map(expose))
+}
+
+/// A picture a theme will soon show: a game's media `kind` at about `width` px.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaAhead {
+    game_id: i64,
+    kind: String,
+    width: u32,
+}
+
+/// At most this many pictures in one ask.
+const MAX_PREPARE: usize = 64;
+
+/// Makes resized pictures ahead of time, the nearest (first) first, when nothing on screen
+/// waits: the games next to the one shown, so they show at once when reached.
+#[tauri::command]
+pub async fn library_prepare_media<R: Runtime>(
+    app: AppHandle<R>,
+    items: Vec<MediaAhead>,
+) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        // The latest asked is made first: ask in reverse, the nearest last.
+        for item in items.iter().take(MAX_PREPARE).rev() {
+            if matches!(item.kind.as_str(), "video" | "manual") || item.width == 0 {
+                continue;
+            }
+            let Some(game) = state.library().game(item.game_id)? else {
+                continue;
+            };
+            if let Some(source) = game.media.get(&item.kind) {
+                state
+                    .thumbnails
+                    .prepare(std::path::Path::new(source), item.width.min(4096));
+            }
+        }
+        Ok(())
+    })
+    .await
 }
 
 #[tauri::command]

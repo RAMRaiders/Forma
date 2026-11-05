@@ -1505,6 +1505,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
       return null;
     },
     // The mock has no music to lower: only the answer.
+    // The mock serves pictures as they are: nothing to make ahead.
+    library_prepare_media: () => null,
     video_playing: () => ({ sound: settings.get('video.sound') !== false }),
     system_quit: () => power(),
     system_power: () => power(),

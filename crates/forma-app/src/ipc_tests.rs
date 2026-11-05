@@ -283,6 +283,24 @@ fn browses_a_view_and_hands_out_media_as_urls_not_paths() {
 }
 
 #[test]
+fn prepares_pictures_ahead_and_ignores_what_it_cannot() {
+    let h = Harness::new(&[]);
+    let hits = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap();
+    let id = hits[0]["id"].clone();
+    h.call(
+        "library_prepare_media",
+        json!({ "items": [
+            { "gameId": id, "kind": "image", "width": 320 },
+            { "gameId": id, "kind": "video", "width": 320 },
+            { "gameId": 999_999, "kind": "image", "width": 320 }
+        ] }),
+    )
+    .unwrap();
+}
+
+#[test]
 fn search_and_favourites() {
     let h = Harness::new(&[]);
     let hits = h

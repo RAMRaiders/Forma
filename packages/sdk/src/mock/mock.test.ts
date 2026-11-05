@@ -370,6 +370,13 @@ describe('mock backend', () => {
     ).rejects.toMatchObject({ code: 'permissionDenied' });
   });
 
+  it('prepares media ahead, which the mock has nothing to do for', async () => {
+    const b = mockBackend();
+    expect(
+      await b.invoke('library_prepare_media', { items: [{ gameId: 1, kind: 'image', width: 320 }] })
+    ).toBeNull();
+  });
+
   it('video: heard unless the user turned video sound off', async () => {
     const b = mockBackend({ permissions: ['settings.system'] });
     expect(await b.invoke('video_playing', { playing: true })).toEqual({ sound: true });

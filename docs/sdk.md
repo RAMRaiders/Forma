@@ -193,6 +193,17 @@ connman's own check). `network` is `null` off a Batocera box. No permission: it 
 and no network name. Forma's shell draws it; a theme restyles it or draws its own (see
 [theme authoring](theme-authoring.md)).
 
+### Pictures ahead of time
+
+```ts
+forma.library.prepareMedia(neighbours.map((g) => ({ gameId: g.id, kind: "fanart", width: 1280 })));
+```
+
+Forma resizes a picture the first time a theme asks for it, and serves the full-size original
+meanwhile: slow on a Raspberry Pi. `prepareMedia` has it made ahead, nearest (first) first,
+after whatever a screen is waiting for, so the games next to the one shown appear at once when
+reached. Ask with the widths `mediaUrl` will use. Nothing is downloaded, and videos are ignored.
+
 ## `video`
 
 ```ts

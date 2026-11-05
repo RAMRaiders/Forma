@@ -162,7 +162,16 @@ export class Forma {
        * lighter than full-size art on a Raspberry Pi.
        */
       mediaUrl: (gameId: number, kind: MediaKind = 'image', width?: number) =>
-        backend.mediaUrl(gameId, kind, width)
+        backend.mediaUrl(gameId, kind, width),
+      /**
+       * Has Forma make resized pictures ahead of time, the nearest (first) first, while
+       * nothing on screen waits: the games next to the one shown, at the sizes `mediaUrl` will
+       * ask, so they show at once when reached. Nothing is downloaded; videos are ignored.
+       */
+      prepareMedia: (items: { gameId: number; kind: MediaKind; width: number }[]) =>
+        invoke<void>('library_prepare_media', {
+          items: items.map((i) => ({ ...i, width: Math.round(i.width) }))
+        })
     };
 
     this.nav = {
