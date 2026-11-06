@@ -930,7 +930,19 @@ export interface MusicSource {
 }
 
 /**
- * A game's video, played by Forma (`forma.video.play`): full screen, under the theme's page.
+ * Where on the screen a game's video shows (`forma.video.play(id, { area })`): fractions of the
+ * screen, 0–1, from its top left. Leave the page see-through there.
+ */
+export interface VideoArea {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * A game's video, played by Forma (`forma.video.play`): full screen or in an area, under the
+ * theme's page.
  * The user turns its sound on or off in Start → Audio → Video sound (Forma's setting
  * `video.sound`; a change comes as `settings:changed`).
  */

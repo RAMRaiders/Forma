@@ -28,6 +28,34 @@ struct State {
     sound: bool,
 }
 
+/// Where on the screen a video shows, as fractions of it (0–1) from its top left. The picture
+/// fills it, cut to its shape.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+pub struct Area {
+    pub left: f64,
+    pub top: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl Area {
+    /// mpv's margins round it: left, right, top, bottom; all in 0–1, never crossing.
+    fn margins(self) -> [f64; 4] {
+        let c = |v: f64| {
+            if v.is_finite() {
+                v.clamp(0.0, 1.0)
+            } else {
+                0.0
+            }
+        };
+        let left = c(self.left);
+        let top = c(self.top);
+        let right = c(1.0 - left - c(self.width));
+        let bottom = c(1.0 - top - c(self.height));
+        [left, right, top, bottom]
+    }
+}
+
 pub struct VideoPlayer {
     backend: Box<dyn Backend>,
     state: Mutex<State>,
@@ -45,9 +73,10 @@ impl VideoPlayer {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Plays `file` on a loop, heard or muted, and returns once its first picture is up: `true`.
-    /// `false` if it could not, or another play or a stop came meanwhile.
-    pub fn play(&self, file: &Path, sound: bool) -> Result<bool> {
+    /// Plays `file` on a loop, heard or muted, full screen or in `area`, and returns once its
+    /// first picture is up: `true`. `false` if it could not, or another play or a stop came
+    /// meanwhile.
+    pub fn play(&self, file: &Path, sound: bool, area: Option<Area>) -> Result<bool> {
         let generation = {
             let mut state = self.state();
             state.generation += 1;
@@ -56,6 +85,19 @@ impl VideoPlayer {
             state.generation
         };
         self.backend.send(json!(["set_property", "mute", !sound]))?;
+        let [left, right, top, bottom] = area.map_or([0.0; 4], Area::margins);
+        for (side, value) in [
+            ("left", left),
+            ("right", right),
+            ("top", top),
+            ("bottom", bottom),
+        ] {
+            self.backend.send(json!([
+                "set_property",
+                format!("video-margin-ratio-{side}"),
+                value
+            ]))?;
+        }
         self.backend.send(json!(["loadfile", file, "replace"]))?;
         self.backend.send(json!(["set_property", "pause", false]))?;
         let deadline = Instant::now() + FIRST_PICTURE;
@@ -181,7 +223,7 @@ mod tests {
     #[test]
     fn plays_heard_or_muted_once_its_picture_is_up_and_stops() {
         let (fake, player) = player(false);
-        assert!(player.play(Path::new("/roms/a.mp4"), false).unwrap());
+        assert!(player.play(Path::new("/roms/a.mp4"), false, None).unwrap());
         assert!(player.playing());
         assert_eq!(fake.props.lock().unwrap()["mute"], json!(true));
         player.set_sound(true);
@@ -192,9 +234,53 @@ mod tests {
     }
 
     #[test]
+    fn plays_in_an_area_of_the_screen_then_full_screen_again() {
+        let (fake, player) = player(false);
+        let area = Area {
+            left: 0.1,
+            top: 0.2,
+            width: 0.5,
+            height: 0.4,
+        };
+        assert!(
+            player
+                .play(Path::new("/roms/a.mp4"), false, Some(area))
+                .unwrap()
+        );
+        {
+            let props = fake.props.lock().unwrap();
+            let f = |k: &str| props[k].as_f64().unwrap();
+            assert!((f("video-margin-ratio-left") - 0.1).abs() < 1e-9);
+            assert!((f("video-margin-ratio-right") - 0.4).abs() < 1e-9);
+            assert!((f("video-margin-ratio-top") - 0.2).abs() < 1e-9);
+            assert!((f("video-margin-ratio-bottom") - 0.4).abs() < 1e-9);
+        }
+        assert!(player.play(Path::new("/roms/a.mp4"), false, None).unwrap());
+        assert_eq!(
+            fake.props.lock().unwrap()["video-margin-ratio-right"],
+            json!(0.0)
+        );
+    }
+
+    #[test]
+    fn an_area_past_the_screen_is_kept_on_it() {
+        let a = Area {
+            left: -1.0,
+            top: 0.5,
+            width: 3.0,
+            height: f64::NAN,
+        };
+        assert_eq!(a.margins(), [0.0, 0.0, 0.5, 0.5]);
+    }
+
+    #[test]
     fn a_video_that_never_shows_counts_as_not_playing() {
         let (fake, player) = player(true);
-        assert!(!player.play(Path::new("/roms/broken.mp4"), true).unwrap());
+        assert!(
+            !player
+                .play(Path::new("/roms/broken.mp4"), true, None)
+                .unwrap()
+        );
         assert!(!player.playing());
         assert_eq!(sent(fake).last().unwrap(), "stop");
     }

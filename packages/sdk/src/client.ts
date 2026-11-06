@@ -16,6 +16,7 @@ import type {
   MediaKind,
   MusicSource,
   MusicStatus,
+  VideoArea,
   VideoPlay,
   NetplayRoom,
   RoomFilter,
@@ -553,9 +554,11 @@ export class Forma {
       /**
        * Plays a game's video on a loop, replacing any other, and resolves once it shows. Then
        * leave the page see-through where it should be seen. It stops by itself when a game
-       * starts or the page reloads.
+       * starts or the page reloads. Full screen, or in `area` of the screen (fractions of it):
+       * the picture fills the area, cut to its shape.
        */
-      play: (gameId: number) => invoke<VideoPlay>('video_play', { gameId }),
+      play: (gameId: number, options?: { area?: VideoArea }) =>
+        invoke<VideoPlay>('video_play', { gameId, area: options?.area ?? null }),
       /** Stops it, as soon as it should no longer be seen or heard. */
       stop: () => invoke<void>('video_stop')
     };

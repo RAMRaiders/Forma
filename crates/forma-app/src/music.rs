@@ -346,10 +346,15 @@ pub struct VideoPlay {
     pub sound: bool,
 }
 
-/// Plays a game's video, full screen under the theme's page, and answers once it shows. With
+/// Plays a game's video under the theme's page, full screen or in `area` (fractions of the
+/// screen), and answers once it shows. With
 /// video sound on, the music goes down while it plays. A new page, or a game starting, stops it.
 #[tauri::command]
-pub async fn video_play<R: Runtime>(app: AppHandle<R>, game_id: i64) -> ApiResult<VideoPlay> {
+pub async fn video_play<R: Runtime>(
+    app: AppHandle<R>,
+    game_id: i64,
+    area: Option<forma_core::video::Area>,
+) -> ApiResult<VideoPlay> {
     let window = app.get_webview_window("main");
     off_thread(app, move |state| {
         let sound = video_sound(state);
@@ -370,7 +375,7 @@ pub async fn video_play<R: Runtime>(app: AppHandle<R>, game_id: i64) -> ApiResul
             let _ = window.set_background_color(Some(tauri::window::Color(4, 6, 12, 0)));
         }
         state.music.duck(sound);
-        let playing = state.video.play(&file, sound).unwrap_or_else(|e| {
+        let playing = state.video.play(&file, sound, area).unwrap_or_else(|e| {
             eprintln!("forma: video: {e}");
             false
         });
