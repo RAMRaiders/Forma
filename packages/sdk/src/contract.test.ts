@@ -64,6 +64,7 @@ describe('contract with the engine', () => {
       'raGameId',
       'region',
       'lang',
+      'ageRating',
       'media'
     );
     for (const game of data.games) expect(sorted(game)).toEqual(expected);

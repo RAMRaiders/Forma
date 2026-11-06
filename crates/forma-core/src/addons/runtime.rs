@@ -415,6 +415,8 @@ pub fn found(v: &serde_json::Value, hosts: &[String]) -> Option<Found> {
         players: text("players"),
         release_date: text("releaseDate").and_then(|d| crate::scraper::text_date(&d)),
         rating: m["rating"].as_f64().filter(|r| (0.0..=1.0).contains(r)),
+        // As Forma keeps them: `ESRB:M,PEGI:18`.
+        age_rating: text("ageRating"),
     };
     let media = v["media"]
         .as_array()

@@ -38,6 +38,7 @@ const TEXT_FIELDS: &[(&str, &str, Kind)] = &[
     ("players", field::PLAYERS, Kind::Text),
     ("region", field::REGION, Kind::Text),
     ("lang", field::LANG, Kind::Text),
+    ("agerating", field::AGE_RATING, Kind::Text),
     ("releasedate", field::RELEASE_DATE, Kind::Date),
     ("lastplayed", field::LAST_PLAYED, Kind::DateTime),
     ("rating", field::RATING, Kind::Rating),

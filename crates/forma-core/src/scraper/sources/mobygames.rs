@@ -104,6 +104,7 @@ pub(super) fn parse(game: &Value) -> Found {
             genre: (!genres.is_empty()).then(|| genres.join(" / ")),
             release_date: release,
             rating: json_number(game.get("moby_score")).map(|s| s / 10.0),
+            age_rating: None,
             ..Metadata::default()
         },
         media,

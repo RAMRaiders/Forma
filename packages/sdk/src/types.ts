@@ -148,6 +148,11 @@ export interface Game {
   region: string | null;
   /** Languages, as the gamelist gives them, e.g. `en,fr,de`. Since 1.22.0. */
   lang: string | null;
+  /**
+   * Age ratings, `BOARD:RATING` comma-separated, e.g. `ESRB:M,PEGI:18`. Boards: ESRB, PEGI, CERO,
+   * USK, ACB, GRAC, CLASSIND, BBFC. Since 1.24.0.
+   */
+  ageRating: string | null;
   /** Media kind → URL to load it from. */
   media: Partial<Record<MediaKind, string>>;
 }

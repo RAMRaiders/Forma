@@ -80,13 +80,15 @@ pub struct Game {
     pub region: Option<String>,
     /// Languages, as the gamelist gives them, e.g. `en,fr,de`.
     pub lang: Option<String>,
+    /// Age ratings, `BOARD:RATING` comma-separated, e.g. `ESRB:M,PEGI:18`.
+    pub age_rating: Option<String>,
     /// Media kind (`image`, `video`, `marquee`…) to absolute path.
     pub media: BTreeMap<String, String>,
 }
 
 pub(crate) const GAME_COLUMNS: &str = "g.id, g.system, g.path, g.name, g.description, g.developer, \
      g.publisher, g.genre, g.players, g.release_date, g.rating, g.favorite, g.hidden, \
-     g.play_count, g.last_played, g.ra_game_id, g.game_time, g.region, g.lang";
+     g.play_count, g.last_played, g.ra_game_id, g.game_time, g.region, g.lang, g.age_rating";
 
 /// Systems with visible games, and how many; counted from the `game_visible` index alone.
 const SYSTEMS_SQL: &str =
@@ -346,6 +348,7 @@ impl Library {
                     game_time: r.get(16)?,
                     region: r.get(17)?,
                     lang: r.get(18)?,
+                    age_rating: r.get(19)?,
                     media: BTreeMap::new(),
                 })
             })?
@@ -383,7 +386,8 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
         "UPDATE game SET name = ?2, description = ?3, developer = ?4, publisher = ?5, genre = ?6,
              players = ?7, players_max = ?8, release_date = ?9, release_year = ?10, rating = ?11,
              region = ?12, lang = ?13, hidden = ?14, favorite = ?15, play_count = ?16,
-             last_played = ?17, ra_game_id = ?18, ra_hash = ?19, game_time = ?20
+             last_played = ?17, ra_game_id = ?18, ra_hash = ?19, game_time = ?20,
+             age_rating = ?21
          WHERE id = ?1",
     )?;
     let mut clear_media = tx.prepare_cached("DELETE FROM media WHERE game_id = ?1")?;
@@ -454,6 +458,7 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
             get(field::GAME_TIME)
                 .and_then(|n| n.parse::<i64>().ok())
                 .unwrap_or(0),
+            get(field::AGE_RATING),
         ])?;
 
         clear_media.execute([id])?;

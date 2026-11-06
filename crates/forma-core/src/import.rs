@@ -76,6 +76,7 @@ const METADATA: &[(&str, &str)] = &[
     ("rating", field::RATING),
     ("region", field::REGION),
     ("lang", field::LANG),
+    ("ageRating", field::AGE_RATING),
 ];
 
 const MEDIA_KINDS: &[&str] = &["image", "thumbnail", "marquee", "video", "fanart", "manual"];

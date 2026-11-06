@@ -192,6 +192,7 @@ fn lacks_metadata(game: &Game, stem: &str) -> bool {
         || game.players.is_none()
         || game.release_date.is_none()
         || game.rating.is_none()
+        || game.age_rating.is_none()
 }
 
 /// The text tags to write: what was found, where the game has nothing (or everything, when
@@ -246,6 +247,11 @@ fn metadata_tags(
         "rating",
         found.rating.map(|r| format!("{:.2}", r.clamp(0.0, 1.0))),
         game.rating.is_some(),
+    );
+    put(
+        "agerating",
+        found.age_rating.clone(),
+        game.age_rating.is_some(),
     );
     tags
 }

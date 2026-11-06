@@ -123,6 +123,7 @@ fn game(path: &str, name: &str) -> Game {
         ra_game_id: None,
         region: None,
         lang: None,
+        age_rating: None,
         media: BTreeMap::new(),
     }
 }
@@ -451,4 +452,24 @@ fn live_keyless_sources_save_real_media() {
             e.metadata().unwrap().len()
         );
     }
+}
+
+#[test]
+fn age_ratings_are_kept_short_known_and_in_order() {
+    use super::text::age_ratings;
+    assert_eq!(
+        age_ratings([
+            ("pegi", "18"),
+            ("ESRB", "M - Mature 17+"),
+            ("SS", "16"),
+            ("ESRB", "T")
+        ]),
+        Some("ESRB:M,PEGI:18".into())
+    );
+    assert_eq!(age_ratings([("ESRB", "RP - Rating Pending")]), None);
+    assert_eq!(
+        age_ratings([("CLASS_IND", "L"), ("USK", "USK 12")]),
+        Some("USK:12,CLASSIND:L".into())
+    );
+    assert_eq!(age_ratings([]), None);
 }

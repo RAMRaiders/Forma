@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
-use super::super::text::{best_match, date_from_unix, encode, json_number, json_text};
+use super::super::text::{age_ratings, best_match, date_from_unix, encode, json_number, json_text};
 use super::super::{
     Credential, Credentials, Found, LookupError, MediaKind, Metadata, Query, Source,
 };
@@ -103,7 +103,8 @@ impl Source for Igdb {
             "search \"{name}\"; fields name,summary,first_release_date,genres.name,\
              involved_companies.company.name,involved_companies.developer,\
              involved_companies.publisher,total_rating,cover.image_id,screenshots.image_id,\
-             artworks.image_id,game_modes.name,multiplayer_modes.offlinemax; limit 10;"
+             artworks.image_id,game_modes.name,multiplayer_modes.offlinemax,\
+             age_ratings.organization.name,age_ratings.rating_category.rating; limit 10;"
         );
         if let Some(platform) = platforms::ids(query.platforms).igdb {
             body.push_str(&format!(" where platforms = ({platform});"));
@@ -195,7 +196,33 @@ pub(super) fn parse(game: &Value) -> Found {
             players,
             release_date: game["first_release_date"].as_i64().map(date_from_unix),
             rating: json_number(game.get("total_rating")).map(|r| r / 100.0),
+            age_rating: age_ratings(
+                game["age_ratings"]
+                    .as_array()
+                    .map(Vec::as_slice)
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(|r| {
+                        let board = r["organization"]["name"].as_str()?;
+                        Some((board, igdb_rating(r["rating_category"]["rating"].as_str()?)))
+                    }),
+            ),
         },
         media,
+    }
+}
+
+/// IGDB's rating names as boards print them: `Eighteen` is `18`, `E10` is `E10+`, `CERO_A`
+/// is `A`, `USK_12` is `12`.
+fn igdb_rating(rating: &str) -> &str {
+    let rating = rating.rsplit('_').next().unwrap_or(rating);
+    match rating {
+        "Three" => "3",
+        "Seven" => "7",
+        "Twelve" => "12",
+        "Sixteen" => "16",
+        "Eighteen" => "18",
+        "E10" => "E10+",
+        other => other,
     }
 }

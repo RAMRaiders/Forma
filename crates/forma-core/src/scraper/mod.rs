@@ -179,6 +179,8 @@ pub struct Metadata {
     pub release_date: Option<String>,
     /// From 0 to 1.
     pub rating: Option<f64>,
+    /// `BOARD:RATING` comma-separated, e.g. `ESRB:M,PEGI:18`.
+    pub age_rating: Option<String>,
 }
 
 impl Metadata {
@@ -197,6 +199,7 @@ impl Metadata {
         take(&mut self.players, other.players);
         take(&mut self.release_date, other.release_date);
         take(&mut self.rating, other.rating);
+        take(&mut self.age_rating, other.age_rating);
     }
 
     pub(crate) fn is_complete(&self) -> bool {
@@ -208,6 +211,7 @@ impl Metadata {
             && self.players.is_some()
             && self.release_date.is_some()
             && self.rating.is_some()
+            && self.age_rating.is_some()
     }
 }
 

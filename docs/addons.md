@@ -83,12 +83,13 @@ It returns `null` when it does not know the game, or:
 
 ```ts
 {
-  metadata?: { name?, description?, developer?, publisher?, genre?, players?, releaseDate?, rating? };
+  metadata?: { name?, description?, developer?, publisher?, genre?, players?, releaseDate?, rating?, ageRating? };
   media?: { kind: MediaKind; url: string }[];  // best first; several per kind are tried in order
 }
 ```
 
-`releaseDate` is `YYYY`, `YYYY-MM` or `YYYY-MM-DD`; `rating` from 0 to 1. Forma downloads the
+`releaseDate` is `YYYY`, `YYYY-MM` or `YYYY-MM-DD`; `rating` from 0 to 1; `ageRating` as
+`BOARD:RATING` comma-separated (`ESRB:M,PEGI:18`). Forma downloads the
 media itself and checks each is what it claims; URLs not on the add-on's `hosts` are dropped.
 Its settings are entered in Forma's menu, on its page or as its source in the scraper.
 

@@ -103,6 +103,7 @@ pub(super) fn parse(game: &Value) -> Found {
             players: json_text(game.get("players")),
             release_date: json_text(game.get("year")).and_then(|y| date(&y)),
             rating: None,
+            age_rating: None,
         },
         media,
     }

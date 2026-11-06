@@ -259,9 +259,12 @@ fn a_library_from_before_the_new_tags_reads_its_gamelists_again_once() {
         let report = lib.refresh(&fixture_paths()).unwrap();
         assert_eq!(report.gamelists_imported, 3);
     }
-    // As a database from before migration 6 was left.
+    // As a database from before the last migration was left (it adds a column, so it is
+    // taken away too, as it was).
     let conn = Connection::open(&path).unwrap();
-    conn.pragma_update(None, "user_version", 5).unwrap();
+    conn.execute_batch("ALTER TABLE game DROP COLUMN age_rating")
+        .unwrap();
+    conn.pragma_update(None, "user_version", 8).unwrap();
     drop(conn);
 
     let mut lib = Library::open(&path).unwrap();
@@ -426,7 +429,7 @@ fn an_import_outranks_the_gamelist_and_the_user_outranks_both() {
         "a.jsonl",
         &format!(
             "{HEADER}\n{}",
-            r#"{"system":"nes","path":"./Super Mario Bros. (World).nes","metadata":{"name":"SMB (imported)","genre":"Action"}}"#
+            r#"{"system":"nes","path":"./Super Mario Bros. (World).nes","metadata":{"name":"SMB (imported)","genre":"Action","ageRating":"ESRB:E"}}"#
         ),
     );
     let report = lib.refresh(&paths).unwrap();
@@ -441,6 +444,7 @@ fn an_import_outranks_the_gamelist_and_the_user_outranks_both() {
     );
     assert_eq!(game.region.as_deref(), Some("wor"));
     assert_eq!(game.lang.as_deref(), Some("en"));
+    assert_eq!(game.age_rating.as_deref(), Some("ESRB:E"));
     assert!(
         !game.favorite,
         "the user's choice still wins over the gamelist's favorite"

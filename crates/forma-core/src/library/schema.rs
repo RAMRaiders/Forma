@@ -5,9 +5,16 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 8;
+pub(crate) const SCHEMA_VERSION: i64 = 9;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9];
+
+/// A game's age ratings (`agerating`, Forma's own tag): a column for themes, and every gamelist
+/// read again, once, for the tag.
+const V9: &str = r"
+ALTER TABLE game ADD COLUMN age_rating TEXT;
+DELETE FROM import_file WHERE path LIKE '%gamelist.xml';
+";
 
 /// The gamelist importer learned `boxfull`, `banner`, `flyer` and `cabinet`: read every
 /// gamelist again, once.

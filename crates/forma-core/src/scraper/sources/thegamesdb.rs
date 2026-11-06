@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use serde_json::Value;
 
-use super::super::text::{best_match, date, encode, json_text};
+use super::super::text::{age_ratings, best_match, date, encode, json_text};
 use super::super::{
     Credential, Credentials, Found, LookupError, MediaKind, Metadata, Query, Source,
 };
@@ -143,6 +143,10 @@ impl Source for TheGamesDb {
                 players: json_text(game.get("players")),
                 release_date: json_text(game.get("release_date")).and_then(|d| date(&d)),
                 rating: None,
+                // TheGamesDB's `rating` is the ESRB's, as `M - Mature 17+`.
+                age_rating: game["rating"]
+                    .as_str()
+                    .and_then(|r| age_ratings([("ESRB", r)])),
             };
         }
         if GIVES.iter().any(|k| query.wanted.contains(k)) {

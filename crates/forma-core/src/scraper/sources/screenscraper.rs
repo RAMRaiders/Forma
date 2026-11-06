@@ -4,7 +4,7 @@
 
 use serde_json::Value;
 
-use super::super::text::{date, json_number, json_text};
+use super::super::text::{age_ratings, date, json_number, json_text};
 use super::super::{
     Credential, Credentials, Found, LookupError, MediaKind, Metadata, Query, Source,
 };
@@ -172,6 +172,14 @@ pub(super) fn parse(game: &Value) -> Option<Found> {
         players: json_text(game["joueurs"].get("text")),
         release_date: by_region(&game["dates"], "region", &REGIONS).and_then(|d| date(&d)),
         rating: json_number(game["note"].get("text")).map(|n| n / 20.0),
+        age_rating: age_ratings(
+            game["classifications"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|c| Some((c["type"].as_str()?, c["text"].as_str()?))),
+        ),
     };
     let medias = game["medias"]
         .as_array()

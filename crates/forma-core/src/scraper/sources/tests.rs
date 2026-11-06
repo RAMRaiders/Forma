@@ -100,6 +100,8 @@ fn screenscraper_matches_by_hash_and_picks_regions() {
             "editeur": {"id": "2", "text": "Nintendo"},
             "joueurs": {"text": "1"},
             "note": {"text": "18"},
+            "classifications": [{"type": "SS", "text": "12"}, {"type": "PEGI", "text": "7"},
+                                {"type": "ESRB", "text": "E"}],
             "dates": [{"region": "jp", "text": "1994-03-19"}, {"region": "us", "text": "1994-04-18"}],
             "genres": [{"principale": "0", "noms": [{"langue": "en", "text": "Platform"}]},
                        {"principale": "1", "noms": [{"langue": "en", "text": "Action"}]}],
@@ -149,6 +151,8 @@ fn screenscraper_matches_by_hash_and_picks_regions() {
     assert_eq!(m.genre.as_deref(), Some("Action"));
     assert_eq!(m.release_date.as_deref(), Some("1994-04-18"));
     assert_eq!(m.rating, Some(0.9));
+    // Known boards only, ESRB first.
+    assert_eq!(m.age_rating.as_deref(), Some("ESRB:E,PEGI:7"));
     let urls = |k| {
         found
             .media
@@ -204,7 +208,7 @@ fn thegamesdb_searches_by_platform_and_names_ids() {
             Ok(json!({"data": {"games": [
                 {"id": 9, "game_title": "Super Metroid: Redesign"},
                 {"id": 7, "game_title": "Super Metroid", "release_date": "1994-03-19", "players": 1,
-                 "overview": "Samus", "developers": [3], "publishers": [4], "genres": [1, 15]}
+                 "overview": "Samus", "rating": "E - Everyone", "developers": [3], "publishers": [4], "genres": [1, 15]}
             ]}})),
         ),
         (
@@ -253,6 +257,7 @@ fn thegamesdb_searches_by_platform_and_names_ids() {
     assert_eq!(m.genre.as_deref(), Some("Action / Platform"));
     assert_eq!(m.developer.as_deref(), Some("Nintendo R&D1"));
     assert_eq!(m.players.as_deref(), Some("1"));
+    assert_eq!(m.age_rating.as_deref(), Some("ESRB:E"));
     assert_eq!(
         found.media,
         [
@@ -307,7 +312,10 @@ fn igdb_gets_a_token_once_and_posts_a_query() {
                     {"company": {"name": "Nintendo R&D1"}, "developer": true, "publisher": false},
                     {"company": {"name": "Nintendo"}, "developer": false, "publisher": true}
                 ],
-                "total_rating": 93.5, "cover": {"image_id": "co1"},
+                "total_rating": 93.5,
+                "age_ratings": [{"organization": {"name": "PEGI"}, "rating_category": {"rating": "Twelve"}},
+                                {"organization": {"name": "CERO"}, "rating_category": {"rating": "CERO_A"}},
+                                {"organization": {"name": "ESRB"}, "rating_category": {"rating": "E10"}}], "cover": {"image_id": "co1"},
                 "screenshots": [{"image_id": "sc1"}], "artworks": [{"image_id": "ar1"}],
                 "game_modes": [{"name": "Single player"}]
             }])),
@@ -347,6 +355,7 @@ fn igdb_gets_a_token_once_and_posts_a_query() {
     assert_eq!(m.release_date.as_deref(), Some("1994-03-19"));
     assert_eq!(m.players.as_deref(), Some("1"));
     assert_eq!(m.rating, Some(0.935));
+    assert_eq!(m.age_rating.as_deref(), Some("ESRB:E10+,PEGI:12,CERO:A"));
     assert_eq!(
         found.media[0],
         (

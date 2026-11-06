@@ -142,6 +142,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -164,6 +165,7 @@
             "system": "homebrew"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -186,6 +188,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Square",
             "favorite": false,
@@ -208,6 +211,7 @@
             "system": "psx"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -230,6 +234,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -252,6 +257,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -274,6 +280,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -305,6 +312,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Nintendo R&D1",
             "favorite": false,
@@ -327,6 +335,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": "Link explores <Hyrule>.",
             "developer": "Nintendo",
             "favorite": false,
@@ -370,6 +379,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -412,6 +422,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -434,6 +445,7 @@
             "system": "homebrew"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -456,6 +468,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -478,6 +491,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -500,6 +514,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -540,6 +555,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Link explores <Hyrule>.",
             "developer": "Nintendo",
             "favorite": false,
@@ -580,6 +596,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -611,6 +628,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Nintendo R&D1",
             "favorite": false,
@@ -651,6 +669,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": "Square",
             "favorite": false,
@@ -727,6 +746,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -776,6 +796,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -798,6 +819,7 @@
             "system": "homebrew"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -820,6 +842,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -842,6 +865,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -864,6 +888,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -909,6 +934,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Link explores <Hyrule>.",
             "developer": "Nintendo",
             "favorite": false,
@@ -954,6 +980,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -985,6 +1012,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Nintendo R&D1",
             "favorite": false,
@@ -1030,6 +1058,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": "Square",
             "favorite": false,
@@ -1118,6 +1147,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1198,6 +1228,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1220,6 +1251,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -1251,6 +1283,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": "Link explores <Hyrule>.",
             "developer": "Nintendo",
             "favorite": false,
@@ -1301,6 +1334,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1323,6 +1357,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Nintendo R&D1",
             "favorite": false,
@@ -1409,6 +1444,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1431,6 +1467,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1511,6 +1548,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": "Square",
             "favorite": false,
@@ -1634,6 +1672,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -1683,6 +1722,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1728,6 +1768,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1750,6 +1791,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1795,6 +1837,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1817,6 +1860,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -1848,6 +1892,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": "Link explores <Hyrule>.",
             "developer": "Nintendo",
             "favorite": false,
@@ -1893,6 +1938,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": "Square",
             "favorite": false,
@@ -1938,6 +1984,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -1960,6 +2007,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Nintendo R&D1",
             "favorite": false,
@@ -2089,6 +2137,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2159,6 +2208,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2181,6 +2231,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -2212,6 +2263,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": "Link explores <Hyrule>.",
             "developer": "Nintendo",
             "favorite": false,
@@ -2257,6 +2309,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2279,6 +2332,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Nintendo R&D1",
             "favorite": false,
@@ -2355,6 +2409,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2377,6 +2432,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2447,6 +2503,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": "Square",
             "favorite": false,
@@ -2553,6 +2610,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -2595,6 +2653,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": "Link explores <Hyrule>.",
             "developer": "Nintendo",
             "favorite": false,
@@ -2617,6 +2676,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Nintendo R&D1",
             "favorite": false,
@@ -2639,6 +2699,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2661,6 +2722,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2683,6 +2745,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Square",
             "favorite": false,
@@ -2705,6 +2768,7 @@
             "system": "psx"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2727,6 +2791,7 @@
             "system": "homebrew"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2749,6 +2814,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2782,6 +2848,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2822,6 +2889,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2844,6 +2912,7 @@
             "system": "megadrive"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2884,6 +2953,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -2906,6 +2976,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
             "developer": "Nintendo",
             "favorite": true,
@@ -2937,6 +3008,7 @@
             "system": "nes"
           },
           {
+            "ageRating": null,
             "description": "Link explores <Hyrule>.",
             "developer": "Nintendo",
             "favorite": false,
@@ -2977,6 +3049,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": "Square",
             "favorite": false,
@@ -3017,6 +3090,7 @@
       "listing": {
         "items": [
           {
+            "ageRating": null,
             "description": null,
             "developer": null,
             "favorite": false,
@@ -3039,6 +3113,7 @@
             "system": "snes"
           },
           {
+            "ageRating": null,
             "description": null,
             "developer": "Nintendo R&D1",
             "favorite": false,
@@ -3121,6 +3196,7 @@
   "comment": "Generated by `cargo run -p forma-core --example mock_snapshot`. Do not edit.",
   "games": [
     {
+      "ageRating": null,
       "description": null,
       "developer": null,
       "favorite": false,
@@ -3143,6 +3219,7 @@
       "system": "nes"
     },
     {
+      "ageRating": null,
       "description": "Mario & Luigi save the Mushroom Kingdom. Café included.",
       "developer": "Nintendo",
       "favorite": true,
@@ -3174,6 +3251,7 @@
       "system": "nes"
     },
     {
+      "ageRating": null,
       "description": "Link explores <Hyrule>.",
       "developer": "Nintendo",
       "favorite": false,
@@ -3196,6 +3274,7 @@
       "system": "nes"
     },
     {
+      "ageRating": null,
       "description": null,
       "developer": null,
       "favorite": false,
@@ -3218,6 +3297,7 @@
       "system": "snes"
     },
     {
+      "ageRating": null,
       "description": null,
       "developer": "Nintendo R&D1",
       "favorite": false,
@@ -3240,6 +3320,7 @@
       "system": "snes"
     },
     {
+      "ageRating": null,
       "description": null,
       "developer": null,
       "favorite": false,
@@ -3262,6 +3343,7 @@
       "system": "megadrive"
     },
     {
+      "ageRating": null,
       "description": null,
       "developer": null,
       "favorite": false,
@@ -3284,6 +3366,7 @@
       "system": "megadrive"
     },
     {
+      "ageRating": null,
       "description": null,
       "developer": "Square",
       "favorite": false,
@@ -3306,6 +3389,7 @@
       "system": "psx"
     },
     {
+      "ageRating": null,
       "description": null,
       "developer": null,
       "favorite": false,

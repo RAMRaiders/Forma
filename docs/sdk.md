@@ -64,8 +64,9 @@ placeholder images for media. `forma.backendKind` says which one you got.
 | `mediaUrl(gameId, kind)`    | A URL for a game's `image`, `video`, `marquee`… (synchronous) |
 
 A `Game` carries what the gamelist and Forma know: name, description, developer, publisher,
-genre, players, release date, rating, region and languages (since 1.22.0), favourite, hidden,
-play count, last played, time played, its RetroAchievements id, and a URL per media kind it has.
+genre, players, release date, rating, region and languages (since 1.22.0), age ratings as
+`ESRB:M,PEGI:18` (`ageRating`, since 1.24.0), favourite, hidden, play count, last played, time
+played, its RetroAchievements id, and a URL per media kind it has.
 
 ```ts
 const [hit] = await forma.library.search("super mar");

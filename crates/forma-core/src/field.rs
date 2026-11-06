@@ -10,6 +10,8 @@ pub const GENRE: &str = "genre";
 pub const PLAYERS: &str = "players";
 pub const REGION: &str = "region";
 pub const LANG: &str = "lang";
+/// Age ratings, `BOARD:RATING` comma-separated, e.g. `ESRB:M,PEGI:18` (Forma's own tag).
+pub const AGE_RATING: &str = "age_rating";
 pub const RELEASE_DATE: &str = "release_date";
 pub const RATING: &str = "rating";
 pub const HIDDEN: &str = "hidden";

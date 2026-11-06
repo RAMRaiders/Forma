@@ -143,6 +143,56 @@ pub fn json_number(v: Option<&serde_json::Value>) -> Option<f64> {
     }
 }
 
+/// The boards whose ratings Forma keeps, in the order a game's are listed.
+const AGE_BOARDS: &[&str] = &[
+    "ESRB", "PEGI", "CERO", "USK", "ACB", "GRAC", "CLASSIND", "BBFC",
+];
+
+/// Age ratings as `(board, rating)` pairs, from any source, as Forma keeps them: `ESRB:M,PEGI:18`.
+/// Known boards only, each once, in [`AGE_BOARDS`] order; a rating as its short form (`M` from
+/// TheGamesDB's `M - Mature 17+`). Pending or missing ratings are left out. `None` for none.
+pub(crate) fn age_ratings<'a>(
+    pairs: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Option<String> {
+    let mut kept: Vec<(usize, String)> = Vec::new();
+    for (board, rating) in pairs {
+        let board = board
+            .trim()
+            .to_ascii_uppercase()
+            .replace([' ', '-', '_'], "");
+        let board = if board == "CLASSINDBR" {
+            "CLASSIND".to_owned()
+        } else {
+            board
+        };
+        let Some(at) = AGE_BOARDS.iter().position(|b| *b == board) else {
+            continue;
+        };
+        let short = rating
+            .split(" - ")
+            .next()
+            .unwrap_or("")
+            .trim()
+            .trim_start_matches(&format!("{board} "))
+            .to_ascii_uppercase();
+        let pending = ["", "RP", "NR", "NOT RATED", "N/A", "PENDING"];
+        if pending.contains(&short.as_str())
+            || short.len() > 6
+            || kept.iter().any(|(b, _)| *b == at)
+        {
+            continue;
+        }
+        kept.push((at, format!("{}:{short}", AGE_BOARDS[at])));
+    }
+    kept.sort_by_key(|(at, _)| *at);
+    (!kept.is_empty()).then(|| {
+        kept.into_iter()
+            .map(|(_, r)| r)
+            .collect::<Vec<_>>()
+            .join(",")
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
