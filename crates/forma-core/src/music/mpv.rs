@@ -31,6 +31,10 @@ const MUSIC_ARGS: &[&str] = &[
 /// bottom; Forma's window is see-through where the video shows). No window while nothing plays,
 /// no keys or on-screen display of its own, filling the screen as a theme's `cover` would.
 /// Batocera's mpv has no Lua, so no `--osc` option (it refuses to start on one it lacks).
+///
+/// Light on the CPU, as it decodes in software (a Pi 5 has no H.264 decoder) beside a busy page:
+/// mpv's `fast` profile (plain scaling), no deblocking and fast decoding (nothing to see at a game
+/// video's size), on two threads, so it never takes every core and heats a Pi into throttling.
 const VIDEO_ARGS: &[&str] = &[
     "--idle=yes",
     "--force-window=no",
@@ -44,6 +48,10 @@ const VIDEO_ARGS: &[&str] = &[
     "--loop-file=inf",
     "--panscan=1.0",
     "--hwdec=no",
+    "--profile=fast",
+    "--vd-lavc-skiploopfilter=all",
+    "--vd-lavc-fast",
+    "--vd-lavc-threads=2",
     "--no-terminal",
     "--really-quiet",
 ];
