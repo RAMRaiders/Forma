@@ -320,6 +320,13 @@ export interface ScraperSettings {
   metadata: boolean;
   /** Replace what games have; otherwise only fill what is missing. */
   replace: boolean;
+  /** Fetch what the theme in use asks for too, on top of `media`. Since 1.24.0. */
+  themeNeeds: boolean;
+  /**
+   * What the theme in use asks for in its `theme.json` (`scraper`), or null: media kinds, and
+   * details beyond the usual ones (`ageRating`). Since 1.24.0.
+   */
+  theme: { name: string; media: MediaKind[]; fields: string[] } | null;
 }
 
 /** What to scrape. */

@@ -32,6 +32,8 @@ is in `libretro.tsv`. MobyGames and SteamGridDB are searched by title alone.
 - Which media kinds to fetch: any of image (screenshot), thumbnail (box front), boxback,
   box 3D, marquee, wheel (logo), fan art, title screen, cartridge, map, bezel, video, manual,
   mix; and Forma's own: box spine, full box cover, banner, flyer and cabinet (arcade).
+- Whether to fetch what the theme in use asks for too (its `scraper` block in `theme.json`:
+  more media kinds, and age ratings); on by default. See theme-authoring.md.
 - Missing only (the default) or replace what is there.
 - What to scrape: the selected game, a system, or every system.
 

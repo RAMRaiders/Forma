@@ -350,6 +350,7 @@ export class Forma {
         media?: MediaKind[];
         metadata?: boolean;
         replace?: boolean;
+        themeNeeds?: boolean;
       }) => invoke<ScraperSettings>('scraper_configure', changes),
       /** Sets one of a source's credentials; `null` clears it. */
       setCredential: (source: string, key: string, value: string | null) =>

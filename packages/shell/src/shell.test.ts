@@ -350,6 +350,13 @@ describe('Forma’s shell', () => {
     await press('confirm');
     await vi.waitFor(() => expect(at('Manual')).toBe('On'));
 
+    // What the theme asks for, on top: marked on its kinds, and can be turned off.
+    expect(at('What Neon asks for')).toBe('On · Box spine, age ratings');
+    expect(at('Box spine')).toBe('On · for Neon');
+    await goTo('What Neon asks for');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Box spine')).toBe('Off'));
+
     // TheGamesDB's key, typed on the keyboard.
     await press('up');
     for (let i = 0; i < 40 && selected() !== 'TheGamesDB'; i++) await press('up');

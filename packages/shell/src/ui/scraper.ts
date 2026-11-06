@@ -151,6 +151,11 @@ export function scraperScreen(
       );
     const metadata = saving(page, () => forma.scraper.configure({ metadata: !settings.metadata }));
     const replace = saving(page, () => forma.scraper.configure({ replace: !settings.replace }));
+    const theme = settings.theme;
+    const fromTheme = new Set(theme && settings.themeNeeds ? theme.media : []);
+    const themeNeeds = saving(page, () =>
+      forma.scraper.configure({ themeNeeds: !settings.themeNeeds })
+    );
     rows.push(
       {
         heading: 'What to fetch',
@@ -165,9 +170,22 @@ export function scraperScreen(
         run: replace,
         adjust: replace
       },
+      ...(theme
+        ? [
+            {
+              label: `What ${theme.name} asks for`,
+              detail: `${onOff(settings.themeNeeds)} · ${themeAsks(theme, settings.mediaKinds)}`,
+              run: themeNeeds,
+              adjust: themeNeeds
+            }
+          ]
+        : []),
       ...settings.mediaKinds.map(({ kind, label }) => ({
         label,
-        detail: onOff(kinds.has(kind)),
+        detail:
+          !kinds.has(kind) && fromTheme.has(kind)
+            ? `On · for ${theme?.name ?? 'the theme'}`
+            : onOff(kinds.has(kind)),
         run: toggleKind(kind),
         adjust: toggleKind(kind)
       }))
@@ -180,6 +198,16 @@ export function scraperScreen(
     if (page.showing(build)) void page.refresh();
   });
   return build;
+}
+
+/** What a theme asks the scraper for, in words: `Box spine, Cartridge, age ratings`. */
+function themeAsks(
+  theme: { media: MediaKind[]; fields: string[] },
+  kinds: { kind: MediaKind; label: string }[]
+): string {
+  const words = theme.media.map((k) => kinds.find((x) => x.kind === k)?.label ?? k);
+  if (theme.fields.includes('ageRating')) words.push('age ratings');
+  return words.join(', ');
 }
 
 /** Every system with games, each scraping it. */

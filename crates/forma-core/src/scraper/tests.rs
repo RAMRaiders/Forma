@@ -140,6 +140,8 @@ fn config(ids: &[&str], media: &[MediaKind]) -> Config {
         media: media.to_vec(),
         metadata: true,
         replace: false,
+        theme_needs: true,
+        needs: super::Needs::default(),
     }
 }
 
@@ -472,4 +474,78 @@ fn age_ratings_are_kept_short_known_and_in_order() {
         Some("USK:12,CLASSIND:L".into())
     );
     assert_eq!(age_ratings([]), None);
+}
+
+#[test]
+fn a_theme_adds_what_it_needs_unless_turned_off() {
+    let asked = crate::themes::ThemeScraper {
+        media: vec![
+            "boxside".into(),
+            "thumbnail".into(),
+            "hologram".into(),
+            "boxside".into(),
+        ],
+        fields: vec!["ageRating".into(), "aura".into()],
+    };
+    let needs = super::Needs::from_theme(&asked);
+    assert_eq!(
+        needs.media,
+        [MediaKind::Boxside, MediaKind::Thumbnail],
+        "unknown ones left out"
+    );
+    assert!(needs.age_rating);
+
+    let mut cfg = config(&[], &[MediaKind::Thumbnail, MediaKind::Video]);
+    cfg.needs = needs;
+    assert_eq!(
+        cfg.all_media(),
+        [MediaKind::Thumbnail, MediaKind::Video, MediaKind::Boxside]
+    );
+    assert!(cfg.wants_age_rating());
+    cfg.theme_needs = false;
+    assert_eq!(cfg.all_media(), [MediaKind::Thumbnail, MediaKind::Video]);
+    assert!(!cfg.wants_age_rating());
+}
+
+#[test]
+fn a_missing_age_rating_is_scraped_only_for_a_theme_that_shows_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let http = Serve::new(&[]);
+    let found = Found {
+        metadata: Metadata {
+            age_rating: Some("PEGI:3".into()),
+            ..Metadata::default()
+        },
+        media: Vec::new(),
+    };
+    let sources: Vec<Box<dyn Source>> = vec![Fake::new("a", &[], Ok(Some(found)))];
+    let mut g = game("Game.sfc", "A Game");
+    g.description = Some("d".into());
+    g.developer = Some("d".into());
+    g.publisher = Some("p".into());
+    g.genre = Some("g".into());
+    g.players = Some("1".into());
+    g.release_date = Some("1994".into());
+    g.rating = Some(0.5);
+    let mut cfg = config(&["a"], &[]);
+    let run = |cfg: &Config| {
+        scrape_game(
+            &http,
+            &paths(dir.path()),
+            &sources,
+            cfg,
+            &BTreeMap::new(),
+            &g,
+            &system(dir.path()),
+            &mut HashSet::new(),
+        )
+        .unwrap()
+    };
+
+    assert!(run(&cfg).skipped, "no theme asks for it");
+    cfg.needs.age_rating = true;
+    let out = run(&cfg);
+    assert_eq!(out.sources, ["a"]);
+    let list = std::fs::read_to_string(dir.path().join("gamelist.xml")).unwrap();
+    assert!(list.contains("<agerating>PEGI:3</agerating>"), "{list}");
 }

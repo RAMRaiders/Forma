@@ -180,6 +180,21 @@ pub struct ScraperSettings {
     pub media_kinds: Vec<MediaKindInfo>,
     pub metadata: bool,
     pub replace: bool,
+    /// Whether what the theme asks for is fetched too.
+    pub theme_needs: bool,
+    /// What the theme in use asks for, if anything.
+    pub theme: Option<ThemeNeedsInfo>,
+}
+
+/// What the theme in use asks the scraper for.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemeNeedsInfo {
+    /// The theme's name.
+    pub name: String,
+    pub media: Vec<MediaKind>,
+    /// Details beyond the usual ones, e.g. `ageRating`.
+    pub fields: Vec<String>,
 }
 
 type Loaded = (
@@ -191,7 +206,10 @@ type Loaded = (
 fn load(state: &AppState) -> ApiResult<Loaded> {
     let sources = state.scraper.sources(state);
     let library = state.library();
-    let config = Config::load(library.setting(CONFIG_SETTING)?.as_deref(), &sources);
+    let mut config = Config::load(library.setting(CONFIG_SETTING)?.as_deref(), &sources);
+    if let Some(manifest) = state.current_theme().and_then(|t| t.manifest) {
+        config.needs = scraper::Needs::from_theme(&manifest.scraper);
+    }
     let credentials = scraper::load_credentials(library.setting(CREDENTIALS_SETTING)?.as_deref());
     Ok((sources, config, credentials))
 }
@@ -243,6 +261,23 @@ fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
             .collect(),
         metadata: config.metadata,
         replace: config.replace,
+        theme_needs: config.theme_needs,
+        theme: state
+            .current_theme()
+            .and_then(|t| t.manifest)
+            .filter(|m| m.scraper != forma_core::themes::ThemeScraper::default())
+            .map(|m| {
+                let needs = scraper::Needs::from_theme(&m.scraper);
+                ThemeNeedsInfo {
+                    name: m.name,
+                    media: needs.media,
+                    fields: needs
+                        .age_rating
+                        .then(|| "ageRating".to_owned())
+                        .into_iter()
+                        .collect(),
+                }
+            }),
     })
 }
 
@@ -267,6 +302,7 @@ pub async fn scraper_configure<R: Runtime>(
     media: Option<Vec<MediaKind>>,
     metadata: Option<bool>,
     replace: Option<bool>,
+    theme_needs: Option<bool>,
 ) -> ApiResult<ScraperSettings> {
     off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
@@ -282,6 +318,9 @@ pub async fn scraper_configure<R: Runtime>(
         }
         if let Some(replace) = replace {
             config.replace = replace;
+        }
+        if let Some(theme_needs) = theme_needs {
+            config.theme_needs = theme_needs;
         }
         // Through `load` again: unknown sources dropped, missing ones added.
         let config = Config::load(

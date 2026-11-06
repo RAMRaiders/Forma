@@ -202,7 +202,7 @@ impl Metadata {
         take(&mut self.age_rating, other.age_rating);
     }
 
-    pub(crate) fn is_complete(&self) -> bool {
+    pub(crate) fn is_complete(&self, age_rating: bool) -> bool {
         self.name.is_some()
             && self.description.is_some()
             && self.developer.is_some()
@@ -211,7 +211,7 @@ impl Metadata {
             && self.players.is_some()
             && self.release_date.is_some()
             && self.rating.is_some()
-            && self.age_rating.is_some()
+            && (!age_rating || self.age_rating.is_some())
     }
 }
 
@@ -344,6 +344,63 @@ pub struct Config {
     pub metadata: bool,
     /// Replace what a game already has; otherwise only fill what is missing.
     pub replace: bool,
+    /// Fetch what the theme in use asks for too (see [`Needs`]).
+    #[serde(default = "yes")]
+    pub theme_needs: bool,
+    /// What the theme in use asks for; set for a run, not stored.
+    #[serde(skip)]
+    pub needs: Needs,
+}
+
+fn yes() -> bool {
+    true
+}
+
+/// What a theme asks the scraper for, on top of the user's choice.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Needs {
+    pub media: Vec<MediaKind>,
+    /// The game's age ratings (`ageRating`): not otherwise wanted.
+    pub age_rating: bool,
+}
+
+impl Needs {
+    /// From a theme's `scraper` block; what Forma does not know is left out.
+    pub fn from_theme(asked: &crate::themes::ThemeScraper) -> Self {
+        let mut media = Vec::new();
+        for name in &asked.media {
+            if let Ok(kind) =
+                serde_json::from_value::<MediaKind>(serde_json::Value::String(name.clone()))
+                && !media.contains(&kind)
+            {
+                media.push(kind);
+            }
+        }
+        Self {
+            media,
+            age_rating: asked.fields.iter().any(|f| f == "ageRating"),
+        }
+    }
+}
+
+impl Config {
+    /// The media kinds to fetch: the user's, then the theme's they did not choose (when on).
+    pub fn all_media(&self) -> Vec<MediaKind> {
+        let mut all = self.media.clone();
+        if self.theme_needs {
+            for kind in &self.needs.media {
+                if !all.contains(kind) {
+                    all.push(*kind);
+                }
+            }
+        }
+        all
+    }
+
+    /// Whether the age rating is wanted: the theme asks for it, and its needs are on.
+    pub fn wants_age_rating(&self) -> bool {
+        self.theme_needs && self.needs.age_rating
+    }
 }
 
 impl Default for Config {
@@ -359,6 +416,8 @@ impl Default for Config {
             ],
             metadata: true,
             replace: false,
+            theme_needs: true,
+            needs: Needs::default(),
         }
     }
 }

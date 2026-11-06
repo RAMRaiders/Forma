@@ -98,6 +98,7 @@ mod tests {
                 views: None,
                 draws: vec![],
                 logo: None,
+                scraper: Default::default(),
                 schema: None,
             }),
             unavailable: None,

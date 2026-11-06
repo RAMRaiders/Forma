@@ -423,6 +423,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   let scraperMedia: MediaKind[] = ['thumbnail', 'image', 'marquee', 'wheel', 'video'];
   let scraperMetadata = true;
   let scraperReplace = false;
+  let scraperThemeNeeds = true;
   const scraperCredentials = new Map<string, Map<string, string>>();
   let scraperStatus: ScraperStatus = {
     running: false,
@@ -481,7 +482,10 @@ export function mockBackend(options: MockOptions = {}): Backend {
     media: kindLabels.map(([k]) => k).filter((k) => scraperMedia.includes(k)),
     mediaKinds: kindLabels.map(([kind, label]) => ({ kind, label })),
     metadata: scraperMetadata,
-    replace: scraperReplace
+    replace: scraperReplace,
+    themeNeeds: scraperThemeNeeds,
+    // As a theme that shows box spines and age ratings asks.
+    theme: { name: 'Neon', media: ['boxside'], fields: ['ageRating'] }
   });
 
   // The theme catalogue: a newer Neon, and a theme not installed yet.
@@ -889,7 +893,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperAllowed();
       return scraperSettings();
     },
-    scraper_configure: ({ sources, media, metadata, replace }) => {
+    scraper_configure: ({ sources, media, metadata, replace, themeNeeds }) => {
       scraperAllowed();
       if (Array.isArray(sources)) {
         const given = (sources as { id: string; enabled: boolean }[]).filter((c) =>
@@ -903,6 +907,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (Array.isArray(media)) scraperMedia = media as MediaKind[];
       if (typeof metadata === 'boolean') scraperMetadata = metadata;
       if (typeof replace === 'boolean') scraperReplace = replace;
+      if (typeof themeNeeds === 'boolean') scraperThemeNeeds = themeNeeds;
       return scraperSettings();
     },
     scraper_set_credential: ({ source, key: k, value }) => {

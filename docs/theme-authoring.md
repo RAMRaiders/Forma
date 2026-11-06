@@ -49,10 +49,29 @@ node packages/create-forma-theme/bin/create-forma-theme.js ../my-theme --name "M
 | `views`       | The only views the theme shows, by id, e.g. `["systems"]`. Absent, all. |
 | `draws`       | What the theme draws itself instead of Forma: `nowPlaying`, `status`.   |
 | `logo`        | An `.svg`, `.png` or `.webp` in the theme folder, e.g. `"logo.svg"`.    |
+| `scraper`     | What the scraper should fetch for the theme (see below).                |
 
 With a `logo`, Forma's menus and its start-up cover show it in place of the theme's name: in
 Interface's theme list, at the top of the Start menu and beside the version on the cover. Draw
 it wide and short (about 4:1), legible at 30 px high, on a transparent background.
+
+### What the theme needs from the scraper
+
+A theme that shows more than the usual box, screenshot, marquee, logo and video says so, and
+Forma's scraper fetches it too while the theme is in use, on top of what the user chose:
+
+```json
+"scraper": {
+  "media": ["boxside", "boxback", "cartridge", "fanart", "manual"],
+  "fields": ["ageRating"]
+}
+```
+
+`media` are media kinds as `forma.media.url` names them. `fields` are details beyond the usual
+ones (name, description, developer, publisher, genre, players, date, rating): for now
+`ageRating`, which makes a game without age ratings count as missing details. Kinds and fields
+Forma does not know are ignored. The scraper's page in Forma's menu shows what the theme asks
+for, marks those kinds "for <theme>", and lets the user turn it off.
 
 Start → Interface lists the themes you can pick. Forma's plain **Default** theme is a safety net
 for when no other theme can start, so it is listed only while it is in use.

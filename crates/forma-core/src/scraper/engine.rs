@@ -66,12 +66,12 @@ pub fn scrape_game(
     let mut outcome = Outcome::default();
 
     let mut want: Vec<MediaKind> = config
-        .media
-        .iter()
-        .copied()
+        .all_media()
+        .into_iter()
         .filter(|k| config.replace || !has_media(game, *k))
         .collect();
-    let mut want_metadata = config.metadata && (config.replace || lacks_metadata(game, &stem));
+    let age = config.wants_age_rating();
+    let mut want_metadata = config.metadata && (config.replace || lacks_metadata(game, &stem, age));
     if want.is_empty() && !want_metadata {
         outcome.skipped = true;
         return Ok(outcome);
@@ -141,7 +141,7 @@ pub fn scrape_game(
         if want_metadata && found.metadata != Metadata::default() {
             metadata.fill_from(found.metadata);
             gave = true;
-            want_metadata = !metadata.is_complete();
+            want_metadata = !metadata.is_complete(age);
         }
         for kind in want.clone() {
             for (_, url) in found.media.iter().filter(|(k, _)| *k == kind) {
@@ -182,8 +182,9 @@ fn has_media(game: &Game, kind: MediaKind) -> bool {
         .is_some_and(|p| Path::new(p).exists())
 }
 
-/// Whether any field is missing; a name that is only the file's counts as missing.
-fn lacks_metadata(game: &Game, stem: &str) -> bool {
+/// Whether any field is missing; a name that is only the file's counts as missing. The age
+/// rating counts only when it is wanted (`age`).
+fn lacks_metadata(game: &Game, stem: &str, age: bool) -> bool {
     game.name == stem
         || game.description.is_none()
         || game.developer.is_none()
@@ -192,7 +193,7 @@ fn lacks_metadata(game: &Game, stem: &str) -> bool {
         || game.players.is_none()
         || game.release_date.is_none()
         || game.rating.is_none()
-        || game.age_rating.is_none()
+        || (age && game.age_rating.is_none())
 }
 
 /// The text tags to write: what was found, where the game has nothing (or everything, when

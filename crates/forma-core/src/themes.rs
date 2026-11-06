@@ -106,8 +106,23 @@ pub struct ThemeManifest {
     /// The theme's logo (an SVG, PNG or WebP inside its folder), which Forma's menus and cover
     /// show in place of its name.
     pub logo: Option<String>,
+    /// What the theme shows that the scraper should fetch for it, on top of the user's choice.
+    #[serde(default)]
+    pub scraper: ThemeScraper,
     #[serde(rename = "$schema", default, skip_serializing)]
     pub schema: Option<String>,
+}
+
+/// What a theme asks the scraper for: media kinds (`boxside`, `cartridge`…) and details beyond
+/// the usual ones (`ageRating`). Kinds and details Forma does not know are ignored, so a theme
+/// written for a newer Forma still loads.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ThemeScraper {
+    #[serde(default)]
+    pub media: Vec<String>,
+    #[serde(default)]
+    pub fields: Vec<String>,
 }
 
 impl ThemeManifest {
@@ -129,6 +144,7 @@ impl ThemeManifest {
             views: None,
             draws: Vec::new(),
             logo: None,
+            scraper: ThemeScraper::default(),
             schema: None,
         }
     }
@@ -537,6 +553,18 @@ mod tests {
 
     fn manifest(extra: &str) -> String {
         format!(r#"{{ "id": "neon", "name": "Neon", "version": "1.0.0", "sdk": "^1"{extra} }}"#)
+    }
+
+    #[test]
+    fn a_theme_says_what_the_scraper_should_fetch_for_it() {
+        let m: ThemeManifest = serde_json::from_str(&manifest(
+            r#", "scraper": { "media": ["boxside", "hologram"], "fields": ["ageRating"] }"#,
+        ))
+        .unwrap();
+        assert_eq!(m.scraper.media, ["boxside", "hologram"]);
+        assert_eq!(m.scraper.fields, ["ageRating"]);
+        let none: ThemeManifest = serde_json::from_str(&manifest("")).unwrap();
+        assert_eq!(none.scraper, ThemeScraper::default());
     }
 
     fn reason(extra: &str) -> Option<String> {
