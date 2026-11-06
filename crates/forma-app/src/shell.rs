@@ -201,6 +201,11 @@ pub fn shell_set_open(state: State<'_, AppState>, caller: Caller, open: bool) ->
 pub fn shell_started(state: State<'_, AppState>, caller: Caller) -> ApiResult<()> {
     caller.shell_only()?;
     state.shell.ui_started.store(true, Ordering::SeqCst);
+    // Tells the Batocera service the cover is going over the theme: its boot picture under the
+    // see-through window can go now, not before (see scripts/batocera/forma-standalone).
+    if let Some(file) = &state.ready_file {
+        let _ = std::fs::write(crate::state::up_file(file), "");
+    }
     Ok(())
 }
 

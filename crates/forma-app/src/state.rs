@@ -268,3 +268,22 @@ mod tests {
         );
     }
 }
+
+/// Written beside the service's ready file once Forma's cover has gone over the theme: the
+/// boot picture under the see-through window can go then (see scripts/batocera/forma-standalone).
+pub fn up_file(ready: &std::path::Path) -> std::path::PathBuf {
+    let mut name = ready.as_os_str().to_owned();
+    name.push(".up");
+    std::path::PathBuf::from(name)
+}
+
+#[cfg(test)]
+mod up_file_tests {
+    #[test]
+    fn sits_beside_the_ready_file() {
+        assert_eq!(
+            super::up_file(std::path::Path::new("/var/run/forma.ready")),
+            std::path::PathBuf::from("/var/run/forma.ready.up")
+        );
+    }
+}

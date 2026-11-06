@@ -146,6 +146,11 @@
   animation: scan 1.2s ease-in-out infinite;
 }
 
+/* The theme is up: no loader over it while the cover waits a frame or two and fades. */
+.cover.revealing .bar {
+  visibility: hidden;
+}
+
 @keyframes scan {
   from {
     transform: translateX(-100%);

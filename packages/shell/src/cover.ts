@@ -90,6 +90,9 @@ export class Cover {
     // Forma's UI is up the moment the theme is: the fade is only for show.
     if (this.#ready) this.onStarted();
     if (!fade) return this.root.remove();
+    // The loader goes at once: the theme is up, and it must not sit over it while the cover
+    // waits for the page to be drawn and fades.
+    this.root.classList.add('revealing');
     // The page is shown first, and the cover fades off it only once it has been drawn: a Pi
     // takes a moment to draw a page that was hidden, and the screen went dark meanwhile.
     const frame = (then: () => void) =>
