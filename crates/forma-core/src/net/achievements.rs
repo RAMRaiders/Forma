@@ -20,6 +20,7 @@ pub const USERNAME_SETTING: &str = "ra.username";
 pub const API_KEY_SETTING: &str = "ra.apiKey";
 
 const API: &str = "https://retroachievements.org/API";
+const CONNECT: &str = "https://retroachievements.org/dorequest.php";
 const MEDIA: &str = "https://media.retroachievements.org";
 const MAX_AGE: Duration = Duration::from_secs(300);
 /// RetroAchievements' list of a console's games and hashes changes when games are added: a
@@ -29,7 +30,10 @@ const HASHES_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 3600);
 #[derive(Clone)]
 pub struct Account {
     pub username: String,
-    api_key: String,
+    /// The web API key, for the user's profile and the dates things were earned.
+    api_key: Option<String>,
+    /// The session token Batocera signed in with: enough for a game's progress.
+    token: Option<String>,
 }
 
 impl std::fmt::Debug for Account {
@@ -55,17 +59,22 @@ pub fn account(lib: &Library, paths: &Paths) -> Result<Account> {
                     .into(),
             )
         })?;
-    let api_key = lib
-        .setting_text(API_KEY_SETTING)?
-        .filter(|k| !k.is_empty())
-        .ok_or_else(|| {
-            Error::NotConfigured(
-                "set your RetroAchievements web API key (retroachievements.org → Settings → \
-                 Keys) as the Forma setting ra.apiKey"
-                    .into(),
-            )
-        })?;
-    Ok(Account { username, api_key })
+    let api_key = lib.setting_text(API_KEY_SETTING)?.filter(|k| !k.is_empty());
+    let token = batocera_conf(&paths.batocera_conf())
+        .remove("global.retroachievements.token")
+        .filter(|t| !t.is_empty());
+    if api_key.is_none() && token.is_none() {
+        return Err(Error::NotConfigured(
+            "sign in to RetroAchievements in Forma's menu, or set your web API key \
+             (retroachievements.org, Settings, Keys) as the Forma setting ra.apiKey"
+                .into(),
+        ));
+    }
+    Ok(Account {
+        username,
+        api_key,
+        token,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -130,7 +139,11 @@ pub fn user(
     let url = format!(
         "{API}/API_GetUserSummary.php?u={}&y={}&g=10&a=0",
         encode(&account.username),
-        encode(&account.api_key)
+        encode(account.api_key.as_deref().ok_or_else(|| {
+            Error::NotConfigured(
+                "a profile needs the web API key, the Forma setting ra.apiKey".into(),
+            )
+        })?)
     );
     fetch(
         http,
@@ -204,6 +217,10 @@ pub fn session(
     media: &str,
     since: std::time::SystemTime,
 ) -> Result<Option<RaSession>> {
+    // Only the web API says when something was earned.
+    if account.api_key.is_none() {
+        return Ok(None);
+    }
     let fetched = game_as_of(http, cache, account, ra_game_id, media, Duration::ZERO)?;
     if fetched.stale {
         return Ok(None);
@@ -240,10 +257,13 @@ fn game_as_of(
     media: &str,
     max_age: Duration,
 ) -> Result<Fetched<RaGame>> {
+    let Some(api_key) = &account.api_key else {
+        return signed_in_game(http, cache, account, ra_game_id, media, max_age);
+    };
     let url = format!(
         "{API}/API_GetGameInfoAndUserProgress.php?g={ra_game_id}&u={}&y={}",
         encode(&account.username),
-        encode(&account.api_key)
+        encode(api_key)
     );
     let key = format!("ra-game-{ra_game_id}-{}", account.username);
     fetch(http, cache, &key, &url, max_age, |body| {
@@ -285,34 +305,174 @@ fn game_as_of(
     })
 }
 
-/// Every hash RetroAchievements knows for a console's games (those with achievements), lower
-/// case, to the RA game id: what a computed hash is looked up in.
-pub fn hash_index(
+/// A game's progress from the sign-in alone, read as the emulators read it: its achievements,
+/// then which of them the user has, in softcore and hardcore. No dates: those stay empty.
+fn signed_in_game(
     http: &dyn Http,
     cache: &Cache,
     account: &Account,
+    ra_game_id: i64,
+    media: &str,
+    max_age: Duration,
+) -> Result<Fetched<RaGame>> {
+    let user = encode(&account.username);
+    let auth = format!(
+        "u={user}&t={}",
+        encode(account.token.as_deref().unwrap_or_default())
+    );
+    let sets = fetch(
+        http,
+        cache,
+        &format!("ra-sets-{ra_game_id}"),
+        &format!("{CONNECT}?r=achievementsets&g={ra_game_id}&{auth}"),
+        max_age,
+        |body| serde_json::from_slice::<SetsRaw>(body).map_err(|e| e.to_string()),
+    )?;
+    let unlocks = |hardcore: u8| {
+        fetch(
+            http,
+            cache,
+            &format!("ra-unlocks-{ra_game_id}-{hardcore}-{user}"),
+            &format!("{CONNECT}?r=unlocks&g={ra_game_id}&h={hardcore}&{auth}"),
+            max_age,
+            |body| serde_json::from_slice::<UnlocksRaw>(body).map_err(|e| e.to_string()),
+        )
+    };
+    let (softcore, hardcore) = (unlocks(0)?, unlocks(1)?);
+    let stale = sets.stale || softcore.stale || hardcore.stale;
+    let fetched_at = sets.fetched_at;
+    let earned = |list: &UnlocksRaw, id: i64| list.user_unlocks.contains(&id).then(String::new);
+    let core = sets
+        .data
+        .sets
+        .into_iter()
+        .find(|s| s.kind.as_deref() == Some("core"));
+    let achievements: Vec<RaAchievement> = core
+        .map(|s| s.achievements)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|a| a.flags == Some(OFFICIAL) && a.id != Some(UNKNOWN_EMULATOR))
+        .filter_map(|a| {
+            let id = a.id?;
+            Some(RaAchievement {
+                id,
+                title: a.title.unwrap_or_default(),
+                description: a.description.unwrap_or_default(),
+                points: a.points.unwrap_or(0),
+                badge: a
+                    .badge_name
+                    .map(|b| media_url(media, &format!("/Badge/{b}.png"))),
+                earned_at: earned(&softcore.data, id),
+                earned_hardcore_at: earned(&hardcore.data, id),
+            })
+        })
+        .collect();
+    let count = achievements.len() as i64;
+    let has = achievements
+        .iter()
+        .filter(|a| a.earned_at.is_some() || a.earned_hardcore_at.is_some())
+        .count() as i64;
+    let in_hardcore = achievements
+        .iter()
+        .filter(|a| a.earned_hardcore_at.is_some())
+        .count() as i64;
+    Ok(Fetched {
+        data: RaGame {
+            ra_game_id: sets.data.game_id.unwrap_or(ra_game_id),
+            title: sets.data.title.unwrap_or_default(),
+            console: String::new(),
+            icon: sets
+                .data
+                .image_icon_url
+                .and_then(|u| u.find("/Images/").map(|at| media_url(media, &u[at..]))),
+            achievement_count: count,
+            earned: has,
+            earned_hardcore: in_hardcore,
+            completion: if count > 0 {
+                has as f64 / count as f64
+            } else {
+                0.0
+            },
+            achievements,
+        },
+        stale,
+        fetched_at,
+    })
+}
+
+/// A published achievement, as opposed to one still being tested.
+const OFFICIAL: i64 = 3;
+/// What RetroAchievements adds to a client it does not recognise, to warn its player.
+const UNKNOWN_EMULATOR: i64 = 101_000_001;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct SetsRaw {
+    #[serde(default, deserialize_with = "lenient::int")]
+    game_id: Option<i64>,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    image_icon_url: Option<String>,
+    #[serde(default)]
+    sets: Vec<SetRaw>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct SetRaw {
+    #[serde(rename = "Type", default)]
+    kind: Option<String>,
+    #[serde(default)]
+    achievements: Vec<SetAchievementRaw>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct SetAchievementRaw {
+    #[serde(rename = "ID", default, deserialize_with = "lenient::int")]
+    id: Option<i64>,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default, deserialize_with = "lenient::int")]
+    points: Option<i64>,
+    #[serde(default)]
+    badge_name: Option<String>,
+    #[serde(default, deserialize_with = "lenient::int")]
+    flags: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct UnlocksRaw {
+    #[serde(default)]
+    user_unlocks: Vec<i64>,
+}
+
+/// Every hash RetroAchievements knows for a console's games, lower case, to the RA game id:
+/// what a computed hash is looked up in. Public, so games match with no account or key.
+pub fn hash_index(
+    http: &dyn Http,
+    cache: &Cache,
     console: u32,
 ) -> Result<Fetched<HashMap<String, i64>>> {
-    let url = format!(
-        "{API}/API_GetGameList.php?i={console}&h=1&f=1&y={}",
-        encode(&account.api_key)
-    );
+    let url = format!("{CONNECT}?r=hashlibrary&c={console}");
     fetch(
         http,
         cache,
-        &format!("ra-hashes-{console}"),
+        &format!("ra-hashlibrary-{console}"),
         &url,
         HASHES_MAX_AGE,
         |body| {
-            let games: Vec<GameListRaw> =
-                serde_json::from_slice(body).map_err(|e| e.to_string())?;
-            Ok(games
+            let library: HashLibrary = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+            Ok(library
+                .list
                 .into_iter()
-                .filter_map(|g| Some((g.id?, g.hashes)))
-                .flat_map(|(id, hashes)| {
-                    hashes
-                        .into_iter()
-                        .map(move |h| (h.to_ascii_lowercase(), id))
+                .filter_map(|(hash, id)| {
+                    let id = id.as_i64().or_else(|| id.as_str()?.parse().ok())?;
+                    Some((hash.to_ascii_lowercase(), id))
                 })
                 .collect())
         },
@@ -320,12 +480,9 @@ pub fn hash_index(
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct GameListRaw {
-    #[serde(rename = "ID", default, deserialize_with = "lenient::int")]
-    id: Option<i64>,
-    #[serde(default)]
-    hashes: Vec<String>,
+struct HashLibrary {
+    #[serde(rename = "MD5List", default)]
+    list: HashMap<String, serde_json::Value>,
 }
 
 /// A file from RetroAchievements' media server (badges, icons, avatars), cached on disk so it
@@ -539,23 +696,83 @@ mod tests {
 
     #[test]
     fn hashes_index_a_consoles_games_in_lower_case() {
-        let (_, account) = configured();
         let dir = tempfile::tempdir().unwrap();
-        let http = FakeHttp::default().fixture("API_GetGameList", "ra-game-list.json");
-        let index = hash_index(&http, &Cache::new(dir.path().into()), &account, 7)
+        let mut http = FakeHttp::default();
+        http.routes.insert(
+            "hashlibrary",
+            Ok(br#"{"Success":true,"MD5List":{"811B027EAF99C2DEF7B933C5208636DE":1446,"a12d74c73a0481599a5d832361d168f4":"1"}}"#.to_vec()),
+        );
+        let index = hash_index(&http, &Cache::new(dir.path().into()), 7)
             .unwrap()
             .data;
-        assert_eq!(index.len(), 3);
+        assert_eq!(index.len(), 2);
         assert_eq!(index["811b027eaf99c2def7b933c5208636de"], 1446);
         assert_eq!(index["a12d74c73a0481599a5d832361d168f4"], 1, "a string ID");
-        assert!(http.calls.lock().unwrap()[0].contains("i=7&h=1&f=1"));
+        let calls = http.calls.lock().unwrap();
+        assert!(calls[0].contains("r=hashlibrary&c=7"));
+        assert!(!calls[0].contains("y="), "no key is sent");
+    }
+
+    #[test]
+    fn the_sign_in_alone_gives_a_games_progress() {
+        let account = Account {
+            username: "me".into(),
+            api_key: None,
+            token: Some("t0k".into()),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().into());
+        let mut http = FakeHttp::default();
+        http.routes.insert(
+            "achievementsets",
+            Ok(br#"{"Success":true,"GameId":1,"Title":"Sonic","ImageIconUrl":"https://media.retroachievements.org/Images/085573.png","Sets":[{"Type":"core","Achievements":[
+                {"ID":101000001,"Title":"Warning: Unknown Emulator","Points":0,"BadgeName":"00000","Flags":3},
+                {"ID":10,"Title":"Rings","Description":"Get them","Points":5,"BadgeName":"00010","Flags":3},
+                {"ID":11,"Title":"Boss","Points":10,"BadgeName":"00011","Flags":3},
+                {"ID":12,"Title":"Being tested","Points":1,"BadgeName":"00012","Flags":5}
+            ]}]}"#.to_vec()),
+        );
+        http.routes.insert(
+            "h=0",
+            Ok(br#"{"Success":true,"UserUnlocks":[10]}"#.to_vec()),
+        );
+        http.routes
+            .insert("h=1", Ok(br#"{"Success":true,"UserUnlocks":[]}"#.to_vec()));
+        let game = game(&http, &cache, &account, 1, "ra/").unwrap().data;
+        assert_eq!(
+            (game.achievement_count, game.earned),
+            (2, 1),
+            "only real ones"
+        );
+        assert_eq!(game.completion, 0.5);
+        assert_eq!(game.icon.as_deref(), Some("ra/Images/085573.png"));
+        assert_eq!(
+            game.achievements[0].badge.as_deref(),
+            Some("ra/Badge/00010.png")
+        );
+        assert!(game.achievements[0].earned_at.is_some());
+        assert!(game.achievements[1].earned_at.is_none());
+        assert!(
+            session(
+                &http,
+                &cache,
+                &account,
+                7,
+                1,
+                "ra/",
+                std::time::SystemTime::now()
+            )
+            .unwrap()
+            .is_none(),
+            "no dates, so no session"
+        );
     }
 
     #[test]
     fn the_account_comes_from_settings_and_batocera() {
         let (_, account) = configured();
         assert_eq!(account.username, "fixture-user", "from batocera.conf");
-        assert_eq!(account.api_key, "k3y&/");
+        assert_eq!(account.api_key.as_deref(), Some("k3y&/"));
         assert!(
             !format!("{account:?}").contains("k3y"),
             "Debug never shows the key"

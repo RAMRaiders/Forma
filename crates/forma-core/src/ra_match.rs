@@ -12,7 +12,7 @@ use crate::error::Result;
 use crate::library::Library;
 use crate::net::Cache;
 use crate::net::Http;
-use crate::net::achievements::{Account, hash_index};
+use crate::net::achievements::hash_index;
 use crate::paths::Paths;
 
 /// romdex's cache of what it read: path, size and time to hashes.
@@ -84,15 +84,10 @@ pub fn unmatched(lib: &Library) -> Result<Unmatched> {
 
 /// Looks `unmatched` up, one request per console (cached for a week): `(game id, RA id)`.
 /// Needs no library, so it can run without holding it.
-pub fn look_up(
-    http: &dyn Http,
-    cache: &Cache,
-    account: &Account,
-    unmatched: Unmatched,
-) -> Result<Vec<(i64, i64)>> {
+pub fn look_up(http: &dyn Http, cache: &Cache, unmatched: Unmatched) -> Result<Vec<(i64, i64)>> {
     let mut matched = Vec::new();
     for (console, games) in unmatched {
-        let index = hash_index(http, cache, account, console)?.data;
+        let index = hash_index(http, cache, console)?.data;
         matched.extend(
             games
                 .into_iter()
@@ -103,13 +98,8 @@ pub fn look_up(
 }
 
 /// [`unmatched`], [`look_up`], then stores the matches. Returns how many were matched.
-pub fn resolve(
-    lib: &mut Library,
-    http: &dyn Http,
-    cache: &Cache,
-    account: &Account,
-) -> Result<usize> {
-    let matched = look_up(http, cache, account, unmatched(lib)?)?;
+pub fn resolve(lib: &mut Library, http: &dyn Http, cache: &Cache) -> Result<usize> {
+    let matched = look_up(http, cache, unmatched(lib)?)?;
     lib.set_ra_game_ids(&matched)?;
     Ok(matched.len())
 }
@@ -132,9 +122,6 @@ mod tests {
         }
         let mut lib = Library::open_in_memory().unwrap();
         lib.refresh(&paths).unwrap();
-        lib.set_setting(crate::net::achievements::API_KEY_SETTING, Some("\"key\""))
-            .unwrap();
-        let account = crate::net::achievements::account(&lib, &paths).unwrap();
 
         let nes = targets(&paths)
             .into_iter()
@@ -158,15 +145,15 @@ mod tests {
         // RetroAchievements knows the first one.
         let (path, hash) = &hashes[0];
         let list = format!(
-            r#"[{{"ID": 4242, "Title": "x", "Hashes": ["{}"]}}]"#,
+            r#"{{"Success": true, "MD5List": {{"{}": 4242}}}}"#,
             hash.to_uppercase()
         );
         let mut http = FakeHttp::default();
-        http.routes.insert("API_GetGameList", Ok(list.into_bytes()));
+        http.routes.insert("hashlibrary", Ok(list.into_bytes()));
         let net = Cache::new(dir.path().join("net"));
         // One fixture game has an imported RA id already.
         let before = lib.ra_match_report(&["nes".into()]).unwrap()[0].matched;
-        assert_eq!(resolve(&mut lib, &http, &net, &account).unwrap(), 1);
+        assert_eq!(resolve(&mut lib, &http, &net).unwrap(), 1);
         let game = lib
             .games("nes")
             .unwrap()
@@ -184,7 +171,7 @@ mod tests {
             (hashes.len() as i64, before + 1)
         );
         // The list is cached: matching again asks nothing.
-        resolve(&mut lib, &http, &net, &account).unwrap();
+        resolve(&mut lib, &http, &net).unwrap();
         assert_eq!(http.calls(), 1);
     }
 }
