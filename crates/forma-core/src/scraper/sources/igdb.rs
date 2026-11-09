@@ -209,6 +209,7 @@ pub(super) fn parse(game: &Value) -> Found {
             ),
         },
         media,
+        notes: Default::default(),
     }
 }
 

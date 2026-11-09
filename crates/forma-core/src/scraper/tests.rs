@@ -185,6 +185,7 @@ fn asks_sources_in_order_falls_back_per_kind_and_writes_like_es() {
                     (MediaKind::Thumbnail, "https://a/missing.png".into()),
                     (MediaKind::Image, "https://a/shot.png".into()),
                 ],
+                notes: Default::default(),
             })),
         ),
         Fake::new(
@@ -197,6 +198,7 @@ fn asks_sources_in_order_falls_back_per_kind_and_writes_like_es() {
                     (MediaKind::Image, "https://b/shot.png".into()),
                     (MediaKind::Video, "https://b/video.mp4".into()),
                 ],
+                notes: Default::default(),
             })),
         ),
     ];
@@ -275,6 +277,7 @@ fn fills_only_what_is_missing_and_stops_asking_once_done() {
                 ..Metadata::default()
             },
             media: vec![(MediaKind::Thumbnail, "https://a/box.png".into())],
+            notes: Default::default(),
         })),
     );
     let second = Fake::new("b", &[MediaKind::Thumbnail], Ok(None));
@@ -520,6 +523,7 @@ fn a_missing_age_rating_is_scraped_only_for_a_theme_that_shows_it() {
             ..Metadata::default()
         },
         media: Vec::new(),
+        notes: Default::default(),
     };
     let sources: Vec<Box<dyn Source>> = vec![Fake::new("a", &[], Ok(Some(found)))];
     let mut g = game("Game.sfc", "A Game");
@@ -582,6 +586,7 @@ fn offers_come_from_every_source_section_by_section_and_keep_addresses_private()
                     MediaKind::Thumbnail,
                     "https://one.test/box.png?password=hunter2".to_owned(),
                 )],
+                notes: Default::default(),
             })),
         ),
         Fake::new(
@@ -590,6 +595,7 @@ fn offers_come_from_every_source_section_by_section_and_keep_addresses_private()
             Ok(Some(Found {
                 metadata: meta("From two", None),
                 media: vec![(MediaKind::Thumbnail, "https://two.test/box.png".to_owned())],
+                notes: Default::default(),
             })),
         ),
     ];

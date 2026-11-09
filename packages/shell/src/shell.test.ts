@@ -431,13 +431,15 @@ describe('Forma’s shell', () => {
     // Only what would be written; its source is apart, in a badge.
     const badges = () => text('.page > .panel li[role=option] .badge');
     expect(at('Description')).toBe('From ScreenScraper.');
-    expect(badges()).toEqual(['From ScreenScraper', 'Keep current']);
+    expect(badges()).toEqual(['From ScreenScraper · English', 'Keep current']);
     expect(at('Save')).toBe('1 change');
 
     // Another scraper's text.
     await press('down');
     await press('confirm');
-    await vi.waitFor(() => expect(rows()).toEqual(['Leave empty', 'ScreenScraper', 'ArcadeDB']));
+    await vi.waitFor(() =>
+      expect(rows()).toEqual(['Leave empty', 'ScreenScraper · English', 'ArcadeDB'])
+    );
     await press('down');
     await press('down');
     await press('confirm');

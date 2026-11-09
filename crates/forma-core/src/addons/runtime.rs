@@ -429,7 +429,11 @@ pub fn found(v: &serde_json::Value, hosts: &[String]) -> Option<Found> {
             allowed(url, hosts).then(|| (kind, url.to_owned()))
         })
         .collect();
-    Some(Found { metadata, media })
+    Some(Found {
+        metadata,
+        media,
+        notes: Default::default(),
+    })
 }
 
 /// A `music` add-on's web radios: `stations()` returns `[{ name, url }]`. Only `http(s)://`

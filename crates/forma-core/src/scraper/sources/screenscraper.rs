@@ -12,6 +12,7 @@ use super::super::{
 use crate::net::{Http, HttpRequest};
 use crate::scraper::platforms;
 use crate::scraper::text::encode;
+use crate::scraper::{MediaNote, Notes};
 
 pub struct ScreenScraper;
 
@@ -202,20 +203,89 @@ impl Source for ScreenScraper {
     }
 }
 
-/// The text of the entry for the first region (or language) of `order` there is.
-fn by_region(list: &Value, key: &str, order: &[&str]) -> Option<String> {
+/// The text of the entry for the first region (or language) of `order` there is, and which
+/// region that was.
+fn by_region_noted(list: &Value, key: &str, order: &[&str]) -> Option<(String, Option<String>)> {
     let items = list.as_array()?;
-    order
+    let item = order
         .iter()
         .find_map(|r| items.iter().find(|i| i[key].as_str() == Some(r)))
-        .or_else(|| items.first())
-        .and_then(|i| json_text(i.get("text")))
+        .or_else(|| items.first())?;
+    Some((
+        json_text(item.get("text"))?,
+        item[key].as_str().map(str::to_owned),
+    ))
+}
+
+fn by_region(list: &Value, key: &str, order: &[&str]) -> Option<String> {
+    by_region_noted(list, key, order).map(|(text, _)| text)
+}
+
+/// A ScreenScraper region in words. `ss` is its own catch-all, so no country at all.
+fn region_name(code: &str) -> Option<String> {
+    let name = match code {
+        "ss" | "" => return None,
+        "wor" => "World",
+        "us" => "USA",
+        "eu" => "Europe",
+        "jp" => "Japan",
+        "uk" => "UK",
+        "fr" => "France",
+        "de" => "Germany",
+        "es" => "Spain",
+        "it" => "Italy",
+        "pt" => "Portugal",
+        "nl" => "Netherlands",
+        "se" => "Sweden",
+        "br" => "Brazil",
+        "ca" => "Canada",
+        "au" => "Australia",
+        "kr" => "Korea",
+        "cn" => "China",
+        "tw" => "Taiwan",
+        "ru" => "Russia",
+        other => return Some(other.to_uppercase()),
+    };
+    Some(name.to_owned())
+}
+
+fn language_name(code: &str) -> Option<String> {
+    let name = match code {
+        "" => return None,
+        "en" => "English",
+        "fr" => "French",
+        "de" => "German",
+        "es" => "Spanish",
+        "it" => "Italian",
+        "pt" => "Portuguese",
+        "ja" | "jp" => "Japanese",
+        other => return Some(other.to_uppercase()),
+    };
+    Some(name.to_owned())
+}
+
+/// What sets a type of media apart from the others of its kind.
+fn variant(media_type: &str) -> Option<String> {
+    let name = match media_type {
+        "video-normalized" => "Small file",
+        "video" => "Full size",
+        "wheel-hd" => "HD",
+        "wheel-carbon" => "Carbon",
+        "wheel-steel" => "Steel",
+        "screenmarqueesmall" => "Small",
+        "support-texture" => "Flat texture",
+        _ => return None,
+    };
+    Some(name.to_owned())
 }
 
 pub(super) fn parse(game: &Value) -> Option<Found> {
     if !game.is_object() {
         return None;
     }
+    let name = by_region_noted(&game["noms"], "region", &REGIONS);
+    let description = by_region_noted(&game["synopsis"], "langue", &["en", "fr", "de", "es"]);
+    let released = by_region_noted(&game["dates"], "region", &REGIONS);
     let genre = game["genres"].as_array().and_then(|genres| {
         let principal = genres
             .iter()
@@ -224,13 +294,13 @@ pub(super) fn parse(game: &Value) -> Option<Found> {
         by_region(&principal["noms"], "langue", &["en", "fr"])
     });
     let metadata = Metadata {
-        name: by_region(&game["noms"], "region", &REGIONS),
-        description: by_region(&game["synopsis"], "langue", &["en", "fr", "de", "es"]),
+        name: name.as_ref().map(|(text, _)| text.clone()),
+        description: description.as_ref().map(|(text, _)| text.clone()),
         developer: json_text(game["developpeur"].get("text")),
         publisher: json_text(game["editeur"].get("text")),
         genre,
         players: json_text(game["joueurs"].get("text")),
-        release_date: by_region(&game["dates"], "region", &REGIONS).and_then(|d| date(&d)),
+        release_date: released.as_ref().and_then(|(d, _)| date(d)),
         rating: json_number(game["note"].get("text")).map(|n| n / 20.0),
         age_rating: age_ratings(
             game["classifications"]
@@ -246,6 +316,23 @@ pub(super) fn parse(game: &Value) -> Option<Found> {
         .map(Vec::as_slice)
         .unwrap_or_default();
     let mut media = Vec::new();
+    let mut notes = Notes::default();
+    let tag = |found: &Option<(String, Option<String>)>| found.as_ref()?.1.clone();
+    for (field, note) in [
+        ("name", tag(&name).as_deref().and_then(region_name)),
+        (
+            "description",
+            tag(&description).as_deref().and_then(language_name),
+        ),
+        (
+            "releaseDate",
+            tag(&released).as_deref().and_then(region_name),
+        ),
+    ] {
+        if let Some(note) = note {
+            notes.text.insert(field, note);
+        }
+    }
     for (kind, types) in TYPES {
         for t in types {
             let mut of_type: Vec<&Value> = medias
@@ -260,10 +347,25 @@ pub(super) fn parse(game: &Value) -> Option<Found> {
             });
             for m in of_type {
                 if let Some(url) = m["url"].as_str() {
+                    notes.media.insert(
+                        url.to_owned(),
+                        MediaNote {
+                            region: m["region"].as_str().and_then(region_name),
+                            variant: variant(t),
+                            format: m["format"].as_str().map(str::to_owned),
+                            size: m["size"]
+                                .as_u64()
+                                .or_else(|| m["size"].as_str()?.parse().ok()),
+                        },
+                    );
                     media.push((kind, url.to_owned()));
                 }
             }
         }
     }
-    Some(Found { metadata, media })
+    Some(Found {
+        metadata,
+        media,
+        notes,
+    })
 }

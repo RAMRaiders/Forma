@@ -218,10 +218,31 @@ impl Metadata {
 }
 
 /// What a source found for a game: its text, and media by kind, best first.
+/// What a source says about one picture, video or manual, to tell it from the others.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MediaNote {
+    /// The country or region it is for, in words.
+    pub region: Option<String>,
+    /// What sets it apart from others of its kind: `Small file`.
+    pub variant: Option<String>,
+    pub format: Option<String>,
+    pub size: Option<u64>,
+}
+
+/// What a source knows about what it found, beyond the values themselves.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Notes {
+    /// By address.
+    pub media: std::collections::HashMap<String, MediaNote>,
+    /// By field (`name`, `releaseDate`): the country or language of its value.
+    pub text: std::collections::HashMap<&'static str, String>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Found {
     pub metadata: Metadata,
     pub media: Vec<(MediaKind, String)>,
+    pub notes: Notes,
 }
 
 /// A ROM's hashes, lower-case hex.

@@ -630,3 +630,31 @@ fn launchbox_without_its_data_stops_asking_and_keeps_nothing_half_built() {
     assert_eq!(api.urls().len(), 1, "not tried for every game");
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
 }
+
+#[test]
+fn screenscraper_says_what_tells_its_media_and_text_apart() {
+    let found = super::screenscraper::parse(&serde_json::json!({
+        "noms": [{ "region": "jp", "text": "Sonikku" }],
+        "synopsis": [{ "langue": "fr", "text": "Un jeu." }],
+        "dates": [{ "region": "ss", "text": "1991-06-23" }],
+        "medias": [
+            { "type": "video-normalized", "url": "https://s/v", "format": "mp4", "size": "12400000" },
+            { "type": "manuel", "url": "https://s/m", "region": "us", "format": "pdf" }
+        ]
+    }))
+    .unwrap();
+    let video = &found.notes.media["https://s/v"];
+    assert_eq!(video.variant.as_deref(), Some("Small file"));
+    assert_eq!(video.format.as_deref(), Some("mp4"));
+    assert_eq!(video.size, Some(12_400_000));
+    assert_eq!(
+        found.notes.media["https://s/m"].region.as_deref(),
+        Some("USA")
+    );
+    assert_eq!(found.notes.text["name"], "Japan");
+    assert_eq!(found.notes.text["description"], "French");
+    assert!(
+        !found.notes.text.contains_key("releaseDate"),
+        "ss is no country"
+    );
+}
