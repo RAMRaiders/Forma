@@ -100,6 +100,12 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
   };
 }
 
+/** The badge of a field no scraper's answer is chosen for. */
+const keptBadge = (current: unknown): NonNullable<Row['badge']> => ({
+  text: current ? 'Keep current' : 'Stays empty',
+  kept: true
+});
+
 /** Asks every scraper about the game, then opens the page to choose from. */
 function pick(forma: Forma, page: Page, game: { id: number; name: string }): Promise<void> {
   return page.run('Asking every scraper…', async () => {
@@ -129,7 +135,9 @@ function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers)
     const from = section.offers.find((o) => o.value === value);
     return {
       label: section.label,
-      detail: from ? `${from.source}: ${value}` : `Keep: ${section.current ?? 'nothing'}`,
+      // Only what would be written; where it comes from is the badge.
+      detail: from ? value : (section.current ?? ''),
+      badge: from ? { text: `From ${from.source}` } : keptBadge(section.current),
       run: () =>
         page.push(section.label, () => [
           {
@@ -155,7 +163,7 @@ function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers)
     const offer = section.offers.find((o) => o.id === media.get(section.kind));
     return {
       label: section.label,
-      detail: offer ? `From ${offer.source}` : section.current ? 'Keep what it has' : 'Leave empty',
+      badge: offer ? { text: `From ${offer.source}` } : keptBadge(section.current),
       image: offer ? previews.get(offer.id) : undefined,
       run: () =>
         page.run(`Loading ${section.label}…`, async () => {

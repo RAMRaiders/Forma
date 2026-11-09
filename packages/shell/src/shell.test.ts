@@ -401,8 +401,10 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(rows()).toContain('Description'));
     expect(text('.page h2')).toEqual(['Scrape Sonic']);
     // What the game lacks takes the first scraper's; what it has stays until chosen.
-    expect(at('Description')).toBe('ScreenScraper: From ScreenScraper.');
-    expect(at('Box')).toBe('Keep what it has');
+    // Only what would be written; its source is apart, in a badge.
+    const badges = () => text('.page > .panel li[role=option] .badge');
+    expect(at('Description')).toBe('From ScreenScraper.');
+    expect(badges()).toEqual(['From ScreenScraper', 'Keep current']);
     expect(at('Save')).toBe('1 change');
 
     // Another scraper's text.
@@ -412,7 +414,8 @@ describe('Forma’s shell', () => {
     await press('down');
     await press('down');
     await press('confirm');
-    await vi.waitFor(() => expect(at('Description')).toBe('ArcadeDB: From ArcadeDB.'));
+    await vi.waitFor(() => expect(at('Description')).toBe('From ArcadeDB.'));
+    expect(badges()[0]).toBe('From ArcadeDB');
 
     // A picture to look at before choosing.
     await press('down');
@@ -422,7 +425,7 @@ describe('Forma’s shell', () => {
     );
     await press('down');
     await press('confirm');
-    await vi.waitFor(() => expect(at('Box')).toBe('From ScreenScraper'));
+    await vi.waitFor(() => expect(badges()[1]).toBe('From ScreenScraper'));
     expect(at('Save')).toBe('2 changes');
 
     const apply = vi.spyOn(backend, 'invoke');
@@ -1163,6 +1166,7 @@ describe('Forma’s settings pages', () => {
     expect(before).not.toContain('Installed');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page .note')[0]).toMatch(/^Downloading .*%$/));
+    expect(text('.page .busy .loader')).toHaveLength(1);
     await vi.waitFor(() =>
       expect(text('.page li.selected .description')[0]).toContain('Installed')
     );

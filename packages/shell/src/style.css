@@ -385,6 +385,37 @@ li.selected .badge {
   color: #fff;
 }
 
+/* Working: what on, over the loader of the entry cover. Only a transform moves. */
+.page .busy {
+  display: grid;
+  justify-items: center;
+  gap: 1.1em;
+  padding: 2.5em 0;
+}
+
+.page .busy .note {
+  margin: 0;
+  color: var(--fg);
+  font-size: 1em;
+}
+
+.page .loader {
+  width: 16em;
+  height: 0.28em;
+  border-radius: 0.28em;
+  background: rgb(34 228 255 / 15%);
+  overflow: hidden;
+}
+
+.page .loader span {
+  display: block;
+  width: 30%;
+  height: 100%;
+  background: var(--body);
+  animation: scan 1.2s ease-in-out infinite;
+  will-change: transform;
+}
+
 .page li.heading {
   display: block;
   margin-top: 0.8em;

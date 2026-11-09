@@ -20,6 +20,8 @@ export interface Row {
   image?: string | null;
   /** A logo drawn in place of the label's name (`name`), followed by `text`. */
   logo?: { src: string; name: string; text?: string };
+  /** A small tag beside the label: about the row, apart from its value. `kept`: nothing new. */
+  badge?: { text: string; kept?: boolean };
 }
 
 /** A page left for a deeper one, to come back to where it was. */
@@ -160,7 +162,10 @@ export class Page {
   progress(label: string): void {
     if (this.#busy === null) return;
     this.#busy = label;
-    this.#render();
+    // Only the words: drawing the page again would start its loader over at every step.
+    const shown = this.root.querySelector('.busy .note');
+    if (shown) shown.textContent = label;
+    else this.#render();
   }
 
   /** The on-screen keyboard; the page redraws after it, typed or cancelled. */
@@ -216,7 +221,6 @@ export class Page {
     this.#selected = Math.min(this.#selected, Math.max(0, this.#rows.length - 1));
     // A redraw (after a change) stays where the panel was scrolled to.
     const scrolled = this.root.querySelector('.panel')?.scrollTop ?? 0;
-    const note = this.#busy ?? this.#note;
     const items: HTMLElement[] = [];
     this.#rows.forEach((row, i) => {
       if (row.heading)
@@ -238,6 +242,9 @@ export class Page {
                 row.logo.text ? el('span', { class: 'logo-text' }, row.logo.text) : null
               )
             : el('span', { class: 'name' }, row.label),
+          row.badge
+            ? el('span', { class: row.badge.kept ? 'badge current' : 'badge' }, row.badge.text)
+            : null,
           row.adjust ? el('span', { class: 'adjust', 'aria-hidden': 'true' }, '◀ ▶') : '',
           el('span', { class: 'description' }, row.detail ?? ''),
           row.image ? el('img', { class: 'choice', src: row.image, alt: '' }) : null
@@ -249,7 +256,16 @@ export class Page {
         'div',
         { class: 'panel' },
         el('h2', {}, this.#title),
-        note ? el('p', { class: 'note' }, note) : null,
+        this.#busy
+          ? el(
+              'div',
+              { class: 'busy', role: 'status' },
+              el('p', { class: 'note' }, this.#busy),
+              el('div', { class: 'loader', 'aria-hidden': 'true' }, el('span', {}))
+            )
+          : this.#note
+            ? el('p', { class: 'note' }, this.#note)
+            : null,
         el('ul', { role: 'listbox' }, ...(this.#busy ? [] : items))
       ),
       this.keyboard.root
