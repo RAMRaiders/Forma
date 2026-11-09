@@ -131,6 +131,13 @@ pub struct ThemeScraper {
     /// Without it, the view in use is the one the theme reports in `setContext`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub view_setting: Option<String>,
+    /// Every media kind the theme draws, in any view. Forma's menus set the others apart and
+    /// do not pick them by default. Empty: the theme does not say, and nothing is set apart.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shows: Vec<String>,
+    /// Kinds of `shows` drawn only when another is missing: the kind, and the one it replaces.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub backups: BTreeMap<String, String>,
 }
 
 /// What one view of a theme asks the scraper for, on top of the theme's own list.
@@ -571,6 +578,16 @@ mod tests {
 
     fn manifest(extra: &str) -> String {
         format!(r#"{{ "id": "neon", "name": "Neon", "version": "1.0.0", "sdk": "^1"{extra} }}"#)
+    }
+
+    #[test]
+    fn a_theme_says_which_media_it_draws_and_which_are_backups() {
+        let m: ThemeManifest = serde_json::from_str(&manifest(
+            r#", "scraper": { "shows": ["wheel", "marquee"], "backups": { "marquee": "wheel" } }"#,
+        ))
+        .unwrap();
+        assert_eq!(m.scraper.shows, ["wheel", "marquee"]);
+        assert_eq!(m.scraper.backups["marquee"], "wheel");
     }
 
     #[test]

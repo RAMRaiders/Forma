@@ -486,7 +486,14 @@ export function mockBackend(options: MockOptions = {}): Backend {
     replace: scraperReplace,
     themeNeeds: scraperThemeNeeds,
     // As a theme that shows box spines and age ratings asks.
-    theme: { name: 'Neon', view: null, media: ['boxside'], fields: ['ageRating'] }
+    theme: {
+      name: 'Neon',
+      view: null,
+      media: ['boxside'],
+      fields: ['ageRating'],
+      shows: [],
+      backups: {}
+    }
   });
 
   // The theme catalogue: a newer Neon, and a theme not installed yet.

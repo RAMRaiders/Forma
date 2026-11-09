@@ -7,7 +7,7 @@ import type {
   ThemeInfo
 } from '@ramraiders/forma-sdk';
 
-import { gameRows } from './gamedata.js';
+import { deleteGameRow, gameRows } from './gamedata.js';
 import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
 import { catalogueScreen, themeScreen } from './themes.js';
@@ -624,8 +624,9 @@ export function gamesScreen(
   return async () => {
     const rows: Row[] = game ? gameRows(forma, page, game) : [];
     const own = await themeSelectRow(page, 'games', theme);
-    if (own) rows.push(own);
+    if (own) rows.push({ ...own, icon: 'theme' });
     if (views) rows.push({ heading: 'Views', label: 'Change view', run: views });
+    if (game) rows.push(deleteGameRow(forma, page, game));
     return rows;
   };
 }

@@ -371,19 +371,12 @@ impl Needs {
     /// needs too. What Forma does not know is left out.
     pub fn from_theme(asked: &crate::themes::ThemeScraper, view: Option<&str>) -> Self {
         let extra = view.and_then(|v| asked.views.get(v));
-        let names = asked
-            .media
-            .iter()
-            .chain(extra.iter().flat_map(|e| e.media.iter()));
-        let mut media = Vec::new();
-        for name in names {
-            if let Ok(kind) =
-                serde_json::from_value::<MediaKind>(serde_json::Value::String(name.clone()))
-                && !media.contains(&kind)
-            {
-                media.push(kind);
-            }
-        }
+        let media = known_kinds(
+            asked
+                .media
+                .iter()
+                .chain(extra.iter().flat_map(|e| e.media.iter())),
+        );
         let mut fields = asked
             .fields
             .iter()
@@ -393,6 +386,20 @@ impl Needs {
             age_rating: fields.any(|f| f == "ageRating"),
         }
     }
+}
+
+/// The kinds Forma knows among `names`, in order and once each.
+pub fn known_kinds<'a>(names: impl IntoIterator<Item = &'a String>) -> Vec<MediaKind> {
+    let mut kinds = Vec::new();
+    for name in names {
+        if let Ok(kind) =
+            serde_json::from_value::<MediaKind>(serde_json::Value::String(name.clone()))
+            && !kinds.contains(&kind)
+        {
+            kinds.push(kind);
+        }
+    }
+    kinds
 }
 
 impl Config {

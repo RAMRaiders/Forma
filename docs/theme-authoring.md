@@ -86,6 +86,21 @@ ones (name, description, developer, publisher, genre, players, date, rating): fo
 Forma does not know are ignored. The scraper's page in Forma's menu shows what the theme asks
 for, marks those kinds "for <theme>", and lets the user turn it off.
 
+`shows` says every kind the theme draws, in any view, and `backups` which of them it draws only
+when another is missing (since SDK 1.26.0, and a theme using them needs `"sdk": "^1.26"`):
+
+```json
+"scraper": {
+  "shows": ["thumbnail", "image", "video", "wheel", "marquee"],
+  "backups": { "marquee": "wheel" }
+}
+```
+
+Forma's scraper menus then set every other kind apart under "Not used by <theme>", and a game's
+Scrape screen does not pick those by default, nor a backup when what it replaces is on offer.
+They can still be fetched: the files serve other themes and programs. A theme with no `shows`
+has nothing set apart.
+
 Start → Interface lists the themes you can pick. Forma's plain **Default** theme is a safety net
 for when no other theme can start, so it is listed only while it is in use.
 

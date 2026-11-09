@@ -326,9 +326,18 @@ export interface ScraperSettings {
   themeNeeds: boolean;
   /**
    * What the theme in use asks for in its `theme.json` (`scraper`), or null: media kinds, and
-   * details beyond the usual ones (`ageRating`). Since 1.24.0.
+   * details beyond the usual ones (`ageRating`). Since 1.24.0. `shows` is every kind it draws
+   * (empty when it does not say) and `backups` the kinds it draws only when another is missing,
+   * with the one each replaces. Since 1.26.0.
    */
-  theme: { name: string; view: string | null; media: MediaKind[]; fields: string[] } | null;
+  theme: {
+    name: string;
+    view: string | null;
+    media: MediaKind[];
+    fields: string[];
+    shows: MediaKind[];
+    backups: Partial<Record<MediaKind, MediaKind>>;
+  } | null;
 }
 
 /** What the sources have for a game, section by section, to pick from. Since 1.25.0. */

@@ -204,6 +204,10 @@ pub struct ThemeNeedsInfo {
     pub media: Vec<MediaKind>,
     /// Details beyond the usual ones, e.g. `ageRating`.
     pub fields: Vec<String>,
+    /// Every kind the theme draws; empty when it does not say.
+    pub shows: Vec<MediaKind>,
+    /// Kinds drawn only when another is missing: the kind, and the one it replaces.
+    pub backups: BTreeMap<String, MediaKind>,
 }
 
 type Loaded = (
@@ -309,6 +313,17 @@ fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
                         .age_rating
                         .then(|| "ageRating".to_owned())
                         .into_iter()
+                        .collect(),
+                    shows: scraper::known_kinds(&m.scraper.shows),
+                    backups: m
+                        .scraper
+                        .backups
+                        .iter()
+                        .filter_map(|(kind, main)| {
+                            let main = scraper::known_kinds([main]).pop()?;
+                            scraper::known_kinds([kind]).pop()?;
+                            Some((kind.clone(), main))
+                        })
                         .collect(),
                 }
             }),

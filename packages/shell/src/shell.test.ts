@@ -4,11 +4,12 @@
  * permissions a test asks for; inside Forma the shell's token lets it past them whatever the
  * theme declares, which `ipc_tests.rs` checks on the Rust side.
  */
-import { Forma, type InputEvent, type ShellContext } from '@ramraiders/forma-sdk';
+import { Forma, type InputEvent, type MediaKind, type ShellContext } from '@ramraiders/forma-sdk';
 import { mockBackend } from '@ramraiders/forma-sdk/mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Shell, type ShellInfo } from './shell.js';
+import { backupNote, themeUse } from './ui/scraper.js';
 
 beforeEach(() => {
   // jsdom implements neither.
@@ -88,6 +89,30 @@ function start(
   };
   return { shell, root, press, text, forma, open, opened, settings, openMenu, backend, theme };
 }
+
+describe('how the theme in use treats a kind of media', () => {
+  const theme = {
+    name: 'Cyber',
+    view: null,
+    media: [],
+    fields: [],
+    shows: ['wheel', 'marquee'] as MediaKind[],
+    backups: { marquee: 'wheel' } as Partial<Record<MediaKind, MediaKind>>
+  };
+  const kinds = [{ kind: 'wheel' as MediaKind, label: 'Wheel' }];
+
+  it('sets apart what it does not draw, and marks a backup', () => {
+    expect(themeUse(theme, 'wheel')).toBe('shown');
+    expect(themeUse(theme, 'marquee')).toBe('backup');
+    expect(themeUse(theme, 'bezel')).toBe('unused');
+    expect(backupNote(theme, 'marquee', kinds)).toBe('Cyber uses this only when there is no Wheel');
+  });
+
+  it('sets nothing apart for a theme that does not say', () => {
+    expect(themeUse({ ...theme, shows: [], backups: {} }, 'bezel')).toBe('shown');
+    expect(themeUse(null, 'bezel')).toBe('shown');
+  });
+});
 
 describe('Forma’s shell', () => {
   it('shows each controller by kind and player, and the connection, top right', async () => {
@@ -384,7 +409,7 @@ describe('Forma’s shell', () => {
   });
 
   it('a game on Select: its details by hand, and each scraper’s answers to choose from', async () => {
-    const { press, text, backend } = start(
+    const { press, text, backend, root } = start(
       ['scraper.manage'],
       { view: 'systems', list: 'games', game: { id: 1, name: 'Sonic' } },
       ['systems']
@@ -393,10 +418,10 @@ describe('Forma’s shell', () => {
     const details = () => text('.page > .panel li[role=option] .description');
     const at = (label: string) => details()[rows().indexOf(label)];
     await press('select');
-    await vi.waitFor(() => expect(rows()).toEqual(['Edit details', 'Scrape', 'Delete']));
-    expect(text('.page li.heading')).toEqual(['Sonic']);
+    await vi.waitFor(() => expect(rows()).toEqual(['Scrape', 'Edit details', 'Delete']));
+    expect(text('.page h2')).toEqual(['Sonic']);
+    expect(root.querySelector('.page li.danger .name')?.textContent).toBe('Delete');
 
-    await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Description'));
     expect(text('.page h2')).toEqual(['Scrape Sonic']);
@@ -451,8 +476,7 @@ describe('Forma’s shell', () => {
     const rows = () => text('.page > .panel li[role=option] .name');
     await press('select');
     await vi.waitFor(() => expect(rows()).toContain('Delete'));
-    await press('down');
-    await press('down');
+    while (text('.page li.selected .name')[0] !== 'Delete') await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toEqual(['Keep it', 'Delete for good']));
     expect(text('.page h2')).toEqual(['Delete Sonic?']);
