@@ -467,9 +467,11 @@ pub fn hash_index(
         HASHES_MAX_AGE,
         |body| {
             let library: HashLibrary = serde_json::from_slice(body).map_err(|e| e.to_string())?;
-            Ok(library
-                .list
-                .into_iter()
+            let Some(hashes) = library.list.as_object() else {
+                return Ok(HashMap::new());
+            };
+            Ok(hashes
+                .iter()
                 .filter_map(|(hash, id)| {
                     let id = id.as_i64().or_else(|| id.as_str()?.parse().ok())?;
                     Some((hash.to_ascii_lowercase(), id))
@@ -503,10 +505,12 @@ pub fn games_with_achievements(
         HASHES_MAX_AGE,
         |body| {
             let progress: AllProgress = serde_json::from_slice(body).map_err(|e| e.to_string())?;
-            Ok(progress
-                .response
-                .into_iter()
-                .filter(|(_, game)| game.achievements.unwrap_or(0) > 0)
+            let Some(games) = progress.response.as_object() else {
+                return Ok(HashSet::new());
+            };
+            Ok(games
+                .iter()
+                .filter(|(_, game)| game["Achievements"].as_i64().unwrap_or(0) > 0)
                 .filter_map(|(id, _)| id.parse().ok())
                 .collect())
         },
@@ -516,21 +520,16 @@ pub fn games_with_achievements(
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct AllProgress {
+    /// A map of games, or an empty list for a console with none.
     #[serde(default)]
-    response: HashMap<String, GameProgress>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct GameProgress {
-    #[serde(default, deserialize_with = "lenient::int")]
-    achievements: Option<i64>,
+    response: serde_json::Value,
 }
 
 #[derive(Deserialize)]
 struct HashLibrary {
+    /// A map of hashes, or an empty list for a console with none.
     #[serde(rename = "MD5List", default)]
-    list: HashMap<String, serde_json::Value>,
+    list: serde_json::Value,
 }
 
 /// A file from RetroAchievements' media server (badges, icons, avatars), cached on disk so it
@@ -759,6 +758,29 @@ mod tests {
         let calls = http.calls.lock().unwrap();
         assert!(calls[0].contains("r=hashlibrary&c=7"));
         assert!(!calls[0].contains("y="), "no key is sent");
+    }
+
+    #[test]
+    fn a_console_with_nothing_answers_with_empty_lists() {
+        let account = Account {
+            username: "me".into(),
+            api_key: None,
+            token: Some("t0k".into()),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().into());
+        let mut http = FakeHttp::default();
+        http.routes.insert(
+            "hashlibrary",
+            Ok(br#"{"Success":true,"MD5List":[]}"#.to_vec()),
+        );
+        http.routes.insert(
+            "allprogress",
+            Ok(br#"{"Success":true,"Response":[]}"#.to_vec()),
+        );
+        assert!(hash_index(&http, &cache, 30).unwrap().data.is_empty());
+        let with = games_with_achievements(&http, &cache, &account, 30).unwrap();
+        assert!(with.data.is_empty());
     }
 
     #[test]
