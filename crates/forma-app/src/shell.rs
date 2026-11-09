@@ -229,6 +229,14 @@ pub fn shell_set_context(state: State<'_, AppState>, context: Value) -> ApiResul
             "the context is an object",
         ));
     }
+    // Off the game list: a filter on it would only surprise the user on coming back.
+    if context.get("list").and_then(Value::as_str) != Some("games") {
+        state
+            .list_filter
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .filter = Default::default();
+    }
     *state
         .shell
         .context

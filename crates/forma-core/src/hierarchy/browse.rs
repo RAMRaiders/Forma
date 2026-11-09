@@ -4,6 +4,7 @@ use rusqlite::params_from_iter;
 use rusqlite::types::Value;
 use serde::{Deserialize, Serialize};
 
+use super::list_filter::ListFilter;
 use super::{Filter, GameSort, GamesSpec, GroupKey, GroupSort, Node, NodeKind, Order, View};
 use crate::error::{Error, Result};
 use crate::library::{GAME_COLUMNS, Game, Library};
@@ -80,7 +81,55 @@ impl Library {
     /// The page of `view` at `path`. Each path segment is a group key (as returned in
     /// [`Group::key`]) or a branch id, from the root down.
     pub fn browse(&self, view: &View, path: &[String], page: Page) -> Result<Browse> {
-        let mut node: &Node = &view.root;
+        self.browse_filtered(view, path, page, &ListFilter::default())
+    }
+
+    /// [`Self::browse`], a game list narrowed down by `filter`.
+    pub fn browse_filtered(
+        &self,
+        view: &View,
+        path: &[String],
+        page: Page,
+        filter: &ListFilter,
+    ) -> Result<Browse> {
+        let (node, conds, trail) = self.node_at(view, path)?;
+
+        let listing = match &node.kind {
+            NodeKind::GroupBy { key, sort, .. } => self.groups(*key, *sort, &conds, page)?,
+            NodeKind::Branches(branches) => {
+                let mut items = Vec::with_capacity(branches.len());
+                for b in branches {
+                    let mut c = conds.clone();
+                    c.filter(&b.child.filter);
+                    items.push(Branch {
+                        id: b.id.clone(),
+                        name: b.name.clone(),
+                        game_count: self.count(&c)?,
+                    });
+                }
+                Listing::Branches { items }
+            }
+            NodeKind::Games(spec) => {
+                let mut conds = conds.clone();
+                conds.list_filter(filter);
+                self.game_page(spec, &conds, page)?
+            }
+        };
+        Ok(Browse {
+            view: view.id.clone(),
+            path: path.to_vec(),
+            trail,
+            listing,
+        })
+    }
+
+    /// The node `path` leads to, the conditions along the way and their breadcrumb.
+    pub(super) fn node_at<'v>(
+        &self,
+        view: &'v View,
+        path: &[String],
+    ) -> Result<(&'v Node, Conds, Vec<Crumb>)> {
+        let mut node: &'v Node = &view.root;
         let mut conds = Conds::visible();
         let mut trail = Vec::with_capacity(path.len());
 
@@ -114,30 +163,7 @@ impl Library {
             }
         }
         conds.filter(&node.filter);
-
-        let listing = match &node.kind {
-            NodeKind::GroupBy { key, sort, .. } => self.groups(*key, *sort, &conds, page)?,
-            NodeKind::Branches(branches) => {
-                let mut items = Vec::with_capacity(branches.len());
-                for b in branches {
-                    let mut c = conds.clone();
-                    c.filter(&b.child.filter);
-                    items.push(Branch {
-                        id: b.id.clone(),
-                        name: b.name.clone(),
-                        game_count: self.count(&c)?,
-                    });
-                }
-                Listing::Branches { items }
-            }
-            NodeKind::Games(spec) => self.game_page(spec, &conds, page)?,
-        };
-        Ok(Browse {
-            view: view.id.clone(),
-            path: path.to_vec(),
-            trail,
-            listing,
-        })
+        Ok((node, conds, trail))
     }
 
     fn groups(&self, key: GroupKey, sort: GroupSort, conds: &Conds, page: Page) -> Result<Listing> {
@@ -309,9 +335,9 @@ impl Library {
 
 /// SQL conditions and their parameters, built up along a path.
 #[derive(Debug, Clone)]
-struct Conds {
-    sql: Vec<String>,
-    params: Vec<Value>,
+pub(super) struct Conds {
+    pub(super) sql: Vec<String>,
+    pub(super) params: Vec<Value>,
 }
 
 impl Conds {
@@ -322,7 +348,7 @@ impl Conds {
         }
     }
 
-    fn sql(&self) -> String {
+    pub(super) fn sql(&self) -> String {
         self.sql.join(" AND ")
     }
 
@@ -421,7 +447,7 @@ fn is_numeric(key: GroupKey) -> bool {
     matches!(key, GroupKey::Year | GroupKey::Decade | GroupKey::Players)
 }
 
-fn key_string(v: Value) -> String {
+pub(super) fn key_string(v: Value) -> String {
     match v {
         Value::Null | Value::Blob(_) => String::new(),
         Value::Integer(n) => n.to_string(),

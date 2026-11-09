@@ -9,11 +9,13 @@
 
 mod browse;
 mod catalog;
+mod list_filter;
 
 use serde::{Deserialize, Serialize};
 
 pub use browse::{Branch as BranchItem, Browse, Crumb, Group, Listing, Page};
 pub use catalog::{DEFAULT_VIEW_SETTING, Origin, ViewCatalog, ViewEntry, load_views};
+pub use list_filter::{FilterChoice, FilterOptions, ListFilter};
 
 /// Deep enough for any real menu; a limit keeps a typo from recursing without end.
 const MAX_DEPTH: usize = 8;

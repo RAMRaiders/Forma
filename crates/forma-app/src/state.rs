@@ -29,6 +29,13 @@ pub const DEFAULT_THEME: &str = "cyber";
 /// The plain theme Forma also ships, for when even the default cannot start.
 pub const FALLBACK_THEME: &str = "default";
 
+/// The list the theme opened last. Its filter goes when another list opens.
+#[derive(Debug, Default)]
+pub struct ListOnScreen {
+    pub list: Option<(String, Vec<String>)>,
+    pub filter: forma_core::hierarchy::ListFilter,
+}
+
 pub struct AppState {
     pub paths: Paths,
     /// The UI's connection. The sync thread has its own; WAL lets them work side by side.
@@ -63,6 +70,8 @@ pub struct AppState {
     /// Opens magazines and makes their pages.
     pub magazines: forma_core::magazines::Reader,
     pub playing: AtomicBool,
+    /// The game list on screen and the user's filter on it.
+    pub list_filter: Mutex<ListOnScreen>,
     /// Set by the SDK once the current theme has started.
     pub theme_ready: AtomicBool,
     /// Written once the first theme is ready, for the Batocera service (`FORMA_READY_FILE`).

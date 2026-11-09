@@ -100,6 +100,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             paths.forma_dir().join("run").join("video.sock"),
         ))),
         playing: AtomicBool::new(false),
+        list_filter: std::sync::Mutex::default(),
         theme_ready: AtomicBool::new(false),
         ready_file: std::env::var_os("FORMA_READY_FILE").map(PathBuf::from),
         on_batocera: Path::new(BATOCERA_VERSION_FILE).is_file(),

@@ -547,3 +547,84 @@ fn recommended_is_unplayed_games_like_the_ones_played() {
         );
     }
 }
+
+fn filtered(lib: &Library, view: &View, path: &[String], filter: &ListFilter) -> Vec<String> {
+    games(
+        &lib.browse_filtered(view, path, Page::default(), filter)
+            .unwrap(),
+    )
+}
+
+#[test]
+fn a_list_narrows_down_by_name_letter_and_what_the_game_is() {
+    let lib = library();
+    let view = bundled("systems");
+    let path = vec!["nes".to_owned()];
+    let every = filtered(&lib, &view, &path, &ListFilter::default());
+    assert!(every.len() >= 2, "the fixture has games to tell apart");
+    let first = every[0].clone();
+    lib.conn
+        .execute(
+            "UPDATE game SET genre = 'Action, Unusual / Puzzle', players_max = 4 WHERE name = ?1",
+            [&first],
+        )
+        .unwrap();
+
+    let name = ListFilter {
+        name: Some(first[..2].to_lowercase()),
+        ..Default::default()
+    };
+    assert!(filtered(&lib, &view, &path, &name).contains(&first));
+
+    let letter = first.chars().next().unwrap().to_ascii_uppercase();
+    let by_letter = ListFilter {
+        letter: Some(letter.to_string()),
+        ..Default::default()
+    };
+    let found = filtered(&lib, &view, &path, &by_letter);
+    assert!(found.contains(&first));
+    assert!(
+        found
+            .iter()
+            .all(|n| n.to_ascii_uppercase().starts_with(letter))
+    );
+
+    for genre in ["Unusual", "puzzle"] {
+        let by_genre = ListFilter {
+            genre: Some(genre.to_owned()),
+            ..Default::default()
+        };
+        assert_eq!(filtered(&lib, &view, &path, &by_genre), vec![first.clone()]);
+    }
+
+    // Literal words: `%` is not a wildcard.
+    let none = ListFilter {
+        name: Some("%".to_owned()),
+        ..Default::default()
+    };
+    let options = lib.filter_options(&view, &path, &none).unwrap();
+    assert_eq!((options.total, options.all), (0, every.len() as i64));
+
+    let open = lib
+        .filter_options(&view, &path, &ListFilter::default())
+        .unwrap();
+    assert_eq!(open.total, every.len() as i64);
+    let count = |choices: &[FilterChoice], value: &str| {
+        choices.iter().find(|c| c.value == value).map(|c| c.count)
+    };
+    assert_eq!(count(&open.genres, "Puzzle"), Some(1));
+    assert_eq!(count(&open.genres, "Unusual"), Some(1));
+    assert!(count(&open.letters, &letter.to_string()).is_some());
+    // A game for four counts as a game for two.
+    assert!(count(&open.players, "2").is_some_and(|n| n >= 1));
+    assert!(open.players.iter().all(|c| c.value != "1"));
+}
+
+#[test]
+fn only_a_game_list_can_be_filtered() {
+    let lib = library();
+    assert!(
+        lib.filter_options(&bundled("systems"), &[], &ListFilter::default())
+            .is_err()
+    );
+}

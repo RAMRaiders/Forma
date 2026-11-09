@@ -6,7 +6,9 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, SystemTime};
 
 use forma_core::batocera::Setting;
-use forma_core::hierarchy::{Browse, DEFAULT_VIEW_SETTING, Listing, Origin, Page};
+use forma_core::hierarchy::{
+    Browse, DEFAULT_VIEW_SETTING, FilterOptions, ListFilter, Listing, Origin, Page,
+};
 use forma_core::launch::{self, Controller, GameEvent, LaunchRequest};
 use forma_core::net::{Fetched, achievements, netplay};
 use forma_core::network::{EthernetConfig, Joined, NetworkStatus, WifiNetwork};
@@ -20,7 +22,7 @@ use crate::api::{ApiError, ApiResult, ErrorCode};
 use crate::permissions::{self, Scope};
 use crate::protocol::{RA_MEDIA_PREFIX, media_url, theme_url};
 use crate::shell::Caller;
-use crate::state::{AppState, THEME_SETTING};
+use crate::state::{AppState, ListOnScreen, THEME_SETTING};
 
 pub const EVENT_INPUT: &str = "input";
 pub const EVENT_LIBRARY_CHANGED: &str = "library:changed";
@@ -304,13 +306,84 @@ pub fn nav_browse(
         .get(&view)
         .cloned()
         .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no view `{view}`")))?;
+    let page = page.unwrap_or_default();
+    let key = (view.id.clone(), path.clone());
+    let filter = {
+        let on_screen = list_on_screen(&state);
+        if on_screen.list.as_ref() == Some(&key) {
+            on_screen.filter.clone()
+        } else {
+            ListFilter::default()
+        }
+    };
     let mut browse = state
         .library()
-        .browse(&view, &path, page.unwrap_or_default())?;
+        .browse_filtered(&view, &path, page, &filter)?;
     if let Listing::Games { items, .. } = &mut browse.listing {
         *items = std::mem::take(items).into_iter().map(expose).collect();
+        // A list being opened. A theme counting another list's games asks for one.
+        let mut on_screen = list_on_screen(&state);
+        if page.offset == 0 && page.limit > 1 && on_screen.list.as_ref() != Some(&key) {
+            *on_screen = ListOnScreen {
+                list: Some(key),
+                filter: ListFilter::default(),
+            };
+        }
     }
     Ok(browse)
+}
+
+fn list_on_screen(state: &AppState) -> std::sync::MutexGuard<'_, ListOnScreen> {
+    state
+        .list_filter
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// The filter's result for `filter` on the list on screen, if there is one.
+fn filter_result(state: &AppState, filter: Option<ListFilter>) -> ApiResult<Option<FilterOptions>> {
+    let (list, current) = {
+        let on_screen = list_on_screen(state);
+        (on_screen.list.clone(), on_screen.filter.clone())
+    };
+    let Some((view, path)) = list else {
+        return Ok(None);
+    };
+    let Some(view) = state.views().get(&view).cloned() else {
+        return Ok(None);
+    };
+    let filter = filter.unwrap_or(current);
+    Ok(Some(state.library().filter_options(&view, &path, &filter)?))
+}
+
+/// What the game list on screen can be filtered by, and its filter now. `null` with no list.
+#[tauri::command]
+pub fn nav_filter_options(state: State<'_, AppState>) -> ApiResult<Option<FilterOptions>> {
+    filter_result(&state, None)
+}
+
+/// Filters the game list on screen; the theme reads it again on `library:changed`. Returns how
+/// many games are left: at `0` the filter is not applied, so a list never ends up empty.
+#[tauri::command]
+pub fn nav_set_filter<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    filter: Option<ListFilter>,
+) -> ApiResult<i64> {
+    let filter = filter.unwrap_or_default();
+    let Some(result) = filter_result(&state, Some(filter.clone()))? else {
+        return Ok(0);
+    };
+    if result.total > 0 || filter.is_empty() {
+        list_on_screen(&state).filter = filter;
+        let _ = app.emit(
+            EVENT_LIBRARY_CHANGED,
+            LibraryChanged {
+                systems: Vec::new(),
+            },
+        );
+    }
+    Ok(result.total)
 }
 
 #[derive(Debug, Clone, Serialize)]

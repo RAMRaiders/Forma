@@ -101,6 +101,7 @@ impl Harness {
                 root.join("video.sock"),
             ))),
             playing: AtomicBool::new(false),
+            list_filter: Mutex::default(),
             theme_ready: AtomicBool::new(false),
             ready_file: Some(root.join("forma.ready")),
             on_batocera: false,
@@ -249,6 +250,53 @@ fn answers_the_version_handshake() {
         h.call("sdk_api_version", json!({})).unwrap(),
         forma_core::SDK_API_VERSION
     );
+}
+
+#[test]
+fn the_list_on_screen_is_filtered_until_the_theme_leaves_it() {
+    let h = Harness::new(&[]);
+    let total = |path: serde_json::Value| {
+        h.call("nav_browse", json!({ "view": "systems", "path": path }))
+            .unwrap()["listing"]["total"]
+            .clone()
+    };
+    assert_eq!(
+        h.call("nav_filter_options", json!({})).unwrap(),
+        json!(null)
+    );
+    assert_eq!(total(json!(["nes"])), 3);
+
+    let mario = json!({ "filter": { "name": "mario" } });
+    assert_eq!(h.call("nav_set_filter", mario.clone()).unwrap(), 1);
+    assert_eq!(total(json!(["nes"])), 1);
+    let options = h.call("nav_filter_options", json!({})).unwrap();
+    assert_eq!((&options["total"], &options["all"]), (&json!(1), &json!(3)));
+
+    // Nothing would be left: the list stays as it was.
+    let nothing = json!({ "filter": { "name": "no such game" } });
+    assert_eq!(h.call("nav_set_filter", nothing).unwrap(), 0);
+    assert_eq!(total(json!(["nes"])), 1);
+
+    // The theme stays on the games, then goes elsewhere.
+    h.call(
+        "shell_set_context",
+        json!({ "context": { "list": "games" } }),
+    )
+    .unwrap();
+    assert_eq!(total(json!(["nes"])), 1);
+    h.call(
+        "shell_set_context",
+        json!({ "context": { "list": "systems" } }),
+    )
+    .unwrap();
+    assert_eq!(total(json!(["nes"])), 3);
+
+    assert_eq!(h.call("nav_set_filter", mario).unwrap(), 1);
+    assert_eq!(
+        h.call("nav_set_filter", json!({ "filter": null })).unwrap(),
+        3
+    );
+    assert_eq!(total(json!(["nes"])), 3);
 }
 
 #[test]
