@@ -357,7 +357,7 @@ RetroAchievements id is known for the game yet.
 
 Forma finds the ids itself: in the background it hashes every game on a system RetroAchievements
 supports, as rcheevos does, and looks each hash up in RetroAchievements' list of that console's
-games, which needs no account or key. Hashing reads a file again only when it changes, never runs while a game does, and the
+games, keeping those with achievements, which needs the sign-in. Hashing reads a file again only when it changes, never runs while a game does, and the
 lists are cached for a week. Ids and hashes from an import file win over these. `matches()`
 says how far it got (`running` while it works); the mock reports three systems.
 
