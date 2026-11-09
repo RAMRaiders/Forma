@@ -14,7 +14,7 @@ order that has it wins.
 
 | Source              | Needs                                              | Matches by                              | Gives                                                                                                                                          |
 | ------------------- | -------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| ScreenScraper       | A developer ID and password, and the user's login  | Hashes, then file name                  | Everything: boxes 2D/3D/back, screenshots, titles, wheels, marquees, fan art, videos, manuals, maps, cartridges, bezels, metadata              |
+| ScreenScraper       | A developer account (see below); the user's login  | Hashes, then file name                  | Everything: boxes 2D/3D/back, screenshots, titles, wheels, marquees, fan art, videos, manuals, maps, cartridges, bezels, metadata              |
 | TheGamesDB          | An API key                                         | Name and platform                       | Box front and back, fan art, screenshots, wheels/clear logos, banners, metadata                                                                |
 | IGDB                | A Twitch client ID and secret                      | Name and platform                       | Covers, screenshots, artwork, metadata, ratings                                                                                                |
 | MobyGames           | An API key                                         | Name and platform                       | Covers, screenshots, metadata                                                                                                                  |
@@ -22,6 +22,13 @@ order that has it wins.
 | ArcadeDB            | Nothing                                            | MAME short name (arcade only)           | In-game and title shots, marquees, flyers, cabinets, videos, metadata                                                                          |
 | LaunchBox           | Nothing (fetches its data file once, about 110 MB) | Name and platform; MAME name for arcade | Boxes front, back, spine and 3D, cartridges and discs, logos, fan art, screenshots, banners, marquees, cabinets, flyers, metadata, age ratings |
 | libretro thumbnails | Nothing                                            | No-Intro / Redump name                  | Box fronts, screenshots, title screens, logos                                                                                                  |
+
+ScreenScraper's developer account belongs to Forma, not to each user. CI builds it into the
+program from the `SCREENSCRAPER_DEV_ID` and `SCREENSCRAPER_DEV_PASSWORD` repository secrets
+(as `FORMA_SCREENSCRAPER_DEV_ID` and `FORMA_SCREENSCRAPER_DEV_PASSWORD`), masked but not
+truly hidden. People then enter only their own login, which stays optional. A developer
+account entered in the menu replaces the built-in one, and a build without the secrets
+requires one there.
 
 Platform IDs (ScreenScraper, TheGamesDB, IGDB) come from EmulationStation's own tables, keyed
 by the `<platform>` names in `es_systems.cfg`, with known errors corrected (see

@@ -92,7 +92,12 @@ jobs:
           fi
           scripts/fetch-themes.sh
 
+      # Forma's ScreenScraper developer account goes into the program, so people only enter
+      # their own login. Without these secrets the build still works and asks for an account.
       - name: Build the AppImage, with Cyber, the default theme and the shell as resources
+        env:
+          FORMA_SCREENSCRAPER_DEV_ID: ${{ secrets.SCREENSCRAPER_DEV_ID }}
+          FORMA_SCREENSCRAPER_DEV_PASSWORD: ${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
         run: >-
           npx tauri build --bundles appimage --config
           '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../build/themes/cyber":"themes/cyber","../../packages/theme-default/dist":"themes/default","../../packages/shell/dist":"shell"}}}'
