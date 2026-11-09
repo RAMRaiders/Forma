@@ -1257,6 +1257,15 @@ fn the_shell_opens_a_view_in_the_theme() {
 }
 
 #[test]
+fn library_versions_answers_for_a_system() {
+    let h = Harness::new(&[]);
+    let groups = h
+        .call("library_versions", json!({ "system": "nes" }))
+        .unwrap();
+    assert!(groups.is_array());
+}
+
+#[test]
 fn ra_matches_reports_each_ra_system_of_the_library() {
     let h = Harness::new(&[]);
     let report = h.call("ra_matches", json!({})).unwrap();

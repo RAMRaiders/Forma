@@ -79,6 +79,15 @@ pub fn library_systems(state: State<'_, AppState>) -> ApiResult<Vec<SystemSummar
     Ok(state.library().systems_in_order()?)
 }
 
+/// The titles of a system with more than one version.
+#[tauri::command]
+pub fn library_versions(
+    state: State<'_, AppState>,
+    system: String,
+) -> ApiResult<Vec<forma_core::library::VersionGroup>> {
+    Ok(state.library().versions(&system)?)
+}
+
 #[tauri::command]
 pub fn library_game(state: State<'_, AppState>, id: i64) -> ApiResult<Option<Game>> {
     Ok(state.library().game(id)?.map(expose))

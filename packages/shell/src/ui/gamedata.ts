@@ -1,4 +1,4 @@
-import type { Forma, ScraperOffers, ScraperSettings } from '@ramraiders/forma-sdk';
+import type { Forma, ScraperOffers, ScraperSettings, VersionGroup } from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
 import { backupNote, themeUse } from './scraper.js';
@@ -106,6 +106,44 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
         }
       };
     });
+  };
+}
+
+/** Start → Games → Game versions: which titles have several files, per system. Read only. */
+export function versionsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+  return async () => {
+    const systems = await forma.library.systems();
+    const found = await Promise.all(
+      systems.map(async (s) => ({ system: s, groups: await forma.library.versions(s.name) }))
+    );
+    const rows = found
+      .filter(({ groups }) => groups.length > 0)
+      .map(({ system, groups }): Row => {
+        const label = system.fullname || system.name;
+        return {
+          label,
+          detail: `${groups.length} ${groups.length === 1 ? 'title' : 'titles'} with several versions`,
+          run: () => page.push(label, () => groups.map((g) => versionGroupRow(page, g)))
+        };
+      });
+    return rows.length > 0 ? rows : [{ label: 'Every game has just one version' }];
+  };
+}
+
+function versionGroupRow(page: Page, group: VersionGroup): Row {
+  const identical = group.games.filter((g) => g.identicalTo !== null).length;
+  return {
+    label: group.title,
+    detail: `${group.games.length} versions`,
+    badge: identical > 0 ? { text: `${identical} identical`, kept: true } : undefined,
+    run: () =>
+      page.push(group.title, () =>
+        group.games.map((g) => ({
+          label: g.tags.join(' · ') || 'No tags',
+          detail: g.path,
+          badge: g.identicalTo !== null ? { text: 'Identical copy', kept: true } : undefined
+        }))
+      )
   };
 }
 

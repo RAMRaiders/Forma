@@ -40,6 +40,7 @@ import type {
   ThemeCatalogue,
   ThemeInfo,
   Unsubscribe,
+  VersionGroup,
   ViewInfo,
   BatoceraSetting,
   OptionsPage,
@@ -155,6 +156,8 @@ export class Forma {
       /** In the order the user chose (`SystemsOrder`): keep it, rather than sorting them. */
       systems: () => invoke<SystemSummary[]>('library_systems'),
       game: (id: number) => invoke<Game | null>('library_game', { id }),
+      /** A system's titles with more than one version. Since 1.26.0. */
+      versions: (system: string) => invoke<VersionGroup[]>('library_versions', { system }),
       /** Deletes a game and its files for good. Only Forma's own menu can. Since 1.25.0. */
       deleteGame: (id: number) => invoke<void>('library_delete_game', { id }),
       search: (query: string, limit?: number) => invoke<Game[]>('library_search', { query, limit }),

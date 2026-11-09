@@ -159,6 +159,20 @@ export interface Game {
   media: Partial<Record<MediaKind, string>>;
 }
 
+/** A title with more than one version among a system's games. Since 1.26.0. */
+export interface VersionGroup {
+  title: string;
+  games: {
+    id: number;
+    name: string;
+    path: string;
+    /** What its name has in brackets: `Japan`, `Rev 1`, `T-En by Someone v1.0`. */
+    tags: string[];
+    /** The first version in the group with the same game data, when that is known. */
+    identicalTo: number | null;
+  }[];
+}
+
 export interface ViewInfo {
   id: string;
   name: string;

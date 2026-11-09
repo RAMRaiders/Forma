@@ -26,6 +26,7 @@ import {
   systemsScreen
 } from './ui/screens.js';
 import { magazinesScreen } from './ui/magazines.js';
+import { versionsScreen } from './ui/gamedata.js';
 import { addonsScreen } from './ui/addons.js';
 import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
@@ -602,6 +603,11 @@ export class Shell {
             detail: 'For every game: ratio, shaders, decorations…',
             run: () =>
               page.push('Emulator options', optionsScreen(this.forma, page, { level: 'global' }))
+          },
+          {
+            label: 'Game versions',
+            detail: 'Which games have several versions, per system',
+            run: () => page.push('Game versions', versionsScreen(this.forma, page))
           }
         ]);
       case 'system-options':

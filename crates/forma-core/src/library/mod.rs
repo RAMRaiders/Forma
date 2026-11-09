@@ -10,6 +10,9 @@ mod imports;
 mod recommend;
 mod refresh;
 mod schema;
+mod versions;
+
+pub use versions::{GameVersion, VersionGroup};
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
