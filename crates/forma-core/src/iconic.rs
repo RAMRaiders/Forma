@@ -5,32 +5,10 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::OnceLock;
 
-use crate::scraper::comparable;
+use crate::scraper::title_key as key;
 
 /// Each system's list: a game per line, `|` between other titles of it, `#` for a comment.
 const LISTS: &[(&str, &str)] = &[("megadrive", include_str!("iconic/megadrive.txt"))];
-
-/// A name for comparing with the lists: `Streets of Rage II (USA)`, `Streets of Rage 2` and
-/// `streets_of_rage_2` are one game. Only the whole name counts: a sequel is not its original.
-fn key(name: &str) -> String {
-    let words: Vec<&str> = name
-        .split_whitespace()
-        .map(|word| {
-            match word
-                .trim_matches(|c: char| !c.is_alphanumeric() && c != '&')
-                .to_lowercase()
-                .as_str()
-            {
-                "ii" => "2",
-                "iii" => "3",
-                "iv" => "4",
-                "&" => "and",
-                _ => word,
-            }
-        })
-        .collect();
-    comparable(&words.join(" "))
-}
 
 fn lists() -> &'static HashMap<&'static str, HashSet<String>> {
     static BUILT: OnceLock<HashMap<&'static str, HashSet<String>>> = OnceLock::new();

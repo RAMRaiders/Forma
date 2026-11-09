@@ -64,6 +64,25 @@ pub fn libretro_folder(system: &str) -> Option<&'static str> {
         .copied()
 }
 
+/// LaunchBox's platforms for these `<platform>` names, the likeliest first (`launchbox.tsv`).
+pub fn launchbox(platforms: &[String]) -> Vec<&'static str> {
+    let rows = || {
+        include_str!("launchbox.tsv")
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .filter_map(|l| l.split_once('\t'))
+    };
+    let mut found = Vec::new();
+    for platform in platforms {
+        for (_, theirs) in rows().filter(|(ours, _)| *ours == platform.trim()) {
+            if !found.contains(&theirs) {
+                found.push(theirs);
+            }
+        }
+    }
+    found
+}
+
 /// Whether the system is an arcade one (MAME short names).
 pub fn is_arcade(system: &str, platforms: &[String]) -> bool {
     platforms.iter().any(|p| p == "arcade" || p == "neogeo")

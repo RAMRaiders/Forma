@@ -495,3 +495,123 @@ fn libretro_guesses_urls_from_the_file_and_game_names() {
     ]);
     assert!(!find("libretro").covers(&query("ports", &[], None)));
 }
+
+fn launchbox_zip() -> Vec<u8> {
+    use std::io::Write;
+    let metadata = r#"<?xml version="1.0"?><LaunchBox>
+      <Game><Name>Streets of Rage 2</Name><Platform>Windows</Platform><DatabaseID>9</DatabaseID>
+        <CommunityRatingCount>900</CommunityRatingCount></Game>
+      <Game><Name>Streets of Rage 2</Name><Platform>Sega Genesis</Platform><DatabaseID>7</DatabaseID>
+        <Overview>Mr. X &amp; friends.</Overview><Developer>Sega</Developer><Genres>Action; Beat 'em Up</Genres>
+        <MaxPlayers>2</MaxPlayers><ReleaseDate>1992-12-20T00:00:00</ReleaseDate>
+        <CommunityRating>4.5</CommunityRating><CommunityRatingCount>10</CommunityRatingCount>
+        <ESRB>E10+ - Everyone 10+</ESRB></Game>
+      <Game><Name>The Legend of Zelda: A Link to the Past</Name><Platform>Sega Genesis</Platform>
+        <DatabaseID>8</DatabaseID><ESRB>Not Rated</ESRB><CommunityRatingCount>0</CommunityRatingCount>
+        <CommunityRating>3</CommunityRating></Game>
+      <GameAlternateName><AlternateName>Bare Knuckle II</AlternateName><DatabaseID>7</DatabaseID></GameAlternateName>
+      <GameImage><DatabaseID>7</DatabaseID><FileName>eu.jpg</FileName><Type>Box - Front</Type><Region>Europe</Region></GameImage>
+      <GameImage><DatabaseID>7</DatabaseID><FileName>jp.jpg</FileName><Type>Box - Front</Type><Region>Japan</Region></GameImage>
+      <GameImage><DatabaseID>7</DatabaseID><FileName>remade.jpg</FileName><Type>Box - Front - Reconstructed</Type><Region>Japan</Region></GameImage>
+      <GameImage><DatabaseID>7</DatabaseID><FileName>spine.png</FileName><Type>Box - Spine</Type></GameImage>
+      <GameImage><DatabaseID>7</DatabaseID><FileName>skip.png</FileName><Type>Icon</Type></GameImage>
+    </LaunchBox>"#;
+    let mame = "<LaunchBox><MameFile><FileName>sor2</FileName><Name>Streets of Rage II</Name></MameFile></LaunchBox>";
+    let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default();
+    for (name, text) in [("Metadata.xml", metadata), ("Mame.xml", mame)] {
+        out.start_file(name, options).unwrap();
+        out.write_all(text.as_bytes()).unwrap();
+    }
+    out.finish().unwrap().into_inner()
+}
+
+fn launchbox_query<'a>(name: &'a str, stem: &'a str, on: &'a [String]) -> Query<'a> {
+    Query {
+        name,
+        stem,
+        ..query("megadrive", on, None)
+    }
+}
+
+#[test]
+fn launchbox_fetches_its_data_once_and_answers_from_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("launchbox.db");
+    let source = launchbox::LaunchBox::at(file.clone());
+    let api = Api {
+        answers: vec![("https://gamesdb.launchbox-app.com/", Ok(launchbox_zip()))],
+        sent: Mutex::new(Vec::new()),
+    };
+    let on = vec!["megadrive".to_owned()];
+    let no = Credentials::default();
+
+    let q = launchbox_query("Bare Knuckle II", "Bare Knuckle II (Japan)", &on);
+    let found = source.lookup(&api, &no, &q).unwrap().unwrap();
+    assert_eq!(found.metadata.name.as_deref(), Some("Streets of Rage 2"));
+    assert_eq!(
+        found.metadata.description.as_deref(),
+        Some("Mr. X & friends.")
+    );
+    assert_eq!(found.metadata.genre.as_deref(), Some("Action, Beat 'em Up"));
+    assert_eq!(found.metadata.players.as_deref(), Some("1-2"));
+    assert_eq!(found.metadata.release_date.as_deref(), Some("1992-12-20"));
+    assert_eq!(found.metadata.rating, Some(0.9));
+    assert_eq!(found.metadata.age_rating.as_deref(), Some("ESRB:E10+"));
+    let base = "https://images.launchbox-app.com/";
+    assert_eq!(
+        found.media,
+        [
+            // The ROM's own region first, what was reconstructed after the real scans.
+            (MediaKind::Thumbnail, format!("{base}jp.jpg")),
+            (MediaKind::Thumbnail, format!("{base}eu.jpg")),
+            (MediaKind::Thumbnail, format!("{base}remade.jpg")),
+            (MediaKind::Boxside, format!("{base}spine.png")),
+        ]
+    );
+
+    // A No-Intro name, its "The" in the middle; no rating without votes, none for "Not Rated".
+    let q = launchbox_query(
+        "Legend of Zelda, The - A Link to the Past",
+        "Legend of Zelda, The - A Link to the Past (USA)",
+        &on,
+    );
+    let found = source.lookup(&api, &no, &q).unwrap().unwrap();
+    assert_eq!(found.metadata.rating, None);
+    assert_eq!(found.metadata.age_rating, None);
+
+    // A MAME short name, through LaunchBox's own table of them.
+    let q = launchbox_query("sor2", "sor2", &on);
+    assert!(source.lookup(&api, &no, &q).unwrap().is_some());
+
+    // Another game is not guessed at; a platform LaunchBox does not have is not asked.
+    let q = launchbox_query("Streets of Rage", "Streets of Rage (USA)", &on);
+    assert!(source.lookup(&api, &no, &q).unwrap().is_none());
+    let none = vec!["imageviewer".to_owned()];
+    assert!(!source.covers(&launchbox_query("x", "x", &none)));
+
+    assert_eq!(api.urls().len(), 1, "the data is fetched once");
+    assert!(file.exists());
+}
+
+#[test]
+fn launchbox_without_its_data_stops_asking_and_keeps_nothing_half_built() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("launchbox.db");
+    let source = launchbox::LaunchBox::at(file.clone());
+    let api = Api {
+        answers: vec![(
+            "https://gamesdb.launchbox-app.com/",
+            Ok(b"not a zip".to_vec()),
+        )],
+        sent: Mutex::new(Vec::new()),
+    };
+    let on = vec!["megadrive".to_owned()];
+    let q = launchbox_query("x", "x", &on);
+    for _ in 0..3 {
+        let e = source.lookup(&api, &Credentials::default(), &q);
+        assert!(matches!(e, Err(LookupError::Quota(_))), "{e:?}");
+    }
+    assert_eq!(api.urls().len(), 1, "not tried for every game");
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+}

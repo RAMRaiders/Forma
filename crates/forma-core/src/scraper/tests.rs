@@ -371,13 +371,14 @@ fn config_lists_every_source_keeping_the_users_order() {
             "thegamesdb",
             "mobygames",
             "steamgriddb",
-            "arcadedb"
+            "arcadedb",
+            "launchbox"
         ]
     );
     assert!(!c.sources[1].enabled);
     assert_eq!(c.media, [MediaKind::Thumbnail, MediaKind::Video]);
     assert!(c.metadata && !c.replace);
-    assert_eq!(Config::load(None, &all).sources.len(), 7);
+    assert_eq!(Config::load(None, &all).sources.len(), 8);
     assert_eq!(
         Config::load(Some("not json"), &all).media,
         Config::default().media

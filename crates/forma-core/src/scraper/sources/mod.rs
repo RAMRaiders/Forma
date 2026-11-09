@@ -2,6 +2,7 @@
 
 mod arcadedb;
 mod igdb;
+mod launchbox;
 mod libretro;
 mod mobygames;
 mod screenscraper;
@@ -20,6 +21,7 @@ pub fn builtin() -> Vec<Box<dyn Source>> {
         Box::new(mobygames::MobyGames),
         Box::new(steamgriddb::SteamGridDb),
         Box::new(arcadedb::ArcadeDb),
+        Box::new(launchbox::LaunchBox::default()),
         Box::new(libretro::Libretro),
     ]
 }

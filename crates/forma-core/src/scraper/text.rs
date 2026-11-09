@@ -28,6 +28,37 @@ pub fn comparable(name: &str) -> String {
     lower.chars().filter(|c| c.is_alphanumeric()).collect()
 }
 
+/// For finding one game under its many spellings: `Streets of Rage II (USA)` and `Streets of
+/// Rage 2`, `Sonic & Knuckles` and `Sonic and Knuckles`, `Legend of Zelda, The - A Link` and
+/// `The Legend of Zelda: A Link`, are the same. A sequel stays another game.
+pub fn title_key(name: &str) -> String {
+    let name = search_name(name);
+    let lower = name.to_lowercase();
+    let name = match lower.find(", the ") {
+        Some(at) if name.is_char_boundary(at) && lower.len() == name.len() => {
+            format!("{} {}", &name[..at], &name[at + ", the ".len()..])
+        }
+        _ => name,
+    };
+    let words: Vec<&str> = name
+        .split_whitespace()
+        .map(|word| {
+            match word
+                .trim_matches(|c: char| !c.is_alphanumeric() && c != '&')
+                .to_lowercase()
+                .as_str()
+            {
+                "ii" => "2",
+                "iii" => "3",
+                "iv" => "4",
+                "&" => "and",
+                _ => word,
+            }
+        })
+        .collect();
+    comparable(&words.join(" "))
+}
+
 /// The index of the candidate whose name matches `name` best: the same once compared, else
 /// one starting with it, else none.
 pub fn best_match<'a>(name: &str, candidates: impl IntoIterator<Item = &'a str>) -> Option<usize> {

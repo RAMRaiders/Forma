@@ -112,7 +112,7 @@ fn push_text(stack: &mut [Element], text: &str) {
 
 /// XML's five entities and character references, plus HTML5 names (`&nbsp;`, `&eacute;`) that
 /// scrapers copy from web pages. An unknown name is kept as written rather than dropped.
-fn resolve_ref(r: &BytesRef<'_>) -> String {
+pub(crate) fn resolve_ref(r: &BytesRef<'_>) -> String {
     if r.is_char_ref()
         && let Ok(Some(c)) = r.resolve_char_ref()
     {

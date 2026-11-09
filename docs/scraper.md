@@ -12,20 +12,26 @@ All built into Forma; add-ons (see [add-ons](addons.md)) can add more. The user 
 or off and puts them in order. For each field and each kind of media, the first source in that
 order that has it wins.
 
-| Source              | Needs                                             | Matches by                    | Gives                                                                                                                             |
-| ------------------- | ------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| ScreenScraper       | A developer ID and password, and the user's login | Hashes, then file name        | Everything: boxes 2D/3D/back, screenshots, titles, wheels, marquees, fan art, videos, manuals, maps, cartridges, bezels, metadata |
-| TheGamesDB          | An API key                                        | Name and platform             | Box front and back, fan art, screenshots, wheels/clear logos, banners, metadata                                                   |
-| IGDB                | A Twitch client ID and secret                     | Name and platform             | Covers, screenshots, artwork, metadata, ratings                                                                                   |
-| MobyGames           | An API key                                        | Name and platform             | Covers, screenshots, metadata                                                                                                     |
-| SteamGridDB         | An API key                                        | Name                          | Grids (covers), heroes (fan art), logos (wheels)                                                                                  |
-| ArcadeDB            | Nothing                                           | MAME short name (arcade only) | In-game and title shots, marquees, flyers, cabinets, videos, metadata                                                             |
-| libretro thumbnails | Nothing                                           | No-Intro / Redump name        | Box fronts, screenshots, title screens, logos                                                                                     |
+| Source              | Needs                                              | Matches by                              | Gives                                                                                                                                          |
+| ------------------- | -------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| ScreenScraper       | A developer ID and password, and the user's login  | Hashes, then file name                  | Everything: boxes 2D/3D/back, screenshots, titles, wheels, marquees, fan art, videos, manuals, maps, cartridges, bezels, metadata              |
+| TheGamesDB          | An API key                                         | Name and platform                       | Box front and back, fan art, screenshots, wheels/clear logos, banners, metadata                                                                |
+| IGDB                | A Twitch client ID and secret                      | Name and platform                       | Covers, screenshots, artwork, metadata, ratings                                                                                                |
+| MobyGames           | An API key                                         | Name and platform                       | Covers, screenshots, metadata                                                                                                                  |
+| SteamGridDB         | An API key                                         | Name                                    | Grids (covers), heroes (fan art), logos (wheels)                                                                                               |
+| ArcadeDB            | Nothing                                            | MAME short name (arcade only)           | In-game and title shots, marquees, flyers, cabinets, videos, metadata                                                                          |
+| LaunchBox           | Nothing (fetches its data file once, about 110 MB) | Name and platform; MAME name for arcade | Boxes front, back, spine and 3D, cartridges and discs, logos, fan art, screenshots, banners, marquees, cabinets, flyers, metadata, age ratings |
+| libretro thumbnails | Nothing                                            | No-Intro / Redump name                  | Box fronts, screenshots, title screens, logos                                                                                                  |
 
 Platform IDs (ScreenScraper, TheGamesDB, IGDB) come from EmulationStation's own tables, keyed
 by the `<platform>` names in `es_systems.cfg`, with known errors corrected (see
 `crates/forma-core/src/scraper/platforms.tsv`). The libretro folder for each Batocera system
 is in `libretro.tsv`. MobyGames and SteamGridDB are searched by title alone.
+
+LaunchBox has no API: Forma downloads its `Metadata.zip`, builds `launchbox.db` in its cache
+folder (a few hundred MB, once, the first time LaunchBox is asked; again after 30 days), and
+matches by name there. Its platforms are in `launchbox.tsv`. Only the pictures are per-game
+downloads.
 
 ## What the user decides
 
