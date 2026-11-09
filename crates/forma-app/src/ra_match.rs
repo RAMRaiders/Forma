@@ -9,7 +9,6 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use forma_core::library::RaMatch;
-use forma_core::net::achievements;
 use forma_core::ra_match;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
@@ -121,19 +120,13 @@ fn run(state: &AppState, rx: &Receiver<Work>) {
 }
 
 fn match_now(state: &AppState) {
-    let account = {
-        let lib = state.library();
-        achievements::account(&lib, &state.paths)
-    };
-    // No account or key yet: hashes wait until there is one.
-    let Ok(account) = account else { return };
     // The library stays free while RetroAchievements answers.
     let result = (|| {
         let pending = ra_match::unmatched(&state.library())?;
         if pending.is_empty() {
             return Ok(0);
         }
-        let matched = ra_match::look_up(&*state.http, &state.http_cache(), &account, pending)?;
+        let matched = ra_match::look_up(&*state.http, &state.http_cache(), pending)?;
         state.library().set_ra_game_ids(&matched)?;
         Ok::<_, forma_core::Error>(matched.len())
     })();

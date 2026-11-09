@@ -349,14 +349,15 @@ Both answer with `{ data, stale, fetchedAt }`: offline, Forma serves the last an
 with `stale: true`. Badge, icon and avatar URLs are served by Forma itself, so a theme needs no
 `network` permission to show them.
 
-They need the user's **web API key** (retroachievements.org → Settings → Keys) in the Forma
-setting `ra.apiKey`; without it they reject with `notConfigured` and a message saying so. The
-username defaults to the one Batocera logs in with. `game()` rejects with `notFound` when no
+`game()` needs only the sign-in below; without a web API key its `earnedAt` values are empty
+strings, not dates, and no `ra:unlocked` event follows a game. `user()` needs the user's **web
+API key** (retroachievements.org → Settings → Keys) in the Forma setting `ra.apiKey`, and
+rejects with `notConfigured` without it. The username defaults to the one Batocera logs in with. `game()` rejects with `notFound` when no
 RetroAchievements id is known for the game yet.
 
 Forma finds the ids itself: in the background it hashes every game on a system RetroAchievements
 supports, as rcheevos does, and looks each hash up in RetroAchievements' list of that console's
-games. Hashing reads a file again only when it changes, never runs while a game does, and the
+games, which needs no account or key. Hashing reads a file again only when it changes, never runs while a game does, and the
 lists are cached for a week. Ids and hashes from an import file win over these. `matches()`
 says how far it got (`running` while it works); the mock reports three systems.
 

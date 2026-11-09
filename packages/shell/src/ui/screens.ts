@@ -271,8 +271,8 @@ export function retroAchievementsScreen(forma: Forma, page: Page): () => Promise
       heading: matches ? undefined : 'Forma',
       label: 'Web API key',
       detail: apiKey
-        ? 'Set (for your profile and progress in Forma)'
-        : 'retroachievements.org → Settings → Keys; shows your profile and progress in Forma',
+        ? 'Set (for your profile and unlock dates)'
+        : 'Optional. retroachievements.org → Settings → Keys; adds your profile and unlock dates',
       run: async () => {
         const key = await page.ask({ title: 'RetroAchievements web API key', secret: true });
         if (key === null) return;
