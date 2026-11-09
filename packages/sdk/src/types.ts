@@ -326,7 +326,29 @@ export interface ScraperSettings {
    * What the theme in use asks for in its `theme.json` (`scraper`), or null: media kinds, and
    * details beyond the usual ones (`ageRating`). Since 1.24.0.
    */
-  theme: { name: string; media: MediaKind[]; fields: string[] } | null;
+  theme: { name: string; view: string | null; media: MediaKind[]; fields: string[] } | null;
+}
+
+/** What the sources have for a game, section by section, to pick from. Since 1.25.0. */
+export interface ScraperOffers {
+  text: {
+    /** `name`, `description`, `developer`, `publisher`, `genre`, `players`, `releaseDate`, `rating`, `ageRating`. */
+    field: string;
+    label: string;
+    /** What the game has now. */
+    current: string | null;
+    offers: { source: string; value: string }[];
+  }[];
+  media: {
+    kind: MediaKind;
+    label: string;
+    /** Whether the game has one now. */
+    current: boolean;
+    /** `id` names it to `preview` and `apply`. */
+    offers: { id: number; source: string }[];
+  }[];
+  /** Sources that could not answer, and why. */
+  problems: string[];
 }
 
 /** What to scrape. */

@@ -34,6 +34,7 @@ import type {
   AddonPage,
   CatalogueAddon,
   ScrapeScope,
+  ScraperOffers,
   ScraperSettings,
   ScraperStatus,
   ThemeCatalogue,
@@ -359,7 +360,20 @@ export class Forma {
       start: (scope: ScrapeScope) => invoke<ScraperStatus>('scraper_start', { scope }),
       status: () => invoke<ScraperStatus>('scraper_status'),
       /** Stops after the game it is on. */
-      stop: () => invoke<void>('scraper_stop')
+      stop: () => invoke<void>('scraper_stop'),
+      /** Asks every source that is on about a game, for the user to pick from. Since 1.25.0. */
+      offers: (id: number) => invoke<ScraperOffers>('scraper_offers', { id }),
+      /** A small picture of one of the last offers, or null. Since 1.25.0. */
+      preview: (offer: number) => invoke<string | null>('scraper_preview', { offer }),
+      /**
+       * Saves what was picked from the last offers: text by field, media by offer. Returns what
+       * could not be saved. Since 1.25.0.
+       */
+      apply: (id: number, text: Record<string, string>, media: number[]) =>
+        invoke<string[]>('scraper_apply', { id, text, media }),
+      /** Changes a game's details by hand; `''` clears one. Since 1.25.0. */
+      edit: (id: number, fields: Record<string, string>) =>
+        invoke<void>('scraper_edit', { id, fields })
     };
 
     /**

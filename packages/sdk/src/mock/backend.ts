@@ -15,6 +15,7 @@ import type {
   CatalogueAddon,
   BluetoothDevice,
   MediaKind,
+  ScraperOffers,
   ScraperSettings,
   ScraperSource,
   ScraperStatus,
@@ -485,7 +486,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     replace: scraperReplace,
     themeNeeds: scraperThemeNeeds,
     // As a theme that shows box spines and age ratings asks.
-    theme: { name: 'Neon', media: ['boxside'], fields: ['ageRating'] }
+    theme: { name: 'Neon', view: null, media: ['boxside'], fields: ['ageRating'] }
   });
 
   // The theme catalogue: a newer Neon, and a theme not installed yet.
@@ -983,6 +984,49 @@ export function mockBackend(options: MockOptions = {}): Backend {
     scraper_stop: () => {
       scraperAllowed();
       scraperStop = true;
+      return null;
+    },
+    scraper_offers: () => {
+      scraperAllowed();
+      return {
+        text: [
+          {
+            field: 'description',
+            label: 'Description',
+            current: null,
+            offers: [
+              { source: 'ScreenScraper', value: 'From ScreenScraper.' },
+              { source: 'ArcadeDB', value: 'From ArcadeDB.' }
+            ]
+          }
+        ],
+        media: [
+          {
+            kind: 'thumbnail',
+            label: 'Box',
+            current: true,
+            offers: [
+              { id: 0, source: 'ScreenScraper' },
+              { id: 1, source: 'libretro thumbnails' }
+            ]
+          }
+        ],
+        problems: ['IGDB: over its quota']
+      } satisfies ScraperOffers;
+    },
+    scraper_preview: ({ offer }) => {
+      scraperAllowed();
+      return offer === 0 ? 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' : null;
+    },
+    scraper_apply: () => {
+      scraperAllowed();
+      return [];
+    },
+    scraper_edit: ({ id, fields }) => {
+      scraperAllowed();
+      const game = games.get(id as number);
+      if (!game) fail('notFound', `no game ${String(id)}`);
+      Object.assign(game, fields);
       return null;
     },
     collections_list: (): Collection[] =>

@@ -8,6 +8,7 @@
 //! place. The library then re-imports it through the watcher, as for any gamelist change.
 
 mod engine;
+pub mod pick;
 pub mod platforms;
 mod sources;
 mod text;
@@ -365,10 +366,16 @@ pub struct Needs {
 }
 
 impl Needs {
-    /// From a theme's `scraper` block; what Forma does not know is left out.
-    pub fn from_theme(asked: &crate::themes::ThemeScraper) -> Self {
+    /// From a theme's `scraper` block: what it always needs, and what `view`, the view in use,
+    /// needs too. What Forma does not know is left out.
+    pub fn from_theme(asked: &crate::themes::ThemeScraper, view: Option<&str>) -> Self {
+        let extra = view.and_then(|v| asked.views.get(v));
+        let names = asked
+            .media
+            .iter()
+            .chain(extra.iter().flat_map(|e| e.media.iter()));
         let mut media = Vec::new();
-        for name in &asked.media {
+        for name in names {
             if let Ok(kind) =
                 serde_json::from_value::<MediaKind>(serde_json::Value::String(name.clone()))
                 && !media.contains(&kind)
@@ -376,9 +383,13 @@ impl Needs {
                 media.push(kind);
             }
         }
+        let mut fields = asked
+            .fields
+            .iter()
+            .chain(extra.iter().flat_map(|e| e.fields.iter()));
         Self {
             media,
-            age_rating: asked.fields.iter().any(|f| f == "ageRating"),
+            age_rating: fields.any(|f| f == "ageRating"),
         }
     }
 }

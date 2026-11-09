@@ -16,7 +16,7 @@ use crate::systems::System;
 
 /// Files above this are not hashed (it would take too long on a Pi); sources then match by
 /// name and size.
-const HASH_LIMIT: u64 = 256 << 20;
+pub(super) const HASH_LIMIT: u64 = 256 << 20;
 
 /// What scraping a game did.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -176,7 +176,7 @@ pub fn scrape_game(
     Ok(outcome)
 }
 
-fn has_media(game: &Game, kind: MediaKind) -> bool {
+pub(super) fn has_media(game: &Game, kind: MediaKind) -> bool {
     game.media
         .get(kind.tag())
         .is_some_and(|p| Path::new(p).exists())
@@ -258,7 +258,7 @@ fn metadata_tags(
 }
 
 /// `1994-03-19` (or `1994`, `1994-03`) as ES writes dates: `19940319T000000`.
-fn es_date(date: &str) -> String {
+pub(super) fn es_date(date: &str) -> String {
     let digits: String = date.chars().filter(char::is_ascii_digit).collect();
     let pad = |s: Option<&str>| s.filter(|s| s.len() == 2).unwrap_or("01").to_owned();
     format!(
@@ -269,7 +269,7 @@ fn es_date(date: &str) -> String {
     )
 }
 
-fn hash(file: &Path) -> Option<Hashes> {
+pub(super) fn hash(file: &Path) -> Option<Hashes> {
     let reader = std::io::BufReader::new(std::fs::File::open(file).ok()?);
     let (h, _) = romdex::hash::hash_reader(reader).ok()?;
     Some(Hashes {
@@ -281,7 +281,7 @@ fn hash(file: &Path) -> Option<Hashes> {
 
 /// Downloads `url` as `kind` into `system_dir/<folder>/<stem>-<suffix>.<ext>`, checking it is
 /// what it should be (a picture, a video, a PDF). Returns the path to put in the gamelist.
-fn save(
+pub(super) fn save(
     http: &dyn Http,
     system_dir: &Path,
     stem: &str,

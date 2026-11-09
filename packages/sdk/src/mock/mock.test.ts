@@ -431,7 +431,12 @@ describe('mock backend', () => {
     expect(moved.sources[0]!.id).toBe('libretro');
     expect(moved.sources).toHaveLength(8);
     expect(moved.media).toEqual(['thumbnail', 'video']);
-    expect(moved.theme).toEqual({ name: 'Neon', media: ['boxside'], fields: ['ageRating'] });
+    expect(moved.theme).toEqual({
+      name: 'Neon',
+      view: null,
+      media: ['boxside'],
+      fields: ['ageRating']
+    });
     const off = await b.invoke<ScraperSettings>('scraper_configure', { themeNeeds: false });
     expect(off.themeNeeds).toBe(false);
 

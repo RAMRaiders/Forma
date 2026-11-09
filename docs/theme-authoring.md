@@ -67,6 +67,19 @@ Forma's scraper fetches it too while the theme is in use, on top of what the use
 }
 ```
 
+A theme whose views show different things says what each needs on top, under `views`, and
+names the setting that holds the view in use:
+
+```json
+"scraper": {
+  "media": ["fanart"],
+  "viewSetting": "gamesView",
+  "views": { "collector": { "media": ["boxside", "boxback", "cartridge"] } }
+}
+```
+
+With no `viewSetting`, the view in use is the one the theme reports in `setContext`.
+
 `media` are media kinds as `forma.media.url` names them. `fields` are details beyond the usual
 ones (name, description, developer, publisher, genre, players, date, rating): for now
 `ageRating`, which makes a game without age ratings count as missing details. Kinds and fields

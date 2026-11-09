@@ -43,9 +43,9 @@ function moved(settings: ScraperSettings, id: string, step: -1 | 1) {
 }
 
 /**
- * Start → Scraper: scrape the selected game, a system or everything, in the background, and
- * choose the sources (in order), their accounts and what to fetch. The page follows a run as
- * it goes.
+ * Start → Games → Scrapers: choose the scrapers (in order) and their accounts, what to fetch,
+ * and scrape the selected game, a system or everything, in the background. The page follows a
+ * run as it goes.
  */
 export function scraperScreen(
   forma: Forma,
@@ -79,41 +79,14 @@ export function scraperScreen(
         }
       );
     } else {
-      const scrape: Row[] = [];
-      if (context.game) {
-        const game = context.game;
-        scrape.push({
-          label: `Scrape ${game.name}`,
-          run: () => start({ kind: 'game', id: game.id }, game.name)
-        });
-      }
-      if (context.system) {
-        const system = context.system;
-        const name = system.fullname || system.name;
-        scrape.push({
-          label: `Scrape every ${name} game`,
-          run: () => start({ kind: 'system', name: system.name }, name)
-        });
-      }
-      scrape.push(
-        {
-          label: 'Scrape a system…',
-          run: () => page.push('Scrape a system', systemsScreen(forma, page, start))
-        },
-        {
-          label: 'Scrape everything',
-          detail: 'Every game of every system',
-          run: () => start({ kind: 'all' }, 'everything')
-        }
-      );
-      if (!usable) {
-        for (const r of scrape) {
-          r.run = undefined;
-          r.detail = 'Turn on a source that is set up first';
-        }
-      }
-      scrape[0]!.heading = 'Scrape';
-      rows.push(...scrape);
+      rows.push({
+        heading: 'Scrape',
+        label: 'Start scraping',
+        detail: usable
+          ? 'A game, a system, or everything'
+          : 'Turn on a scraper that is set up first',
+        run: usable ? () => page.push('Start scraping', scope) : undefined
+      });
       if (status.scope) {
         rows.push({ label: `Last: ${status.scope}`, detail: summary(status) });
       }
@@ -122,7 +95,7 @@ export function scraperScreen(
 
     rows.push(
       ...settings.sources.map((s, i) => ({
-        heading: i === 0 ? 'Sources, asked in this order' : undefined,
+        heading: i === 0 ? 'Scrapers, asked in this order' : undefined,
         label: s.name,
         detail: sourceDetail(s),
         run: () => page.push(s.name, sourceScreen(forma, page, s.id)),
@@ -137,9 +110,62 @@ export function scraperScreen(
             })
           )
         }
-      }))
+      })),
+      {
+        heading: 'Options',
+        label: 'What to fetch',
+        detail: `${settings.media.length} kinds of media${settings.metadata ? ' and details' : ''}`,
+        run: () => page.push('What to fetch', fetchScreen(forma, page))
+      }
     );
+    return rows;
+  };
 
+  /** What a run covers: the selected game, its system, one to choose, or everything. */
+  const scope = (): Row[] => {
+    const leaving = (what: string, target: ScrapeScope) => async () => {
+      await page.pop();
+      await start(target, what);
+    };
+    const rows: Row[] = [];
+    if (context.game) {
+      rows.push({
+        label: `Scrape ${context.game.name}`,
+        run: leaving(context.game.name, { kind: 'game', id: context.game.id })
+      });
+    }
+    if (context.system) {
+      const name = context.system.fullname || context.system.name;
+      rows.push({
+        label: `Scrape every ${name} game`,
+        run: leaving(name, { kind: 'system', name: context.system.name })
+      });
+    }
+    rows.push(
+      {
+        label: 'Scrape a system…',
+        run: () => page.push('Scrape a system', systemsScreen(forma, page, start))
+      },
+      {
+        label: 'Scrape everything',
+        detail: 'Every game of every system',
+        run: leaving('everything', { kind: 'all' })
+      }
+    );
+    return rows;
+  };
+
+  const stop = forma.events.on('scraper:progress', () => {
+    if (!page.has(build)) return stop();
+    if (page.showing(build)) void page.refresh();
+  });
+  return build;
+}
+
+/** What a run fetches: details, media kinds, and what the theme in use needs. */
+function fetchScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+  return async () => {
+    const settings = await forma.scraper.settings();
     const kinds = new Set(settings.media);
     const toggleKind = (kind: MediaKind) =>
       saving(page, () =>
@@ -156,9 +182,8 @@ export function scraperScreen(
     const themeNeeds = saving(page, () =>
       forma.scraper.configure({ themeNeeds: !settings.themeNeeds })
     );
-    rows.push(
+    return [
       {
-        heading: 'What to fetch',
         label: 'Details',
         detail: `${onOff(settings.metadata)} · name, description, developer, genre, date, rating`,
         run: metadata,
@@ -174,7 +199,7 @@ export function scraperScreen(
         ? [
             {
               label: `What ${theme.name} asks for`,
-              detail: `${onOff(settings.themeNeeds)} · ${themeAsks(theme, settings.mediaKinds)}`,
+              detail: `${onOff(settings.themeNeeds)}${theme.view ? ` · for its ${theme.view} view` : ''} · ${themeAsks(theme, settings.mediaKinds)}`,
               run: themeNeeds,
               adjust: themeNeeds
             }
@@ -189,15 +214,8 @@ export function scraperScreen(
         run: toggleKind(kind),
         adjust: toggleKind(kind)
       }))
-    );
-    return rows;
+    ];
   };
-
-  const stop = forma.events.on('scraper:progress', () => {
-    if (!page.has(build)) return stop();
-    if (page.showing(build)) void page.refresh();
-  });
-  return build;
 }
 
 /** What a theme asks the scraper for, in words: `Box spine, Cartridge, age ratings`. */

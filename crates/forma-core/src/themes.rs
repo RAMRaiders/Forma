@@ -5,6 +5,7 @@
 //! that cannot load (bad manifest, incompatible SDK, a permission Forma does not know) is still
 //! listed, with the reason, so the user sees why it is missing rather than nothing at all.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -119,6 +120,23 @@ pub struct ThemeManifest {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ThemeScraper {
+    #[serde(default)]
+    pub media: Vec<String>,
+    #[serde(default)]
+    pub fields: Vec<String>,
+    /// What each of the theme's views needs too, by view name.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub views: BTreeMap<String, ThemeScraperView>,
+    /// One of the theme's own settings whose value is the view in use (`gamesView`, say).
+    /// Without it, the view in use is the one the theme reports in `setContext`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view_setting: Option<String>,
+}
+
+/// What one view of a theme asks the scraper for, on top of the theme's own list.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ThemeScraperView {
     #[serde(default)]
     pub media: Vec<String>,
     #[serde(default)]

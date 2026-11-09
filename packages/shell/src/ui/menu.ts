@@ -177,7 +177,7 @@ const ICONS: Record<string, string> = {
     '<path d="M10 4a2 2 0 1 1 4 0v2h4a1 1 0 0 1 1 1v4h-2a2 2 0 1 0 0 4h2v4a1 1 0 0 1-1 1h-4v-2a2 2 0 1 0-4 0v2H6a1 1 0 0 1-1-1v-4h2a2 2 0 1 0 0-4H5V7a1 1 0 0 1 1-1h4z"/>'
   ),
   // A magnifier over a picture.
-  scraper: svg(
+  games: svg(
     '<rect x="3" y="4" width="13" height="11" rx="1.5"/><path d="M3 12l3.5-3.5 3 3 2-2 4.5 4.5"/><circle cx="16.5" cy="16.5" r="3.5"/><path d="M19 19l2.5 2.5"/>'
   ),
   collections: svg(
@@ -208,10 +208,6 @@ const ICONS: Record<string, string> = {
   ),
   music: svg(
     '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'
-  ),
-  // Sliders.
-  'game-settings': svg(
-    '<path d="M5 4v16M12 4v16M19 4v16"/><rect x="3" y="13" width="4" height="3" rx="1" fill="var(--panel-solid, #0b111d)"/><rect x="10" y="7" width="4" height="3" rx="1" fill="var(--panel-solid, #0b111d)"/><rect x="17" y="15" width="4" height="3" rx="1" fill="var(--panel-solid, #0b111d)"/>'
   ),
   // A cog.
   'system-settings': svg(

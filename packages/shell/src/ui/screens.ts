@@ -7,6 +7,7 @@ import type {
   ThemeInfo
 } from '@ramraiders/forma-sdk';
 
+import { gameRows } from './gamedata.js';
 import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
 import { catalogueScreen, themeScreen } from './themes.js';
@@ -611,16 +612,19 @@ export function systemsScreen(
 }
 
 /**
- * Select's page while the theme shows games: the theme's own row, for the settings it offers
- * on a game list; and the views list, when the theme shows more than one.
+ * Select's page while the theme shows games: the selected game's details and scraping; the
+ * theme's own row, for the settings it offers on a game list; and the views list, when the
+ * theme shows more than one.
  */
 export function gamesScreen(
+  forma: Forma,
   page: Page,
   theme: ThemeOnSelect,
+  game: { id: number; name: string } | null,
   views?: () => void
 ): () => Promise<Row[]> {
   return async () => {
-    const rows: Row[] = [];
+    const rows: Row[] = game ? gameRows(forma, page, game) : [];
     const own = await themeSelectRow(page, 'games', theme);
     if (own) rows.push(own);
     if (views) rows.push({ heading: 'Views', label: 'Change view…', run: views });

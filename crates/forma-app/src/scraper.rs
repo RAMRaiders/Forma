@@ -4,14 +4,16 @@
 
 use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
 
 use forma_core::addons::runtime::{ScraperAddon, Script};
 use forma_core::host::Shell;
 use forma_core::net::Http;
+use forma_core::themes::ThemeManifest;
 
 use forma_core::scraper::{
     self, CONFIG_SETTING, CREDENTIALS_SETTING, Config, Credential, MediaKind, Source, SourceChoice,
+    pick,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -41,6 +43,8 @@ pub struct Scraping {
     pub music_stale: AtomicBool,
     status: Mutex<RunStatus>,
     stop: Arc<AtomicBool>,
+    /// The offers last asked for, for the user to pick from.
+    picking: Mutex<Option<pick::Picking>>,
 }
 
 impl Scraping {
@@ -53,6 +57,7 @@ impl Scraping {
             music_stale: AtomicBool::new(true),
             status: Mutex::new(RunStatus::default()),
             stop: Arc::new(AtomicBool::new(false)),
+            picking: Mutex::new(None),
         }
     }
 
@@ -106,10 +111,12 @@ impl Scraping {
             .clone()
     }
 
-    fn status(&self) -> std::sync::MutexGuard<'_, RunStatus> {
-        self.status
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn status(&self) -> MutexGuard<'_, RunStatus> {
+        self.status.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn picking(&self) -> MutexGuard<'_, Option<pick::Picking>> {
+        self.picking.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -192,6 +199,8 @@ pub struct ScraperSettings {
 pub struct ThemeNeedsInfo {
     /// The theme's name.
     pub name: String,
+    /// The view these needs are for, when the theme asks for more in some views.
+    pub view: Option<String>,
     pub media: Vec<MediaKind>,
     /// Details beyond the usual ones, e.g. `ageRating`.
     pub fields: Vec<String>,
@@ -207,11 +216,34 @@ fn load(state: &AppState) -> ApiResult<Loaded> {
     let sources = state.scraper.sources(state);
     let library = state.library();
     let mut config = Config::load(library.setting(CONFIG_SETTING)?.as_deref(), &sources);
+    drop(library);
     if let Some(manifest) = state.current_theme().and_then(|t| t.manifest) {
-        config.needs = scraper::Needs::from_theme(&manifest.scraper);
+        let view = view_in_use(state, &manifest);
+        config.needs = scraper::Needs::from_theme(&manifest.scraper, view.as_deref());
     }
+    let library = state.library();
     let credentials = scraper::load_credentials(library.setting(CREDENTIALS_SETTING)?.as_deref());
     Ok((sources, config, credentials))
+}
+
+/// The view whose needs apply: the value of the theme's `viewSetting` when it names one (the
+/// user's, else its default), otherwise the view the theme says it is showing.
+fn view_in_use(state: &AppState, manifest: &ThemeManifest) -> Option<String> {
+    if let Some(key) = &manifest.scraper.view_setting {
+        let setting = manifest.settings.iter().find(|s| &s.key == key)?;
+        let stored = state
+            .library()
+            .setting(&format!("theme.{}.{key}", manifest.id))
+            .ok()
+            .flatten()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+            .filter(|v| setting.accepts(v));
+        return stored
+            .unwrap_or_else(|| setting.default.clone())
+            .as_str()
+            .map(str::to_owned);
+    }
+    state.shell.view()
 }
 
 fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
@@ -267,8 +299,10 @@ fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
             .and_then(|t| t.manifest)
             .filter(|m| m.scraper != forma_core::themes::ThemeScraper::default())
             .map(|m| {
-                let needs = scraper::Needs::from_theme(&m.scraper);
+                let view = view_in_use(state, &m);
+                let needs = scraper::Needs::from_theme(&m.scraper, view.as_deref());
                 ThemeNeedsInfo {
+                    view: view.filter(|v| m.scraper.views.contains_key(v)),
                     name: m.name,
                     media: needs.media,
                     fields: needs
@@ -436,6 +470,107 @@ pub async fn scraper_stop<R: Runtime>(app: AppHandle<R>, caller: Caller) -> ApiR
         caller.require(state, permissions::SCRAPER_MANAGE)?;
         state.scraper.stop.store(true, Ordering::SeqCst);
         Ok(())
+    })
+    .await
+}
+
+/// A game and its system, or why not.
+fn target(
+    state: &AppState,
+    id: i64,
+) -> ApiResult<(forma_core::library::Game, forma_core::systems::System)> {
+    state
+        .library()
+        .launch_target(id)?
+        .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no game {id}")))
+}
+
+/// Asks every source that is on and set up about a game, for the user to pick from.
+#[tauri::command]
+pub async fn scraper_offers<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    id: i64,
+) -> ApiResult<pick::Offers> {
+    off_thread(app, move |state| {
+        caller.require(state, permissions::SCRAPER_MANAGE)?;
+        let (sources, config, credentials) = load(state)?;
+        let (game, system) = target(state, id)?;
+        let picking = pick::gather(
+            &*state.http,
+            &sources,
+            &config,
+            &credentials,
+            &game,
+            &system,
+        );
+        let offers = picking.offers.clone();
+        *state.scraper.picking() = Some(picking);
+        Ok(offers)
+    })
+    .await
+}
+
+/// A small picture of one of the offers; `null` when it is not a picture or cannot be fetched.
+#[tauri::command]
+pub async fn scraper_preview<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    offer: usize,
+) -> ApiResult<Option<String>> {
+    off_thread(app, move |state| {
+        caller.require(state, permissions::SCRAPER_MANAGE)?;
+        let picking = state.scraper.picking().clone();
+        Ok(picking.and_then(|p| p.preview(&*state.http, offer)))
+    })
+    .await
+}
+
+/// Writes what the user picked from the offers; returns what could not be saved.
+#[tauri::command]
+pub async fn scraper_apply<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    id: i64,
+    text: BTreeMap<String, String>,
+    media: Vec<usize>,
+) -> ApiResult<Vec<String>> {
+    off_thread(app, move |state| {
+        caller.require(state, permissions::SCRAPER_MANAGE)?;
+        let picking = state
+            .scraper
+            .picking()
+            .clone()
+            .filter(|p| p.game == id)
+            .ok_or_else(|| ApiError::new(ErrorCode::Invalid, "these offers are out of date"))?;
+        let (game, system) = target(state, id)?;
+        pick::apply(
+            &*state.http,
+            &state.paths,
+            &picking,
+            &game,
+            &system,
+            &text,
+            &media,
+        )
+        .map_err(internal)
+    })
+    .await
+}
+
+/// Changes a game's details by hand; an empty value clears one.
+#[tauri::command]
+pub async fn scraper_edit<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    id: i64,
+    fields: BTreeMap<String, String>,
+) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        caller.require(state, permissions::SCRAPER_MANAGE)?;
+        let (game, system) = target(state, id)?;
+        pick::edit(&state.paths, &game, &system, &fields)
+            .map_err(|e| ApiError::new(ErrorCode::Invalid, e))
     })
     .await
 }

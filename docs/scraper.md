@@ -3,7 +3,8 @@
 Forma's scraper finds metadata and media for games and writes them where EmulationStation
 does: media into `/userdata/roms/<system>/images|videos|manuals/`, metadata into the system's
 `gamelist.xml` (edited in place, as the [write-back](batocera-integration.md) does). Both
-frontends see the result. It runs from Forma's menu: Start → Scraper.
+frontends see the result. It runs from Forma's menu: Start → Games → Scrapers. On a game, Select
+offers **Edit details…** and **Scrape…** (see [One game, by hand](#one-game-by-hand)).
 
 ## Sources
 
@@ -36,6 +37,19 @@ is in `libretro.tsv`. MobyGames and SteamGridDB are searched by title alone.
   more media kinds, and age ratings); on by default. See theme-authoring.md.
 - Missing only (the default) or replace what is there.
 - What to scrape: the selected game, a system, or every system.
+
+## One game, by hand
+
+Select on a game offers two things, whatever the theme:
+
+- **Scrape…** asks every scraper that is on and set up, not stopping at the first answer, and
+  lists each section (name, description, the box, the video…) with what each scraper has. What
+  the game lacks starts on the first scraper's answer; what it already has is kept until the
+  user picks otherwise. Pictures show a preview. **Save** writes only those sections.
+- **Edit details…** types a field on the on-screen keyboard. Empty clears it, except the name.
+
+A media offer's address never reaches a page: some carry the user's account (ScreenScraper's
+do), so the page gets the offer's number, and a small `data:` picture from `scraper_preview`.
 
 ## Files
 

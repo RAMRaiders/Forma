@@ -78,6 +78,16 @@ impl ShellState {
         self.page_ready.load(Ordering::SeqCst)
     }
 
+    /// The view the theme says it is showing.
+    pub fn view(&self) -> Option<String> {
+        self.context
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get("view")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+    }
+
     pub fn set_page_ready(&self) {
         self.page_ready.store(true, Ordering::SeqCst);
     }

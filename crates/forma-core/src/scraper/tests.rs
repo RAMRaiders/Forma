@@ -486,8 +486,9 @@ fn a_theme_adds_what_it_needs_unless_turned_off() {
             "boxside".into(),
         ],
         fields: vec!["ageRating".into(), "aura".into()],
+        ..Default::default()
     };
-    let needs = super::Needs::from_theme(&asked);
+    let needs = super::Needs::from_theme(&asked, None);
     assert_eq!(
         needs.media,
         [MediaKind::Boxside, MediaKind::Thumbnail],
@@ -548,4 +549,128 @@ fn a_missing_age_rating_is_scraped_only_for_a_theme_that_shows_it() {
     assert_eq!(out.sources, ["a"]);
     let list = std::fs::read_to_string(dir.path().join("gamelist.xml")).unwrap();
     assert!(list.contains("<agerating>PEGI:3</agerating>"), "{list}");
+}
+
+#[test]
+fn a_theme_asks_for_more_in_the_view_in_use() {
+    let asked: crate::themes::ThemeScraper = serde_json::from_str(
+        r#"{ "media": ["fanart"], "views": { "collector": { "media": ["boxside", "fanart"], "fields": ["ageRating"] } } }"#,
+    )
+    .unwrap();
+    let plain = Needs::from_theme(&asked, Some("immersive"));
+    assert_eq!(plain.media, [MediaKind::Fanart]);
+    assert!(!plain.age_rating);
+    let collector = Needs::from_theme(&asked, Some("collector"));
+    assert_eq!(collector.media, [MediaKind::Fanart, MediaKind::Boxside]);
+    assert!(collector.age_rating);
+}
+
+#[test]
+fn offers_come_from_every_source_section_by_section_and_keep_addresses_private() {
+    let dir = tempfile::tempdir().unwrap();
+    let system = system(dir.path());
+    let rom = game("Sonic.md", "Sonic");
+    let sources: Vec<Box<dyn Source>> = vec![
+        Fake::new(
+            "one",
+            &[MediaKind::Thumbnail],
+            Ok(Some(Found {
+                metadata: meta("From one", Some("Sega")),
+                media: vec![(
+                    MediaKind::Thumbnail,
+                    "https://one.test/box.png?password=hunter2".to_owned(),
+                )],
+            })),
+        ),
+        Fake::new(
+            "two",
+            &[MediaKind::Thumbnail],
+            Ok(Some(Found {
+                metadata: meta("From two", None),
+                media: vec![(MediaKind::Thumbnail, "https://two.test/box.png".to_owned())],
+            })),
+        ),
+    ];
+    let config = config(&["one", "two"], &[MediaKind::Thumbnail]);
+    let http = Serve::new(&[("https://two.test/box.png", PNG)]);
+    let picking = pick::gather(&http, &sources, &config, &BTreeMap::new(), &rom, &system);
+
+    let description = picking
+        .offers
+        .text
+        .iter()
+        .find(|s| s.field == "description")
+        .unwrap();
+    assert_eq!(
+        description
+            .offers
+            .iter()
+            .map(|o| (o.source.as_str(), o.value.as_str()))
+            .collect::<Vec<_>>(),
+        [("one", "From one"), ("two", "From two")]
+    );
+    let developer = picking
+        .offers
+        .text
+        .iter()
+        .find(|s| s.field == "developer")
+        .unwrap();
+    assert_eq!(developer.offers.len(), 1);
+    assert_eq!(picking.offers.media[0].offers.len(), 2);
+    assert!(
+        !serde_json::to_string(&picking.offers)
+            .unwrap()
+            .contains("hunter2")
+    );
+
+    // The user's picks: two's picture and description; nothing else is touched.
+    let picked = BTreeMap::from([("description".to_owned(), "From two".to_owned())]);
+    let problems = pick::apply(
+        &http,
+        &paths(dir.path()),
+        &picking,
+        &rom,
+        &system,
+        &picked,
+        &[1],
+    )
+    .unwrap();
+    assert!(problems.is_empty(), "{problems:?}");
+    let list = std::fs::read_to_string(system.rom_path.join("gamelist.xml")).unwrap();
+    assert!(list.contains("<desc>From two</desc>"), "{list}");
+    assert!(
+        list.contains("<thumbnail>./images/Sonic-thumb.png</thumbnail>"),
+        "{list}"
+    );
+    assert!(!list.contains("<developer>"), "{list}");
+    assert!(system.rom_path.join("images/Sonic-thumb.png").exists());
+}
+
+#[test]
+fn details_are_edited_by_hand_and_a_field_can_be_cleared() {
+    let dir = tempfile::tempdir().unwrap();
+    let system = system(dir.path());
+    let rom = game("Sonic.md", "Sonic");
+    let paths = paths(dir.path());
+    let set = BTreeMap::from([
+        ("description".to_owned(), "A <fast> game".to_owned()),
+        ("releaseDate".to_owned(), "1991-06".to_owned()),
+    ]);
+    pick::edit(&paths, &rom, &system, &set).unwrap();
+    let list = std::fs::read_to_string(system.rom_path.join("gamelist.xml")).unwrap();
+    assert!(list.contains("<desc>A &lt;fast&gt; game</desc>"), "{list}");
+    assert!(
+        list.contains("<releasedate>19910601T000000</releasedate>"),
+        "{list}"
+    );
+
+    let clear = BTreeMap::from([("description".to_owned(), String::new())]);
+    pick::edit(&paths, &rom, &system, &clear).unwrap();
+    let list = std::fs::read_to_string(system.rom_path.join("gamelist.xml")).unwrap();
+    assert!(!list.contains("<desc>"), "{list}");
+
+    let no_name = BTreeMap::from([("name".to_owned(), " ".to_owned())]);
+    assert!(pick::edit(&paths, &rom, &system, &no_name).is_err());
+    let bad_date = BTreeMap::from([("releaseDate".to_owned(), "soon".to_owned())]);
+    assert!(pick::edit(&paths, &rom, &system, &bad_date).is_err());
 }

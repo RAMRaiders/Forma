@@ -746,6 +746,39 @@ fn lists_magazines_serves_their_pages_and_remembers_the_page() {
 }
 
 #[test]
+fn a_game_is_edited_by_hand_with_the_permission() {
+    let h = Harness::new(&["scraper.manage"]);
+    let found = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap();
+    let id = found[0]["id"].as_i64().unwrap();
+    let system = found[0]["system"].as_str().unwrap().to_owned();
+    h.call(
+        "scraper_edit",
+        json!({ "id": id, "fields": { "genre": "Platform" } }),
+    )
+    .unwrap();
+    let list = std::fs::read_to_string(
+        h.state()
+            .paths
+            .userdata
+            .join(format!("roms/{system}/gamelist.xml")),
+    )
+    .unwrap();
+    assert!(list.contains("<genre>Platform</genre>"), "{list}");
+    let bad = h.call(
+        "scraper_edit",
+        json!({ "id": id, "fields": { "releaseDate": "soon" } }),
+    );
+    assert_eq!(code(&bad.unwrap_err()), "invalid");
+    let denied = Harness::new(&[]);
+    let err = denied
+        .call("scraper_edit", json!({ "id": id, "fields": {} }))
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+}
+
+#[test]
 fn scraper_settings_accounts_and_a_run_over_a_system() {
     let h = Harness::new(&["scraper.manage"]);
     let settings = h.call("scraper_settings", json!({})).unwrap();

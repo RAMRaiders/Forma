@@ -16,6 +16,8 @@ export interface Row {
   alt?: { label: string; run: () => unknown };
   /** Starts a group of rows, with this heading. */
   heading?: string;
+  /** A picture under the row: a choice between pictures. */
+  image?: string | null;
   /** A logo drawn in place of the label's name (`name`), followed by `text`. */
   logo?: { src: string; name: string; text?: string };
 }
@@ -237,7 +239,8 @@ export class Page {
               )
             : el('span', { class: 'name' }, row.label),
           row.adjust ? el('span', { class: 'adjust', 'aria-hidden': 'true' }, '◀ ▶') : '',
-          el('span', { class: 'description' }, row.detail ?? '')
+          el('span', { class: 'description' }, row.detail ?? ''),
+          row.image ? el('img', { class: 'choice', src: row.image, alt: '' }) : null
         )
       );
     });

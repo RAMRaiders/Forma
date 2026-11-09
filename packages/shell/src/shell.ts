@@ -383,11 +383,9 @@ export class Shell {
         section: 'Library'
       },
       {
-        id: 'scraper',
-        label: 'Scraper',
-        description: game
-          ? `Boxes, videos, manuals and details for ${game.name}, or everything`
-          : 'Boxes, videos, manuals and details from ScreenScraper, IGDB and more',
+        id: 'games',
+        label: 'Games',
+        description: 'Scrapers and emulator options',
         section: 'Library'
       },
       {
@@ -414,12 +412,6 @@ export class Shell {
         id: 'music',
         label: 'Audio',
         description: 'Video sound, music folders, playlists and web radios',
-        section: 'Settings'
-      },
-      {
-        id: 'game-settings',
-        label: 'Games',
-        description: 'Emulator options for every game: ratio, shaders, decorations…',
         section: 'Settings'
       },
       {
@@ -484,7 +476,8 @@ export class Shell {
     const info = await this.#loadInfo();
     const list = info?.context?.list;
     const offers = onSelect(info?.theme.settings ?? [], list ?? '').length > 0;
-    if (list !== 'systems' && !(list === 'games' && offers)) return this.#openViews();
+    const game = info?.context?.game ?? null;
+    if (list !== 'systems' && !(list === 'games' && (offers || game))) return this.#openViews();
     const views = themeViews(await this.forma.nav.views().catch(() => []), info);
     const openViews =
       views.length > 1
@@ -505,7 +498,7 @@ export class Shell {
     this.#pageKind = 'context';
     await (list === 'systems'
       ? this.#page.show('Systems', systemsScreen(this.forma, this.#page, openViews, theme))
-      : this.#page.show('Games', gamesScreen(this.#page, theme, openViews)));
+      : this.#page.show('Games', gamesScreen(this.forma, this.#page, theme, game, openViews)));
     this.#changed();
   }
 
@@ -596,8 +589,20 @@ export class Shell {
         return show('Content downloader', storeScreen(this.forma, page));
       case 'system-settings':
         return show('System settings', systemSettingsScreen(this.forma, page));
-      case 'game-settings':
-        return show('Game settings', optionsScreen(this.forma, page, { level: 'global' }));
+      case 'games':
+        return show('Games', () => [
+          {
+            label: 'Scrapers',
+            detail: 'Choose scrapers, add accounts, and scrape boxes, videos and details',
+            run: () => page.push('Scrapers', scraperScreen(this.forma, page, context))
+          },
+          {
+            label: 'Emulator options',
+            detail: 'For every game: ratio, shaders, decorations…',
+            run: () =>
+              page.push('Emulator options', optionsScreen(this.forma, page, { level: 'global' }))
+          }
+        ]);
       case 'system-options':
         if (!context.system) return;
         return show(
@@ -636,8 +641,6 @@ export class Shell {
           'Add-ons',
           addonsScreen(this.forma, page, (m) => this.notify(m))
         );
-      case 'scraper':
-        return show('Scraper', scraperScreen(this.forma, page, context));
       case 'collections':
         return show(
           'Collections',

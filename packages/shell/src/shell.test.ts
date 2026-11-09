@@ -316,7 +316,7 @@ describe('Forma’s shell', () => {
 
   it('scraper: runs in the background, chooses what to fetch, sets up a source', async () => {
     const { press, text, openMenu } = start(['scraper.manage']);
-    await openMenu('Scraper');
+    await openMenu('Games');
     const rows = () => text('.page > .panel li[role=option] .name');
     const details = () => text('.page > .panel li[role=option] .description');
     const selected = () => text('.page li.selected .name')[0];
@@ -324,27 +324,32 @@ describe('Forma’s shell', () => {
       for (let i = 0; i < 40 && selected() !== label; i++) await press('down');
       expect(selected()).toBe(label);
     };
-    await vi.waitFor(() =>
-      expect([...rows(), ...text('.page .note')]).toContain('Scrape everything')
-    );
+    await vi.waitFor(() => expect(rows()).toEqual(['Scrapers', 'Emulator options']));
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
     expect(text('.page li.heading')).toEqual([
       'Scrape',
-      'Sources, asked in this order',
-      'What to fetch'
+      'Scrapers, asked in this order',
+      'Options'
     ]);
     expect(rows()).toContain('ScreenScraper');
-    expect(rows()).toContain('Manual');
     const at = (label: string) => details()[rows().indexOf(label)];
     expect(at('ScreenScraper')).toBe('On · needs setting up: A');
     expect(at('libretro thumbnails')).toBe('On · nothing to set up');
 
     // Everything, in the background: the page follows it to the end.
+    await goTo('Start scraping');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Scrape everything'));
     await goTo('Scrape everything');
     await press('confirm');
     await vi.waitFor(() => expect(rows().some((r) => r.startsWith('Last: Everything'))).toBe(true));
     expect(at('Last: Everything')).toMatch(/^\d+ found · \d+ not found$/);
 
     // Manuals on.
+    await goTo('What to fetch');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Manual'));
     expect(at('Manual')).toBe('Off');
     await goTo('Manual');
     await press('confirm');
@@ -356,6 +361,8 @@ describe('Forma’s shell', () => {
     await goTo('What Neon asks for');
     await press('confirm');
     await vi.waitFor(() => expect(at('Box spine')).toBe('Off'));
+    await press('back');
+    await vi.waitFor(() => expect(rows()).toContain('TheGamesDB'));
 
     // TheGamesDB's key, typed on the keyboard.
     await press('up');
@@ -374,6 +381,62 @@ describe('Forma’s shell', () => {
     );
     await press('back');
     await vi.waitFor(() => expect(at('TheGamesDB')).toBe('On · set up'));
+  });
+
+  it('a game on Select: its details by hand, and each scraper’s answers to choose from', async () => {
+    const { press, text, backend } = start(
+      ['scraper.manage'],
+      { view: 'systems', list: 'games', game: { id: 1, name: 'Sonic' } },
+      ['systems']
+    );
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    const at = (label: string) => details()[rows().indexOf(label)];
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toEqual(['Edit details…', 'Scrape…']));
+    expect(text('.page li.heading')).toEqual(['Sonic']);
+
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Description'));
+    expect(text('.page h2')).toEqual(['Scrape Sonic']);
+    // What the game lacks takes the first scraper's; what it has stays until chosen.
+    expect(at('Description')).toBe('ScreenScraper: From ScreenScraper.');
+    expect(at('Box')).toBe('Keep what it has');
+    expect(at('Save')).toBe('1 change');
+
+    // Another scraper's text.
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Leave empty', 'ScreenScraper', 'ArcadeDB']));
+    await press('down');
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Description')).toBe('ArcadeDB: From ArcadeDB.'));
+
+    // A picture to look at before choosing.
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'libretro thumbnails'])
+    );
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Box')).toBe('From ScreenScraper'));
+    expect(at('Save')).toBe('2 changes');
+
+    const apply = vi.spyOn(backend, 'invoke');
+    await press('up');
+    await press('up');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(apply).toHaveBeenCalledWith('scraper_apply', {
+        id: 1,
+        text: { description: 'From ArcadeDB.' },
+        media: [0]
+      })
+    );
+    await vi.waitFor(() => expect(text('.toast')).toContain('Saved'));
   });
 
   it('add-ons: installed ones, a page each with settings and switches, and the catalogue', async () => {
@@ -558,12 +621,11 @@ describe('Forma’s shell', () => {
       'Views',
       'Downloads',
       'Magazines',
-      'Scraper',
+      'Games',
       'Achievements',
       'Netplay',
       'Interface',
       'Audio',
-      'Games',
       'System',
       'Add-ons',
       'Controllers',
@@ -620,14 +682,14 @@ describe('Forma’s shell', () => {
       });
       top += Math.ceil(own.length / 4) * 50 + 20;
     }
-    expect(tiles.length).toBe(17);
+    expect(tiles.length).toBe(16);
     const at = () => text('.menu li.selected .name')[0];
     expect(at()).toBe('Collections');
     await press('right');
     expect(at()).toBe('Views');
     await press('down');
     // the next row has one tile: the nearest across
-    expect(at()).toBe('Scraper');
+    expect(at()).toBe('Games');
     await press('down');
     // the tile below, in the next row
     expect(at()).toBe('Achievements');
@@ -635,14 +697,11 @@ describe('Forma’s shell', () => {
     await press('down');
     expect(at()).toBe('Audio');
     await press('right');
-    await press('right');
     expect(at()).toBe('System');
-    await press('down');
-    // the next row down, nearest across
+    await press('right');
     expect(at()).toBe('Add-ons');
     await press('down');
-    expect(at()).toBe('Controllers');
-    await press('right');
+    // the next row down, nearest across
     expect(at()).toBe('Network');
     await press('down');
     expect(at()).toBe('Restart');
@@ -658,7 +717,7 @@ describe('Forma’s shell', () => {
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 15; i++) await press('down');
+    for (let i = 0; i < 14; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
@@ -755,7 +814,7 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 13; i++) await press('down');
+    for (let i = 0; i < 12; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Network']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');
@@ -957,8 +1016,11 @@ describe('Forma’s settings pages', () => {
     await openMenu('Games');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(rows()).toContain('Emulator options'));
+    await press('down');
+    await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Game aspect ratio'));
-    expect(text('.page h2')).toEqual(['Game settings']);
+    expect(text('.page h2')).toEqual(['Emulator options']);
     expect(rows()).toContain('Game rendering & shaders…');
     while (selected() !== 'Game aspect ratio') await press('down');
     expect(text('.page li.selected .description')).toEqual(['Default']);
@@ -970,7 +1032,7 @@ describe('Forma’s settings pages', () => {
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Game rendering & shaders']));
     expect(rows()).toEqual(['Shader set', 'Integer scaling (pixel perfect)']);
     await press('back');
-    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Game settings']));
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Emulator options']));
     expect(selected()).toBe('Game rendering & shaders…');
   });
 
