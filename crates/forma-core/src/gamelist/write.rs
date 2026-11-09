@@ -228,18 +228,22 @@ fn updated(
 /// Every `<game>` under the document element, and where the document element closes. Any
 /// error, including a file cut short, is returned: such a file is never rewritten.
 fn spans(xml_text: &str) -> std::result::Result<(Vec<GameSpan>, usize), String> {
-    let mut reader = Reader::from_str(xml_text);
+    // The reader passes over a byte-order mark without counting it, and every offset here is
+    // into the whole file: read after the mark, and add it back.
+    let body = xml_text.strip_prefix('\u{feff}').unwrap_or(xml_text);
+    let mark = xml_text.len() - body.len();
+    let mut reader = Reader::from_str(body);
     let mut depth = 0usize;
     let mut games = Vec::new();
     let mut game: Option<GameSpan> = None;
     let mut child: Option<(String, usize)> = None;
     let mut root_close = None;
     loop {
-        let before = offset(reader.buffer_position());
+        let before = mark + offset(reader.buffer_position());
         let event = reader
             .read_event()
             .map_err(|e| format!("{e} at byte {}", reader.error_position()))?;
-        let after = offset(reader.buffer_position());
+        let after = mark + offset(reader.buffer_position());
         match event {
             Event::Start(e) => {
                 let name = e.name().as_ref().to_owned();
@@ -390,6 +394,30 @@ mod tests {
         let out = run(LIST, "b.nes", &stats(false, 0, None));
         assert!(out.contains("<path>./b.nes</path>\n\t</game>"), "{out}");
         assert_eq!(out.matches("<favorite>").count(), 0);
+    }
+
+    #[test]
+    fn a_byte_order_mark_stays_and_moves_nothing() {
+        let marked = format!("\u{feff}{LIST}");
+        // A game with no entry yet, added after the last one; and one that has an entry.
+        for (rom, count) in [("sub/c.nes", 1), ("b.nes", 0)] {
+            let out = run(&marked, rom, &stats(true, 1, None));
+            assert!(out.starts_with('\u{feff}'), "{out}");
+            assert!(crate::xml::parse(&out).error.is_none(), "{out}");
+            assert_eq!(
+                out.matches("</game>").count(),
+                LIST.matches("</game>").count() + count
+            );
+            assert!(out.contains("<favorite>true</favorite>"), "{out}");
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("gamelist.xml");
+        std::fs::write(&file, &marked).unwrap();
+        assert!(remove_game(dir.path(), &fixture_paths(), Path::new("b.nes")).unwrap());
+        let out = std::fs::read_to_string(&file).unwrap();
+        assert!(crate::xml::parse(&out).error.is_none(), "{out}");
+        assert!(!out.contains("b.nes"), "{out}");
     }
 
     #[test]
