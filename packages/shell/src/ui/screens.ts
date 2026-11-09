@@ -527,7 +527,6 @@ export interface ThemeOnSelect {
   /** The theme's settings now, fresh after every change. */
   theme: () => Promise<{
     name: string;
-    logo?: string | null;
     settings: ThemeSettingValue[];
   } | null>;
   setThemeSetting: (key: string, value: unknown) => Promise<void>;
@@ -556,11 +555,10 @@ export async function themeSelectRow(
     );
   };
   return {
-    heading: theme.name,
-    label: theme.name,
-    ...(theme.logo ? { logo: { src: theme.logo, name: theme.name } } : {}),
-    detail: `How ${theme.name} shows them`,
-    run: () => page.push(theme.name, build)
+    heading: 'Look',
+    label: 'Theme',
+    detail: `Change how ${theme.name} shows your ${list}`,
+    run: () => page.push('Theme', build)
   };
 }
 
@@ -606,7 +604,7 @@ export function systemsScreen(
     ];
     const own = theme ? await themeSelectRow(page, 'systems', theme) : null;
     if (own) rows.push(own);
-    if (views) rows.push({ heading: 'Views', label: 'Change view…', run: views });
+    if (views) rows.push({ heading: 'Views', label: 'Change view', run: views });
     return rows;
   };
 }
@@ -627,7 +625,7 @@ export function gamesScreen(
     const rows: Row[] = game ? gameRows(forma, page, game) : [];
     const own = await themeSelectRow(page, 'games', theme);
     if (own) rows.push(own);
-    if (views) rows.push({ heading: 'Views', label: 'Change view…', run: views });
+    if (views) rows.push({ heading: 'Views', label: 'Change view', run: views });
     return rows;
   };
 }

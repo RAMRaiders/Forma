@@ -7,11 +7,13 @@
 pub mod addons;
 pub mod batocera;
 pub mod bluetooth;
+pub mod delete;
 mod error;
 pub mod field;
 pub mod gamelist;
 pub mod hierarchy;
 pub mod host;
+pub mod iconic;
 pub mod import;
 pub mod input;
 pub mod launch;

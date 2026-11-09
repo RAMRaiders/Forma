@@ -489,9 +489,7 @@ export class Shell {
     const theme: ThemeOnSelect = {
       theme: async () => {
         const now = await this.#loadInfo();
-        return now
-          ? { name: now.theme.name, logo: now.theme.logo, settings: now.theme.settings }
-          : null;
+        return now ? { name: now.theme.name, settings: now.theme.settings } : null;
       },
       setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value)
     };

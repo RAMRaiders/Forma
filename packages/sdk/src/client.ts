@@ -155,6 +155,8 @@ export class Forma {
       /** In the order the user chose (`SystemsOrder`): keep it, rather than sorting them. */
       systems: () => invoke<SystemSummary[]>('library_systems'),
       game: (id: number) => invoke<Game | null>('library_game', { id }),
+      /** Deletes a game and its files for good. Only Forma's own menu can. Since 1.25.0. */
+      deleteGame: (id: number) => invoke<void>('library_delete_game', { id }),
       search: (query: string, limit?: number) => invoke<Game[]>('library_search', { query, limit }),
       setFavorite: (id: number, favorite: boolean) =>
         invoke<void>('library_set_favorite', { id, favorite }),

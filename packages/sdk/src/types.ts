@@ -153,6 +153,8 @@ export interface Game {
    * USK, ACB, GRAC, CLASSIND, BBFC. Since 1.24.0.
    */
   ageRating: string | null;
+  /** One of the games its system is remembered for, on the lists Forma ships. Since 1.25.0. */
+  iconic: boolean;
   /** Media kind → URL to load it from. */
   media: Partial<Record<MediaKind, string>>;
 }

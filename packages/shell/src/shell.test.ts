@@ -393,7 +393,7 @@ describe('Forma’s shell', () => {
     const details = () => text('.page > .panel li[role=option] .description');
     const at = (label: string) => details()[rows().indexOf(label)];
     await press('select');
-    await vi.waitFor(() => expect(rows()).toEqual(['Edit details…', 'Scrape…']));
+    await vi.waitFor(() => expect(rows()).toEqual(['Edit details', 'Scrape', 'Delete']));
     expect(text('.page li.heading')).toEqual(['Sonic']);
 
     await press('down');
@@ -437,6 +437,35 @@ describe('Forma’s shell', () => {
       })
     );
     await vi.waitFor(() => expect(text('.toast')).toContain('Saved'));
+  });
+
+  it('a game on Select can be deleted, asking first', async () => {
+    const { press, text, backend, shell } = start([], {
+      view: 'systems',
+      list: 'games',
+      game: { id: 1, name: 'Sonic' }
+    });
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Delete'));
+    await press('down');
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Keep it', 'Delete for good']));
+    expect(text('.page h2')).toEqual(['Delete Sonic?']);
+
+    const invoke = vi.spyOn(backend, 'invoke');
+    await press('confirm'); // A stray A only goes back.
+    await vi.waitFor(() => expect(rows()).toContain('Delete'));
+    expect(invoke).not.toHaveBeenCalledWith('library_delete_game', { id: 1 });
+
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Keep it', 'Delete for good']));
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('library_delete_game', { id: 1 }));
+    await vi.waitFor(() => expect(text('.toast')).toContain('Deleted Sonic'));
+    expect(shell.open).toBe(false);
   });
 
   it('add-ons: installed ones, a page each with settings and switches, and the catalogue', async () => {
@@ -567,13 +596,10 @@ describe('Forma’s shell', () => {
     expect(shell.open).toBe(false);
   });
 
-  it('on Select over games, offers the theme’s own settings for them, under its logo', async () => {
-    const { press, text, theme, settings, shell, root } = start(
-      [],
-      { view: 'systems', list: 'games' },
-      ['systems']
-    );
-    theme.logo = 'forma://theme/logo.svg';
+  it('on Select over games, offers the theme’s own settings for them, as Theme', async () => {
+    const { press, text, theme, settings, shell } = start([], { view: 'systems', list: 'games' }, [
+      'systems'
+    ]);
     theme.settings.push({
       key: 'gamesView',
       label: 'View',
@@ -588,11 +614,10 @@ describe('Forma’s shell', () => {
     });
     await press('select');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Games']));
-    expect(root.querySelector<HTMLImageElement>('.page li img')?.getAttribute('src')).toBe(
-      'forma://theme/logo.svg'
-    );
+    expect(text('.page li .name')).toEqual(['Theme']);
+    expect(text('.page li .description')).toEqual(['Change how Neon shows your games']);
     await press('confirm');
-    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Neon']));
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Theme']));
     expect(text('.page li .name')).toEqual(['View: Immersive']);
     await press('right');
     await vi.waitFor(() => expect(text('.page li .name')).toEqual(['View: Shelf']));

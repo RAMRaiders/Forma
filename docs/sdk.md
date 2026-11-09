@@ -65,7 +65,8 @@ placeholder images for media. `forma.backendKind` says which one you got.
 
 A `Game` carries what the gamelist and Forma know: name, description, developer, publisher,
 genre, players, release date, rating, region and languages (since 1.22.0), age ratings as
-`ESRB:M,PEGI:18` (`ageRating`, since 1.24.0), favourite, hidden, play count, last played, time
+`ESRB:M,PEGI:18` (`ageRating`, since 1.24.0), whether it is one of the games its system is
+remembered for (`iconic`, since 1.25.0, from lists Forma ships), favourite, hidden, play count, last played, time
 played, its RetroAchievements id, and a URL per media kind it has.
 
 ```ts

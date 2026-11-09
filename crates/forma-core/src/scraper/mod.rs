@@ -8,6 +8,7 @@
 //! place. The library then re-imports it through the watcher, as for any gamelist change.
 
 mod engine;
+pub(crate) use text::comparable;
 pub mod pick;
 pub mod platforms;
 mod sources;

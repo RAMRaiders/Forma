@@ -157,7 +157,7 @@ impl Caller {
         }
     }
 
-    fn shell_only(self) -> ApiResult<()> {
+    pub(crate) fn shell_only(self) -> ApiResult<()> {
         if self.shell {
             Ok(())
         } else {

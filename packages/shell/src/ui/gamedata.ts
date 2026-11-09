@@ -19,14 +19,36 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
   return [
     {
       heading: game.name,
-      label: 'Edit details…',
+      label: 'Edit details',
       detail: 'Name, description, developer and more, by hand',
       run: () => page.push(`Edit ${game.name}`, editScreen(forma, page, game.id))
     },
     {
-      label: 'Scrape…',
+      label: 'Scrape',
       detail: 'Compare what each scraper has, and choose',
       run: () => pick(forma, page, game)
+    },
+    {
+      label: 'Delete',
+      detail: 'Remove the game and its files from this system',
+      run: () => page.push(`Delete ${game.name}?`, deleteScreen(forma, page, game))
+    }
+  ];
+}
+
+/** Keeping it comes first, so a stray A does no harm. */
+function deleteScreen(forma: Forma, page: Page, game: { id: number; name: string }): () => Row[] {
+  return () => [
+    { label: 'Keep it', detail: 'Go back', run: () => page.pop() },
+    {
+      label: 'Delete for good',
+      detail: 'Its ROM, its details and its pictures. This cannot be undone',
+      run: () =>
+        page.run('Deleting…', async () => {
+          await forma.library.deleteGame(game.id);
+          page.close();
+          return `Deleted ${game.name}`;
+        })
     }
   ];
 }

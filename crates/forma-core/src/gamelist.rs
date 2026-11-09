@@ -13,7 +13,7 @@ use crate::xml::{self, Element};
 
 mod write;
 
-pub use write::{PlayStats, Tag, set_tags, write_back};
+pub use write::{PlayStats, Tag, remove_game, set_tags, write_back};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GamelistEntry {

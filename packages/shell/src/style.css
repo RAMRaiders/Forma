@@ -333,6 +333,21 @@
   color: rgb(255 255 255 / 85%);
 }
 
+/* A page's title stays while its rows scroll under it. */
+.switcher.page > .panel > h2 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  /* Out to the panel's edges, in the title's own larger em. */
+  margin: calc(-1.4em / 1.15) calc(-1.6em / 1.15) 0.6em;
+  padding: calc(1.4em / 1.15) calc(1.6em / 1.15) 0.6em;
+  background: var(--panel-solid, #0b111d);
+}
+
+.switcher.page li[role='option'] {
+  scroll-margin-top: 4em;
+}
+
 /* A picture to choose, from the scrapers. */
 .page img.choice {
   grid-column: 1 / -1;

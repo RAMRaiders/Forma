@@ -986,6 +986,10 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperStop = true;
       return null;
     },
+    library_delete_game: ({ id }) => {
+      if (!games.delete(id as number)) fail('notFound', `no game ${String(id)}`);
+      return null;
+    },
     scraper_offers: () => {
       scraperAllowed();
       return {

@@ -102,6 +102,39 @@ pub fn set_tags(
     Ok(true)
 }
 
+/// Takes `rom`'s entries out of `system_dir/gamelist.xml`, leaving every other byte as it was.
+/// Returns whether the file changed.
+pub fn remove_game(system_dir: &Path, paths: &Paths, rom: &Path) -> Result<bool> {
+    let file = system_dir.join("gamelist.xml");
+    let old = match std::fs::read_to_string(&file) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(Error::io(&file, e)),
+    };
+    let (games, _) = spans(&old).map_err(|message| Error::Parse {
+        path: file.clone(),
+        message: format!("{message}; not written"),
+    })?;
+    let mut new = old.clone();
+    for game in games.iter().rev() {
+        if game_path(&old, game, system_dir, paths).as_deref() != Some(rom) {
+            continue;
+        }
+        let Some(start) = old[..game.open_end].rfind("<game") else {
+            continue;
+        };
+        let end = game.close + "</game>".len();
+        new.replace_range(trim_end_at(&old, start)..end, "");
+    }
+    if new == old {
+        return Ok(false);
+    }
+    let temp = system_dir.join(".gamelist.xml.forma.tmp");
+    std::fs::write(&temp, &new).map_err(|e| Error::io(&temp, e))?;
+    std::fs::rename(&temp, &file).map_err(|e| Error::io(&file, e))?;
+    Ok(true)
+}
+
 /// A direct child of a `<game>`: its tag and its bytes, start and end tags included.
 struct Child {
     name: String,

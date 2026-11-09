@@ -202,6 +202,25 @@ pub fn library_search(
     Ok(games.into_iter().map(expose).collect())
 }
 
+/// Deletes a game for good: only Forma's own menu can, and it asks first.
+#[tauri::command]
+pub async fn library_delete_game<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    id: i64,
+) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        caller.shell_only()?;
+        let (game, system) = state
+            .library()
+            .launch_target(id)?
+            .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no game with id {id}")))?;
+        forma_core::delete::delete_game(&state.paths, &game, &system)
+            .map_err(|e| ApiError::new(ErrorCode::Internal, e))
+    })
+    .await
+}
+
 #[tauri::command]
 pub fn library_set_favorite<R: Runtime>(
     app: AppHandle<R>,

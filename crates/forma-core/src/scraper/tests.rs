@@ -124,6 +124,7 @@ fn game(path: &str, name: &str) -> Game {
         region: None,
         lang: None,
         age_rating: None,
+        iconic: false,
         media: BTreeMap::new(),
     }
 }
@@ -673,4 +674,68 @@ fn details_are_edited_by_hand_and_a_field_can_be_cleared() {
     assert!(pick::edit(&paths, &rom, &system, &no_name).is_err());
     let bad_date = BTreeMap::from([("releaseDate".to_owned(), "soon".to_owned())]);
     assert!(pick::edit(&paths, &rom, &system, &bad_date).is_err());
+}
+
+#[test]
+fn deleting_a_game_takes_its_parts_entry_and_media_but_nothing_else() {
+    let dir = tempfile::tempdir().unwrap();
+    let system = system(dir.path());
+    let paths = paths(dir.path());
+    let folder = system.rom_path.clone();
+    std::fs::create_dir_all(folder.join("images")).unwrap();
+    for file in [
+        "Sonic.cue",
+        "Sonic (Track 1).bin",
+        "Other.md",
+        "images/Sonic-thumb.png",
+        "images/Other-thumb.png",
+    ] {
+        std::fs::write(folder.join(file), "x").unwrap();
+    }
+    std::fs::write(
+        folder.join("Sonic.cue"),
+        "FILE \"Sonic (Track 1).bin\" BINARY\n",
+    )
+    .unwrap();
+    std::fs::write(
+        folder.join("gamelist.xml"),
+        "<gameList>\n\t<game>\n\t\t<path>./Sonic.cue</path>\n\t\t<name>Sonic</name>\n\t</game>\n\t<game>\n\t\t<path>./Other.md</path>\n\t\t<name>Other</name>\n\t</game>\n</gameList>\n",
+    )
+    .unwrap();
+    let mut sonic = game("Sonic.cue", "Sonic");
+    sonic.media.insert(
+        "thumbnail".into(),
+        folder
+            .join("images/Sonic-thumb.png")
+            .to_string_lossy()
+            .into_owned(),
+    );
+    // A picture that is another game's, by mistake: left alone.
+    sonic.media.insert(
+        "image".into(),
+        folder
+            .join("images/Other-thumb.png")
+            .to_string_lossy()
+            .into_owned(),
+    );
+    crate::delete::delete_game(&paths, &sonic, &system).unwrap();
+
+    assert!(!folder.join("Sonic.cue").exists());
+    assert!(!folder.join("Sonic (Track 1).bin").exists());
+    assert!(!folder.join("images/Sonic-thumb.png").exists());
+    assert!(folder.join("Other.md").exists());
+    assert!(folder.join("images/Other-thumb.png").exists());
+    let list = std::fs::read_to_string(folder.join("gamelist.xml")).unwrap();
+    assert!(!list.contains("Sonic"), "{list}");
+    assert!(list.contains("<name>Other</name>"), "{list}");
+
+    // Never out of the system's folder, nor the folder itself.
+    for path in ["../Other.md", "/etc/passwd", ""] {
+        let bad = game(path, "x");
+        assert!(
+            crate::delete::delete_game(&paths, &bad, &system).is_err(),
+            "{path}"
+        );
+    }
+    assert!(folder.join("Other.md").exists());
 }

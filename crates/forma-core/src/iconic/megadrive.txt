@@ -1,0 +1,78 @@
+# Iconic Mega Drive / Genesis games. One game per line; `|` separates other titles of it.
+Sonic the Hedgehog
+Sonic the Hedgehog 2
+Sonic the Hedgehog 3
+Sonic & Knuckles
+Sonic 3D Blast|Sonic 3D Flickies' Island
+Sonic Spinball
+Dr. Robotnik's Mean Bean Machine
+Streets of Rage|Bare Knuckle
+Streets of Rage 2|Bare Knuckle II
+Streets of Rage 3|Bare Knuckle III
+Golden Axe
+Golden Axe II
+Altered Beast
+Phantasy Star II
+Phantasy Star III
+Phantasy Star IV
+Shining in the Darkness
+Shining Force
+Shining Force II
+Landstalker
+Beyond Oasis|The Story of Thor
+Gunstar Heroes
+Alien Soldier
+Dynamite Headdy
+Ristar
+Ecco the Dolphin
+Comix Zone
+Vectorman
+ToeJam & Earl
+Earthworm Jim
+Earthworm Jim 2
+Aladdin|Disney's Aladdin
+The Lion King
+Castle of Illusion Starring Mickey Mouse
+World of Illusion Starring Mickey Mouse and Donald Duck
+QuackShot Starring Donald Duck
+Cool Spot
+Kid Chameleon
+Alex Kidd in the Enchanted Castle
+Rocket Knight Adventures
+Mortal Kombat
+Mortal Kombat II
+Mortal Kombat 3
+Ultimate Mortal Kombat 3
+Street Fighter II' Special Champion Edition|Street Fighter II' Plus|Street Fighter II Champion Edition
+Super Street Fighter II
+Contra Hard Corps|Probotector
+Castlevania Bloodlines|Castlevania The New Generation|Vampire Killer
+Teenage Mutant Ninja Turtles The Hyperstone Heist|Teenage Mutant Hero Turtles The Hyperstone Heist
+Strider
+Ghouls 'n Ghosts
+The Revenge of Shinobi|The Super Shinobi
+Shinobi III Return of the Ninja Master|The Super Shinobi II
+Thunder Force III
+Thunder Force IV|Lightening Force Quest for the Darkstar
+Musha|Musha Aleste
+Truxton|Tatsujin
+Zero Wing
+Herzog Zwei
+Desert Strike Return to the Gulf
+Jungle Strike
+Road Rash
+Road Rash II
+Virtua Racing
+Virtua Fighter 2
+Micro Machines
+Flashback|Flashback The Quest for Identity
+Another World|Out of This World
+NBA Jam
+NHL '94
+FIFA International Soccer
+John Madden Football '93
+Mega Bomberman|Bomberman '94
+Columns
+Tiny Toon Adventures Buster's Hidden Treasure
+Mega Turrican|Turrican
+Pulseman

@@ -82,6 +82,8 @@ pub struct Game {
     pub lang: Option<String>,
     /// Age ratings, `BOARD:RATING` comma-separated, e.g. `ESRB:M,PEGI:18`.
     pub age_rating: Option<String>,
+    /// On the list of the games its system is remembered for (see [`crate::iconic`]).
+    pub iconic: bool,
     /// Media kind (`image`, `video`, `marquee`…) to absolute path.
     pub media: BTreeMap<String, String>,
 }
@@ -349,10 +351,14 @@ impl Library {
                     region: r.get(17)?,
                     lang: r.get(18)?,
                     age_rating: r.get(19)?,
+                    iconic: false,
                     media: BTreeMap::new(),
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
+        for game in &mut games {
+            game.iconic = crate::iconic::is_iconic(&game.system, &game.name, &game.path);
+        }
 
         let mut media = self
             .conn
