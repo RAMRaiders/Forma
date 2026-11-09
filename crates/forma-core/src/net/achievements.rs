@@ -5,7 +5,7 @@
 //! Keys), which Batocera does not store: it is the Forma setting `ra.apiKey`. The username
 //! defaults to Batocera's.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -452,7 +452,7 @@ struct UnlocksRaw {
 }
 
 /// Every hash RetroAchievements knows for a console's games, lower case, to the RA game id:
-/// what a computed hash is looked up in. Public, so games match with no account or key.
+/// what a computed hash is looked up in. Lists games with no achievements too.
 pub fn hash_index(
     http: &dyn Http,
     cache: &Cache,
@@ -477,6 +477,54 @@ pub fn hash_index(
                 .collect())
         },
     )
+}
+
+/// The games of a console that have achievements. RetroAchievements lists hashes for others
+/// too, and a game with none is not worth showing as matched. Needs the sign-in.
+pub fn games_with_achievements(
+    http: &dyn Http,
+    cache: &Cache,
+    account: &Account,
+    console: u32,
+) -> Result<Fetched<HashSet<i64>>> {
+    let token = account.token.as_deref().ok_or_else(|| {
+        Error::NotConfigured("sign in to RetroAchievements to match games".into())
+    })?;
+    let url = format!(
+        "{CONNECT}?r=allprogress&c={console}&u={}&t={}",
+        encode(&account.username),
+        encode(token)
+    );
+    fetch(
+        http,
+        cache,
+        &format!("ra-with-achievements-{console}"),
+        &url,
+        HASHES_MAX_AGE,
+        |body| {
+            let progress: AllProgress = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+            Ok(progress
+                .response
+                .into_iter()
+                .filter(|(_, game)| game.achievements.unwrap_or(0) > 0)
+                .filter_map(|(id, _)| id.parse().ok())
+                .collect())
+        },
+    )
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct AllProgress {
+    #[serde(default)]
+    response: HashMap<String, GameProgress>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct GameProgress {
+    #[serde(default, deserialize_with = "lenient::int")]
+    achievements: Option<i64>,
 }
 
 #[derive(Deserialize)]

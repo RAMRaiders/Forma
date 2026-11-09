@@ -12,7 +12,7 @@ use crate::error::Result;
 use crate::library::Library;
 use crate::net::Cache;
 use crate::net::Http;
-use crate::net::achievements::hash_index;
+use crate::net::achievements::{Account, games_with_achievements, hash_index};
 use crate::paths::Paths;
 
 /// romdex's cache of what it read: path, size and time to hashes.
@@ -84,22 +84,32 @@ pub fn unmatched(lib: &Library) -> Result<Unmatched> {
 
 /// Looks `unmatched` up, one request per console (cached for a week): `(game id, RA id)`.
 /// Needs no library, so it can run without holding it.
-pub fn look_up(http: &dyn Http, cache: &Cache, unmatched: Unmatched) -> Result<Vec<(i64, i64)>> {
+pub fn look_up(
+    http: &dyn Http,
+    cache: &Cache,
+    account: &Account,
+    unmatched: Unmatched,
+) -> Result<Vec<(i64, i64)>> {
     let mut matched = Vec::new();
     for (console, games) in unmatched {
         let index = hash_index(http, cache, console)?.data;
-        matched.extend(
-            games
-                .into_iter()
-                .filter_map(|(id, hash)| index.get(&hash).map(|ra| (id, *ra))),
-        );
+        let with = games_with_achievements(http, cache, account, console)?.data;
+        matched.extend(games.into_iter().filter_map(|(id, hash)| {
+            let ra = *index.get(&hash)?;
+            with.contains(&ra).then_some((id, ra))
+        }));
     }
     Ok(matched)
 }
 
 /// [`unmatched`], [`look_up`], then stores the matches. Returns how many were matched.
-pub fn resolve(lib: &mut Library, http: &dyn Http, cache: &Cache) -> Result<usize> {
-    let matched = look_up(http, cache, unmatched(lib)?)?;
+pub fn resolve(
+    lib: &mut Library,
+    http: &dyn Http,
+    cache: &Cache,
+    account: &Account,
+) -> Result<usize> {
+    let matched = look_up(http, cache, account, unmatched(lib)?)?;
     lib.set_ra_game_ids(&matched)?;
     Ok(matched.len())
 }
@@ -122,6 +132,12 @@ mod tests {
         }
         let mut lib = Library::open_in_memory().unwrap();
         lib.refresh(&paths).unwrap();
+
+        let conf = paths.batocera_conf();
+        let mut text = std::fs::read_to_string(&conf).unwrap();
+        text.push_str("global.retroachievements.token=t0k\n");
+        std::fs::write(&conf, text).unwrap();
+        let account = crate::net::achievements::account(&lib, &paths).unwrap();
 
         let nes = targets(&paths)
             .into_iter()
@@ -150,10 +166,22 @@ mod tests {
         );
         let mut http = FakeHttp::default();
         http.routes.insert("hashlibrary", Ok(list.into_bytes()));
+        // A game on the list with no achievements does not count as matched.
+        http.routes.insert(
+            "allprogress",
+            Ok(br#"{"Success": true, "Response": {"4242": {"Achievements": 0}}}"#.to_vec()),
+        );
+        let empty = Cache::new(dir.path().join("empty"));
+        assert_eq!(resolve(&mut lib, &http, &empty, &account).unwrap(), 0);
+        http.routes.insert(
+            "allprogress",
+            Ok(br#"{"Success": true, "Response": {"4242": {"Achievements": 12}}}"#.to_vec()),
+        );
+        http.calls.lock().unwrap().clear();
         let net = Cache::new(dir.path().join("net"));
         // One fixture game has an imported RA id already.
         let before = lib.ra_match_report(&["nes".into()]).unwrap()[0].matched;
-        assert_eq!(resolve(&mut lib, &http, &net).unwrap(), 1);
+        assert_eq!(resolve(&mut lib, &http, &net, &account).unwrap(), 1);
         let game = lib
             .games("nes")
             .unwrap()
@@ -171,7 +199,7 @@ mod tests {
             (hashes.len() as i64, before + 1)
         );
         // The list is cached: matching again asks nothing.
-        resolve(&mut lib, &http, &net).unwrap();
-        assert_eq!(http.calls(), 1);
+        resolve(&mut lib, &http, &net, &account).unwrap();
+        assert_eq!(http.calls(), 2);
     }
 }
