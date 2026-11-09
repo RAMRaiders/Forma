@@ -108,5 +108,6 @@ pub(super) fn parse(game: &Value) -> Found {
             ..Metadata::default()
         },
         media,
+        notes: Default::default(),
     }
 }

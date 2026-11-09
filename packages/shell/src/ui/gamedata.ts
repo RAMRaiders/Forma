@@ -109,6 +109,19 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
   };
 }
 
+/** What tells an offer from the others: `USA · Small file · MP4 · 12 MB`. Empty if nothing does. */
+export function offerNote(offer: ScraperOffers['media'][number]['offers'][number]): string {
+  const { region, variant, format, size } = offer;
+  const megabytes = size === null ? null : size / 1_000_000;
+  const weight =
+    megabytes === null
+      ? null
+      : megabytes >= 1
+        ? `${megabytes.toFixed(megabytes >= 10 ? 0 : 1)} MB`
+        : `${Math.max(1, Math.round(megabytes * 1000))} KB`;
+  return [region, variant, format?.toUpperCase(), weight].filter(Boolean).join(' · ');
+}
+
 /** The badge of a field no scraper's answer is chosen for. */
 const keptBadge = (current: unknown): NonNullable<Row['badge']> => ({
   text: current ? 'Keep current' : 'Stays empty',
@@ -159,7 +172,9 @@ function pickScreen(
       label: section.label,
       // Only what would be written; where it comes from is the badge.
       detail: from ? value : (section.current ?? ''),
-      badge: from ? { text: `From ${from.source}` } : keptBadge(section.current),
+      badge: from
+        ? { text: from.note ? `From ${from.source} · ${from.note}` : `From ${from.source}` }
+        : keptBadge(section.current),
       run: () =>
         page.push(section.label, () => [
           {
@@ -168,7 +183,7 @@ function pickScreen(
             run: choose(() => text.delete(section.field))
           },
           ...section.offers.map((o) => ({
-            label: o.source,
+            label: o.note ? `${o.source} · ${o.note}` : o.source,
             detail: o.value,
             run: choose(() => text.set(section.field, o.value))
           }))
@@ -185,10 +200,12 @@ function pickScreen(
     const offer = section.offers.find((o) => o.id === media.get(section.kind));
     return {
       label: section.label,
-      detail:
-        themeUse(theme, section.kind) === 'backup'
-          ? backupNote(theme, section.kind, mediaKinds)
-          : '',
+      detail: [
+        offer && offerNote(offer),
+        themeUse(theme, section.kind) === 'backup' && backupNote(theme, section.kind, mediaKinds)
+      ]
+        .filter(Boolean)
+        .join(' · '),
       badge: offer ? { text: `From ${offer.source}` } : keptBadge(section.current),
       image: offer ? previews.get(offer.id) : undefined,
       run: () =>
@@ -205,7 +222,7 @@ function pickScreen(
             },
             ...section.offers.map((o) => ({
               label: o.source,
-              detail: previews.get(o.id) ? '' : 'No preview',
+              detail: offerNote(o) || (previews.get(o.id) ? '' : 'No details from this source'),
               image: previews.get(o.id),
               run: choose(() => media.set(section.kind, o.id))
             }))

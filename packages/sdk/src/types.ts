@@ -348,7 +348,8 @@ export interface ScraperOffers {
     label: string;
     /** What the game has now. */
     current: string | null;
-    offers: { source: string; value: string }[];
+    /** `note`: the country or language it is in, when the source says. */
+    offers: { source: string; value: string; note: string | null }[];
   }[];
   media: {
     kind: MediaKind;
@@ -356,7 +357,17 @@ export interface ScraperOffers {
     /** Whether the game has one now. */
     current: boolean;
     /** `id` names it to `preview` and `apply`. */
-    offers: { id: number; source: string }[];
+    offers: {
+      id: number;
+      source: string;
+      /** The country or region it is for, in words. */
+      region: string | null;
+      /** What sets it apart from others of its kind: `Small file`. */
+      variant: string | null;
+      format: string | null;
+      /** In bytes. */
+      size: number | null;
+    }[];
   }[];
   /** Sources that could not answer, and why. */
   problems: string[];

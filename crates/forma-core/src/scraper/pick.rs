@@ -30,6 +30,8 @@ const PREVIEW_WIDTH: u32 = 480;
 pub struct TextOffer {
     pub source: String,
     pub value: String,
+    /// The country or language it is in, when the source says.
+    pub note: Option<String>,
 }
 
 /// A text section of a game (its description, say) and what the sources have for it.
@@ -49,6 +51,11 @@ pub struct TextSection {
 pub struct MediaOffer {
     pub id: usize,
     pub source: String,
+    pub region: Option<String>,
+    /// What sets it apart from others of its kind: `Small file`.
+    pub variant: Option<String>,
+    pub format: Option<String>,
+    pub size: Option<u64>,
 }
 
 /// A kind of media and what the sources have for it.
@@ -229,6 +236,7 @@ pub fn gather(
                     Some(TextOffer {
                         source: source.clone(),
                         value: found_text(&found.metadata, field)?,
+                        note: found.notes.text.get(field).cloned(),
                     })
                 })
                 .collect(),
@@ -245,9 +253,14 @@ pub fn gather(
             let theirs = found.media.iter().filter(|(k, _)| *k == kind);
             for (_, url) in theirs.take(OFFERS_PER_SOURCE) {
                 if seen.insert(url.clone()) {
+                    let note = found.notes.media.get(url).cloned().unwrap_or_default();
                     offers.push(MediaOffer {
                         id: urls.len(),
                         source: source.clone(),
+                        region: note.region,
+                        variant: note.variant,
+                        format: note.format.or_else(|| extension(url)),
+                        size: note.size,
                     });
                     urls.push((kind, url.clone()));
                 }
@@ -272,6 +285,14 @@ pub fn gather(
         },
         urls,
     }
+}
+
+/// The file type in an address, for sources that do not say.
+fn extension(url: &str) -> Option<String> {
+    let path = url.split(['?', '#']).next()?;
+    let (_, ext) = path.rsplit_once('/')?.1.rsplit_once('.')?;
+    (ext.len() <= 5 && ext.chars().all(|c| c.is_ascii_alphanumeric()))
+        .then(|| ext.to_ascii_lowercase())
 }
 
 /// `bytes` as a small JPEG in a `data:` URL, if they are a picture.
