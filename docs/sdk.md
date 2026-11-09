@@ -59,6 +59,7 @@ placeholder images for media. `forma.backendKind` says which one you got.
 | --------------------------- | ------------------------------------------------------------- |
 | `systems()`                 | Systems with visible games, in the order the user chose       |
 | `game(id)`                  | One game, or `null`                                           |
+| `versions(system)`          | Titles with several versions, from file names (since 1.26.0)  |
 | `search(query, limit = 50)` | Games matching every word as a prefix, accents ignored        |
 | `setFavorite(id, favorite)` | Records the user's choice; emits `library:changed`            |
 | `mediaUrl(gameId, kind)`    | A URL for a game's `image`, `video`, `marquee`… (synchronous) |

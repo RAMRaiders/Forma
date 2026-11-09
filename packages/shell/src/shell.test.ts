@@ -349,7 +349,9 @@ describe('Forma’s shell', () => {
       for (let i = 0; i < 40 && selected() !== label; i++) await press('down');
       expect(selected()).toBe(label);
     };
-    await vi.waitFor(() => expect(rows()).toEqual(['Scrapers', 'Emulator options']));
+    await vi.waitFor(() =>
+      expect(rows()).toEqual(['Scrapers', 'Emulator options', 'Game versions'])
+    );
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
     expect(text('.page li.heading')).toEqual([
