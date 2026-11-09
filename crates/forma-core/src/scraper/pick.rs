@@ -232,12 +232,23 @@ pub fn gather(
             current: game_text(game, &stem, field),
             offers: answers
                 .iter()
-                .filter_map(|(source, found)| {
-                    Some(TextOffer {
+                .flat_map(|(source, found)| {
+                    let best = found_text(&found.metadata, field).map(|value| TextOffer {
                         source: source.clone(),
-                        value: found_text(&found.metadata, field)?,
+                        value,
                         note: found.notes.text.get(field).cloned(),
-                    })
+                    });
+                    let others = found
+                        .notes
+                        .names
+                        .iter()
+                        .filter(move |_| field == "name")
+                        .map(|(value, note)| TextOffer {
+                            source: source.clone(),
+                            value: value.clone(),
+                            note: note.clone(),
+                        });
+                    best.into_iter().chain(others)
                 })
                 .collect(),
         })

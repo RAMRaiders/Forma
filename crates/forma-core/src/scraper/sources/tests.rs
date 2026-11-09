@@ -658,3 +658,28 @@ fn screenscraper_says_what_tells_its_media_and_text_apart() {
         "ss is no country"
     );
 }
+
+#[test]
+fn screenscraper_offers_every_name_with_the_regions_using_it() {
+    let found = super::screenscraper::parse(&serde_json::json!({
+        "noms": [
+            { "region": "jp", "text": "Sonikku" },
+            { "region": "us", "text": "Sonic" },
+            { "region": "eu", "text": "Sonic" },
+            { "region": "ss", "text": "Sonic the Hedgehog" }
+        ]
+    }))
+    .unwrap();
+    assert_eq!(found.metadata.name.as_deref(), Some("Sonic"));
+    assert_eq!(
+        found.notes.text.get("name").map(String::as_str),
+        Some("USA · Europe")
+    );
+    assert_eq!(
+        found.notes.names,
+        vec![
+            ("Sonic the Hedgehog".to_owned(), None),
+            ("Sonikku".to_owned(), Some("Japan".to_owned())),
+        ]
+    );
+}

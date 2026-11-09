@@ -217,6 +217,37 @@ fn by_region_noted(list: &Value, key: &str, order: &[&str]) -> Option<(String, O
     ))
 }
 
+/// Every different name, the preferred region's first, with the regions that use it in words.
+fn names_by_region(list: &Value) -> Vec<(String, Option<String>)> {
+    let mut items: Vec<&Value> = list
+        .as_array()
+        .map(|l| l.iter().collect())
+        .unwrap_or_default();
+    items.sort_by_key(|i| {
+        REGIONS
+            .iter()
+            .position(|r| i["region"].as_str() == Some(r))
+            .unwrap_or(usize::MAX)
+    });
+    let mut names: Vec<(String, Vec<String>)> = Vec::new();
+    for item in items {
+        let Some(text) = json_text(item.get("text")) else {
+            continue;
+        };
+        let region = item["region"].as_str().and_then(region_name);
+        let at = names.iter().position(|(name, _)| *name == text);
+        let at = at.unwrap_or_else(|| {
+            names.push((text, Vec::new()));
+            names.len() - 1
+        });
+        names[at].1.extend(region);
+    }
+    names
+        .into_iter()
+        .map(|(name, regions)| (name, (!regions.is_empty()).then(|| regions.join(" · "))))
+        .collect()
+}
+
 fn by_region(list: &Value, key: &str, order: &[&str]) -> Option<String> {
     by_region_noted(list, key, order).map(|(text, _)| text)
 }
@@ -283,7 +314,8 @@ pub(super) fn parse(game: &Value) -> Option<Found> {
     if !game.is_object() {
         return None;
     }
-    let name = by_region_noted(&game["noms"], "region", &REGIONS);
+    let mut names = names_by_region(&game["noms"]).into_iter();
+    let name = names.next();
     let description = by_region_noted(&game["synopsis"], "langue", &["en", "fr", "de", "es"]);
     let released = by_region_noted(&game["dates"], "region", &REGIONS);
     let genre = game["genres"].as_array().and_then(|genres| {
@@ -318,8 +350,12 @@ pub(super) fn parse(game: &Value) -> Option<Found> {
     let mut media = Vec::new();
     let mut notes = Notes::default();
     let tag = |found: &Option<(String, Option<String>)>| found.as_ref()?.1.clone();
+    notes.names = names.collect();
     for (field, note) in [
-        ("name", tag(&name).as_deref().and_then(region_name)),
+        (
+            "name",
+            name.as_ref().and_then(|(_, regions)| regions.clone()),
+        ),
         (
             "description",
             tag(&description).as_deref().and_then(language_name),

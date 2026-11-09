@@ -236,6 +236,8 @@ pub struct Notes {
     pub media: std::collections::HashMap<String, MediaNote>,
     /// By field (`name`, `releaseDate`): the country or language of its value.
     pub text: std::collections::HashMap<&'static str, String>,
+    /// The game's other names, with the regions each is used in.
+    pub names: Vec<(String, Option<String>)>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
