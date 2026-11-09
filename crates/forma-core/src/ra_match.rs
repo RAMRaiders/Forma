@@ -9,10 +9,11 @@ use std::path::PathBuf;
 use romdex::batocera::Target;
 
 use crate::error::Result;
-use crate::library::Library;
+use crate::library::{Game, Library};
 use crate::net::Cache;
 use crate::net::Http;
-use crate::net::achievements::{Account, games_with_achievements, hash_index};
+use crate::net::achievements::{Account, games_with_achievements, has_achievements, hash_index};
+use crate::options::conf;
 use crate::paths::Paths;
 
 /// romdex's cache of what it read: path, size and time to hashes.
@@ -114,6 +115,45 @@ pub fn resolve(
     Ok(matched.len())
 }
 
+/// Before a launch: turns achievements off for a game RetroAchievements' lists say has none,
+/// so the emulator does not sign in to ask and show a warning. Only on a clear answer: with
+/// the lists missing or old nothing changes. A value the user set for the game is kept.
+pub fn before_launch(lib: &Library, paths: &Paths, cache: &Cache, game: &Game) -> Result<()> {
+    let file = paths.batocera_conf();
+    conf::clear_for_launch(&file)?;
+    let settings = conf::read(&file);
+    if settings.get("global.retroachievements").map(String::as_str) != Some("1")
+        || game.ra_game_id.is_some()
+    {
+        return Ok(());
+    }
+    let Some(console) = romdex::ra::console_for(&game.system) else {
+        return Ok(());
+    };
+    let Some(hash) = lib.ra_hash(game.id)? else {
+        return Ok(());
+    };
+    if has_achievements(cache, console.0, &hash) != Some(false) {
+        return Ok(());
+    }
+    // As configgen reads it: the file name alone, without these two characters.
+    let name = game.path.rsplit('/').next().unwrap_or(&game.path);
+    let name = name.replace(['=', '#'], "");
+    let key = format!(
+        "{}.retroachievements",
+        conf::game_prefix(&game.system, &name)
+    );
+    if settings.contains_key(&key) {
+        return Ok(());
+    }
+    conf::set_for_launch(&file, &key, "0")
+}
+
+/// After the game: the setting's work is done.
+pub fn after_launch(paths: &Paths) -> Result<()> {
+    conf::clear_for_launch(&paths.batocera_conf())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,5 +241,106 @@ mod tests {
         // The list is cached: matching again asks nothing.
         resolve(&mut lib, &http, &net, &account).unwrap();
         assert_eq!(http.calls(), 2);
+    }
+
+    /// `(library, account, a game with a hash but no RA id, its file's key in batocera.conf)`.
+    fn launch_fixture() -> (tempfile::TempDir, Paths, Library, Account, Game, String) {
+        let (dir, paths) = fixture_copy();
+        let roms = paths.userdata.join("roms/nes");
+        for (n, entry) in std::fs::read_dir(&roms).unwrap().flatten().enumerate() {
+            if entry.path().extension().is_some_and(|e| e == "nes") {
+                std::fs::write(entry.path(), vec![n as u8; 16 * 1024]).unwrap();
+            }
+        }
+        let mut lib = Library::open_in_memory().unwrap();
+        lib.refresh(&paths).unwrap();
+        let conf = paths.batocera_conf();
+        let mut text = std::fs::read_to_string(&conf).unwrap();
+        text.push_str("global.retroachievements=1\nglobal.retroachievements.token=t0k\n");
+        std::fs::write(&conf, text).unwrap();
+        let account = crate::net::achievements::account(&lib, &paths).unwrap();
+        let nes = targets(&paths)
+            .into_iter()
+            .find(|t| t.system == "nes")
+            .unwrap();
+        let mut hashes = romdex::cache::Cache::in_memory().unwrap();
+        let (found, _) = hash_system(&nes, &mut hashes).unwrap();
+        lib.set_ra_hashes("nes", &found).unwrap();
+        let game = lib
+            .games("nes")
+            .unwrap()
+            .into_iter()
+            .find(|g| g.ra_game_id.is_none() && found.iter().any(|(p, _)| *p == g.path))
+            .unwrap();
+        let key = format!("nes[\"{}\"].retroachievements", game.path);
+        (dir, paths, lib, account, game, key)
+    }
+
+    /// The lists on disk, as matching leaves them: only `listed` has achievements.
+    fn lists(dir: &std::path::Path, account: &Account, listed: &str) -> Cache {
+        let mut http = FakeHttp::default();
+        let body = format!(r#"{{"Success": true, "MD5List": {{"{listed}": 7}}}}"#);
+        http.routes.insert("hashlibrary", Ok(body.into_bytes()));
+        http.routes.insert(
+            "allprogress",
+            Ok(br#"{"Success": true, "Response": {"7": {"Achievements": 5}}}"#.to_vec()),
+        );
+        let cache = Cache::new(dir.join("lists"));
+        hash_index(&http, &cache, 7).unwrap();
+        games_with_achievements(&http, &cache, account, 7).unwrap();
+        cache
+    }
+
+    #[test]
+    fn a_game_the_lists_rule_out_runs_without_achievements_and_the_setting_goes_after() {
+        let (dir, paths, lib, account, game, key) = launch_fixture();
+        let before = std::fs::read_to_string(paths.batocera_conf()).unwrap();
+        let cache = lists(dir.path(), &account, "00000000000000000000000000000000");
+
+        before_launch(&lib, &paths, &cache, &game).unwrap();
+        assert_eq!(
+            conf::read(&paths.batocera_conf())
+                .get(&key)
+                .map(String::as_str),
+            Some("0")
+        );
+        after_launch(&paths).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(paths.batocera_conf()).unwrap(),
+            before
+        );
+
+        // A crash left it behind: the next launch of a game with achievements takes it out.
+        before_launch(&lib, &paths, &cache, &game).unwrap();
+        let hash = lib.ra_hash(game.id).unwrap().unwrap();
+        let cache = lists(&dir.path().join("newer"), &account, &hash);
+        before_launch(&lib, &paths, &cache, &game).unwrap();
+        assert!(!conf::read(&paths.batocera_conf()).contains_key(&key));
+    }
+
+    #[test]
+    fn without_the_lists_nothing_changes() {
+        let (dir, paths, lib, _, game, _) = launch_fixture();
+        let before = std::fs::read_to_string(paths.batocera_conf()).unwrap();
+        let none = Cache::new(dir.path().join("none"));
+        before_launch(&lib, &paths, &none, &game).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(paths.batocera_conf()).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn the_users_own_setting_for_the_game_stays() {
+        let (dir, paths, lib, account, game, key) = launch_fixture();
+        let conf_file = paths.batocera_conf();
+        let mut text = std::fs::read_to_string(&conf_file).unwrap();
+        text.push_str(&format!("{key}=1\n"));
+        std::fs::write(&conf_file, &text).unwrap();
+        let cache = lists(dir.path(), &account, "00000000000000000000000000000000");
+
+        before_launch(&lib, &paths, &cache, &game).unwrap();
+        after_launch(&paths).unwrap();
+        assert_eq!(std::fs::read_to_string(&conf_file).unwrap(), text);
     }
 }

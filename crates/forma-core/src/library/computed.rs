@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 
 use super::{Library, Source, materialise};
@@ -63,6 +63,16 @@ impl Library {
         materialise(&tx, &changed, &[])?;
         tx.commit()?;
         Ok(changed.len())
+    }
+
+    /// The hash RetroAchievements would know this game's file by, once it has been read.
+    pub fn ra_hash(&self, game_id: i64) -> Result<Option<String>> {
+        Ok(self
+            .conn
+            .prepare_cached("SELECT ra_hash FROM game WHERE id = ?1")?
+            .query_row([game_id], |r| r.get(0))
+            .optional()?
+            .flatten())
     }
 
     /// Games on disk with an RA hash but no RA game id: `(id, system, hash)`.

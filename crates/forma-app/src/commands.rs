@@ -619,6 +619,15 @@ pub fn launch_game<R: Runtime>(
             return Err(e.into());
         }
     };
+    // Never in the way of the game: at worst the emulator asks RetroAchievements as before.
+    if let Err(e) = forma_core::ra_match::before_launch(
+        &state.library(),
+        &state.paths,
+        &state.http_cache(),
+        &prepared.game,
+    ) {
+        eprintln!("forma: achievements setting for the launch: {e}");
+    }
     std::thread::Builder::new()
         .name("forma-game".into())
         .spawn(move || run_session(&app, prepared))
@@ -644,6 +653,9 @@ fn run_session<R: Runtime>(app: &AppHandle<R>, prepared: launch::Prepared) {
     let started = SystemTime::now();
 
     let result = state.launcher.run(&prepared.command);
+    if let Err(e) = forma_core::ra_match::after_launch(&state.paths) {
+        eprintln!("forma: achievements setting after the launch: {e}");
+    }
     let (seconds, exit_code, error) = match &result {
         Ok(exit) => {
             let recorded = {

@@ -453,6 +453,50 @@ struct UnlocksRaw {
 
 /// Every hash RetroAchievements knows for a console's games, lower case, to the RA game id:
 /// what a computed hash is looked up in. Lists games with no achievements too.
+fn parse_hash_library(body: &[u8]) -> std::result::Result<HashMap<String, i64>, String> {
+    let library: HashLibrary = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+    let Some(hashes) = library.list.as_object() else {
+        return Ok(HashMap::new());
+    };
+    Ok(hashes
+        .iter()
+        .filter_map(|(hash, id)| {
+            let id = id.as_i64().or_else(|| id.as_str()?.parse().ok())?;
+            Some((hash.to_ascii_lowercase(), id))
+        })
+        .collect())
+}
+
+fn parse_with_achievements(body: &[u8]) -> std::result::Result<HashSet<i64>, String> {
+    let progress: AllProgress = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+    let Some(games) = progress.response.as_object() else {
+        return Ok(HashSet::new());
+    };
+    Ok(games
+        .iter()
+        .filter(|(_, game)| game["Achievements"].as_i64().unwrap_or(0) > 0)
+        .filter_map(|(id, _)| id.parse().ok())
+        .collect())
+}
+
+/// Whether a ROM with this hash can earn achievements, from the lists already on disk: no
+/// network, as a game is about to start. `None` when they are missing or out of date.
+pub fn has_achievements(cache: &Cache, console: u32, hash: &str) -> Option<bool> {
+    let fresh = |key: String| {
+        cache
+            .get(&key)
+            .filter(|(_, at)| at.elapsed().is_ok_and(|age| age < HASHES_MAX_AGE))
+            .map(|(body, _)| body)
+    };
+    let index = parse_hash_library(&fresh(format!("ra-hashlibrary-{console}"))?).ok()?;
+    let with = parse_with_achievements(&fresh(format!("ra-with-achievements-{console}"))?).ok()?;
+    Some(
+        index
+            .get(&hash.to_ascii_lowercase())
+            .is_some_and(|ra| with.contains(ra)),
+    )
+}
+
 pub fn hash_index(
     http: &dyn Http,
     cache: &Cache,
@@ -465,19 +509,7 @@ pub fn hash_index(
         &format!("ra-hashlibrary-{console}"),
         &url,
         HASHES_MAX_AGE,
-        |body| {
-            let library: HashLibrary = serde_json::from_slice(body).map_err(|e| e.to_string())?;
-            let Some(hashes) = library.list.as_object() else {
-                return Ok(HashMap::new());
-            };
-            Ok(hashes
-                .iter()
-                .filter_map(|(hash, id)| {
-                    let id = id.as_i64().or_else(|| id.as_str()?.parse().ok())?;
-                    Some((hash.to_ascii_lowercase(), id))
-                })
-                .collect())
-        },
+        parse_hash_library,
     )
 }
 
@@ -503,17 +535,7 @@ pub fn games_with_achievements(
         &format!("ra-with-achievements-{console}"),
         &url,
         HASHES_MAX_AGE,
-        |body| {
-            let progress: AllProgress = serde_json::from_slice(body).map_err(|e| e.to_string())?;
-            let Some(games) = progress.response.as_object() else {
-                return Ok(HashSet::new());
-            };
-            Ok(games
-                .iter()
-                .filter(|(_, game)| game["Achievements"].as_i64().unwrap_or(0) > 0)
-                .filter_map(|(id, _)| id.parse().ok())
-                .collect())
-        },
+        parse_with_achievements,
     )
 }
 

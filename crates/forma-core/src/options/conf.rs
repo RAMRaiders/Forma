@@ -54,10 +54,51 @@ pub(crate) fn clear(path: &Path, key: &str) -> Result<()> {
         }
         out.push('\n');
     }
+    replace(path, &out)
+}
+
+/// Marks the line after it as Forma's own, set for one launch only.
+const FOR_LAUNCH: &str = "# forma: only while this game runs";
+
+/// Sets `key` for one launch, marked so that [`clear_for_launch`] can tell it from the user's.
+pub(crate) fn set_for_launch(path: &Path, key: &str, value: &str) -> Result<()> {
+    let mut text = std::fs::read_to_string(path).map_err(|e| Error::io(path, e))?;
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(&format!("{FOR_LAUNCH}\n{key}={value}\n"));
+    replace(path, &text)
+}
+
+/// Takes out what [`set_for_launch`] put in, this launch's or one left by a crash.
+pub(crate) fn clear_for_launch(path: &Path) -> Result<()> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(Error::io(path, e)),
+    };
+    if !text.lines().any(|l| l == FOR_LAUNCH) {
+        return Ok(());
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut lines = text.lines().peekable();
+    while let Some(line) = lines.next() {
+        if line != FOR_LAUNCH {
+            out.push_str(line);
+            out.push('\n');
+        } else if lines.peek().is_some_and(|next| split(next).is_some()) {
+            lines.next();
+        }
+    }
+    replace(path, &out)
+}
+
+/// Written to a temporary file first, then renamed over: never a half-written config.
+fn replace(path: &Path, text: &str) -> Result<()> {
     let tmp = path.with_extension("conf.forma-tmp");
     let write = || -> std::io::Result<()> {
         let mut file = std::fs::File::create(&tmp)?;
-        file.write_all(out.as_bytes())?;
+        file.write_all(text.as_bytes())?;
         file.sync_all()?;
         std::fs::rename(&tmp, path)
     };
