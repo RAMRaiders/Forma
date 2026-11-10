@@ -435,12 +435,12 @@ describe('Forma’s shell', () => {
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Description'));
     expect(text('.page h2')).toEqual(['Scrape Sonic']);
-    // What the game lacks takes the first scraper's; what it has stays until chosen.
+    // It has been scraped before: nothing changes, gaps included, until chosen.
     // Only what would be written; its source is apart, in a badge.
     const badges = () => text('.page > .panel li[role=option] .badge');
-    expect(at('Description')).toBe('From ScreenScraper.');
-    expect(badges()).toEqual(['From ScreenScraper · English', 'Keep current']);
-    expect(at('Save')).toBe('1 change');
+    expect(at('Description')).toBe('');
+    expect(badges()).toEqual(['Stays empty', 'Keep current']);
+    expect(at('Save')).toBe('0 changes');
 
     // Another scraper's text.
     await press('confirm');
@@ -513,6 +513,30 @@ describe('Forma’s shell', () => {
     await press('confirm');
     await vi.waitFor(() => expect(rows()).not.toContain('Clear filter'));
     expect(spy).toHaveBeenCalledWith('nav_set_filter', { filter: null });
+  });
+
+  it('a game scraped for the first time starts from the first scraper’s answers', async () => {
+    const { press, text, backend } = start(
+      ['scraper.manage'],
+      { view: 'systems', list: 'games', game: { id: 1, name: 'Sonic' } },
+      ['systems']
+    );
+    const invoke = backend.invoke.bind(backend);
+    vi.spyOn(backend, 'invoke').mockImplementation(async (command, args) => {
+      const answer = await invoke(command, args);
+      if (command !== 'scraper_offers') return answer;
+      const offers = answer as { media: { current: boolean }[] };
+      return { ...offers, media: offers.media.map((m) => ({ ...m, current: false })) };
+    });
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Scrape'));
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Description'));
+    expect(text('.page > .panel li[role=option] .badge')).toEqual([
+      'From ScreenScraper · English',
+      'From ScreenScraper'
+    ]);
   });
 
   it('scraping or editing a game shows its file name, which cannot be selected', async () => {

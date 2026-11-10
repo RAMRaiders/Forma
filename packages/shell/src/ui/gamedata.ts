@@ -213,19 +213,22 @@ function pickScreen(
   offers: ScraperOffers,
   { theme, mediaKinds }: ScraperSettings
 ): () => Row[] {
-  // Picked by default: the first scraper's, for what the game does not have. The rest stays
-  // as it is until the user says otherwise.
+  // Picked by default: the first scraper's, only for a game scraped for the first time (a name
+  // alone is not a scrape). Any other stays as it is, gaps too, until the user says otherwise.
+  const firstTime =
+    !offers.media.some((s) => s.current) &&
+    !offers.text.some((s) => s.field !== 'name' && s.current !== null);
   const text = new Map<string, string>();
   const media = new Map<string, number>();
   // Fields to empty on saving: what the game has now goes, and nothing takes its place.
   const cleared = new Set<string>();
-  for (const s of offers.text) {
+  for (const s of firstTime ? offers.text : []) {
     if (s.current === null) text.set(s.field, s.offers[0]!.value);
   }
-  for (const s of offers.media) {
+  for (const s of firstTime ? offers.media : []) {
     const use = themeUse(theme, s.kind);
     const replaced = offers.media.some((m) => m.kind === theme?.backups[s.kind]);
-    if (!s.current && use !== 'unused' && !(use === 'backup' && replaced)) {
+    if (use !== 'unused' && !(use === 'backup' && replaced)) {
       media.set(s.kind, s.offers[0]!.id);
     }
   }
