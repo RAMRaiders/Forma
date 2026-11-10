@@ -471,6 +471,52 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(text('.toast')).toContain('Saved'));
   });
 
+  it('scraping or editing a game shows its file name, which cannot be selected', async () => {
+    const { press, text, backend } = start(
+      ['scraper.manage'],
+      { view: 'systems', list: 'games', game: { id: 1, name: 'Sonic' } },
+      ['systems']
+    );
+    const invoke = backend.invoke.bind(backend);
+    vi.spyOn(backend, 'invoke').mockImplementation(async (command, args) => {
+      if (command === 'scraper_offers') {
+        return {
+          text: [
+            {
+              field: 'genre',
+              label: 'Genre',
+              current: null,
+              offers: [{ source: 'ScreenScraper', value: 'Platform', note: null }]
+            }
+          ],
+          media: [],
+          problems: []
+        };
+      }
+      const answer = await invoke(command, args);
+      return command === 'library_game'
+        ? { ...(answer as object), path: 'hacks/Sonic (USA) [h1].md' }
+        : answer;
+    });
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const note = 'File: Sonic (USA) [h1].md';
+
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Scrape'));
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Scrape Sonic']));
+    expect(text('.page > .panel .note')).toEqual([note]);
+    expect(rows()).not.toContain(note);
+
+    await press('back');
+    await vi.waitFor(() => expect(rows()).toContain('Edit details'));
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Edit Sonic']));
+    expect(text('.page > .panel .note')).toEqual([note]);
+    expect(rows()).not.toContain(note);
+  });
+
   it('a game on Select can be deleted, asking first', async () => {
     const { press, text, backend, shell } = start([], {
       view: 'systems',

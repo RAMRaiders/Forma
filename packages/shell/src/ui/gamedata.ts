@@ -15,6 +15,12 @@ const EDITABLE: { field: string; label: string; hint?: string }[] = [
   { field: 'rating', label: 'Rating', hint: 'From 0 to 100' }
 ];
 
+/** The file a game comes from, whatever it has been named since. For a page's note: read only. */
+async function fileNote(forma: Forma, id: number): Promise<string | undefined> {
+  const game = await forma.library.game(id);
+  return game ? `File: ${game.path.split('/').pop()}` : undefined;
+}
+
 /** Select on a game: its details by hand, and scraping it choosing from every scraper. */
 export function gameRows(forma: Forma, page: Page, game: { id: number; name: string }): Row[] {
   return [
@@ -28,7 +34,12 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
       icon: 'edit',
       label: 'Edit details',
       detail: 'Change its name, description and more by hand',
-      run: () => page.push(`Edit ${game.name}`, editScreen(forma, page, game.id))
+      run: async () =>
+        page.push(
+          `Edit ${game.name}`,
+          editScreen(forma, page, game.id),
+          await fileNote(forma, game.id)
+        )
     }
   ];
 }
@@ -169,14 +180,19 @@ const keptBadge = (current: unknown): NonNullable<Row['badge']> => ({
 /** Asks every scraper about the game, then opens the page to choose from. */
 function pick(forma: Forma, page: Page, game: { id: number; name: string }): Promise<void> {
   return page.run('Asking every scraper…', async () => {
-    const [offers, settings] = await Promise.all([
+    const [offers, settings, note] = await Promise.all([
       forma.scraper.offers(game.id),
-      forma.scraper.settings()
+      forma.scraper.settings(),
+      fileNote(forma, game.id)
     ]);
     if (offers.text.length === 0 && offers.media.length === 0) {
       return offers.problems[0] ?? 'No scraper knows this game';
     }
-    await page.push(`Scrape ${game.name}`, pickScreen(forma, page, game.id, offers, settings));
+    await page.push(
+      `Scrape ${game.name}`,
+      pickScreen(forma, page, game.id, offers, settings),
+      note
+    );
   });
 }
 
