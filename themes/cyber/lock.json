@@ -1,8 +1,8 @@
 {
   "id": "cyber",
   "repo": "RAMRaiders/forma-theme-cyber",
-  "version": "0.15.1",
-  "commit": "5ba59dd2a1e341b81408a39ec786ff72347f11c6",
-  "file": "cyber-0.15.1.tar.gz",
-  "sha256": "24679d2f324d3f65d6ea7f5bc52105adf471816959299f59b511aed9584ab7a2"
+  "version": "0.15.2",
+  "commit": "f11832eff80d090e20eef1984f3d4b804cf852fb",
+  "file": "cyber-0.15.2.tar.gz",
+  "sha256": "83e2e297bf4ae1ea7d15dbe10f200663e69a56780c4e4855645f249c28260ee8"
 }
