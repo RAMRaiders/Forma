@@ -37,6 +37,11 @@ pub fn file(paths: &Paths, slug: &str) -> PathBuf {
         .join(format!("{slug}.png"))
 }
 
+/// Says ScreenScraper was asked about `slug` and had no logo, so it is not asked at every start.
+fn asked_file(paths: &Paths, slug: &str) -> PathBuf {
+    file(paths, slug).with_extension("none")
+}
+
 /// The logo saved for `slug`, if it is one a request may name and there is one.
 pub fn logo(paths: &Paths, slug: &str) -> Option<PathBuf> {
     let valid = !slug.is_empty() && slug.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
@@ -53,6 +58,13 @@ pub fn lacking(paths: &Paths, game: &Game) -> BTreeSet<String> {
         .collect()
 }
 
+/// The logos `game`'s companies lack that ScreenScraper has not already been asked for.
+pub fn unasked(paths: &Paths, game: &Game) -> BTreeSet<String> {
+    let mut slugs = lacking(paths, game);
+    slugs.retain(|s| !asked_file(paths, s).exists());
+    slugs
+}
+
 /// Asks ScreenScraper who made `game` and saves the logos still missing; returns how many.
 pub fn fetch(
     http: &dyn Http,
@@ -61,6 +73,7 @@ pub fn fetch(
     game: &Game,
     system: &System,
 ) -> Result<usize, LookupError> {
+    let wanted = lacking(paths, game);
     let rom = Path::new(&game.path);
     let name_of = |n: Option<&std::ffi::OsStr>| {
         n.map(|n| n.to_string_lossy().into_owned())
@@ -68,16 +81,21 @@ pub fn fetch(
     };
     let file_name = name_of(rom.file_name());
     let stem = name_of(rom.file_stem());
-    let size = std::fs::metadata(rom).map_or(0, |m| m.len());
+    let full = system.rom_path.join(rom);
+    let size = std::fs::metadata(&full)
+        .ok()
+        .filter(std::fs::Metadata::is_file)
+        .map_or(0, |m| m.len());
     let hashes = (size > 0 && size <= HASH_LIMIT)
-        .then(|| hash(rom))
+        .then(|| hash(&full))
         .flatten();
+    let name = super::text::search_name(&game.name);
     let query = Query {
         system: &system.name,
         platforms: &system.platforms,
         file_name: &file_name,
         stem: &stem,
-        name: &game.name,
+        name: &name,
         size,
         hashes: hashes.as_ref(),
         wanted: &[],
@@ -113,6 +131,10 @@ pub fn fetch(
             }
         }
         saved += 1;
+    }
+    for s in wanted.iter().filter(|s| logo(paths, s).is_none()) {
+        // Only a note to self: losing it costs one more question, some day.
+        let _ = write(&asked_file(paths, s), b"");
     }
     Ok(saved)
 }
@@ -222,6 +244,52 @@ mod tests {
         assert_eq!(first_pixel(&red), [220, 20, 20, 255]);
         let boxed = prepared(&png_of([0, 0, 0, 255], 100)).unwrap();
         assert_eq!(first_pixel(&boxed), [0, 0, 0, 255]);
+    }
+
+    struct Answers(Vec<u8>);
+
+    impl Http for Answers {
+        fn get(&self, url: &str) -> Result<Vec<u8>, crate::net::HttpError> {
+            if url.contains("jeuInfos.php") {
+                assert!(url.contains("&crc="), "the ROM was not hashed: {url}");
+                return Ok(serde_json::to_vec(&serde_json::json!({"response": {"jeu": {
+                    "editeur": {"id": "7", "text": "Namcot"},
+                    "editeurmedias": {"editeurmedia_pictocouleur": "https://s/logo"},
+                    "developpeur": {"text": "Nobody Ltd"}
+                }}}))
+                .unwrap());
+            }
+            Ok(self.0.clone())
+        }
+    }
+
+    #[test]
+    fn saves_what_exists_and_does_not_ask_again_for_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths {
+            userdata: dir.path().to_path_buf(),
+            systems_cfg: PathBuf::new(),
+        };
+        let roms = dir.path().join("roms");
+        std::fs::create_dir_all(&roms).unwrap();
+        std::fs::write(roms.join("Xevious.pce"), b"rom").unwrap();
+        let system = crate::scraper::tests::system(&roms);
+        let game = Game {
+            publisher: Some("Namcot".to_owned()),
+            developer: Some("Nobody Ltd".to_owned()),
+            ..crate::scraper::tests::game("Xevious.pce", "Xevious")
+        };
+        assert_eq!(unasked(&paths, &game).len(), 2);
+
+        let http = Answers(png_of([220, 20, 20, 255], 30));
+        let credentials = Credentials::new();
+        assert_eq!(fetch(&http, &paths, &credentials, &game, &system), Ok(1));
+
+        assert!(logo(&paths, "namcot").is_some());
+        assert!(logo(&paths, "nobody-ltd").is_none());
+        assert!(unasked(&paths, &game).is_empty());
+        // By hand it is asked again.
+        assert_eq!(lacking(&paths, &game).len(), 1);
     }
 
     #[test]

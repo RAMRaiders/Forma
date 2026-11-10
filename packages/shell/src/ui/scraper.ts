@@ -89,8 +89,8 @@ export function scraperScreen(
       });
       if (settings.sources.some((s) => s.id === 'screenscraper' && s.ready)) {
         rows.push({
-          label: 'Get company logos',
-          detail: 'Publishers and developers, from ScreenScraper. Kept on this machine',
+          label: 'Look for company logos again',
+          detail: 'Forma gets them by itself. This retries the ones it could not find',
           run: () => start({ kind: 'companies' }, 'company logos')
         });
       }

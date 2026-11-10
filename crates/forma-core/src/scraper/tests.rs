@@ -86,7 +86,7 @@ impl Source for Fake {
     }
 }
 
-fn system(dir: &Path) -> System {
+pub(super) fn system(dir: &Path) -> System {
     System {
         name: "snes".into(),
         fullname: "Super Nintendo".into(),
@@ -102,7 +102,7 @@ fn system(dir: &Path) -> System {
     }
 }
 
-fn game(path: &str, name: &str) -> Game {
+pub(super) fn game(path: &str, name: &str) -> Game {
     Game {
         id: 1,
         system: "snes".into(),

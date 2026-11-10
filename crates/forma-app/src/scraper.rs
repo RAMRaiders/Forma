@@ -5,6 +5,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
+use std::time::{Duration, Instant};
 
 use forma_core::addons::runtime::{ScraperAddon, Script};
 use forma_core::host::Shell;
@@ -478,6 +479,7 @@ pub async fn scraper_start<R: Runtime>(
                     run_company_logos(&runner, &ids);
                 } else {
                     run(&runner, &ids);
+                    fetch_company_logos(runner.clone());
                 }
             })
             .map_err(internal)?;
@@ -636,21 +638,109 @@ fn games_in(state: &AppState, scope: &Scope) -> ApiResult<(String, Vec<i64>)> {
             ("Everything".to_owned(), ids)
         }
         Scope::Companies => {
-            // One game for each company lacking a logo: it says who they are.
-            let mut asked = HashSet::new();
-            let mut ids = Vec::new();
-            for system in library.systems_in_order()? {
-                for game in library.games(&system.name)? {
-                    let lacking = scraper::companies::lacking(&state.paths, &game);
-                    if lacking.iter().any(|slug| !asked.contains(slug)) {
-                        asked.extend(lacking);
-                        ids.push(game.id);
-                    }
-                }
-            }
-            ("Company logos".to_owned(), ids)
+            drop(library);
+            ("Company logos".to_owned(), company_games(state, true)?)
         }
     })
+}
+
+/// One game for each company lacking a logo: it says who they are. `again`: those ScreenScraper
+/// had none for too.
+fn company_games(state: &AppState, again: bool) -> ApiResult<Vec<i64>> {
+    let mut seen = HashSet::new();
+    let mut ids = Vec::new();
+    let systems = state.library().systems_in_order()?;
+    for system in systems {
+        let games = state.library().games(&system.name)?;
+        for game in games {
+            let wanted = if again {
+                scraper::companies::lacking(&state.paths, &game)
+            } else {
+                scraper::companies::unasked(&state.paths, &game)
+            };
+            if wanted.iter().any(|slug| !seen.contains(slug)) {
+                seen.extend(wanted);
+                ids.push(game.id);
+            }
+        }
+    }
+    Ok(ids)
+}
+
+/// One automatic fetch of company logos at a time.
+static FETCHING_LOGOS: AtomicBool = AtomicBool::new(false);
+/// Well after the start, so the first screens have the box to themselves.
+const LOGOS_AFTER: Duration = Duration::from_secs(60);
+const LOGOS_UI_WAIT: Duration = Duration::from_secs(60);
+/// Between games, not to press on ScreenScraper or the box.
+const LOGOS_PAUSE: Duration = Duration::from_secs(2);
+/// In a row before giving up until the next start: the network is down, most likely.
+const LOGOS_FAILURES: u32 = 5;
+
+/// Fetches the logos still missing, unasked, in the background: after the start and after each
+/// scrape, which may have named new companies. Needs the user's ScreenScraper login.
+pub fn fetch_company_logos<R: Runtime>(app: AppHandle<R>) {
+    if FETCHING_LOGOS.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let since = Instant::now();
+        while !state.shell.ui_started.load(Ordering::SeqCst) && since.elapsed() < LOGOS_UI_WAIT {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        std::thread::sleep(LOGOS_AFTER);
+        company_logos_unasked(&state);
+        FETCHING_LOGOS.store(false, Ordering::SeqCst);
+    });
+}
+
+fn company_logos_unasked(state: &AppState) {
+    let Ok((_, config, mut credentials)) = load(state) else {
+        return;
+    };
+    let login = credentials.remove("screenscraper").unwrap_or_default();
+    let on = config
+        .sources
+        .iter()
+        .any(|c| c.enabled && c.id == "screenscraper");
+    if !on || login.get("user").is_none_or(|u| u.trim().is_empty()) {
+        return;
+    }
+    let Ok(ids) = company_games(state, false) else {
+        return;
+    };
+    let (mut saved, mut failures) = (0, 0);
+    for id in ids {
+        // A game is the box's whole job while it runs, and a scrape has the quota first.
+        while state.playing.load(Ordering::SeqCst) || state.scraper.status().running {
+            std::thread::sleep(Duration::from_secs(5));
+        }
+        let Ok(Some((game, system))) = state.library().launch_target(id) else {
+            continue;
+        };
+        match scraper::companies::fetch(&*state.http, &state.paths, &login, &game, &system) {
+            Ok(n) => {
+                saved += n;
+                failures = 0;
+            }
+            Err(scraper::LookupError::Credentials(e) | scraper::LookupError::Quota(e)) => {
+                eprintln!("forma: company logos stopped: {e}");
+                break;
+            }
+            Err(scraper::LookupError::Failed(_)) => {
+                failures += 1;
+                if failures >= LOGOS_FAILURES {
+                    eprintln!("forma: company logos stopped: ScreenScraper is not answering");
+                    break;
+                }
+            }
+        }
+        std::thread::sleep(LOGOS_PAUSE);
+    }
+    if saved > 0 {
+        eprintln!("forma: {saved} company logos fetched");
+    }
 }
 
 /// Fetches company logos, one game's companies at a time, on the scraper's thread.

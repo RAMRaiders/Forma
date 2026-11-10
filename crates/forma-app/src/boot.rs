@@ -141,6 +141,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     crate::music::start(app.handle().clone());
     crate::status::start(app.handle().clone());
     crate::ra_match::start(app.handle().clone());
+    crate::scraper::fetch_company_logos(app.handle().clone());
 
     let handle = app.handle().clone();
     match input::spawn(InputOptions::default(), move |event| {
