@@ -55,33 +55,32 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
   ];
 }
 
-/** Last on the page, apart from the rest. */
+/** How long Delete waits for its second press, as the power actions do. */
+const DELETE_CONFIRM_MS = 3000;
+
+/** Last on the page, apart from the rest. A second press soon after: a stray A does no harm. */
 export function deleteGameRow(forma: Forma, page: Page, game: { id: number; name: string }): Row {
+  let confirmUntil = 0;
   return {
     icon: 'delete',
     danger: true,
     label: 'Delete',
-    detail: 'Remove the game and its files',
-    run: () => page.push(`Delete ${game.name}?`, deleteScreen(forma, page, game))
-  };
-}
-
-/** Keeping it comes first, so a stray A does no harm. */
-function deleteScreen(forma: Forma, page: Page, game: { id: number; name: string }): () => Row[] {
-  return () => [
-    { label: 'Keep it', detail: 'Go back', run: () => page.pop() },
-    {
-      danger: true,
-      label: 'Delete for good',
-      detail: 'Its ROM, its details and its pictures. This cannot be undone',
-      run: () =>
-        page.run('Deleting…', async () => {
-          await forma.library.deleteGame(game.id);
-          page.close();
-          return `Deleted ${game.name}`;
-        })
+    detail: 'Its ROM, details and pictures, for good. Press A twice',
+    run: () => {
+      const now = Date.now();
+      if (now > confirmUntil) {
+        confirmUntil = now + DELETE_CONFIRM_MS;
+        page.notify(`Press A again to delete ${game.name}`);
+        return;
+      }
+      confirmUntil = 0;
+      return page.run('Deleting…', async () => {
+        await forma.library.deleteGame(game.id);
+        page.close();
+        return `Deleted ${game.name}`;
+      });
     }
-  ];
+  };
 }
 
 /** A rating as the user reads and types it: 0.85 is `85`. */
