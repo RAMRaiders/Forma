@@ -309,7 +309,8 @@ function pickScreen(
                   const problems = await forma.scraper.apply(id, Object.fromEntries(text), [
                     ...media.values()
                   ]);
-                  await page.pop();
+                  // Done with this game: back to the list, which keeps to it if it was renamed.
+                  page.close();
                   return problems[0] ?? 'Saved';
                 })
       },

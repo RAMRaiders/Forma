@@ -469,6 +469,8 @@ describe('Forma’s shell', () => {
       })
     );
     await vi.waitFor(() => expect(text('.toast')).toContain('Saved'));
+    // The whole menu closes, not just the scrape page.
+    expect(root.querySelector('.page')?.hasAttribute('hidden')).toBe(true);
   });
 
   it('scraping or editing a game shows its file name, which cannot be selected', async () => {
