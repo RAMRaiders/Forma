@@ -1,6 +1,7 @@
 //! ScreenScraper (screenscraper.fr): matches by hash, then by file name and size, and has
-//! every kind of media. Its API needs a developer ID and password (which the user requests on
-//! the site) and works better with the user's own login, which raises their quota.
+//! every kind of media. Its API needs a developer ID and password and works better with the
+//! user's own login, which raises their quota. Release builds carry Forma's developer account
+//! (see `docs/scraper.md`); other builds ask the user for one.
 
 use serde_json::Value;
 
@@ -14,9 +15,58 @@ use crate::scraper::text::encode;
 
 pub struct ScreenScraper;
 
+/// Forma's developer account, from the environment of the build. CI's secrets set these; an
+/// unset secret arrives as an empty value, which counts as none.
+const BUILT_IN_ID: &str = match option_env!("FORMA_SCREENSCRAPER_DEV_ID") {
+    Some(id) => id,
+    None => "",
+};
+const BUILT_IN_PASSWORD: &str = match option_env!("FORMA_SCREENSCRAPER_DEV_PASSWORD") {
+    Some(password) => password,
+    None => "",
+};
+pub(super) const HAS_BUILT_IN: bool = !BUILT_IN_ID.is_empty() && !BUILT_IN_PASSWORD.is_empty();
+
+/// Masked so the account is not readable with `strings`. This only slows someone down: anyone
+/// who takes the program apart can recover it.
+static MASKED_ID: [u8; BUILT_IN_ID.len()] = mask(BUILT_IN_ID);
+static MASKED_PASSWORD: [u8; BUILT_IN_PASSWORD.len()] = mask(BUILT_IN_PASSWORD);
+
+const fn mask_byte(i: usize) -> u8 {
+    0x5a_u8.wrapping_add((i as u8).wrapping_mul(37))
+}
+
+const fn mask<const N: usize>(text: &str) -> [u8; N] {
+    let bytes = text.as_bytes();
+    let mut masked = [0; N];
+    let mut i = 0;
+    while i < N {
+        masked[i] = bytes[i] ^ mask_byte(i);
+        i += 1;
+    }
+    masked
+}
+
+fn unmask(masked: &[u8]) -> String {
+    let bytes = masked.iter().enumerate().map(|(i, b)| b ^ mask_byte(i));
+    String::from_utf8_lossy(&bytes.collect::<Vec<_>>()).into_owned()
+}
+
+/// The developer account to use: the one the user entered, whole, or else the built-in one.
+pub(super) fn developer(
+    entered_id: &str,
+    entered_password: &str,
+    built_in: Option<(String, String)>,
+) -> (String, String) {
+    match built_in {
+        Some(account) if entered_id.is_empty() || entered_password.is_empty() => account,
+        _ => (entered_id.to_owned(), entered_password.to_owned()),
+    }
+}
+
 static NEEDS: [Credential; 4] = [
-    Credential::new("devId", "Developer ID", false, true),
-    Credential::new("devPassword", "Developer password", true, true),
+    Credential::new("devId", "Developer ID", false, !HAS_BUILT_IN),
+    Credential::new("devPassword", "Developer password", true, !HAS_BUILT_IN),
     Credential::new("user", "Username", false, false),
     Credential::new("password", "Password", true, false),
 ];
@@ -67,8 +117,13 @@ impl Source for ScreenScraper {
         "ScreenScraper"
     }
     fn about(&self) -> &str {
-        "Every kind of media, matched by the ROM's hash. Needs a developer ID and password \
-         (ask for them on screenscraper.fr); your own login raises how many games a day"
+        if HAS_BUILT_IN {
+            "Every kind of media, matched by the ROM's hash. Your own screenscraper.fr login \
+             raises how many games a day"
+        } else {
+            "Every kind of media, matched by the ROM's hash. Needs a developer ID and password \
+             (ask for them on screenscraper.fr); your own login raises how many games a day"
+        }
     }
     fn needs(&self) -> &[Credential] {
         &NEEDS
@@ -84,11 +139,16 @@ impl Source for ScreenScraper {
         query: &Query<'_>,
     ) -> Result<Option<Found>, LookupError> {
         let get = |k: &str| credentials.get(k).map_or("", |v| v.trim());
+        let (dev_id, dev_password) = developer(
+            get("devId"),
+            get("devPassword"),
+            HAS_BUILT_IN.then(|| (unmask(&MASKED_ID), unmask(&MASKED_PASSWORD))),
+        );
         let mut url = format!(
             "https://api.screenscraper.fr/api2/jeuInfos.php?devid={}&devpassword={}\
              &softname=Forma&output=json&romtype=rom&romnom={}",
-            encode(get("devId")),
-            encode(get("devPassword")),
+            encode(&dev_id),
+            encode(&dev_password),
             encode(query.file_name)
         );
         if !get("user").is_empty() {

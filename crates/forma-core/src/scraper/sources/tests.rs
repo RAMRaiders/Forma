@@ -181,6 +181,17 @@ fn screenscraper_matches_by_hash_and_picks_regions() {
 }
 
 #[test]
+fn screenscraper_uses_the_built_in_account_unless_the_user_entered_a_whole_one() {
+    use super::screenscraper::developer;
+    let built_in = || Some(("forma".to_owned(), "built".to_owned()));
+    let pair = |a: &str, b: &str| (a.to_owned(), b.to_owned());
+    assert_eq!(developer("", "", built_in()), pair("forma", "built"));
+    assert_eq!(developer("mine", "", built_in()), pair("forma", "built"));
+    assert_eq!(developer("mine", "pw", built_in()), pair("mine", "pw"));
+    assert_eq!(developer("mine", "", None), pair("mine", ""));
+}
+
+#[test]
 fn screenscraper_errors_say_what_to_fix() {
     let snes = vec!["snes".to_owned()];
     let c = creds(&[("devId", "d"), ("devPassword", "p")]);
@@ -195,7 +206,11 @@ fn screenscraper_errors_say_what_to_fix() {
             (w, g) => panic!("{status}: wanted {w}, got {g:?}"),
         }
     }
-    assert!(!ss.ready(&creds(&[("user", "me")])));
+    // A build with its own developer account needs nothing more from the user.
+    assert_eq!(
+        ss.ready(&creds(&[("user", "me")])),
+        super::screenscraper::HAS_BUILT_IN
+    );
     assert!(ss.ready(&c));
 }
 
