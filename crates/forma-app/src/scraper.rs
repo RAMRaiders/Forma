@@ -430,9 +430,15 @@ pub async fn scraper_set_credential<R: Runtime>(
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Scope {
-    Game { id: i64 },
-    System { name: String },
+    Game {
+        id: i64,
+    },
+    System {
+        name: String,
+    },
     All,
+    /// The logos of the publishers and developers that have none yet.
+    Companies,
 }
 
 /// Starts a run in the background and returns at once; `scraper:progress` follows it. One
@@ -447,6 +453,7 @@ pub async fn scraper_start<R: Runtime>(
     off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
         let (label, ids) = games_in(state, &scope)?;
+        let logos = matches!(scope, Scope::Companies);
         {
             let mut status = state.scraper.status();
             if status.running {
@@ -466,7 +473,13 @@ pub async fn scraper_start<R: Runtime>(
         let started = state.scraper.status().clone();
         std::thread::Builder::new()
             .name("forma-scraper".into())
-            .spawn(move || run(&runner, &ids))
+            .spawn(move || {
+                if logos {
+                    run_company_logos(&runner, &ids);
+                } else {
+                    run(&runner, &ids);
+                }
+            })
             .map_err(internal)?;
         Ok(started)
     })
@@ -622,7 +635,71 @@ fn games_in(state: &AppState, scope: &Scope) -> ApiResult<(String, Vec<i64>)> {
             }
             ("Everything".to_owned(), ids)
         }
+        Scope::Companies => {
+            // One game for each company lacking a logo: it says who they are.
+            let mut asked = HashSet::new();
+            let mut ids = Vec::new();
+            for system in library.systems_in_order()? {
+                for game in library.games(&system.name)? {
+                    let lacking = scraper::companies::lacking(&state.paths, &game);
+                    if lacking.iter().any(|slug| !asked.contains(slug)) {
+                        asked.extend(lacking);
+                        ids.push(game.id);
+                    }
+                }
+            }
+            ("Company logos".to_owned(), ids)
+        }
     })
+}
+
+/// Fetches company logos, one game's companies at a time, on the scraper's thread.
+fn run_company_logos<R: Runtime>(app: &AppHandle<R>, ids: &[i64]) {
+    let state = app.state::<AppState>();
+    let emit = |status: &RunStatus| {
+        let _ = app.emit(EVENT_SCRAPER_PROGRESS, status);
+    };
+    let login = load(&state)
+        .map(|(_, _, mut credentials)| credentials.remove("screenscraper").unwrap_or_default());
+    match login {
+        Err(e) => note(&mut state.scraper.status(), e.message),
+        Ok(login) => {
+            for id in ids {
+                if state.scraper.stop.load(Ordering::SeqCst) {
+                    state.scraper.status().stopped = true;
+                    break;
+                }
+                let Ok(Some((game, system))) = state.library().launch_target(*id) else {
+                    continue;
+                };
+                {
+                    let mut status = state.scraper.status();
+                    status.current = Some(game.name.clone());
+                    emit(&status);
+                }
+                let outcome =
+                    scraper::companies::fetch(&*state.http, &state.paths, &login, &game, &system);
+                let mut status = state.scraper.status();
+                status.done += 1;
+                match outcome {
+                    Ok(0) => status.not_found += 1,
+                    Ok(_) => status.found += 1,
+                    Err(scraper::LookupError::Credentials(e) | scraper::LookupError::Quota(e)) => {
+                        note(&mut status, e);
+                        break;
+                    }
+                    Err(e) => {
+                        status.not_found += 1;
+                        note(&mut status, format!("{}: {e}", game.name));
+                    }
+                }
+            }
+        }
+    }
+    let mut status = state.scraper.status();
+    status.running = false;
+    status.current = None;
+    emit(&status);
 }
 
 /// The run itself, on its own thread: one game at a time, the library held only to read.

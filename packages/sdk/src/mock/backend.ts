@@ -936,7 +936,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (scraperStatus.running) fail('busy', 'the scraper is already running');
       const sc = scope as { kind: string; id?: number; name?: string };
       const list = [...games.values()].filter((g) =>
-        sc.kind === 'game' ? g.id === sc.id : sc.kind === 'system' ? g.system === sc.name : true
+        sc.kind === 'game'
+          ? g.id === sc.id
+          : sc.kind === 'system'
+            ? g.system === sc.name
+            : sc.kind === 'all'
       );
       if (sc.kind === 'game' && list.length === 0) fail('notFound', `no game ${String(sc.id)}`);
       const label =
@@ -945,7 +949,9 @@ export function mockBackend(options: MockOptions = {}): Backend {
           : sc.kind === 'system'
             ? (snapshot.systems.find((x) => x.name === sc.name)?.fullname ??
               fail('notFound', `no system \`${String(sc.name)}\``))
-            : 'Everything';
+            : sc.kind === 'companies'
+              ? 'Company logos'
+              : 'Everything';
       scraperStop = false;
       scraperStatus = {
         running: true,

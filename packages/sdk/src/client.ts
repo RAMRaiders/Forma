@@ -113,6 +113,14 @@ async function call<T>(backend: Backend, command: string, args?: Record<string, 
   }
 }
 
+/** A company's name as Forma files its logo; `companies::slug` in forma-core does the same. */
+function companySlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 export class Forma {
   /** The SDK API version Forma provides. */
   readonly hostVersion: string;
@@ -178,6 +186,15 @@ export class Forma {
        */
       mediaUrl: (gameId: number, kind: MediaKind = 'image', width?: number) =>
         backend.mediaUrl(gameId, kind, width, this.#mediaVersions.get(gameId)),
+      /**
+       * The address of a publisher's or developer's logo, fetched earlier from ScreenScraper
+       * (`scraper.start({ kind: 'companies' })`), or `null` where Forma could have none. There
+       * may be no logo there yet: an image's `error` says so. Since 1.28.0.
+       */
+      companyLogoUrl: (name: string): string | null => {
+        const slug = companySlug(name);
+        return backend.kind === 'tauri' && slug ? `forma://localhost/company/${slug}` : null;
+      },
       /**
        * Has Forma make resized pictures ahead of time, the nearest (first) first, while
        * nothing on screen waits: the games next to the one shown, at the sizes `mediaUrl` will

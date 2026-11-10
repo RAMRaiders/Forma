@@ -139,68 +139,134 @@ impl Source for ScreenScraper {
         credentials: &Credentials,
         query: &Query<'_>,
     ) -> Result<Option<Found>, LookupError> {
-        let get = |k: &str| credentials.get(k).map_or("", |v| v.trim());
-        let (dev_id, dev_password) = developer(
-            get("devId"),
-            get("devPassword"),
-            HAS_BUILT_IN.then(|| (unmask(&MASKED_ID), unmask(&MASKED_PASSWORD))),
-        );
-        let mut url = format!(
-            "https://api.screenscraper.fr/api2/jeuInfos.php?devid={}&devpassword={}\
-             &softname=Forma&output=json&romtype=rom&romnom={}",
-            encode(&dev_id),
-            encode(&dev_password),
-            encode(query.file_name)
-        );
-        if !get("user").is_empty() {
-            url.push_str(&format!(
-                "&ssid={}&sspassword={}",
-                encode(get("user")),
-                encode(get("password"))
+        Ok(ask(http, credentials, query)?.and_then(|game| parse(&game)))
+    }
+}
+
+/// The developer account and the user's login, as a URL's parameters.
+fn account(credentials: &Credentials) -> String {
+    let get = |k: &str| credentials.get(k).map_or("", |v| v.trim());
+    let (dev_id, dev_password) = developer(
+        get("devId"),
+        get("devPassword"),
+        HAS_BUILT_IN.then(|| (unmask(&MASKED_ID), unmask(&MASKED_PASSWORD))),
+    );
+    let mut account = format!(
+        "devid={}&devpassword={}&softname=Forma",
+        encode(&dev_id),
+        encode(&dev_password)
+    );
+    if !get("user").is_empty() {
+        account.push_str(&format!(
+            "&ssid={}&sspassword={}",
+            encode(get("user")),
+            encode(get("password"))
+        ));
+    }
+    account
+}
+
+/// A company behind a game, and where its logo may be.
+pub(in super::super) struct CompanyArt {
+    pub publisher: bool,
+    pub name: String,
+    /// The best first.
+    pub urls: Vec<String>,
+}
+
+/// Who published and developed the game, by ScreenScraper's account.
+pub(in super::super) fn companies(
+    http: &dyn Http,
+    credentials: &Credentials,
+    query: &Query<'_>,
+) -> Result<Vec<CompanyArt>, LookupError> {
+    let Some(game) = ask(http, credentials, query)? else {
+        return Ok(Vec::new());
+    };
+    let of = |publisher: bool, key: &str| {
+        let company = &game[key];
+        let name = json_text(company.get("text"))?;
+        let medias = &game[format!("{key}medias")];
+        let mut urls: Vec<String> = ["pictocouleur", "pictomonochrome"]
+            .iter()
+            .filter_map(|kind| {
+                medias[format!("{key}media_{kind}")]
+                    .as_str()
+                    .map(str::to_owned)
+            })
+            .collect();
+        if let Some(id) = json_text(company.get("id")) {
+            urls.push(format!(
+                "https://api.screenscraper.fr/api2/mediaCompagnie.php?{}&companyid={}\
+                 &media=logo-monochrome",
+                account(credentials),
+                encode(&id)
             ));
         }
-        if let Some(id) = platforms::ids(query.platforms).screenscraper {
-            url.push_str(&format!("&systemeid={id}"));
-        }
-        if query.size > 0 {
-            url.push_str(&format!("&romtaille={}", query.size));
-        }
-        if let Some(h) = query.hashes {
-            url.push_str(&format!("&crc={}&md5={}&sha1={}", h.crc32, h.md5, h.sha1));
-        }
-        let body = match http.send(&HttpRequest::get(url)) {
-            Ok(body) => body,
-            Err(e) => {
-                return match e.status {
-                    Some(404) => Ok(None),
-                    Some(401 | 403) => Err(LookupError::Credentials(
-                        "ScreenScraper refused the developer ID or password".into(),
-                    )),
-                    Some(423) => Err(LookupError::Quota(
-                        "ScreenScraper's API is closed for now".into(),
-                    )),
-                    Some(426) => Err(LookupError::Credentials(
-                        "ScreenScraper no longer accepts this software name".into(),
-                    )),
-                    Some(429..=431) => Err(LookupError::Quota(
-                        "ScreenScraper: today's quota is used up".into(),
-                    )),
-                    _ => Err(LookupError::Failed(e.message)),
-                };
-            }
-        };
-        // Errors also come back as 200 with text, e.g. "Erreur de login".
-        let Ok(doc) = serde_json::from_slice::<Value>(&body) else {
-            let text = String::from_utf8_lossy(&body);
-            if text.to_lowercase().contains("login") {
-                return Err(LookupError::Credentials(
-                    "ScreenScraper refused the username or password".into(),
-                ));
-            }
-            return Ok(None);
-        };
-        Ok(parse(&doc["response"]["jeu"]))
+        Some(CompanyArt {
+            publisher,
+            name,
+            urls,
+        })
+    };
+    Ok([of(true, "editeur"), of(false, "developpeur")]
+        .into_iter()
+        .flatten()
+        .collect())
+}
+
+/// ScreenScraper's entry for the game, if it knows it.
+fn ask(
+    http: &dyn Http,
+    credentials: &Credentials,
+    query: &Query<'_>,
+) -> Result<Option<Value>, LookupError> {
+    let mut url = format!(
+        "https://api.screenscraper.fr/api2/jeuInfos.php?{}&output=json&romtype=rom&romnom={}",
+        account(credentials),
+        encode(query.file_name)
+    );
+    if let Some(id) = platforms::ids(query.platforms).screenscraper {
+        url.push_str(&format!("&systemeid={id}"));
     }
+    if query.size > 0 {
+        url.push_str(&format!("&romtaille={}", query.size));
+    }
+    if let Some(h) = query.hashes {
+        url.push_str(&format!("&crc={}&md5={}&sha1={}", h.crc32, h.md5, h.sha1));
+    }
+    let body = match http.send(&HttpRequest::get(url)) {
+        Ok(body) => body,
+        Err(e) => {
+            return match e.status {
+                Some(404) => Ok(None),
+                Some(401 | 403) => Err(LookupError::Credentials(
+                    "ScreenScraper refused the developer ID or password".into(),
+                )),
+                Some(423) => Err(LookupError::Quota(
+                    "ScreenScraper's API is closed for now".into(),
+                )),
+                Some(426) => Err(LookupError::Credentials(
+                    "ScreenScraper no longer accepts this software name".into(),
+                )),
+                Some(429..=431) => Err(LookupError::Quota(
+                    "ScreenScraper: today's quota is used up".into(),
+                )),
+                _ => Err(LookupError::Failed(e.message)),
+            };
+        }
+    };
+    // Errors also come back as 200 with text, e.g. "Erreur de login".
+    let Ok(mut doc) = serde_json::from_slice::<Value>(&body) else {
+        let text = String::from_utf8_lossy(&body);
+        if text.to_lowercase().contains("login") {
+            return Err(LookupError::Credentials(
+                "ScreenScraper refused the username or password".into(),
+            ));
+        }
+        return Ok(None);
+    };
+    Ok(Some(doc["response"]["jeu"].take()).filter(|game| !game.is_null()))
 }
 
 /// The text of the entry for the first region (or language) of `order` there is, and which

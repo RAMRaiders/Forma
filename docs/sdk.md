@@ -304,6 +304,10 @@ SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation wr
 | `status()`                                             | The run going on, or the last one                                                                 |
 | `stop()`                                               | Stops after the game it is on                                                                     |
 
+`scraper.start({ kind: 'companies' })` (since 1.28.0) fetches the logos of the publishers and
+developers that have none yet, from ScreenScraper, onto this machine; `library.companyLogoUrl(name)`
+is where one would be, and an image's `error` event says there is none.
+
 `media:changed` (since 1.27.0) says a game's pictures were replaced, often under the same file
 names: `library.mediaUrl` gives new URLs for it from then on, so draw that game again.
 

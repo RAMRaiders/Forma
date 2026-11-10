@@ -6,7 +6,7 @@ mod igdb;
 mod launchbox;
 mod libretro;
 mod mobygames;
-mod screenscraper;
+pub(super) mod screenscraper;
 mod steamgriddb;
 mod thegamesdb;
 

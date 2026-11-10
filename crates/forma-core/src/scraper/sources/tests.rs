@@ -72,6 +72,33 @@ fn query<'a>(system: &'a str, platforms: &'a [String], hashes: Option<&'a Hashes
     }
 }
 
+#[test]
+fn screenscraper_says_who_made_a_game_and_where_their_logos_are() {
+    let api = Api::new(vec![(
+        "https://api.screenscraper.fr/api2/jeuInfos.php",
+        Ok(json!({"response": {"jeu": {
+            "editeur": {"id": "7", "text": "Namcot"},
+            "editeurmedias": {"editeurmedia_pictomonochrome": "https://s/mono"},
+            "developpeur": {"id": "3", "text": "Namco"}
+        }}})),
+    )]);
+    let snes = ["snes".to_owned()];
+    let found = super::screenscraper::companies(
+        &api,
+        &creds(&[("devId", "d"), ("devPassword", "p")]),
+        &query("snes", &snes, None),
+    )
+    .unwrap();
+    assert_eq!(found.len(), 2);
+    assert!(found[0].publisher);
+    assert_eq!(found[0].name, "Namcot");
+    assert_eq!(found[0].urls[0], "https://s/mono");
+    assert!(found[0].urls[1].contains("mediaCompagnie.php"));
+    assert!(found[0].urls[1].contains("companyid=7"));
+    assert!(!found[1].publisher);
+    assert_eq!(found[1].urls.len(), 1);
+}
+
 fn creds(pairs: &[(&str, &str)]) -> Credentials {
     pairs
         .iter()

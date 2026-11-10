@@ -7,6 +7,7 @@
 //! `images`, `videos` and `manuals` folders, and edits the game's entry in `gamelist.xml` in
 //! place. The library then re-imports it through the watcher, as for any gamelist change.
 
+pub mod companies;
 mod engine;
 pub(crate) use text::title_key;
 pub mod pick;

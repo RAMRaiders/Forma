@@ -183,6 +183,10 @@ impl Resolver for AppState {
         })
     }
 
+    fn company_logo(&self, slug: &str) -> Option<PathBuf> {
+        forma_core::scraper::companies::logo(&self.paths, slug)
+    }
+
     fn magazine_page(&self, id: &str, page: usize, width: u32) -> Option<PathBuf> {
         match self.magazines.page(id, page, width) {
             Ok(file) => Some(file),

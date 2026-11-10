@@ -87,6 +87,13 @@ export function scraperScreen(
           : 'Turn on a scraper that is set up first',
         run: usable ? () => page.push('Start scraping', scope) : undefined
       });
+      if (settings.sources.some((s) => s.id === 'screenscraper' && s.ready)) {
+        rows.push({
+          label: 'Get company logos',
+          detail: 'Publishers and developers, from ScreenScraper. Kept on this machine',
+          run: () => start({ kind: 'companies' }, 'company logos')
+        });
+      }
       if (status.scope) {
         rows.push({ label: `Last: ${status.scope}`, detail: summary(status) });
       }

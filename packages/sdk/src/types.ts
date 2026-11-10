@@ -426,7 +426,11 @@ export interface ScraperOffers {
 
 /** What to scrape. */
 export type ScrapeScope =
-  { kind: 'game'; id: number } | { kind: 'system'; name: string } | { kind: 'all' };
+  | { kind: 'game'; id: number }
+  | { kind: 'system'; name: string }
+  | { kind: 'all' }
+  /** The logos of the publishers and developers that have none yet. Since 1.28.0. */
+  | { kind: 'companies' };
 
 /** A scraper run, going on or the last one. */
 export interface ScraperStatus {
