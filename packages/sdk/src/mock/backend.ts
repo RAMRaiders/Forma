@@ -486,7 +486,14 @@ export function mockBackend(options: MockOptions = {}): Backend {
     replace: scraperReplace,
     themeNeeds: scraperThemeNeeds,
     // As a theme that shows box spines and age ratings asks.
-    theme: { name: 'Neon', view: null, media: ['boxside'], fields: ['ageRating'] }
+    theme: {
+      name: 'Neon',
+      view: null,
+      media: ['boxside'],
+      fields: ['ageRating'],
+      shows: [],
+      backups: {}
+    }
   });
 
   // The theme catalogue: a newer Neon, and a theme not installed yet.
@@ -999,8 +1006,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
             label: 'Description',
             current: null,
             offers: [
-              { source: 'ScreenScraper', value: 'From ScreenScraper.' },
-              { source: 'ArcadeDB', value: 'From ArcadeDB.' }
+              { source: 'ScreenScraper', value: 'From ScreenScraper.', note: 'English' },
+              { source: 'ArcadeDB', value: 'From ArcadeDB.', note: null }
             ]
           }
         ],
@@ -1010,8 +1017,22 @@ export function mockBackend(options: MockOptions = {}): Backend {
             label: 'Box',
             current: true,
             offers: [
-              { id: 0, source: 'ScreenScraper' },
-              { id: 1, source: 'libretro thumbnails' }
+              {
+                id: 0,
+                source: 'ScreenScraper',
+                region: 'USA',
+                variant: null,
+                format: 'png',
+                size: 240000
+              },
+              {
+                id: 1,
+                source: 'libretro thumbnails',
+                region: null,
+                variant: null,
+                format: 'png',
+                size: null
+              }
             ]
           }
         ],

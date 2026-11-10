@@ -22,6 +22,10 @@ export interface Row {
   logo?: { src: string; name: string; text?: string };
   /** A small tag beside the label: about the row, apart from its value. `kept`: nothing new. */
   badge?: { text: string; kept?: boolean };
+  /** A small picture before the label (see `.icon-*` in style.css). */
+  icon?: 'scrape' | 'edit' | 'theme' | 'delete';
+  /** It destroys something: shown apart, in red. */
+  danger?: boolean;
 }
 
 /** A page left for a deeper one, to come back to where it was. */
@@ -213,7 +217,7 @@ export class Page {
     items[this.#selected]?.classList.remove('selected');
     this.#selected = index;
     items[index]?.classList.add('selected');
-    items[index]?.scrollIntoView({ block: 'nearest' });
+    if (items[index]) reveal(items[index]);
     this.changed();
   }
 
@@ -230,7 +234,11 @@ export class Page {
           'li',
           {
             role: 'option',
-            class: [i === this.#selected ? 'selected' : '', row.run || row.adjust ? '' : 'info']
+            class: [
+              i === this.#selected ? 'selected' : '',
+              row.run || row.adjust ? '' : 'info',
+              row.danger ? 'danger' : ''
+            ]
               .filter(Boolean)
               .join(' ')
           },
@@ -241,7 +249,14 @@ export class Page {
                 themeLogo(row.logo.src, row.logo.name),
                 row.logo.text ? el('span', { class: 'logo-text' }, row.logo.text) : null
               )
-            : el('span', { class: 'name' }, row.label),
+            : el(
+                'span',
+                { class: 'name' },
+                row.icon
+                  ? el('span', { class: `icon icon-${row.icon}`, 'aria-hidden': 'true' })
+                  : null,
+                row.label
+              ),
           row.badge
             ? el('span', { class: row.badge.kept ? 'badge current' : 'badge' }, row.badge.text)
             : null,
@@ -270,11 +285,24 @@ export class Page {
       ),
       this.keyboard.root
     );
-    const panel = this.root.querySelector('.panel');
-    if (panel) panel.scrollTop = scrolled;
-    this.root.querySelector('li.selected')?.scrollIntoView({ block: 'nearest' });
+    const panel = this.root.querySelector<HTMLElement>('.panel');
+    if (panel) {
+      panel.scrollTop = scrolled;
+      // Rows stop below the title, however many lines a long name takes.
+      const title = panel.querySelector<HTMLElement>('h2')?.offsetHeight ?? 0;
+      if (title) panel.style.setProperty('--title', `${title}px`);
+    }
+    const selected = this.root.querySelector('li.selected');
+    if (selected) reveal(selected);
     this.changed();
   }
+}
+
+/** Scrolls a row into sight, with the heading of its group when it is the group's first. */
+function reveal(row: Element): void {
+  const before = row.previousElementSibling;
+  if (before?.classList.contains('heading')) before.scrollIntoView({ block: 'nearest' });
+  row.scrollIntoView({ block: 'nearest' });
 }
 
 /** A Batocera switch shown and flipped: `'1'` is on. */

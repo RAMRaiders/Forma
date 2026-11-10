@@ -205,17 +205,52 @@ function fetchScreen(forma: Forma, page: Page): () => Promise<Row[]> {
             }
           ]
         : []),
-      ...settings.mediaKinds.map(({ kind, label }) => ({
-        label,
-        detail:
+      ...[
+        ...settings.mediaKinds.filter(({ kind }) => themeUse(theme, kind) !== 'unused'),
+        ...settings.mediaKinds.filter(({ kind }) => themeUse(theme, kind) === 'unused')
+      ].map(({ kind, label }, i, all) => {
+        const unused = themeUse(theme, kind) === 'unused';
+        const firstUnused = unused && (i === 0 || themeUse(theme, all[i - 1]!.kind) !== 'unused');
+        const state =
           !kinds.has(kind) && fromTheme.has(kind)
             ? `On · for ${theme?.name ?? 'the theme'}`
-            : onOff(kinds.has(kind)),
-        run: toggleKind(kind),
-        adjust: toggleKind(kind)
-      }))
+            : onOff(kinds.has(kind));
+        return {
+          heading: firstUnused ? `Not used by ${theme?.name ?? 'this theme'}` : undefined,
+          label,
+          detail:
+            themeUse(theme, kind) === 'backup'
+              ? `${state} · ${backupNote(theme, kind, settings.mediaKinds)}`
+              : state,
+          run: toggleKind(kind),
+          adjust: toggleKind(kind)
+        };
+      })
     ];
   };
+}
+
+/**
+ * How the theme in use treats a kind of media: draws it, draws it only when another is missing,
+ * or never draws it. A theme that does not say draws everything, as far as anyone can tell.
+ */
+export function themeUse(
+  theme: ScraperSettings['theme'],
+  kind: MediaKind
+): 'shown' | 'backup' | 'unused' {
+  if (!theme || theme.shows.length === 0) return 'shown';
+  if (theme.backups[kind]) return 'backup';
+  return theme.shows.includes(kind) ? 'shown' : 'unused';
+}
+
+/** `Cyber uses this only when there is no Wheel`. */
+export function backupNote(
+  theme: ScraperSettings['theme'],
+  kind: MediaKind,
+  kinds: ScraperSettings['mediaKinds']
+): string {
+  const main = theme?.backups[kind];
+  return `${theme?.name ?? 'The theme'} uses this only when there is no ${kinds.find((k) => k.kind === main)?.label ?? main}`;
 }
 
 /** What a theme asks the scraper for, in words: `Box spine, Cartridge, age ratings`. */

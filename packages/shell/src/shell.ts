@@ -496,7 +496,10 @@ export class Shell {
     this.#pageKind = 'context';
     await (list === 'systems'
       ? this.#page.show('Systems', systemsScreen(this.forma, this.#page, openViews, theme))
-      : this.#page.show('Games', gamesScreen(this.forma, this.#page, theme, game, openViews)));
+      : this.#page.show(
+          game?.name ?? 'Games',
+          gamesScreen(this.forma, this.#page, theme, game, openViews)
+        ));
     this.#changed();
   }
 

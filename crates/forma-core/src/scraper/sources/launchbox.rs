@@ -19,6 +19,7 @@ use super::super::{
 };
 use crate::net::Http;
 use crate::paths::Paths;
+use crate::scraper::{MediaNote, Notes};
 use crate::xml::resolve_ref;
 
 const DATA_URL: &str = "https://gamesdb.launchbox-app.com/Metadata.zip";
@@ -475,13 +476,26 @@ fn answer(db: &Connection, on: &[&str], query: &Query<'_>) -> rusqlite::Result<O
     let wanted = regions_of(query.stem);
     images.sort_by_key(|(kind, region, _)| (*kind, region_rank(&wanted, region.as_deref())));
     let mut media: Vec<(MediaKind, String)> = Vec::new();
-    for (kind, _, file) in images {
+    let mut notes = Notes::default();
+    for (kind, region, file) in images {
         let Some((_, kind)) = TYPES.get(kind as usize) else {
             continue;
         };
         if media.iter().filter(|(k, _)| k == kind).count() < PER_KIND {
-            media.push((*kind, format!("{IMAGES_URL}{file}")));
+            let url = format!("{IMAGES_URL}{file}");
+            if let Some(region) = region.filter(|r| !r.is_empty()) {
+                let note = MediaNote {
+                    region: Some(region),
+                    ..MediaNote::default()
+                };
+                notes.media.insert(url.clone(), note);
+            }
+            media.push((*kind, url));
         }
     }
-    Ok(Some(Found { metadata, media }))
+    Ok(Some(Found {
+        metadata,
+        media,
+        notes,
+    }))
 }

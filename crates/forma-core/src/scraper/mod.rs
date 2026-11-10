@@ -218,10 +218,31 @@ impl Metadata {
 }
 
 /// What a source found for a game: its text, and media by kind, best first.
+/// What a source says about one picture, video or manual, to tell it from the others.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MediaNote {
+    /// The country or region it is for, in words.
+    pub region: Option<String>,
+    /// What sets it apart from others of its kind: `Small file`.
+    pub variant: Option<String>,
+    pub format: Option<String>,
+    pub size: Option<u64>,
+}
+
+/// What a source knows about what it found, beyond the values themselves.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Notes {
+    /// By address.
+    pub media: std::collections::HashMap<String, MediaNote>,
+    /// By field (`name`, `releaseDate`): the country or language of its value.
+    pub text: std::collections::HashMap<&'static str, String>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Found {
     pub metadata: Metadata,
     pub media: Vec<(MediaKind, String)>,
+    pub notes: Notes,
 }
 
 /// A ROM's hashes, lower-case hex.
@@ -371,19 +392,12 @@ impl Needs {
     /// needs too. What Forma does not know is left out.
     pub fn from_theme(asked: &crate::themes::ThemeScraper, view: Option<&str>) -> Self {
         let extra = view.and_then(|v| asked.views.get(v));
-        let names = asked
-            .media
-            .iter()
-            .chain(extra.iter().flat_map(|e| e.media.iter()));
-        let mut media = Vec::new();
-        for name in names {
-            if let Ok(kind) =
-                serde_json::from_value::<MediaKind>(serde_json::Value::String(name.clone()))
-                && !media.contains(&kind)
-            {
-                media.push(kind);
-            }
-        }
+        let media = known_kinds(
+            asked
+                .media
+                .iter()
+                .chain(extra.iter().flat_map(|e| e.media.iter())),
+        );
         let mut fields = asked
             .fields
             .iter()
@@ -393,6 +407,20 @@ impl Needs {
             age_rating: fields.any(|f| f == "ageRating"),
         }
     }
+}
+
+/// The kinds Forma knows among `names`, in order and once each.
+pub fn known_kinds<'a>(names: impl IntoIterator<Item = &'a String>) -> Vec<MediaKind> {
+    let mut kinds = Vec::new();
+    for name in names {
+        if let Ok(kind) =
+            serde_json::from_value::<MediaKind>(serde_json::Value::String(name.clone()))
+            && !kinds.contains(&kind)
+        {
+            kinds.push(kind);
+        }
+    }
+    kinds
 }
 
 impl Config {

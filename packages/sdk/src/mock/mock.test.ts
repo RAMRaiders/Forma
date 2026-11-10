@@ -435,7 +435,9 @@ describe('mock backend', () => {
       name: 'Neon',
       view: null,
       media: ['boxside'],
-      fields: ['ageRating']
+      fields: ['ageRating'],
+      shows: [],
+      backups: {}
     });
     const off = await b.invoke<ScraperSettings>('scraper_configure', { themeNeeds: false });
     expect(off.themeNeeds).toBe(false);

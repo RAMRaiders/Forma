@@ -1,6 +1,7 @@
-import type { Forma, ScraperOffers } from '@ramraiders/forma-sdk';
+import type { Forma, ScraperOffers, ScraperSettings } from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
+import { backupNote, themeUse } from './scraper.js';
 
 /** The fields a user can type, in order; `hint` says how, for those it matters for. */
 const EDITABLE: { field: string; label: string; hint?: string }[] = [
@@ -18,22 +19,29 @@ const EDITABLE: { field: string; label: string; hint?: string }[] = [
 export function gameRows(forma: Forma, page: Page, game: { id: number; name: string }): Row[] {
   return [
     {
-      heading: game.name,
-      label: 'Edit details',
-      detail: 'Name, description, developer and more, by hand',
-      run: () => page.push(`Edit ${game.name}`, editScreen(forma, page, game.id))
-    },
-    {
+      icon: 'scrape',
       label: 'Scrape',
-      detail: 'Compare what each scraper has, and choose',
+      detail: 'Find its details and pictures online, and choose',
       run: () => pick(forma, page, game)
     },
     {
-      label: 'Delete',
-      detail: 'Remove the game and its files from this system',
-      run: () => page.push(`Delete ${game.name}?`, deleteScreen(forma, page, game))
+      icon: 'edit',
+      label: 'Edit details',
+      detail: 'Change its name, description and more by hand',
+      run: () => page.push(`Edit ${game.name}`, editScreen(forma, page, game.id))
     }
   ];
+}
+
+/** Last on the page, apart from the rest. */
+export function deleteGameRow(forma: Forma, page: Page, game: { id: number; name: string }): Row {
+  return {
+    icon: 'delete',
+    danger: true,
+    label: 'Delete',
+    detail: 'Remove the game and its files',
+    run: () => page.push(`Delete ${game.name}?`, deleteScreen(forma, page, game))
+  };
 }
 
 /** Keeping it comes first, so a stray A does no harm. */
@@ -41,6 +49,7 @@ function deleteScreen(forma: Forma, page: Page, game: { id: number; name: string
   return () => [
     { label: 'Keep it', detail: 'Go back', run: () => page.pop() },
     {
+      danger: true,
       label: 'Delete for good',
       detail: 'Its ROM, its details and its pictures. This cannot be undone',
       run: () =>
@@ -100,6 +109,19 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
   };
 }
 
+/** What tells an offer from the others: `USA · Small file · MP4 · 12 MB`. Empty if nothing does. */
+export function offerNote(offer: ScraperOffers['media'][number]['offers'][number]): string {
+  const { region, variant, format, size } = offer;
+  const megabytes = size === null ? null : size / 1_000_000;
+  const weight =
+    megabytes === null
+      ? null
+      : megabytes >= 1
+        ? `${megabytes.toFixed(megabytes >= 10 ? 0 : 1)} MB`
+        : `${Math.max(1, Math.round(megabytes * 1000))} KB`;
+  return [region, variant, format?.toUpperCase(), weight].filter(Boolean).join(' · ');
+}
+
 /** The badge of a field no scraper's answer is chosen for. */
 const keptBadge = (current: unknown): NonNullable<Row['badge']> => ({
   text: current ? 'Keep current' : 'Stays empty',
@@ -109,15 +131,24 @@ const keptBadge = (current: unknown): NonNullable<Row['badge']> => ({
 /** Asks every scraper about the game, then opens the page to choose from. */
 function pick(forma: Forma, page: Page, game: { id: number; name: string }): Promise<void> {
   return page.run('Asking every scraper…', async () => {
-    const offers = await forma.scraper.offers(game.id);
+    const [offers, settings] = await Promise.all([
+      forma.scraper.offers(game.id),
+      forma.scraper.settings()
+    ]);
     if (offers.text.length === 0 && offers.media.length === 0) {
       return offers.problems[0] ?? 'No scraper knows this game';
     }
-    await page.push(`Scrape ${game.name}`, pickScreen(forma, page, game.id, offers));
+    await page.push(`Scrape ${game.name}`, pickScreen(forma, page, game.id, offers, settings));
   });
 }
 
-function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers): () => Row[] {
+function pickScreen(
+  forma: Forma,
+  page: Page,
+  id: number,
+  offers: ScraperOffers,
+  { theme, mediaKinds }: ScraperSettings
+): () => Row[] {
   // Picked by default: the first scraper's, for what the game does not have. The rest stays
   // as it is until the user says otherwise.
   const text = new Map<string, string>();
@@ -126,7 +157,11 @@ function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers)
     if (s.current === null) text.set(s.field, s.offers[0]!.value);
   }
   for (const s of offers.media) {
-    if (!s.current) media.set(s.kind, s.offers[0]!.id);
+    const use = themeUse(theme, s.kind);
+    const replaced = offers.media.some((m) => m.kind === theme?.backups[s.kind]);
+    if (!s.current && use !== 'unused' && !(use === 'backup' && replaced)) {
+      media.set(s.kind, s.offers[0]!.id);
+    }
   }
   const previews = new Map<number, string | null>();
 
@@ -137,7 +172,9 @@ function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers)
       label: section.label,
       // Only what would be written; where it comes from is the badge.
       detail: from ? value : (section.current ?? ''),
-      badge: from ? { text: `From ${from.source}` } : keptBadge(section.current),
+      badge: from
+        ? { text: from.note ? `From ${from.source} · ${from.note}` : `From ${from.source}` }
+        : keptBadge(section.current),
       run: () =>
         page.push(section.label, () => [
           {
@@ -146,7 +183,7 @@ function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers)
             run: choose(() => text.delete(section.field))
           },
           ...section.offers.map((o) => ({
-            label: o.source,
+            label: o.note ? `${o.source} · ${o.note}` : o.source,
             detail: o.value,
             run: choose(() => text.set(section.field, o.value))
           }))
@@ -163,6 +200,12 @@ function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers)
     const offer = section.offers.find((o) => o.id === media.get(section.kind));
     return {
       label: section.label,
+      detail: [
+        offer && offerNote(offer),
+        themeUse(theme, section.kind) === 'backup' && backupNote(theme, section.kind, mediaKinds)
+      ]
+        .filter(Boolean)
+        .join(' · '),
       badge: offer ? { text: `From ${offer.source}` } : keptBadge(section.current),
       image: offer ? previews.get(offer.id) : undefined,
       run: () =>
@@ -179,7 +222,7 @@ function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers)
             },
             ...section.offers.map((o) => ({
               label: o.source,
-              detail: previews.get(o.id) ? '' : 'No preview',
+              detail: offerNote(o) || (previews.get(o.id) ? '' : 'No details from this source'),
               image: previews.get(o.id),
               run: choose(() => media.set(section.kind, o.id))
             }))
@@ -190,8 +233,16 @@ function pickScreen(forma: Forma, page: Page, id: number, offers: ScraperOffers)
 
   return () => {
     const changes = text.size + media.size;
-    const sections: Row[] = [...offers.text.map(textRow), ...offers.media.map(mediaRow)];
-    sections[0]!.heading = 'Choose for each';
+    const unused = offers.media.filter((s) => themeUse(theme, s.kind) === 'unused');
+    const sections: Row[] = [
+      ...offers.text.map(textRow),
+      ...offers.media.filter((s) => !unused.includes(s)).map(mediaRow),
+      ...unused.map((s, i) => ({
+        ...mediaRow(s),
+        heading: i === 0 ? `Not used by ${theme?.name ?? 'this theme'}` : undefined
+      }))
+    ];
+    sections[0]!.heading ??= 'What will be saved · A to change';
     return [
       {
         label: 'Save',

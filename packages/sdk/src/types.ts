@@ -326,9 +326,18 @@ export interface ScraperSettings {
   themeNeeds: boolean;
   /**
    * What the theme in use asks for in its `theme.json` (`scraper`), or null: media kinds, and
-   * details beyond the usual ones (`ageRating`). Since 1.24.0.
+   * details beyond the usual ones (`ageRating`). Since 1.24.0. `shows` is every kind it draws
+   * (empty when it does not say) and `backups` the kinds it draws only when another is missing,
+   * with the one each replaces. Since 1.26.0.
    */
-  theme: { name: string; view: string | null; media: MediaKind[]; fields: string[] } | null;
+  theme: {
+    name: string;
+    view: string | null;
+    media: MediaKind[];
+    fields: string[];
+    shows: MediaKind[];
+    backups: Partial<Record<MediaKind, MediaKind>>;
+  } | null;
 }
 
 /** What the sources have for a game, section by section, to pick from. Since 1.25.0. */
@@ -339,7 +348,8 @@ export interface ScraperOffers {
     label: string;
     /** What the game has now. */
     current: string | null;
-    offers: { source: string; value: string }[];
+    /** `note`: the country or language it is in, when the source says. */
+    offers: { source: string; value: string; note: string | null }[];
   }[];
   media: {
     kind: MediaKind;
@@ -347,7 +357,17 @@ export interface ScraperOffers {
     /** Whether the game has one now. */
     current: boolean;
     /** `id` names it to `preview` and `apply`. */
-    offers: { id: number; source: string }[];
+    offers: {
+      id: number;
+      source: string;
+      /** The country or region it is for, in words. */
+      region: string | null;
+      /** What sets it apart from others of its kind: `Small file`. */
+      variant: string | null;
+      format: string | null;
+      /** In bytes. */
+      size: number | null;
+    }[];
   }[];
   /** Sources that could not answer, and why. */
   problems: string[];
