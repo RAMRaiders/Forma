@@ -125,7 +125,7 @@ fn match_now(state: &AppState) {
         let lib = state.library();
         achievements::account(&lib, &state.paths)
     };
-    // No account or key yet: hashes wait until there is one.
+    // Not signed in yet: hashes wait until there is an account.
     let Ok(account) = account else { return };
     // The library stays free while RetroAchievements answers.
     let result = (|| {

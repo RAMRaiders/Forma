@@ -12,7 +12,7 @@ use crate::error::Result;
 use crate::library::Library;
 use crate::net::Cache;
 use crate::net::Http;
-use crate::net::achievements::{Account, hash_index};
+use crate::net::achievements::{Account, games_with_achievements, hash_index};
 use crate::paths::Paths;
 
 /// romdex's cache of what it read: path, size and time to hashes.
@@ -92,12 +92,12 @@ pub fn look_up(
 ) -> Result<Vec<(i64, i64)>> {
     let mut matched = Vec::new();
     for (console, games) in unmatched {
-        let index = hash_index(http, cache, account, console)?.data;
-        matched.extend(
-            games
-                .into_iter()
-                .filter_map(|(id, hash)| index.get(&hash).map(|ra| (id, *ra))),
-        );
+        let index = hash_index(http, cache, console)?.data;
+        let with = games_with_achievements(http, cache, account, console)?.data;
+        matched.extend(games.into_iter().filter_map(|(id, hash)| {
+            let ra = *index.get(&hash)?;
+            with.contains(&ra).then_some((id, ra))
+        }));
     }
     Ok(matched)
 }
@@ -132,8 +132,11 @@ mod tests {
         }
         let mut lib = Library::open_in_memory().unwrap();
         lib.refresh(&paths).unwrap();
-        lib.set_setting(crate::net::achievements::API_KEY_SETTING, Some("\"key\""))
-            .unwrap();
+
+        let conf = paths.batocera_conf();
+        let mut text = std::fs::read_to_string(&conf).unwrap();
+        text.push_str("global.retroachievements.token=t0k\n");
+        std::fs::write(&conf, text).unwrap();
         let account = crate::net::achievements::account(&lib, &paths).unwrap();
 
         let nes = targets(&paths)
@@ -158,11 +161,23 @@ mod tests {
         // RetroAchievements knows the first one.
         let (path, hash) = &hashes[0];
         let list = format!(
-            r#"[{{"ID": 4242, "Title": "x", "Hashes": ["{}"]}}]"#,
+            r#"{{"Success": true, "MD5List": {{"{}": 4242}}}}"#,
             hash.to_uppercase()
         );
         let mut http = FakeHttp::default();
-        http.routes.insert("API_GetGameList", Ok(list.into_bytes()));
+        http.routes.insert("hashlibrary", Ok(list.into_bytes()));
+        // A game on the list with no achievements does not count as matched.
+        http.routes.insert(
+            "allprogress",
+            Ok(br#"{"Success": true, "Response": {"4242": {"Achievements": 0}}}"#.to_vec()),
+        );
+        let empty = Cache::new(dir.path().join("empty"));
+        assert_eq!(resolve(&mut lib, &http, &empty, &account).unwrap(), 0);
+        http.routes.insert(
+            "allprogress",
+            Ok(br#"{"Success": true, "Response": {"4242": {"Achievements": 12}}}"#.to_vec()),
+        );
+        http.calls.lock().unwrap().clear();
         let net = Cache::new(dir.path().join("net"));
         // One fixture game has an imported RA id already.
         let before = lib.ra_match_report(&["nes".into()]).unwrap()[0].matched;
@@ -185,6 +200,6 @@ mod tests {
         );
         // The list is cached: matching again asks nothing.
         resolve(&mut lib, &http, &net, &account).unwrap();
-        assert_eq!(http.calls(), 1);
+        assert_eq!(http.calls(), 2);
     }
 }
