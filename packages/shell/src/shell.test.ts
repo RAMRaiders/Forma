@@ -339,6 +339,41 @@ describe('Forma’s shell', () => {
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
   });
 
+  it('possible duplicates: one game under different names, per system', async () => {
+    const { press, text, openMenu, backend } = start([]);
+    const invoke = backend.invoke.bind(backend);
+    let answer: unknown = null;
+    vi.spyOn(backend, 'invoke').mockImplementation(async (command, args) =>
+      command === 'library_duplicates' ? answer : invoke(command, args)
+    );
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    await openMenu('Games');
+    await vi.waitFor(() => expect(rows()).toContain('Possible duplicates'));
+    for (let i = 0; i < 3; i++) await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(["Needs LaunchBox's data"]));
+
+    answer = [
+      {
+        title: 'Mega Man',
+        games: [
+          { id: 1, name: 'Rockman', path: 'Rockman (Japan).nes' },
+          { id: 2, name: 'Mega Man', path: 'Mega Man (USA).nes' }
+        ]
+      }
+    ];
+    await press('back');
+    await press('confirm');
+    await vi.waitFor(() => expect(details()[0]).toBe('1 game under several names'));
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Mega Man']));
+    expect(details()).toEqual(['Rockman · Mega Man']);
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Rockman', 'Mega Man']));
+    expect(details()).toEqual(['Rockman (Japan).nes', 'Mega Man (USA).nes']);
+  });
+
   it('scraper: runs in the background, chooses what to fetch, sets up a source', async () => {
     const { press, text, openMenu } = start(['scraper.manage']);
     await openMenu('Games');
@@ -350,7 +385,12 @@ describe('Forma’s shell', () => {
       expect(selected()).toBe(label);
     };
     await vi.waitFor(() =>
-      expect(rows()).toEqual(['Scrapers', 'Emulator options', 'Game versions'])
+      expect(rows()).toEqual([
+        'Scrapers',
+        'Emulator options',
+        'Game versions',
+        'Possible duplicates'
+      ])
     );
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Start scraping'));

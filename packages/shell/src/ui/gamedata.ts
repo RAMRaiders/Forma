@@ -151,6 +151,47 @@ export function versionsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
   };
 }
 
+/**
+ * Start → Games → Possible duplicates: games that are one game under different names, per
+ * system, by LaunchBox. Read only.
+ */
+export function duplicatesScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+  return async () => {
+    const systems = await forma.library.systems();
+    const found = await Promise.all(
+      systems.map(async (s) => ({ system: s, groups: await forma.library.duplicates(s.name) }))
+    );
+    if (found.every(({ groups }) => groups === null)) {
+      return [
+        {
+          label: "Needs LaunchBox's data",
+          detail: 'Turn LaunchBox on in Scraper and scrape a game once'
+        }
+      ];
+    }
+    const rows = found.flatMap(({ system, groups }): Row[] => {
+      if (!groups?.length) return [];
+      const label = system.fullname || system.name;
+      return [
+        {
+          label,
+          detail: `${groups.length} ${groups.length === 1 ? 'game' : 'games'} under several names`,
+          run: () =>
+            page.push(label, () =>
+              groups.map((g) => ({
+                label: g.title,
+                detail: [...new Set(g.games.map((x) => x.name))].join(' · '),
+                run: () =>
+                  page.push(g.title, () => g.games.map((x) => ({ label: x.name, detail: x.path })))
+              }))
+            )
+        }
+      ];
+    });
+    return rows.length > 0 ? rows : [{ label: 'No game is there twice under another name' }];
+  };
+}
+
 function versionGroupRow(page: Page, group: VersionGroup): Row {
   const identical = group.games.filter((g) => g.identicalTo !== null).length;
   return {

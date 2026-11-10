@@ -8,6 +8,7 @@
 //! place. The library then re-imports it through the watcher, as for any gamelist change.
 
 pub mod companies;
+pub mod duplicates;
 mod engine;
 pub(crate) use text::title_key;
 pub mod pick;
@@ -27,6 +28,14 @@ pub fn text_date(text: &str) -> Option<String> {
     text::date(text)
 }
 pub use sources::builtin;
+
+/// Builds LaunchBox's data again when an older Forma built it; `Ok(true)` when it did.
+pub fn upgrade_launchbox(
+    http: &dyn crate::net::Http,
+    paths: &crate::paths::Paths,
+) -> Result<bool, String> {
+    sources::launchbox::upgrade(http, &paths.cache_dir().join("launchbox.db"))
+}
 
 use crate::net::Http;
 

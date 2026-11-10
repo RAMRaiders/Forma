@@ -173,6 +173,12 @@ export interface VersionGroup {
   }[];
 }
 
+/** Games LaunchBox says are one game under different names, by its name for it. Since 1.29.0. */
+export interface DuplicateGroup {
+  title: string;
+  games: { id: number; name: string; path: string }[];
+}
+
 export interface ViewInfo {
   id: string;
   name: string;

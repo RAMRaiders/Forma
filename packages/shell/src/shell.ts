@@ -26,7 +26,7 @@ import {
   systemsScreen
 } from './ui/screens.js';
 import { magazinesScreen } from './ui/magazines.js';
-import { versionsScreen } from './ui/gamedata.js';
+import { duplicatesScreen, versionsScreen } from './ui/gamedata.js';
 import { addonsScreen } from './ui/addons.js';
 import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
@@ -611,6 +611,11 @@ export class Shell {
             label: 'Game versions',
             detail: 'Which games have several versions, per system',
             run: () => page.push('Game versions', versionsScreen(this.forma, page))
+          },
+          {
+            label: 'Possible duplicates',
+            detail: 'One game under different names, by LaunchBox',
+            run: () => page.push('Possible duplicates', duplicatesScreen(this.forma, page))
           }
         ]);
       case 'system-options':

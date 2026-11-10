@@ -551,7 +551,9 @@ fn launchbox_zip() -> Vec<u8> {
       <Game><Name>The Legend of Zelda: A Link to the Past</Name><Platform>Sega Genesis</Platform>
         <DatabaseID>8</DatabaseID><ESRB>Not Rated</ESRB><CommunityRatingCount>0</CommunityRatingCount>
         <CommunityRating>3</CommunityRating></Game>
-      <GameAlternateName><AlternateName>Bare Knuckle II</AlternateName><DatabaseID>7</DatabaseID></GameAlternateName>
+      <GameAlternateName><AlternateName>Bare Knuckle II</AlternateName><DatabaseID>7</DatabaseID><Region>Japan</Region></GameAlternateName>
+      <GameAlternateName><AlternateName>Bare Knuckle II</AlternateName><DatabaseID>7</DatabaseID><Region>Asia</Region></GameAlternateName>
+      <GameAlternateName><AlternateName>Streets of Rage 2</AlternateName><DatabaseID>7</DatabaseID></GameAlternateName>
       <GameImage><DatabaseID>7</DatabaseID><FileName>eu.jpg</FileName><Type>Box - Front</Type><Region>Europe</Region></GameImage>
       <GameImage><DatabaseID>7</DatabaseID><FileName>jp.jpg</FileName><Type>Box - Front</Type><Region>Japan</Region></GameImage>
       <GameImage><DatabaseID>7</DatabaseID><FileName>remade.jpg</FileName><Type>Box - Front - Reconstructed</Type><Region>Japan</Region></GameImage>
@@ -600,6 +602,11 @@ fn launchbox_fetches_its_data_once_and_answers_from_it() {
     assert_eq!(found.metadata.release_date.as_deref(), Some("1992-12-20"));
     assert_eq!(found.metadata.rating, Some(0.9));
     assert_eq!(found.metadata.age_rating.as_deref(), Some("ESRB:E10+"));
+    // Its other names, each once, not its own again.
+    assert_eq!(
+        found.notes.names,
+        [("Bare Knuckle II".to_owned(), Some("Japan".to_owned()))]
+    );
     let base = "https://images.launchbox-app.com/";
     assert_eq!(
         found.media,
@@ -634,6 +641,101 @@ fn launchbox_fetches_its_data_once_and_answers_from_it() {
 
     assert_eq!(api.urls().len(), 1, "the data is fetched once");
     assert!(file.exists());
+}
+
+#[test]
+fn launchbox_finds_one_game_under_different_names_in_a_library() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = crate::paths::Paths {
+        userdata: dir.path().to_path_buf(),
+        systems_cfg: std::path::PathBuf::new(),
+    };
+    let file = paths.cache_dir().join("launchbox.db");
+    let mut system = crate::scraper::tests::system(dir.path());
+    system.platforms = vec!["megadrive".to_owned()];
+    let game = |id, name: &str, path: &str| crate::library::Game {
+        id,
+        ..crate::scraper::tests::game(path, name)
+    };
+    let games = [
+        game(1, "Bare Knuckle II", "Bare Knuckle II (Japan).md"),
+        game(2, "Streets of Rage 2", "Streets of Rage 2 (USA).md"),
+        game(3, "Streets of Rage 2", "Streets of Rage 2 (Europe).md"),
+        game(
+            4,
+            "Zelda",
+            "Legend of Zelda, The - A Link to the Past (USA).md",
+        ),
+        game(
+            5,
+            "Zelda",
+            "Legend of Zelda, The - A Link to the Past (Rev 1).md",
+        ),
+    ];
+    let find = || super::super::duplicates::duplicates(&paths, &system, &games).unwrap();
+    assert_eq!(find(), None, "nothing without LaunchBox's data");
+
+    let api = Api {
+        answers: vec![("https://gamesdb.launchbox-app.com/", Ok(launchbox_zip()))],
+        sent: Mutex::new(Vec::new()),
+    };
+    let source = launchbox::LaunchBox::at(file);
+    let on = vec!["megadrive".to_owned()];
+    let q = launchbox_query("x", "x", &on);
+    source.lookup(&api, &Credentials::default(), &q).unwrap();
+
+    let groups = find().unwrap();
+    // Versions of one title alone are not duplicates: Game versions has them.
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].title, "Streets of Rage 2");
+    let ids: Vec<i64> = groups[0].games.iter().map(|g| g.id).collect();
+    assert_eq!(ids, [1, 2, 3]);
+}
+
+#[test]
+fn launchbox_data_from_an_older_forma_is_built_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = crate::paths::Paths {
+        userdata: dir.path().to_path_buf(),
+        systems_cfg: std::path::PathBuf::new(),
+    };
+    let file = paths.cache_dir().join("launchbox.db");
+    let api = Api {
+        answers: vec![("https://gamesdb.launchbox-app.com/", Ok(launchbox_zip()))],
+        sent: Mutex::new(Vec::new()),
+    };
+    assert_eq!(
+        super::super::upgrade_launchbox(&api, &paths),
+        Ok(false),
+        "none yet"
+    );
+    let source = launchbox::LaunchBox::at(file.clone());
+    let on = vec!["megadrive".to_owned()];
+    let q = launchbox_query("Bare Knuckle II", "Bare Knuckle II (Japan)", &on);
+    source.lookup(&api, &Credentials::default(), &q).unwrap();
+    assert_eq!(
+        super::super::upgrade_launchbox(&api, &paths),
+        Ok(false),
+        "up to date"
+    );
+
+    // As an older Forma left it: no alternate names as written.
+    let db = rusqlite::Connection::open(&file).unwrap();
+    db.execute_batch("DROP TABLE alias; PRAGMA user_version = 0;")
+        .unwrap();
+    drop(db);
+    let old = source
+        .lookup(&api, &Credentials::default(), &q)
+        .unwrap()
+        .unwrap();
+    assert!(old.notes.names.is_empty(), "it still answers");
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    assert_eq!(super::super::upgrade_launchbox(&api, &paths), Ok(true));
+    let new = source
+        .lookup(&api, &Credentials::default(), &q)
+        .unwrap()
+        .unwrap();
+    assert_eq!(new.notes.names.len(), 1, "the source reads the new one");
 }
 
 #[test]

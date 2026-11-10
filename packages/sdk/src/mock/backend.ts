@@ -1104,6 +1104,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     // In the order the user chose, as Forma lists them (`SystemsOrder`).
     library_systems: () => orderSystems(snapshot.systems, settings.get('library.systemsOrder')),
     library_versions: () => [],
+    library_duplicates: () => [],
     library_game: ({ id }) => {
       const game = games.get(id as number);
       return game ? present(game) : null;
