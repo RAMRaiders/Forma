@@ -64,23 +64,41 @@ pub fn libretro_folder(system: &str) -> Option<&'static str> {
         .copied()
 }
 
-/// LaunchBox's platforms for these `<platform>` names, the likeliest first (`launchbox.tsv`).
-pub fn launchbox(platforms: &[String]) -> Vec<&'static str> {
-    let rows = || {
-        include_str!("launchbox.tsv")
-            .lines()
-            .filter(|l| !l.starts_with('#'))
-            .filter_map(|l| l.split_once('\t'))
-    };
+fn rows(table: &'static str) -> impl Iterator<Item = (&'static str, &'static str)> {
+    table
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .filter_map(|l| l.split_once('\t'))
+}
+
+/// What a two-column table says for these `<platform>` names, in the table's order per name.
+fn listed(table: &'static str, platforms: &[String]) -> Vec<&'static str> {
     let mut found = Vec::new();
     for platform in platforms {
-        for (_, theirs) in rows().filter(|(ours, _)| *ours == platform.trim()) {
+        for (_, theirs) in rows(table).filter(|(ours, _)| *ours == platform.trim()) {
             if !found.contains(&theirs) {
                 found.push(theirs);
             }
         }
     }
     found
+}
+
+/// LaunchBox's platforms for these `<platform>` names, the likeliest first (`launchbox.tsv`).
+pub fn launchbox(platforms: &[String]) -> Vec<&'static str> {
+    listed(include_str!("launchbox.tsv"), platforms)
+}
+
+/// HFSDB's system IDs for these `<platform>` names (`hfsdb.tsv`).
+pub fn hfsdb(platforms: &[String]) -> Vec<&'static str> {
+    listed(include_str!("hfsdb.tsv"), platforms)
+}
+
+/// Whether an HFSDB system is not an arcade one: a search for an arcade file can land there.
+pub fn hfsdb_is_a_home_system(id: u64) -> bool {
+    rows(include_str!("hfsdb.tsv")).any(|(ours, theirs)| {
+        !matches!(ours, "arcade" | "neogeo" | "teknoparrot") && theirs.parse() == Ok(id)
+    })
 }
 
 /// Whether the system is an arcade one (MAME short names).

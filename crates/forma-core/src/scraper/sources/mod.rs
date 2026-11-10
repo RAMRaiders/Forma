@@ -1,6 +1,7 @@
 //! The sources built into Forma. Add-ons add more through the same [`Source`] trait.
 
 mod arcadedb;
+mod hfsdb;
 mod igdb;
 mod launchbox;
 mod libretro;
@@ -19,6 +20,7 @@ pub fn builtin() -> Vec<Box<dyn Source>> {
         Box::new(thegamesdb::TheGamesDb::default()),
         Box::new(igdb::Igdb::default()),
         Box::new(mobygames::MobyGames),
+        Box::new(hfsdb::HfsDb::default()),
         Box::new(steamgriddb::SteamGridDb),
         Box::new(arcadedb::ArcadeDb),
         Box::new(launchbox::LaunchBox::default()),

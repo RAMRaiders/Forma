@@ -831,13 +831,13 @@ fn scraper_settings_accounts_and_a_run_over_a_system() {
     let h = Harness::new(&["scraper.manage"]);
     let settings = h.call("scraper_settings", json!({})).unwrap();
     let sources = settings["sources"].as_array().unwrap();
-    assert_eq!(sources.len(), 8);
+    assert_eq!(sources.len(), 9);
     assert_eq!(sources[0]["id"], "screenscraper");
     assert_eq!(sources[0]["ready"], false);
-    assert_eq!(sources[6]["id"], "launchbox");
-    assert_eq!(sources[6]["ready"], true);
-    assert_eq!(sources[7]["id"], "libretro");
+    assert_eq!(sources[7]["id"], "launchbox");
     assert_eq!(sources[7]["ready"], true);
+    assert_eq!(sources[8]["id"], "libretro");
+    assert_eq!(sources[8]["ready"], true);
     assert_eq!(settings["mediaKinds"].as_array().unwrap().len(), 19);
 
     // Credentials: a secret is never sent back, only that it is set.
@@ -945,10 +945,10 @@ fn an_addon_installs_from_the_catalogue_joins_the_scraper_and_goes() {
     // It is the scraper's last source, and set up (its token is optional).
     let settings = h.call("scraper_settings", json!({})).unwrap();
     let sources = settings["sources"].as_array().unwrap();
-    assert_eq!(sources.len(), 9);
-    assert_eq!(sources[8]["id"], "addon:example-boxes");
-    assert_eq!(sources[8]["ready"], true);
-    assert_eq!(sources[8]["needs"][0]["label"], "Token");
+    assert_eq!(sources.len(), 10);
+    assert_eq!(sources[9]["id"], "addon:example-boxes");
+    assert_eq!(sources[9]["ready"], true);
+    assert_eq!(sources[9]["needs"][0]["label"], "Token");
 
     // Only the add-on, boxes only: every NES game gets one.
     let only: Vec<Value> = sources
@@ -1000,20 +1000,20 @@ fn an_addon_installs_from_the_catalogue_joins_the_scraper_and_goes() {
         .unwrap();
     assert_eq!(listed[0]["enabled"], false);
     let settings = h.call("scraper_settings", json!({})).unwrap();
-    assert_eq!(settings["sources"].as_array().unwrap().len(), 8);
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 9);
     h.call(
         "addons_set_enabled",
         json!({ "id": "example-boxes", "enabled": true }),
     )
     .unwrap();
     let settings = h.call("scraper_settings", json!({})).unwrap();
-    assert_eq!(settings["sources"].as_array().unwrap().len(), 9);
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 10);
 
     h.call("addons_remove", json!({ "id": "example-boxes" }))
         .unwrap();
     assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
     let settings = h.call("scraper_settings", json!({})).unwrap();
-    assert_eq!(settings["sources"].as_array().unwrap().len(), 8);
+    assert_eq!(settings["sources"].as_array().unwrap().len(), 9);
     let err = h
         .call("addons_install", json!({ "id": "nope" }))
         .unwrap_err();

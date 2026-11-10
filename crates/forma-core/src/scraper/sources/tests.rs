@@ -683,3 +683,125 @@ fn screenscraper_offers_every_name_with_the_regions_using_it() {
         ]
     );
 }
+
+#[test]
+fn hfsdb_signs_in_once_and_reads_a_game() {
+    let api = Api::new(vec![
+        (
+            "https://db.hfsplay.fr/api/v1/auth/token",
+            Ok(json!({ "token": "abc" })),
+        ),
+        (
+            "https://db.hfsplay.fr/api/v1/games",
+            Ok(json!({ "count": 2, "results": [
+                { "name_en": "Super Mario World" },
+                {
+                    "name_en": "Super Metroid",
+                    "description_en": "Samus returns.",
+                    "released_at_US": "1994-04-18T00:00:00",
+                    "metadata": [
+                        { "name": "developer", "value": "Nintendo R&D1" },
+                        { "name": "editor", "value": "Nintendo" },
+                        { "name": "genre", "value": "Action" },
+                        { "name": "players", "value": "2 joueurs" }
+                    ],
+                    "medias": [
+                        { "type": "cover2d", "file": "https://h/back.jpg", "description": "back" },
+                        { "type": "cover2d", "file": "https://h/front.jpg", "metadata": [{ "name": "cover2dtype", "value": "front" }] },
+                        { "type": "screenshot", "file": "https://h/title.jpg", "description": "title" },
+                        { "type": "screenshot", "file": "https://h/play.jpg", "description": "in game" },
+                        { "type": "logo", "file": "https://h/logo.png" },
+                        { "type": "video", "file": "https://h/v.mp4" },
+                        { "type": "manual", "file": "not-a-url" }
+                    ]
+                }
+            ]})),
+        ),
+    ]);
+    let snes = vec!["snes".to_owned()];
+    let q = query("snes", &snes, None);
+    let source = find("hfsdb");
+    let credentials = creds(&[("username", "me"), ("password", "p&ss")]);
+    let found = source.lookup(&api, &credentials, &q).unwrap().unwrap();
+    assert_eq!(found.metadata.name.as_deref(), Some("Super Metroid"));
+    assert_eq!(found.metadata.publisher.as_deref(), Some("Nintendo"));
+    assert_eq!(found.metadata.players.as_deref(), Some("2"));
+    assert_eq!(found.metadata.release_date.as_deref(), Some("1994-04-18"));
+    let urls = |kind| -> Vec<&str> {
+        found
+            .media
+            .iter()
+            .filter(|(k, _)| *k == kind)
+            .map(|(_, u)| u.as_str())
+            .collect()
+    };
+    assert_eq!(urls(MediaKind::Thumbnail), ["https://h/front.jpg"]);
+    assert_eq!(urls(MediaKind::Boxback), ["https://h/back.jpg"]);
+    assert_eq!(urls(MediaKind::Titleshot), ["https://h/title.jpg"]);
+    assert_eq!(urls(MediaKind::Image)[0], "https://h/play.jpg");
+    assert_eq!(urls(MediaKind::Video), ["https://h/v.mp4"]);
+    assert!(urls(MediaKind::Manual).is_empty());
+
+    source.lookup(&api, &credentials, &q).unwrap();
+    let sent = api.sent.lock().unwrap();
+    assert_eq!(sent.len(), 3, "one sign-in, two searches");
+    assert_eq!(
+        sent[0].body.as_deref(),
+        Some(&b"username=me&password=p%26ss"[..])
+    );
+    assert!(
+        sent[1]
+            .url
+            .ends_with("/games?search=Super%20Metroid&system=82351&limit=25")
+    );
+    assert!(
+        sent[1]
+            .headers
+            .iter()
+            .any(|(k, v)| k == "Authorization" && v == "Token abc")
+    );
+}
+
+#[test]
+fn hfsdb_finds_arcade_by_file_and_skips_home_systems() {
+    let api = Api::new(vec![
+        (
+            "https://db.hfsplay.fr/api/v1/auth/token",
+            Ok(json!({ "token": "abc" })),
+        ),
+        (
+            "https://db.hfsplay.fr/api/v1/games",
+            Ok(json!({ "count": 2, "results": [
+                { "name_en": "On the Mega Drive", "system": { "id": 33149 } },
+                { "name_en": "Street Fighter II", "system": { "id": 29794 } }
+            ]})),
+        ),
+    ]);
+    let arcade = vec!["arcade".to_owned()];
+    let q = Query {
+        stem: "sf2 (World)",
+        name: "sf2",
+        ..query("mame", &arcade, None)
+    };
+    let credentials = creds(&[("username", "me"), ("password", "p")]);
+    let found = find("hfsdb")
+        .lookup(&api, &credentials, &q)
+        .unwrap()
+        .unwrap();
+    assert_eq!(found.metadata.name.as_deref(), Some("Street Fighter II"));
+    assert!(api.urls()[1].ends_with("/games?medias__description=sf2&system_id=29794"));
+}
+
+#[test]
+fn hfsdb_says_when_the_account_is_refused() {
+    let api = Api::new(vec![("https://db.hfsplay.fr/api/v1/auth/token", Err(400))]);
+    let snes = vec!["snes".to_owned()];
+    let e = find("hfsdb")
+        .lookup(
+            &api,
+            &creds(&[("username", "me"), ("password", "x")]),
+            &query("snes", &snes, None),
+        )
+        .unwrap_err();
+    assert!(matches!(e, LookupError::Credentials(_)), "{e:?}");
+}

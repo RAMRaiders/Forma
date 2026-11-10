@@ -373,6 +373,7 @@ fn config_lists_every_source_keeping_the_users_order() {
             "screenscraper",
             "thegamesdb",
             "mobygames",
+            "hfsdb",
             "steamgriddb",
             "arcadedb",
             "launchbox"
@@ -381,7 +382,7 @@ fn config_lists_every_source_keeping_the_users_order() {
     assert!(!c.sources[1].enabled);
     assert_eq!(c.media, [MediaKind::Thumbnail, MediaKind::Video]);
     assert!(c.metadata && !c.replace);
-    assert_eq!(Config::load(None, &all).sources.len(), 8);
+    assert_eq!(Config::load(None, &all).sources.len(), 9);
     assert_eq!(
         Config::load(Some("not json"), &all).media,
         Config::default().media
