@@ -244,5 +244,6 @@ pub(super) fn parse(game: &Value) -> Found {
             age_rating: None,
         },
         media,
+        notes: Default::default(),
     }
 }
