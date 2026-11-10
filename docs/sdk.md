@@ -86,12 +86,14 @@ card is the easiest way to make a Raspberry Pi stutter.
 Browsing [hierarchy views](hierarchy.md). A **path** is the group keys (or branch ids) opened so
 far, from the root down.
 
-| Method                       | Returns                                                   |
-| ---------------------------- | --------------------------------------------------------- |
-| `views()`                    | Every view: bundled and the user's                        |
-| `browse(view, path?, page?)` | One page: `groups`, `branches` or `games`, plus a `trail` |
-| `defaultView()`              | The boot view, and notes on any choice passed over        |
-| `setDefaultView(id \| null)` | Makes `id` the boot view; `null` clears it                |
+| Method                       | Returns                                                      |
+| ---------------------------- | ------------------------------------------------------------ |
+| `views()`                    | Every view: bundled and the user's                           |
+| `browse(view, path?, page?)` | One page: `groups`, `branches` or `games`, plus a `trail`    |
+| `filterOptions()`            | The filter on the game list on screen and its choices        |
+| `setFilter(filter \| null)`  | Filters that list; `browse` follows, `library:changed` tells |
+| `defaultView()`              | The boot view, and notes on any choice passed over           |
+| `setDefaultView(id \| null)` | Makes `id` the boot view; `null` clears it                   |
 
 ```ts
 const { id } = await forma.nav.defaultView();

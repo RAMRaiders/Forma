@@ -5,12 +5,11 @@ import type {
   OptionsScope,
   SystemSetting
 } from '@ramraiders/forma-sdk';
+import { FormaError } from '@ramraiders/forma-sdk';
+
 import { updatesScreen } from './updates.js';
 
 import type { Page, Row } from './page.js';
-
-/** Choice lists longer than this open a list to pick from; shorter ones just cycle. */
-const CYCLE_MAX = 6;
 
 /** Words Batocera writes in capitals that stay that way in sentence case. */
 const KEEP_CAPS = new Set([
@@ -55,6 +54,9 @@ export function sentence(label: string): string {
     .join('');
 }
 
+/** A setting with this many choices or fewer is switched on the spot. */
+const CYCLE_MAX = 6;
+
 /** A list to pick one from, as a deeper page; `null` is the "default" entry. */
 function pick(
   page: Page,
@@ -69,6 +71,15 @@ function pick(
       0,
       choices.findIndex((c) => c.value === current)
     ) + (fallback !== null && current !== null ? 1 : 0);
+  // Saved while the list is still up, then back in one step: nothing to flicker through.
+  const choose = (value: string | null) => async () => {
+    try {
+      await set(value);
+    } catch (error) {
+      page.notify(FormaError.from(error).message);
+    }
+    await page.pop();
+  };
   return page.push(
     sentence(title),
     () => [
@@ -76,13 +87,13 @@ function pick(
         ? [
             {
               label: current === null ? `✓ ${fallback}` : fallback,
-              run: () => page.pop().then(() => page.run('Saving…', () => set(null)))
+              run: choose(null)
             }
           ]
         : []),
       ...choices.map((c) => ({
         label: c.value === current ? `✓ ${c.label}` : c.label,
-        run: () => page.pop().then(() => page.run('Saving…', () => set(c.value)))
+        run: choose(c.value)
       }))
     ],
     undefined,
@@ -129,15 +140,7 @@ function optionRow(forma: Forma, page: Page, scope: OptionsScope, o: OptionItem)
       if (typed !== null) await save(typed.trim() || null);
     };
   } else if (o.choices.length > 0) {
-    // Cycling includes "default" (unset), so a value can be taken back without Y.
-    const values: (string | null)[] = [null, ...o.choices.map((c) => c.value)];
-    const cycle = (dir: -1 | 1) =>
-      save(values[(values.indexOf(o.value) + dir + values.length) % values.length] ?? null);
-    row.adjust = cycle;
-    row.run =
-      o.choices.length > CYCLE_MAX
-        ? () => pick(page, o.label, o.choices, o.value, set, 'Default')
-        : () => cycle(1);
+    row.run = () => pick(page, o.label, o.choices, o.value, set, 'Default');
   }
   return row;
 }

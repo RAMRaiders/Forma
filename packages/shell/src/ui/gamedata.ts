@@ -2,6 +2,7 @@ import type { Forma, ScraperOffers, ScraperSettings, VersionGroup } from '@ramra
 
 import type { Page, Row } from './page.js';
 import { backupNote, themeUse } from './scraper.js';
+import { optionsScreen } from './settings.js';
 
 /** The fields a user can type, in order; `hint` says how, for those it matters for. */
 const EDITABLE: { field: string; label: string; hint?: string }[] = [
@@ -39,6 +40,16 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
           `Edit ${game.name}`,
           editScreen(forma, page, game.id),
           await fileNote(forma, game.id)
+        )
+    },
+    {
+      icon: 'emulator',
+      label: 'Emulator settings',
+      detail: 'Graphics, gameplay and emulator, for this game only',
+      run: () =>
+        page.push(
+          `${game.name} emulator`,
+          optionsScreen(forma, page, { level: 'game', game: game.id })
         )
     }
   ];
@@ -207,6 +218,8 @@ function pickScreen(
   // as it is until the user says otherwise.
   const text = new Map<string, string>();
   const media = new Map<string, number>();
+  // Fields to empty on saving: what the game has now goes, and nothing takes its place.
+  const cleared = new Set<string>();
   for (const s of offers.text) {
     if (s.current === null) text.set(s.field, s.offers[0]!.value);
   }
@@ -222,25 +235,63 @@ function pickScreen(
   const textRow = (section: ScraperOffers['text'][number]): Row => {
     const value = text.get(section.field);
     const from = section.offers.find((o) => o.value === value);
+    const typed = value !== undefined && !from;
+    const typeIt = async () => {
+      const name = await page.ask({
+        title: section.label,
+        value: value ?? section.current ?? section.offers[0]?.value ?? ''
+      });
+      const trimmed = name?.trim();
+      if (!trimmed) return;
+      cleared.delete(section.field);
+      text.set(section.field, trimmed);
+      await page.pop();
+    };
     return {
       label: section.label,
       // Only what would be written; where it comes from is the badge.
-      detail: from ? value : (section.current ?? ''),
+      detail: from || typed ? value : cleared.has(section.field) ? '' : (section.current ?? ''),
       badge: from
         ? { text: from.note ? `From ${from.source} · ${from.note}` : `From ${from.source}` }
-        : keptBadge(section.current),
+        : typed
+          ? { text: 'Typed by you' }
+          : cleared.has(section.field)
+            ? { text: 'Will be cleared' }
+            : keptBadge(section.current),
       run: () =>
         page.push(section.label, () => [
           {
             label: section.current === null ? 'Leave empty' : 'Keep what it has',
             detail: section.current ?? '',
-            run: choose(() => text.delete(section.field))
+            run: choose(() => {
+              text.delete(section.field);
+              cleared.delete(section.field);
+            })
           },
           ...section.offers.map((o) => ({
             label: o.note ? `${o.source} · ${o.note}` : o.source,
             detail: o.value,
-            run: choose(() => text.set(section.field, o.value))
-          }))
+            run: choose(() => {
+              cleared.delete(section.field);
+              text.set(section.field, o.value);
+            })
+          })),
+          // A game keeps its name; anything else it has can go.
+          ...(section.field !== 'name' && section.current !== null
+            ? [
+                {
+                  label: 'Clear it',
+                  detail: 'Removes what it has now, and takes nothing in its place',
+                  run: choose(() => {
+                    text.delete(section.field);
+                    cleared.add(section.field);
+                  })
+                }
+              ]
+            : []),
+          ...(section.field === 'name'
+            ? [{ label: 'Type it yourself', detail: typed ? value : '', run: typeIt }]
+            : [])
         ])
     };
   };
@@ -286,7 +337,7 @@ function pickScreen(
   };
 
   return () => {
-    const changes = text.size + media.size;
+    const changes = text.size + media.size + cleared.size;
     const unused = offers.media.filter((s) => themeUse(theme, s.kind) === 'unused');
     const sections: Row[] = [
       ...offers.text.map(textRow),
@@ -297,8 +348,16 @@ function pickScreen(
       }))
     ];
     sections[0]!.heading ??= 'What will be saved · A to change';
+    const problems = offers.problems.map((label, i): Row => ({
+      heading: i === 0 ? 'Could not answer' : undefined,
+      label
+    }));
     return [
+      ...sections,
+      ...problems,
       {
+        // Clear of the group above it, when that is the list of problems.
+        heading: problems.length > 0 ? 'Ready' : undefined,
         label: 'Save',
         detail: changes === 1 ? '1 change' : `${changes} changes`,
         run:
@@ -309,16 +368,17 @@ function pickScreen(
                   const problems = await forma.scraper.apply(id, Object.fromEntries(text), [
                     ...media.values()
                   ]);
+                  if (cleared.size > 0) {
+                    await forma.scraper.edit(
+                      id,
+                      Object.fromEntries([...cleared].map((field) => [field, '']))
+                    );
+                  }
                   // Done with this game: back to the list, which keeps to it if it was renamed.
                   page.close();
                   return problems[0] ?? 'Saved';
                 })
-      },
-      ...sections,
-      ...offers.problems.map((label, i) => ({
-        heading: i === 0 ? 'Could not answer' : undefined,
-        label
-      }))
+      }
     ];
   };
 }

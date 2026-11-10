@@ -7,6 +7,8 @@ import type {
   Browse,
   Controller,
   DefaultView,
+  FilterOptions,
+  ListFilter,
   EthernetConfig,
   EventMap,
   Fetched,
@@ -209,6 +211,14 @@ export class Forma {
       /** One page of a view at `path` (group keys or branch ids, from the root down). */
       browse: (view: string, path: string[] = [], page?: Page) =>
         invoke<Browse>('nav_browse', { view, path, page }),
+      /** The filter on the game list on screen and its choices, or null. Since 1.27.0. */
+      filterOptions: () => invoke<FilterOptions | null>('nav_filter_options'),
+      /**
+       * Filters the game list on screen, `null` clearing it. Returns the games left: at `0`
+       * nothing changes. Themes need no code: `library:changed` follows and they browse again.
+       * Since 1.27.0.
+       */
+      setFilter: (filter: ListFilter | null) => invoke<number>('nav_set_filter', { filter }),
       /** The view Forma opens with: the user's choice, else the theme's, else `systems`. */
       defaultView: () => invoke<DefaultView>('nav_default_view'),
       /** Makes `id` the boot view; `null` clears the choice. */

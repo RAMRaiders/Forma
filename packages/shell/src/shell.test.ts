@@ -420,7 +420,15 @@ describe('Forma’s shell', () => {
     const details = () => text('.page > .panel li[role=option] .description');
     const at = (label: string) => details()[rows().indexOf(label)];
     await press('select');
-    await vi.waitFor(() => expect(rows()).toEqual(['Scrape', 'Edit details', 'Delete']));
+    await vi.waitFor(() =>
+      expect(rows()).toEqual([
+        'Scrape',
+        'Edit details',
+        'Emulator settings',
+        'Filter list',
+        'Delete'
+      ])
+    );
     expect(text('.page h2')).toEqual(['Sonic']);
     expect(root.querySelector('.page li.danger .name')?.textContent).toBe('Delete');
 
@@ -435,7 +443,6 @@ describe('Forma’s shell', () => {
     expect(at('Save')).toBe('1 change');
 
     // Another scraper's text.
-    await press('down');
     await press('confirm');
     await vi.waitFor(() =>
       expect(rows()).toEqual(['Leave empty', 'ScreenScraper · English', 'ArcadeDB'])
@@ -457,9 +464,10 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(badges()[1]).toBe('From ScreenScraper'));
     expect(at('Save')).toBe('2 changes');
 
+    // Past the scraper that could not answer: Save is last.
     const apply = vi.spyOn(backend, 'invoke');
-    await press('up');
-    await press('up');
+    await press('down');
+    await press('down');
     await press('confirm');
     await vi.waitFor(() =>
       expect(apply).toHaveBeenCalledWith('scraper_apply', {
@@ -471,6 +479,40 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(text('.toast')).toContain('Saved'));
     // The whole menu closes, not just the scrape page.
     expect(root.querySelector('.page')?.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('the game list is filtered from Select: by first letter, and cleared again', async () => {
+    const { press, text, backend } = start(['scraper.manage'], {
+      view: 'systems',
+      list: 'games',
+      game: { id: 1, name: 'Sonic' }
+    });
+    const spy = vi.spyOn(backend, 'invoke');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Filter list'));
+    while (text('.page li.selected .name')[0] !== 'Filter list') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Starting letter'));
+    expect(rows()).not.toContain('Clear filter');
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['✓ Any', 'M', 'S']));
+    await press('down');
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(details()[1]).toBe('S'));
+    expect(spy).toHaveBeenCalledWith(
+      'nav_set_filter',
+      expect.objectContaining({ filter: expect.objectContaining({ letter: 'S' }) as unknown })
+    );
+    expect(rows()).toContain('Clear filter');
+
+    while (text('.page li.selected .name')[0] !== 'Clear filter') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).not.toContain('Clear filter'));
+    expect(spy).toHaveBeenCalledWith('nav_set_filter', { filter: null });
   });
 
   it('scraping or editing a game shows its file name, which cannot be selected', async () => {
@@ -517,6 +559,107 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Edit Sonic']));
     expect(text('.page > .panel .note')).toEqual([note]);
     expect(rows()).not.toContain(note);
+  });
+
+  it('a field the game has can be cleared from the scrape page', async () => {
+    const { press, text, backend } = start(
+      ['scraper.manage'],
+      { view: 'systems', list: 'games', game: { id: 1, name: 'Sonic' } },
+      ['systems']
+    );
+    const invoke = backend.invoke.bind(backend);
+    const spy = vi.spyOn(backend, 'invoke').mockImplementation((command, args) =>
+      command === 'scraper_offers'
+        ? Promise.resolve({
+            text: [
+              {
+                field: 'genre',
+                label: 'Genre',
+                current: 'Wrong',
+                offers: [{ source: 'ScreenScraper', value: 'Platform', note: null }]
+              }
+            ],
+            media: [],
+            problems: []
+          } as never)
+        : invoke(command, args)
+    );
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Scrape'));
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Scrape Sonic']));
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'Clear it'])
+    );
+    await press('down');
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(text('.page > .panel li[role=option] .badge')).toEqual(['Will be cleared'])
+    );
+
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(spy).toHaveBeenCalledWith('scraper_edit', { id: 1, fields: { genre: '' } })
+    );
+  });
+
+  it('a name can be typed by hand instead of taken from a scraper', async () => {
+    const { press, text, backend } = start(
+      ['scraper.manage'],
+      { view: 'systems', list: 'games', game: { id: 1, name: 'Sonic' } },
+      ['systems']
+    );
+    const invoke = backend.invoke.bind(backend);
+    const spy = vi.spyOn(backend, 'invoke').mockImplementation((command, args) =>
+      command === 'scraper_offers'
+        ? Promise.resolve({
+            text: [
+              {
+                field: 'name',
+                label: 'Name',
+                current: 'Sonic',
+                offers: [{ source: 'ScreenScraper', value: 'Sonic the Hedgehog', note: null }]
+              }
+            ],
+            media: [],
+            problems: []
+          } as never)
+        : invoke(command, args)
+    );
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Scrape'));
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Scrape Sonic']));
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'Type it yourself'])
+    );
+    await press('down');
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.keyboard h2')).toEqual(['Name']));
+    const filled = text('.keyboard .field')[0]!.length;
+    for (let i = 0; i < filled; i++) await press('back');
+    for (const key of 'Mine') window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+    await press('start');
+    await vi.waitFor(() => expect(details()[0]).toBe('Mine'));
+    expect(text('.page > .panel li[role=option] .badge')[0]).toBe('Typed by you');
+
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(spy).toHaveBeenCalledWith('scraper_apply', {
+        id: 1,
+        text: { name: 'Mine' },
+        media: []
+      })
+    );
   });
 
   it('a game on Select can be deleted, asking first', async () => {
@@ -650,6 +793,23 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(text('.reader .where')[0]).toBe('Edge 9 · 1 / 8 · A: zoom'));
   });
 
+  it("on Select over a system, opens that system's emulator settings", async () => {
+    const { press, text } = start(
+      ['settings.system'],
+      {
+        view: 'systems',
+        list: 'systems',
+        system: { name: 'megadrive', fullname: 'Mega Drive' }
+      },
+      ['systems']
+    );
+    await press('select');
+    await vi.waitFor(() => expect(text('.page li .name')[0]).toBe('Emulator settings'));
+    expect(text('.page h2')).toEqual(['Mega Drive']);
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Mega Drive emulator']));
+  });
+
   it('on Select over systems, offers their order, for every theme, and shuts on Select', async () => {
     const { press, text, shell, forma } = start(
       ['settings.system'],
@@ -693,8 +853,12 @@ describe('Forma’s shell', () => {
     });
     await press('select');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Games']));
-    expect(text('.page li .name')).toEqual(['Theme']);
-    expect(text('.page li .description')).toEqual(['Change how Neon shows your games']);
+    expect(text('.page li .name')).toEqual(['Filter list', 'Theme']);
+    expect(text('.page li .description')).toEqual([
+      'By name, first letter, genre and more',
+      'Change how Neon shows your games'
+    ]);
+    await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Theme']));
     expect(text('.page li .name')).toEqual(['View: Immersive']);
@@ -1128,7 +1292,11 @@ describe('Forma’s settings pages', () => {
     expect(rows()).toContain('Game rendering & shaders…');
     while (selected() !== 'Game aspect ratio') await press('down');
     expect(text('.page li.selected .description')).toEqual(['Default']);
-    await press('right');
+    // A list to pick from, which goes back to the option with its new value.
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Game aspect ratio']));
+    await press('down');
+    await press('confirm');
     await vi.waitFor(() => expect(text('.page li.selected .description')).toEqual(['4/3']));
     // Its own page: B comes back to the row it was opened from.
     while (selected() !== 'Game rendering & shaders…') await press('down');
@@ -1154,8 +1322,11 @@ describe('Forma’s settings pages', () => {
     while (text('.page li.selected .name')[0] !== 'Core') await press('down');
     // Default (fceumm) → the first core in the list, then the next: nestopia, whose options
     // have no palette.
-    await press('right');
-    await press('right');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Core']));
+    await press('down');
+    await press('down');
+    await press('confirm');
     await vi.waitFor(() => expect(text('.page li.selected .description')).toEqual(['nestopia']));
     expect(rows()).not.toContain('Palette');
     // B back to the menu, B again to close it.

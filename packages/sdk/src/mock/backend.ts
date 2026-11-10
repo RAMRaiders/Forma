@@ -528,6 +528,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const games = new Map<number, Game>(snapshot.games.map((g) => [g.id, structuredClone(g)]));
   const settings = new Map<string, unknown>();
   const listeners = new Map<string, Set<Handler>>();
+  let listFilter: Record<string, unknown> = {};
   let defaultView: string | null = null;
   let shellContext: unknown = null;
   const network = structuredClone(snapshot.network);
@@ -1135,6 +1136,25 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const found =
         snapshot.browse[key] ?? fail('invalid', `no such path in view \`${String(view)}\``);
       return paginate(found, page as { offset: number; limit: number } | undefined, present);
+    },
+    nav_filter_options: () => ({
+      filter: listFilter,
+      total: 2,
+      all: 2,
+      letters: [
+        { value: 'M', count: 1 },
+        { value: 'S', count: 1 }
+      ],
+      genres: [{ value: 'Platform', count: 2 }],
+      developers: [],
+      publishers: [],
+      regions: [],
+      years: [],
+      players: []
+    }),
+    nav_set_filter: ({ filter }) => {
+      listFilter = (filter as Record<string, unknown> | null) ?? {};
+      return 2;
     },
     nav_default_view: (): DefaultView => ({ id: defaultView ?? 'systems', notes: [] }),
     nav_set_default_view: ({ id }) => {

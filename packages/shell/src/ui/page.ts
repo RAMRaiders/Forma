@@ -23,7 +23,7 @@ export interface Row {
   /** A small tag beside the label: about the row, apart from its value. `kept`: nothing new. */
   badge?: { text: string; kept?: boolean };
   /** A small picture before the label (see `.icon-*` in style.css). */
-  icon?: 'scrape' | 'edit' | 'theme' | 'delete';
+  icon?: 'scrape' | 'edit' | 'emulator' | 'filter' | 'theme' | 'delete';
   /** It destroys something: shown apart, in red. */
   danger?: boolean;
 }
@@ -54,7 +54,7 @@ export class Page {
   #parents: Level[] = [];
 
   constructor(
-    private readonly notify: (message: string) => void,
+    readonly notify: (message: string) => void,
     /** After every change on screen, so the button hints can follow. */
     private readonly changed: () => void
   ) {}

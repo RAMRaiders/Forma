@@ -222,6 +222,43 @@ export type Listing =
   | { kind: 'branches'; items: BranchItem[] }
   | { kind: 'games'; items: Game[]; total: number };
 
+/** A filter on the game list on screen: everything set must hold. Since 1.27.0. */
+export interface ListFilter {
+  /** Words the name contains. */
+  name?: string | null;
+  /** `A` to `Z`, or `#` for a name starting with anything else. */
+  letter?: string | null;
+  genre?: string | null;
+  developer?: string | null;
+  publisher?: string | null;
+  region?: string | null;
+  year?: number | null;
+  /** At least this many players at once. */
+  players?: number | null;
+  favorites?: boolean;
+}
+
+export interface FilterChoice {
+  value: string;
+  /** Games it would leave. */
+  count: number;
+}
+
+/** The filter on the list on screen, and the choices to refine it. Since 1.27.0. */
+export interface FilterOptions {
+  filter: ListFilter;
+  total: number;
+  /** Games in the list without the filter. */
+  all: number;
+  letters: FilterChoice[];
+  genres: FilterChoice[];
+  developers: FilterChoice[];
+  publishers: FilterChoice[];
+  regions: FilterChoice[];
+  years: FilterChoice[];
+  players: FilterChoice[];
+}
+
 export interface Browse {
   view: string;
   path: string[];

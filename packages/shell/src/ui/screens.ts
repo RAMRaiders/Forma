@@ -7,7 +7,9 @@ import type {
   ThemeInfo
 } from '@ramraiders/forma-sdk';
 
+import { filterScreen, filterSummary } from './filter.js';
 import { deleteGameRow, gameRows } from './gamedata.js';
+import { optionsScreen } from './settings.js';
 import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
 import { catalogueScreen, themeScreen } from './themes.js';
@@ -495,7 +497,7 @@ export function interfaceScreen(
 }
 
 /** One of the theme's own settings as a row: A or left/right changes it. */
-export function themeSettingRow(
+function themeSettingRow(
   s: ThemeSettingValue,
   page: Page,
   setThemeSetting: (key: string, value: unknown) => Promise<void>
@@ -541,11 +543,7 @@ export function onSelect(settings: ThemeSettingValue[], list: string): ThemeSett
  * The theme's own row on Select's page: its logo, opening a page of the settings it offers on
  * `list`. `null` when it offers none there.
  */
-export async function themeSelectRow(
-  page: Page,
-  list: string,
-  hooks: ThemeOnSelect
-): Promise<Row | null> {
+async function themeSelectRow(page: Page, list: string, hooks: ThemeOnSelect): Promise<Row | null> {
   const theme = await hooks.theme();
   if (!theme || onSelect(theme.settings, list).length === 0) return null;
   const build = async () => {
@@ -579,7 +577,8 @@ export function systemsScreen(
   forma: Forma,
   page: Page,
   views?: () => void,
-  theme?: ThemeOnSelect
+  theme?: ThemeOnSelect,
+  system?: { name: string; fullname: string | null } | null
 ): () => Promise<Row[]> {
   return async () => {
     const saved = await forma.settings.getSystem<string>(SYSTEMS_ORDER_SETTING).catch(() => null);
@@ -593,7 +592,23 @@ export function systemsScreen(
         forma.settings.setSystem(SYSTEMS_ORDER_SETTING, next.value)
       );
     };
+    const title = system ? system.fullname || system.name : '';
     const rows: Row[] = [
+      ...(system
+        ? [
+            {
+              icon: 'emulator' as const,
+              heading: title,
+              label: 'Emulator settings',
+              detail: `Graphics, gameplay and emulator, for every ${title} game`,
+              run: () =>
+                page.push(
+                  `${title} emulator`,
+                  optionsScreen(forma, page, { level: 'system', system: system.name })
+                )
+            }
+          ]
+        : []),
       {
         heading: 'Systems',
         label: `Order: ${SYSTEMS_ORDERS[at]!.label}`,
@@ -623,6 +638,17 @@ export function gamesScreen(
 ): () => Promise<Row[]> {
   return async () => {
     const rows: Row[] = game ? gameRows(forma, page, game) : [];
+    const filter = await forma.nav.filterOptions().catch(() => null);
+    if (filter) {
+      const active = filterSummary(filter);
+      rows.push({
+        icon: 'filter',
+        label: 'Filter list',
+        detail: active || 'By name, first letter, genre and more',
+        badge: active ? { text: `${filter.total} of ${filter.all}` } : undefined,
+        run: () => page.push('Filter list', filterScreen(forma, page))
+      });
+    }
     const own = await themeSelectRow(page, 'games', theme);
     if (own) rows.push({ ...own, icon: 'theme' });
     if (views) rows.push({ heading: 'Views', label: 'Change view', run: views });
