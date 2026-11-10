@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::api::{ApiError, ApiResult, ErrorCode};
-use crate::commands::off_thread;
+use crate::commands::{EVENT_MEDIA_CHANGED, MediaChanged, off_thread};
 use crate::permissions;
 use crate::shell::Caller;
 use crate::state::AppState;
@@ -550,7 +550,9 @@ pub async fn scraper_apply<R: Runtime>(
     text: BTreeMap<String, String>,
     media: Vec<usize>,
 ) -> ApiResult<Vec<String>> {
-    off_thread(app, move |state| {
+    let events = app.clone();
+    let replaced = !media.is_empty();
+    let problems = off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
         let picking = state
             .scraper
@@ -570,7 +572,11 @@ pub async fn scraper_apply<R: Runtime>(
         )
         .map_err(internal)
     })
-    .await
+    .await?;
+    if replaced {
+        let _ = events.emit(EVENT_MEDIA_CHANGED, MediaChanged { game: id });
+    }
+    Ok(problems)
 }
 
 /// Changes a game's details by hand; an empty value clears one.

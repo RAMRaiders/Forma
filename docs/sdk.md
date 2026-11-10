@@ -302,6 +302,9 @@ SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation wr
 | `status()`                                             | The run going on, or the last one                                                                 |
 | `stop()`                                               | Stops after the game it is on                                                                     |
 
+`media:changed` (since 1.27.0) says a game's pictures were replaced, often under the same file
+names: `library.mediaUrl` gives new URLs for it from then on, so draw that game again.
+
 `scraper:progress` carries the status after each game and at the end. `MediaKind` now lists
 every kind ES knows (`thumbnail`, `image`, `titleshot`, `marquee`, `wheel`, `boxback`,
 `boxart`, `fanart`, `cartridge`, `map`, `bezel`, `mix`, `video`, `manual`), plus Forma's own

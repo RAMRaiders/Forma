@@ -528,6 +528,11 @@ export interface LibraryChanged {
   systems: string[];
 }
 
+/** A game's media was replaced; since 1.27.0. */
+export interface MediaChanged {
+  game: number;
+}
+
 export interface EventMap {
   /** The user picked a view in Forma's views list (Select): show it. */
   'nav:open': NavOpen;
@@ -558,6 +563,11 @@ export interface EventMap {
    */
   'ra:unlocked': RaSession;
   'library:changed': LibraryChanged;
+  /**
+   * A game's pictures were replaced, often under the same file names: `library.mediaUrl` has
+   * new URLs for it from now on, so draw again whatever shows it. Since 1.27.0.
+   */
+  'media:changed': MediaChanged;
   'views:changed': null;
   input: InputEvent;
 }

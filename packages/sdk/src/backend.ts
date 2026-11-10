@@ -9,7 +9,7 @@ export interface Backend {
   invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
   listen<T>(event: string, handler: (payload: T) => void): Unsubscribe;
   /** The URL that serves one kind of a game's media, resized to about `width` px if given. */
-  mediaUrl(gameId: number, kind: string, width?: number): string;
+  mediaUrl(gameId: number, kind: string, width?: number, version?: number): string;
 }
 
 export function tauriBackend(): Backend {
@@ -23,8 +23,12 @@ export function tauriBackend(): Backend {
         void pending.then((unlisten) => unlisten());
       };
     },
-    mediaUrl: (gameId, kind, width) =>
-      `forma://localhost/media/${gameId}/${kind}${width ? `?w=${Math.round(width)}` : ''}`
+    mediaUrl: (gameId, kind, width, version) => {
+      const query = [width ? `w=${Math.round(width)}` : '', version ? `v=${version}` : '']
+        .filter(Boolean)
+        .join('&');
+      return `forma://localhost/media/${gameId}/${kind}${query ? `?${query}` : ''}`;
+    }
   };
 }
 

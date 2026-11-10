@@ -13,6 +13,7 @@ import type {
   Game,
   InputEvent,
   LaunchRequest,
+  MediaChanged,
   MediaKind,
   MusicSource,
   MusicStatus,
@@ -144,9 +145,14 @@ export class Forma {
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
   #detachInput: Unsubscribe | null = null;
+  /** How often each game's media was replaced, so its URLs change and the webview reads it again. */
+  readonly #mediaVersions = new Map<number, number>();
 
   constructor(backend: Backend, hostVersion: string, keyboard: boolean) {
     this.#backend = backend;
+    backend.listen<MediaChanged>('media:changed', ({ game }) => {
+      this.#mediaVersions.set(game, (this.#mediaVersions.get(game) ?? 0) + 1);
+    });
     this.hostVersion = hostVersion;
     this.backendKind = backend.kind;
     const invoke = <T>(command: string, args?: Record<string, unknown>) =>
@@ -169,7 +175,7 @@ export class Forma {
        * lighter than full-size art on a Raspberry Pi.
        */
       mediaUrl: (gameId: number, kind: MediaKind = 'image', width?: number) =>
-        backend.mediaUrl(gameId, kind, width),
+        backend.mediaUrl(gameId, kind, width, this.#mediaVersions.get(gameId)),
       /**
        * Has Forma make resized pictures ahead of time, the nearest (first) first, while
        * nothing on screen waits: the games next to the one shown, at the sizes `mediaUrl` will

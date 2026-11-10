@@ -27,6 +27,8 @@ use crate::state::{AppState, ListOnScreen, THEME_SETTING};
 pub const EVENT_INPUT: &str = "input";
 pub const EVENT_LIBRARY_CHANGED: &str = "library:changed";
 pub const EVENT_VIEWS_CHANGED: &str = "views:changed";
+/// A game's pictures were replaced, often under the same file names (`MediaChanged`).
+pub const EVENT_MEDIA_CHANGED: &str = "media:changed";
 pub const EVENT_GAME_START: &str = "game:start";
 pub const EVENT_GAME_END: &str = "game:end";
 /// After a game: the achievements its session earned (`RaSession`), when it earned any.
@@ -35,6 +37,11 @@ pub const EVENT_RA_UNLOCKED: &str = "ra:unlocked";
 #[derive(Debug, Clone, Serialize)]
 pub struct LibraryChanged {
     pub systems: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MediaChanged {
+    pub game: i64,
 }
 
 pub(crate) fn theme(state: &AppState) -> ApiResult<Theme> {

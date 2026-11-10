@@ -28,6 +28,20 @@ describe('the SDK surface', () => {
     expect(forma.library.mediaUrl(zelda!.id, 'marquee')).toMatch(/^data:image\/svg/);
   });
 
+  it("a game's media replaced: new URLs for it, and only it", async () => {
+    const backend = mockBackend({ permissions: ['scraper.manage'], playMs: 0 });
+    backend.mediaUrl = (id, kind, width, version) => `${id}/${kind}/${width}/${version}`;
+    const forma = await connect({ backend, keyboard: false });
+    expect(forma.library.mediaUrl(1, 'image', 320)).toBe('1/image/320/undefined');
+    await backend.invoke('scraper_apply', { id: 1, text: {}, media: [] });
+    expect(forma.library.mediaUrl(1, 'image', 320)).toBe('1/image/320/undefined');
+    const changed = new Promise((resolve) => forma.events.on('media:changed', resolve));
+    await backend.invoke('scraper_apply', { id: 1, text: {}, media: [0] });
+    await changed;
+    expect(forma.library.mediaUrl(1, 'image', 320)).toBe('1/image/320/1');
+    expect(forma.library.mediaUrl(2, 'image', 320)).toBe('2/image/320/undefined');
+  });
+
   it('nav', async () => {
     const forma = await sdk();
     expect((await forma.nav.views()).map((v) => v.id)).toContain('home');

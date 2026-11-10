@@ -1043,8 +1043,9 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperAllowed();
       return offer === 0 ? 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' : null;
     },
-    scraper_apply: () => {
+    scraper_apply: ({ id, media }) => {
       scraperAllowed();
+      if ((media as number[]).length > 0) emit('media:changed', { game: id as number });
       return [];
     },
     scraper_edit: ({ id, fields }) => {
