@@ -952,6 +952,10 @@ describe('Forma’s shell', () => {
     await press('west');
     await press('l2');
     expect(where()).toBe('Super Mario Bros. manual · 2 / 8 · A: zoom');
+    // Back at 1×: fitted to the screen by its style, nothing left of the zoom.
+    expect(root.querySelector('.reader')!.classList.contains('zoomed')).toBe(false);
+    expect(root.querySelector<HTMLElement>('.reader .page')!.style.width).toBe('');
+    expect(root.querySelector<HTMLElement>('.reader .sheet')!.scrollTop).toBe(0);
     await press('back');
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
     expect(rows()).toContain('Manual');

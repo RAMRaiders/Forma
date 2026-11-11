@@ -1225,30 +1225,32 @@ kbd {
   pointer-events: auto;
 }
 
+/* A flex box of the screen's own size, so the page's 100% is the screen's, whatever its shape;
+   centred by its margins, which, zoomed, leave every side of a wider page in reach. */
 .reader .sheet {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  display: grid;
-  place-items: center;
+  display: flex;
 }
 
+/* At 1×, the whole screen, the page drawn whole inside it: shrunk or grown to fit. */
 .reader .page {
-  max-width: 100%;
-  max-height: 100%;
+  flex: none;
+  margin: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
 .reader.zoomed .sheet {
   overflow: auto;
-  place-items: start center;
   scrollbar-width: none;
 }
 
 /* Zoomed, the reader sets its width; the height follows. */
 .reader.zoomed .page {
-  max-width: none;
-  max-height: none;
+  height: auto;
 }
 
 /* A game's video, played by Forma under the page: only the words over it. */

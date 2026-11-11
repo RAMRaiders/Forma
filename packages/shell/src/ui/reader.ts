@@ -231,6 +231,8 @@ export class Reader {
     const cx = s.scrollWidth ? (s.scrollLeft + s.clientWidth / 2) / s.scrollWidth : 0.5;
     const cy = s.scrollHeight ? (s.scrollTop + s.clientHeight / 2) / s.scrollHeight : 0;
     this.#zoom = next;
+    // Back to 1×: the whole page fitted to the screen again, from where it starts.
+    if (next === 0) return this.#draw(true);
     this.#draw(false);
     s.scrollLeft = cx * s.scrollWidth - s.clientWidth / 2;
     s.scrollTop = cy * s.scrollHeight - s.clientHeight / 2;
