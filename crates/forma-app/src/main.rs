@@ -142,6 +142,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         shell::shell_info,
         shell::shell_set_theme_setting,
         shell::shell_open_view,
+        shell::shell_open_game,
     ]
 }
 

@@ -41,6 +41,9 @@ pub const EVENT_SHELL_INPUT: &str = "shell:input";
 pub const EVENT_THEME_READY: &str = "shell:theme-ready";
 /// The user picked a view in Forma's views list; the theme shows it. `{ view }`.
 pub const EVENT_NAV_OPEN: &str = "nav:open";
+/// The user chose a game in Forma's menu (its versions, possible duplicates); the theme shows
+/// it. `{ game, system }`.
+pub const EVENT_NAV_GAME: &str = "nav:game";
 /// A setting changed from Forma's menu. `{ scope, key, value }`.
 pub const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
 
@@ -386,6 +389,27 @@ pub fn shell_open_view<R: Runtime>(
         ));
     }
     let _ = app.emit(EVENT_NAV_OPEN, serde_json::json!({ "view": view }));
+    Ok(())
+}
+
+/// The user chose a game in Forma's menu: the theme shows it, in its system.
+#[tauri::command]
+pub fn shell_open_game<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    caller: Caller,
+    id: i64,
+) -> ApiResult<()> {
+    caller.shell_only()?;
+    let game = state
+        .library()
+        .game(id)
+        .map_err(|e| ApiError::new(ErrorCode::Internal, e.to_string()))?
+        .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no game {id}")))?;
+    let _ = app.emit(
+        EVENT_NAV_GAME,
+        serde_json::json!({ "game": id, "system": game.system }),
+    );
     Ok(())
 }
 

@@ -1305,6 +1305,37 @@ fn the_shell_opens_a_view_in_the_theme() {
 }
 
 #[test]
+fn the_shell_opens_a_game_in_the_theme() {
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let hits = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap();
+    let id = hits[0]["id"].as_i64().unwrap();
+    let system = hits[0]["system"].as_str().unwrap().to_owned();
+    let opened = Arc::new(Mutex::new(None));
+    let seen = opened.clone();
+    h.window.listen_any(crate::shell::EVENT_NAV_GAME, move |e| {
+        *seen.lock().unwrap() = Some(e.payload().to_owned());
+    });
+    h.call_as_shell(token, "shell_open_game", json!({ "id": id }))
+        .unwrap();
+    assert_eq!(
+        opened.lock().unwrap().as_deref(),
+        Some(format!(r#"{{"game":{id},"system":"{system}"}}"#).as_str())
+    );
+    assert_eq!(
+        code(
+            &h.call_as_shell(token, "shell_open_game", json!({ "id": 999_999 }))
+                .unwrap_err()
+        ),
+        "notFound"
+    );
+}
+
+#[test]
 fn library_versions_answers_for_a_system() {
     let h = Harness::new(&[]);
     let groups = h

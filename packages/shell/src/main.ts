@@ -71,6 +71,7 @@ function start(): void {
         info: () => call<ShellInfo>('shell_info'),
         setOpen: (open) => call('shell_set_open', { open }),
         openView: (view) => call('shell_open_view', { view }),
+        openGame: (id) => call('shell_open_game', { id }),
         setThemeSetting: (key, value) => call('shell_set_theme_setting', { key, value })
       });
       shadow.append(shell.root);

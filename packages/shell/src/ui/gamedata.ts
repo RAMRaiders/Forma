@@ -131,7 +131,11 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
 }
 
 /** Start → Games → Game versions: which titles have several files, per system. Read only. */
-export function versionsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+export function versionsScreen(
+  forma: Forma,
+  page: Page,
+  openGame: (id: number) => void
+): () => Promise<Row[]> {
   return async () => {
     const systems = await forma.library.systems();
     const found = await Promise.all(
@@ -144,7 +148,7 @@ export function versionsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
         return {
           label,
           detail: `${groups.length} ${groups.length === 1 ? 'title' : 'titles'} with several versions`,
-          run: () => page.push(label, () => groups.map((g) => versionGroupRow(page, g)))
+          run: () => page.push(label, () => groups.map((g) => versionGroupRow(page, g, openGame)))
         };
       });
     return rows.length > 0 ? rows : [{ label: 'Every game has just one version' }];
@@ -155,7 +159,11 @@ export function versionsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
  * Start → Games → Possible duplicates: games that are one game under different names, per
  * system, by LaunchBox. Read only.
  */
-export function duplicatesScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+export function duplicatesScreen(
+  forma: Forma,
+  page: Page,
+  openGame: (id: number) => void
+): () => Promise<Row[]> {
   return async () => {
     const systems = await forma.library.systems();
     const found = await Promise.all(
@@ -182,7 +190,13 @@ export function duplicatesScreen(forma: Forma, page: Page): () => Promise<Row[]>
                 label: g.title,
                 detail: [...new Set(g.games.map((x) => x.name))].join(' · '),
                 run: () =>
-                  page.push(g.title, () => g.games.map((x) => ({ label: x.name, detail: x.path })))
+                  page.push(g.title, () =>
+                    g.games.map((x) => ({
+                      label: x.name,
+                      detail: x.path,
+                      run: () => openGame(x.id)
+                    }))
+                  )
               }))
             )
         }
@@ -192,7 +206,7 @@ export function duplicatesScreen(forma: Forma, page: Page): () => Promise<Row[]>
   };
 }
 
-function versionGroupRow(page: Page, group: VersionGroup): Row {
+function versionGroupRow(page: Page, group: VersionGroup, openGame: (id: number) => void): Row {
   const identical = group.games.filter((g) => g.identicalTo !== null).length;
   return {
     label: group.title,
@@ -203,7 +217,8 @@ function versionGroupRow(page: Page, group: VersionGroup): Row {
         group.games.map((g) => ({
           label: g.tags.join(' · ') || 'No tags',
           detail: g.path,
-          badge: g.identicalTo !== null ? { text: 'Identical copy', kept: true } : undefined
+          badge: g.identicalTo !== null ? { text: 'Identical copy', kept: true } : undefined,
+          run: () => openGame(g.id)
         }))
       )
   };

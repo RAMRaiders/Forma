@@ -60,6 +60,10 @@ function start(
       opened.push(view);
       return Promise.resolve();
     },
+    openGame: (id) => {
+      opened.push(`game ${id}`);
+      return Promise.resolve();
+    },
     setThemeSetting: (key, value) => {
       settings.push([key, value]);
       const setting = theme.settings.find((s) => s.key === key);

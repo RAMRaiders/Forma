@@ -61,6 +61,8 @@ export interface ShellCalls {
   info(): Promise<ShellInfo>;
   setOpen(open: boolean): Promise<void>;
   openView(view: string): Promise<void>;
+  /** Shows a game in the theme, as if browsed to. */
+  openGame(id: number): Promise<void>;
   setThemeSetting(key: string, value: unknown): Promise<void>;
 }
 
@@ -574,6 +576,13 @@ export class Shell {
     this.#returnTo = m.selected;
     const context = this.#info?.context ?? {};
     const page = this.#page;
+    // A game chosen in a list of games: the menu shuts and the theme shows it.
+    const openGame = (id: number) => {
+      this.#closeAll();
+      this.calls.openGame(id).catch((error: unknown) => {
+        this.notify(FormaError.from(error).message);
+      });
+    };
     const show = (title: string, build: Parameters<Page['show']>[1]) => {
       m.close();
       this.#pageKind = id;
@@ -610,12 +619,13 @@ export class Shell {
           {
             label: 'Game versions',
             detail: 'Which games have several versions, per system',
-            run: () => page.push('Game versions', versionsScreen(this.forma, page))
+            run: () => page.push('Game versions', versionsScreen(this.forma, page, openGame))
           },
           {
             label: 'Possible duplicates',
             detail: 'One game under different names, by LaunchBox',
-            run: () => page.push('Possible duplicates', duplicatesScreen(this.forma, page))
+            run: () =>
+              page.push('Possible duplicates', duplicatesScreen(this.forma, page, openGame))
           }
         ]);
       case 'system-options':

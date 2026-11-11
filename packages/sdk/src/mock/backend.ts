@@ -1181,6 +1181,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
       emit('nav:open', { view });
       return null;
     },
+    shell_open_game: ({ id }) => {
+      const game = games.get(id as number);
+      if (!game) fail('notFound', `no game ${String(id)}`);
+      emit('nav:game', { game: game.id, system: game.system });
+      return null;
+    },
     shell_info: () => ({ context: shellContext }),
     shell_set_theme_setting: ({ key, value }) => {
       settings.set(settingKey(String(key), 'theme'), value);

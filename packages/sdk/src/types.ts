@@ -583,6 +583,11 @@ export interface MediaChanged {
 export interface EventMap {
   /** The user picked a view in Forma's views list (Select): show it. */
   'nav:open': NavOpen;
+  /**
+   * The user chose a game in Forma's menu (Game versions, Possible duplicates): show it, in its
+   * system, as if browsed to. Since 1.29.0.
+   */
+  'nav:game': NavGame;
   /** Forma's shell is asked to open its magazines (`id`: one of them; `null`: the list). */
   'magazines:open': { id: string | null };
   /** After each game of a scraper run, and when it ends. */
@@ -686,6 +691,11 @@ export interface MusicSong {
 
 export interface NavOpen {
   view: string;
+}
+
+export interface NavGame {
+  game: number;
+  system: string;
 }
 
 export interface SettingsChanged {
