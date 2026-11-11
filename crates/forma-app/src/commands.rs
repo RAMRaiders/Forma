@@ -150,8 +150,10 @@ pub struct Picture {
 
 /// How many games of a list, around the selection, have their pictures made ahead.
 const LIST_AROUND: u32 = 300;
-/// The widest picture a list shows in a row: these are made first, for every game round.
+/// The widest picture a list shows in a row: after the nearest games, made first for the rest.
 const LIST_PICTURE_MAX: u32 = 320;
+/// Games either side of the selection whose pictures are all made first.
+const LIST_NEAR: usize = 15;
 
 /// A theme opened a game list: the pictures of up to [`LIST_AROUND`] of its games, nearest
 /// `around` (the selection) first, are made in the background when nothing else waits, and not
@@ -193,27 +195,33 @@ pub async fn library_prepare_list<R: Runtime>(
                 order.push(at - d);
             }
         }
-        // Small pictures first, for every game round it (a list's rows, a shelf's spines: seen
-        // as soon as the list moves), then the large ones (a game's own page), each outward.
-        let wanted = |small: bool| {
-            let items = &items;
-            let pictures = &pictures;
-            order.iter().flat_map(move |&i| {
-                let game = &items[i];
-                pictures.iter().filter_map(move |p| {
-                    if matches!(p.kind.as_str(), "video" | "manual")
-                        || p.width == 0
-                        || (p.width <= LIST_PICTURE_MAX) != small
-                    {
-                        return None;
-                    }
-                    game.media
-                        .get(&p.kind)
-                        .map(|src| (std::path::PathBuf::from(src), p.width.min(4096)))
+        // Everything for the games nearest the selection (its page, its backdrop, where the
+        // list goes next); then the small pictures (a list's rows, a shelf's spines) for every
+        // other game round it; then their large ones. Each outward.
+        let near = order.len().min(LIST_NEAR * 2 + 1);
+        let wanted = |games: &[usize], small: Option<bool>| -> Vec<(std::path::PathBuf, u32)> {
+            games
+                .iter()
+                .flat_map(|&i| {
+                    let game = &items[i];
+                    pictures.iter().filter_map(move |p| {
+                        if matches!(p.kind.as_str(), "video" | "manual")
+                            || p.width == 0
+                            || small.is_some_and(|small| (p.width <= LIST_PICTURE_MAX) != small)
+                        {
+                            return None;
+                        }
+                        game.media
+                            .get(&p.kind)
+                            .map(|src| (std::path::PathBuf::from(src), p.width.min(4096)))
+                    })
                 })
-            })
+                .collect()
         };
-        let jobs: Vec<_> = wanted(true).chain(wanted(false)).collect();
+        let (close, rest) = order.split_at(near);
+        let mut jobs = wanted(close, None);
+        jobs.extend(wanted(rest, Some(true)));
+        jobs.extend(wanted(rest, Some(false)));
         state.thumbnails.prepare_list(jobs);
         Ok(())
     })
