@@ -111,6 +111,9 @@ where Forma opens, screen margins, music, RetroAchievements, netplay, network, t
 downloader, game and system settings, EmulationStation, power) and Select opens its views list.
 A theme never receives those two buttons (F1 and Tab on a keyboard), nor any input while one of
 Forma's menus is open. So a user can always change theme, even from a theme with no menu at all.
+Select opens its page when let go; held on a game list, it shows only the favourites, and held
+again, all of them (the rest of the list's filter stays). The list changes as any filter
+changes it: `library:changed`.
 
 Forma's menus are drawn by its shell, a script Forma puts first in every theme page's `<head>`.
 It lives in a closed shadow root at the top of the page: a theme's CSS cannot reach it, and it
