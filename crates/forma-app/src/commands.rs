@@ -150,6 +150,8 @@ pub struct Picture {
 
 /// How many games of a list, around the selection, have their pictures made ahead.
 const LIST_AROUND: u32 = 300;
+/// The widest picture a list shows in a row: these are made first, for every game round.
+const LIST_PICTURE_MAX: u32 = 320;
 
 /// A theme opened a game list: the pictures of up to [`LIST_AROUND`] of its games, nearest
 /// `around` (the selection) first, are made in the background when nothing else waits, and not
@@ -191,17 +193,27 @@ pub async fn library_prepare_list<R: Runtime>(
                 order.push(at - d);
             }
         }
-        let jobs = order.into_iter().flat_map(|i| {
-            let game = &items[i];
-            pictures.iter().filter_map(move |p| {
-                if matches!(p.kind.as_str(), "video" | "manual") || p.width == 0 {
-                    return None;
-                }
-                game.media
-                    .get(&p.kind)
-                    .map(|src| (std::path::PathBuf::from(src), p.width.min(4096)))
+        // Small pictures first, for every game round it (a list's rows, a shelf's spines: seen
+        // as soon as the list moves), then the large ones (a game's own page), each outward.
+        let wanted = |small: bool| {
+            let items = &items;
+            let pictures = &pictures;
+            order.iter().flat_map(move |&i| {
+                let game = &items[i];
+                pictures.iter().filter_map(move |p| {
+                    if matches!(p.kind.as_str(), "video" | "manual")
+                        || p.width == 0
+                        || (p.width <= LIST_PICTURE_MAX) != small
+                    {
+                        return None;
+                    }
+                    game.media
+                        .get(&p.kind)
+                        .map(|src| (std::path::PathBuf::from(src), p.width.min(4096)))
+                })
             })
-        });
+        };
+        let jobs: Vec<_> = wanted(true).chain(wanted(false)).collect();
         state.thumbnails.prepare_list(jobs);
         Ok(())
     })
