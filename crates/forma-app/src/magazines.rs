@@ -93,3 +93,53 @@ pub fn magazines_open<R: Runtime>(app: AppHandle<R>, id: Option<String>) -> ApiR
     let _ = app.emit(EVENT_MAGAZINES_OPEN, serde_json::json!({ "id": id }));
     Ok(())
 }
+
+/// Asks Forma's shell to open a game's manual in its reader: `{ gameId }`.
+pub const EVENT_MANUAL_OPEN: &str = "manual:open";
+
+/// A game's manual, read as a magazine is.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManualInfo {
+    pub pages: usize,
+    /// Its pages' URL, with `{page}` for the page: see `forma.library.manualPageUrl`.
+    pub page_url: String,
+}
+
+/// A game's manual: its page count and pages' URL; `null` without one, or one that cannot be
+/// read (the reason is logged).
+#[tauri::command]
+pub async fn library_manual<R: Runtime>(
+    app: AppHandle<R>,
+    game_id: i64,
+) -> ApiResult<Option<ManualInfo>> {
+    off_thread(app, move |state| {
+        let Some(path) = manual_file(state, game_id) else {
+            return Ok(None);
+        };
+        match state.magazines.file_page_count(&path) {
+            Ok(pages) => Ok(Some(ManualInfo {
+                pages,
+                page_url: crate::protocol::manual_url(game_id),
+            })),
+            Err(e) => {
+                eprintln!("forma: manual of game {game_id}: {e}");
+                Ok(None)
+            }
+        }
+    })
+    .await
+}
+
+/// Opens Forma's reader on a game's manual.
+#[tauri::command]
+pub fn library_open_manual<R: Runtime>(app: AppHandle<R>, game_id: i64) -> ApiResult<()> {
+    let _ = app.emit(EVENT_MANUAL_OPEN, serde_json::json!({ "gameId": game_id }));
+    Ok(())
+}
+
+/// The file of a game's manual, if it has one.
+pub fn manual_file(state: &AppState, game_id: i64) -> Option<std::path::PathBuf> {
+    let game = state.library().game(game_id).ok()??;
+    game.media.get("manual").map(std::path::PathBuf::from)
+}

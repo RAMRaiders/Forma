@@ -11,6 +11,7 @@
 		<flyer>./images/Super Mario Bros. (World)-flyer.png</flyer>
 		<cabinet>./images/Super Mario Bros. (World)-cabinet.png</cabinet>
 		<marquee>./images/Super Mario Bros. (World)-marquee.png</marquee>
+		<manual>./manuals/Super Mario Bros. (World)-manual.pdf</manual>
 		<video>./videos/Super Mario Bros. (World)-video.mp4</video>
 		<rating>0.9</rating>
 		<releasedate>19850913T000000</releasedate>

@@ -1,14 +1,16 @@
-import { dumpLabel } from './dumps.js';
 import type {
   BatoceraSetting,
   Forma,
+  Game,
   MusicSource,
   MusicStatus,
   SystemsOrder,
   ThemeInfo
 } from '@ramraiders/forma-sdk';
 
+import { dumpLabel } from './dumps.js';
 import { filterScreen, filterSummary } from './filter.js';
+import { mediaToShow } from './reader.js';
 import { deleteGameRow, gameRows } from './gamedata.js';
 import { optionsScreen } from './settings.js';
 import { playRows } from './netplay.js';
@@ -625,6 +627,12 @@ export function systemsScreen(
   };
 }
 
+/** Opens what a game has to look at: its manual, its media (Forma's reader). */
+export interface GameLook {
+  manual(game: Game): void;
+  media(game: Game): void;
+}
+
 /**
  * Select's page while the theme shows games: the selected game's details and scraping; the
  * theme's own row, for the settings it offers on a game list; and the views list, when the
@@ -636,13 +644,32 @@ export function gamesScreen(
   theme: ThemeOnSelect,
   game: { id: number; name: string } | null,
   views?: () => void,
-  close: () => void = () => page.close()
+  close: () => void = () => page.close(),
+  look?: GameLook
 ): () => Promise<Row[]> {
   return async () => {
     const rows: Row[] = game ? gameRows(forma, page, game) : [];
     const [same, full] = game
       ? await Promise.all([sameGame(forma, game.id), forma.library.game(game.id).catch(() => null)])
       : [[], null];
+    // Its manual, read in Forma's reader; its pictures and video, one by one.
+    if (full && look && full.media.manual) {
+      rows.push({
+        icon: 'manual',
+        label: 'Manual',
+        detail: 'Read it: Left and Right turn pages, A and X zoom in and out',
+        run: () => look.manual(full)
+      });
+    }
+    const pictures = full ? mediaToShow(full) : [];
+    if (full && look && pictures.length > 0) {
+      rows.push({
+        icon: 'media',
+        label: 'Media',
+        detail: pictures.map(([, label]) => label).join(' · '),
+        run: () => look.media(full)
+      });
+    }
     // What the catalogues say of its file, once Forma has checked it.
     if (full?.dump) {
       rows.push({

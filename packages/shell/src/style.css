@@ -389,6 +389,14 @@
   --picture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h10M18 7h2M4 17h2M10 17h10'/%3E%3Ccircle cx='16' cy='7' r='2'/%3E%3Ccircle cx='8' cy='17' r='2'/%3E%3C/svg%3E");
 }
 
+.icon-manual {
+  --picture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5zM12 6.5v13'/%3E%3C/svg%3E");
+}
+
+.icon-media {
+  --picture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Ccircle cx='9' cy='10' r='1.6'/%3E%3Cpath d='m21 16-5-5-8 8'/%3E%3C/svg%3E");
+}
+
 .icon-filter {
   --picture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 5h18l-7 8.5V20l-4-2v-4.5z'/%3E%3C/svg%3E");
 }
@@ -1232,14 +1240,24 @@ kbd {
 }
 
 .reader.zoomed .sheet {
-  overflow-y: auto;
+  overflow: auto;
   place-items: start center;
   scrollbar-width: none;
 }
 
+/* Zoomed, the reader sets its width; the height follows. */
 .reader.zoomed .page {
-  width: 100%;
+  max-width: none;
   max-height: none;
+}
+
+/* A game's video, played by Forma under the page: only the words over it. */
+.reader.video {
+  background: transparent;
+}
+
+.shell:has(.reader.video) .page {
+  visibility: hidden;
 }
 
 .reader .where {

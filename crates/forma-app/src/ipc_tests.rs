@@ -794,6 +794,64 @@ fn lists_magazines_serves_their_pages_and_remembers_the_page() {
 }
 
 #[test]
+fn a_games_manual_is_read_as_a_magazine_is_and_opened_in_the_shells_reader() {
+    let h = Harness::new(&[]);
+    let paths = h.state().paths.clone();
+    let nes = paths.userdata.join("roms/nes");
+    std::fs::create_dir_all(nes.join("manuals")).unwrap();
+    // A 1×1 PNG: a manual scraped as one picture.
+    const PNG: &[u8] = &[
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6,
+        0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 218, 99, 100, 248, 207, 80,
+        15, 0, 3, 134, 1, 128, 90, 52, 125, 107, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+    ];
+    std::fs::write(nes.join("manuals/zelda.png"), PNG).unwrap();
+    let list = nes.join("gamelist.xml");
+    let xml = std::fs::read_to_string(&list).unwrap().replacen(
+        "<name>The Legend of Zelda</name>",
+        "<name>The Legend of Zelda</name><manual>./manuals/zelda.png</manual>",
+        1,
+    );
+    std::fs::write(&list, xml).unwrap();
+    h.state().library().refresh(&paths).unwrap();
+    let found = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap();
+    let id = found[0]["id"].as_i64().unwrap();
+
+    let manual = h.call("library_manual", json!({ "gameId": id })).unwrap();
+    assert_eq!(manual["pages"], 1);
+    assert_eq!(
+        manual["pageUrl"],
+        format!("forma://localhost/manual/{{page}}/{id}")
+    );
+    let page = crate::protocol::Resolver::manual_page(&*h.state(), id, 0, 640);
+    assert!(page.is_some_and(|f| f.is_file()));
+    assert!(crate::protocol::Resolver::manual_page(&*h.state(), id, 1, 640).is_none());
+
+    let other = h
+        .call("library_search", json!({ "query": "homebrew" }))
+        .unwrap();
+    let none = h
+        .call("library_manual", json!({ "gameId": other[0]["id"] }))
+        .unwrap();
+    assert_eq!(none, Value::Null);
+
+    let opened = Arc::new(Mutex::new(None));
+    let seen = opened.clone();
+    h.window
+        .listen_any(crate::magazines::EVENT_MANUAL_OPEN, move |e| {
+            *seen.lock().unwrap() = Some(e.payload().to_owned());
+        });
+    h.call("library_open_manual", json!({ "gameId": id }))
+        .unwrap();
+    assert_eq!(
+        opened.lock().unwrap().as_deref(),
+        Some(format!(r#"{{"gameId":{id}}}"#).as_str())
+    );
+}
+
+#[test]
 fn a_game_is_edited_by_hand_with_the_permission() {
     let h = Harness::new(&["scraper.manage"]);
     let found = h

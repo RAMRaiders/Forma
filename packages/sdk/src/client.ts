@@ -8,6 +8,7 @@ import type {
   Controller,
   DefaultView,
   DumpChecks,
+  GameManual,
   FilterOptions,
   ListFilter,
   EthernetConfig,
@@ -208,6 +209,21 @@ export class Forma {
        * the systems present from libretro-database. Since 1.32.0.
        */
       dumpChecks: () => invoke<DumpChecks>('library_dump_checks'),
+      /**
+       * A game's manual (its `manual` media: a PDF, an archive of pages or one picture) as
+       * pages made for the screen; `null` without one. Since 1.33.0.
+       */
+      manual: (id: number) => invoke<GameManual | null>('library_manual', { gameId: id }),
+      /** The URL of page `page` (from 0) of a manual, about `width` pixels wide. Since 1.33.0. */
+      manualPageUrl: (manual: Pick<GameManual, 'pageUrl'>, page: number, width = 1280) =>
+        `${manual.pageUrl.replace('{page}', String(page))}${
+          manual.pageUrl.includes('?') ? '&' : '?'
+        }w=${Math.round(width)}`,
+      /**
+       * Opens a game's manual in Forma's reader, over the theme: pages, zoom and closing are
+       * Forma's. Since 1.33.0.
+       */
+      openManual: (id: number) => invoke<void>('library_open_manual', { gameId: id }),
       setFavorite: (id: number, favorite: boolean) =>
         invoke<void>('library_set_favorite', { id, favorite }),
       /**

@@ -180,6 +180,13 @@ export interface GameDump {
   region: string | null;
 }
 
+/** A game's manual, read page by page as a magazine is (`library.manual`). Since 1.33.0. */
+export interface GameManual {
+  pages: number;
+  /** Its pages' URL, with `{page}` for the page: see `library.manualPageUrl`. */
+  pageUrl: string;
+}
+
 /** A system's dump check (`library.dumpChecks`). Since 1.32.0. */
 export interface DumpReport {
   system: string;
@@ -636,6 +643,8 @@ export interface EventMap {
   'nav:game': NavGame;
   /** Forma's shell is asked to open its magazines (`id`: one of them; `null`: the list). */
   'magazines:open': { id: string | null };
+  /** Forma's reader is asked to open a game's manual (`library.openManual`). Since 1.33.0. */
+  'manual:open': { gameId: number };
   /** After each game of a scraper run, and when it ends. */
   'scraper:progress': ScraperStatus;
   /** A setting changed in Forma's menu: one of the theme's own, or Forma's (`display.margins`). */

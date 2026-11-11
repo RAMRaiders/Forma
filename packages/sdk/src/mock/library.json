@@ -1,5 +1,5 @@
 {
-  "apiVersion": "1.32.0",
+  "apiVersion": "1.33.0",
   "batocera": [
     {
       "choices": [],
@@ -322,6 +322,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -434,6 +435,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -678,6 +680,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -842,6 +845,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -1103,6 +1107,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -1399,6 +1404,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -1847,6 +1853,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -2058,6 +2065,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -2460,6 +2468,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -2866,6 +2875,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -3277,6 +3287,7 @@
               "cabinet": "cabinet",
               "flyer": "flyer",
               "image": "image",
+              "manual": "manual",
               "marquee": "marquee",
               "video": "video"
             },
@@ -3545,6 +3556,7 @@
         "cabinet": "cabinet",
         "flyer": "flyer",
         "image": "image",
+        "manual": "manual",
         "marquee": "marquee",
         "video": "video"
       },
