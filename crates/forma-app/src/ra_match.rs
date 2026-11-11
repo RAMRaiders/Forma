@@ -144,7 +144,8 @@ fn check_dumps<R: Runtime>(
     system: &str,
     found: &[dumps::Identified],
 ) {
-    if !dumps_on(state) || !dumps::has_dats(system) {
+    // An empty folder fetches nothing: DATs only for the systems with games.
+    if found.is_empty() || !dumps_on(state) || !dumps::has_dats(system) {
         return;
     }
     if let Err(e) = dumps::fetch(&*state.http, &state.paths, system) {
