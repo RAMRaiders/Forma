@@ -220,6 +220,27 @@ pub fn library_search(
     Ok(games.into_iter().map(expose).collect())
 }
 
+/// Games in a random order, for a screensaver: those with any of `media` (any game when
+/// empty), only favourites or one system's when asked. At most 200.
+#[tauri::command]
+pub fn library_random(
+    state: State<'_, AppState>,
+    media: Option<Vec<String>>,
+    limit: Option<usize>,
+    favorites: Option<bool>,
+    system: Option<String>,
+) -> ApiResult<Vec<Game>> {
+    let media = media.unwrap_or_default();
+    let kinds: Vec<&str> = media.iter().map(String::as_str).collect();
+    let games = state.library().random_games(
+        &kinds,
+        limit.unwrap_or(50).min(200),
+        favorites.unwrap_or(false),
+        system.as_deref(),
+    )?;
+    Ok(games.into_iter().map(expose).collect())
+}
+
 /// Deletes a game for good: only Forma's own menu can, and it asks first.
 #[tauri::command]
 pub async fn library_delete_game<R: Runtime>(

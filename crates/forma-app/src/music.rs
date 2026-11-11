@@ -347,17 +347,19 @@ pub struct VideoPlay {
 }
 
 /// Plays a game's video under the theme's page, full screen or in `area` (fractions of the
-/// screen), and answers once it shows. With
+/// screen), silent if `muted`, and answers once it shows. With
 /// video sound on, the music goes down while it plays. A new page, or a game starting, stops it.
 #[tauri::command]
 pub async fn video_play<R: Runtime>(
     app: AppHandle<R>,
     game_id: i64,
     area: Option<forma_core::video::Area>,
+    muted: Option<bool>,
 ) -> ApiResult<VideoPlay> {
     let window = app.get_webview_window("main");
     off_thread(app, move |state| {
-        let sound = video_sound(state);
+        // `muted`: silent this once (the screensaver's choice), whatever the setting says.
+        let sound = video_sound(state) && muted != Some(true);
         let file = state
             .library()
             .game(game_id)?

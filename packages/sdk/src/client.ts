@@ -44,6 +44,7 @@ import type {
   ThemeInfo,
   Unsubscribe,
   VersionGroup,
+  DuplicateGroup,
   ViewInfo,
   BatoceraSetting,
   OptionsPage,
@@ -174,9 +175,32 @@ export class Forma {
       game: (id: number) => invoke<Game | null>('library_game', { id }),
       /** A system's titles with more than one version. Since 1.26.0. */
       versions: (system: string) => invoke<VersionGroup[]>('library_versions', { system }),
+      /**
+       * A system's games that are one game under different names (`Rockman`, `Mega Man`), by
+       * LaunchBox's data on this machine; `null` until it has some. Since 1.31.0.
+       */
+      duplicates: (system: string) =>
+        invoke<DuplicateGroup[] | null>('library_duplicates', { system }),
       /** Deletes a game and its files for good. Only Forma's own menu can. Since 1.25.0. */
       deleteGame: (id: number) => invoke<void>('library_delete_game', { id }),
       search: (query: string, limit?: number) => invoke<Game[]>('library_search', { query, limit }),
+      /**
+       * Games in a random order, for a screensaver or a "surprise me": those with any of the
+       * `media` kinds (any game without), only favourites, or one system's. At most 200.
+       * Since 1.31.0.
+       */
+      random: (options?: {
+        media?: MediaKind[];
+        limit?: number;
+        favorites?: boolean;
+        system?: string | null;
+      }) =>
+        invoke<Game[]>('library_random', {
+          media: options?.media ?? [],
+          limit: options?.limit,
+          favorites: options?.favorites ?? false,
+          system: options?.system ?? null
+        }),
       setFavorite: (id: number, favorite: boolean) =>
         invoke<void>('library_set_favorite', { id, favorite }),
       /**
@@ -411,7 +435,13 @@ export class Forma {
         invoke<string[]>('scraper_apply', { id, text, media }),
       /** Changes a game's details by hand; `''` clears one. Since 1.25.0. */
       edit: (id: number, fields: Record<string, string>) =>
-        invoke<void>('scraper_edit', { id, fields })
+        invoke<void>('scraper_edit', { id, fields }),
+      /**
+       * Takes these kinds of media off a game and deletes their files (not one another game
+       * shows too). Returns what could not be deleted. Since 1.30.0.
+       */
+      removeMedia: (id: number, kinds: MediaKind[]) =>
+        invoke<string[]>('scraper_remove_media', { id, kinds })
     };
 
     /**
@@ -608,10 +638,15 @@ export class Forma {
        * Plays a game's video on a loop, replacing any other, and resolves once it shows. Then
        * leave the page see-through where it should be seen. It stops by itself when a game
        * starts or the page reloads. Full screen, or in `area` of the screen (fractions of it):
-       * the picture fills the area, cut to its shape.
+       * the picture fills the area, cut to its shape. `muted` (since 1.31.0): silent this time,
+       * whatever the user's video sound setting says.
        */
-      play: (gameId: number, options?: { area?: VideoArea }) =>
-        invoke<VideoPlay>('video_play', { gameId, area: options?.area ?? null }),
+      play: (gameId: number, options?: { area?: VideoArea; muted?: boolean }) =>
+        invoke<VideoPlay>('video_play', {
+          gameId,
+          area: options?.area ?? null,
+          muted: options?.muted ?? false
+        }),
       /** Stops it, as soon as it should no longer be seen or heard. */
       stop: () => invoke<void>('video_stop')
     };

@@ -594,6 +594,37 @@ pub async fn scraper_apply<R: Runtime>(
     Ok(problems)
 }
 
+/// Takes pictures, videos or manuals off a game and deletes their files; returns what could
+/// not be deleted.
+#[tauri::command]
+pub async fn scraper_remove_media<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    id: i64,
+    kinds: Vec<MediaKind>,
+) -> ApiResult<Vec<String>> {
+    let events = app.clone();
+    let removed = !kinds.is_empty();
+    let problems = off_thread(app, move |state| {
+        caller.require(state, permissions::SCRAPER_MANAGE)?;
+        let (game, system) = target(state, id)?;
+        // A file another game shows too stays.
+        let shared = state
+            .library()
+            .games(&system.name)?
+            .into_iter()
+            .filter(|g| g.id != id)
+            .flat_map(|g| g.media.into_values())
+            .collect();
+        pick::remove_media(&state.paths, &game, &system, &kinds, &shared).map_err(internal)
+    })
+    .await?;
+    if removed {
+        let _ = events.emit(EVENT_MEDIA_CHANGED, MediaChanged { game: id });
+    }
+    Ok(problems)
+}
+
 /// Changes a game's details by hand; an empty value clears one.
 #[tauri::command]
 pub async fn scraper_edit<R: Runtime>(
@@ -665,6 +696,48 @@ fn company_games(state: &AppState, again: bool) -> ApiResult<Vec<i64>> {
         }
     }
     Ok(ids)
+}
+
+/// A system's games that are one game under different names, by LaunchBox's data on this
+/// machine; `null` without it.
+#[tauri::command]
+pub async fn library_duplicates<R: Runtime>(
+    app: AppHandle<R>,
+    system: String,
+) -> ApiResult<Option<Vec<scraper::duplicates::DuplicateGroup>>> {
+    off_thread(app, move |state| {
+        let games = state.library().games(&system)?;
+        let Some(first) = games.first() else {
+            return Ok(Some(Vec::new()));
+        };
+        let (_, definition) = target(state, first.id)?;
+        scraper::duplicates::duplicates(&state.paths, &definition, &games).map_err(internal)
+    })
+    .await
+}
+
+/// Before rebuilding LaunchBox's data from an older Forma: the first screens go first.
+const LAUNCHBOX_AFTER: Duration = Duration::from_secs(90);
+
+/// Builds LaunchBox's data again in the background when an older Forma built it, so the
+/// Scrape page has its alternate names. Waits for games.
+pub fn upgrade_launchbox<R: Runtime>(app: AppHandle<R>) {
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let since = Instant::now();
+        while !state.shell.ui_started.load(Ordering::SeqCst) && since.elapsed() < LOGOS_UI_WAIT {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        std::thread::sleep(LAUNCHBOX_AFTER);
+        while state.playing.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_secs(5));
+        }
+        match scraper::upgrade_launchbox(&*state.http, &state.paths) {
+            Ok(true) => eprintln!("forma: LaunchBox's data built again, with alternate names"),
+            Ok(false) => {}
+            Err(e) => eprintln!("forma: LaunchBox's data not built again: {e}"),
+        }
+    });
 }
 
 /// One automatic fetch of company logos at a time.

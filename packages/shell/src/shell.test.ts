@@ -28,6 +28,7 @@ function start(
   const open: boolean[] = [];
   const opened: string[] = [];
   const settings: [string, unknown][] = [];
+  const saver: boolean[] = [];
   const theme: ShellInfo['theme'] = {
     id: 'neon',
     name: 'Neon',
@@ -60,10 +61,18 @@ function start(
       opened.push(view);
       return Promise.resolve();
     },
+    openGame: (id) => {
+      opened.push(`game ${id}`);
+      return Promise.resolve();
+    },
     setThemeSetting: (key, value) => {
       settings.push([key, value]);
       const setting = theme.settings.find((s) => s.key === key);
       if (setting) setting.value = value;
+      return Promise.resolve();
+    },
+    screensaver: (active) => {
+      saver.push(active);
       return Promise.resolve();
     }
   });
@@ -87,7 +96,20 @@ function start(
     expect(text('.menu li.selected .name')).toEqual([label]);
     await press('confirm');
   };
-  return { shell, root, press, text, forma, open, opened, settings, openMenu, backend, theme };
+  return {
+    shell,
+    root,
+    press,
+    text,
+    forma,
+    open,
+    opened,
+    settings,
+    saver,
+    openMenu,
+    backend,
+    theme
+  };
 }
 
 describe('how the theme in use treats a kind of media', () => {
@@ -339,6 +361,41 @@ describe('Forma’s shell', () => {
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
   });
 
+  it('sibling games: one game under different names, per system', async () => {
+    const { press, text, openMenu, backend } = start([]);
+    const invoke = backend.invoke.bind(backend);
+    let answer: unknown = null;
+    vi.spyOn(backend, 'invoke').mockImplementation(async (command, args) =>
+      command === 'library_duplicates' ? answer : invoke(command, args)
+    );
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    await openMenu('Games');
+    await vi.waitFor(() => expect(rows()).toContain('Sibling games'));
+    for (let i = 0; i < 3; i++) await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(["Needs LaunchBox's data"]));
+
+    answer = [
+      {
+        title: 'Mega Man',
+        games: [
+          { id: 1, name: 'Rockman', path: 'Rockman (Japan).nes' },
+          { id: 2, name: 'Mega Man', path: 'Mega Man (USA).nes' }
+        ]
+      }
+    ];
+    await press('back');
+    await press('confirm');
+    await vi.waitFor(() => expect(details()[0]).toBe('1 game under several names'));
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Mega Man']));
+    expect(details()).toEqual(['Rockman · Mega Man']);
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Rockman', 'Mega Man']));
+    expect(details()).toEqual(['Rockman (Japan).nes', 'Mega Man (USA).nes']);
+  });
+
   it('scraper: runs in the background, chooses what to fetch, sets up a source', async () => {
     const { press, text, openMenu } = start(['scraper.manage']);
     await openMenu('Games');
@@ -350,7 +407,7 @@ describe('Forma’s shell', () => {
       expect(selected()).toBe(label);
     };
     await vi.waitFor(() =>
-      expect(rows()).toEqual(['Scrapers', 'Emulator options', 'Game versions'])
+      expect(rows()).toEqual(['Scrapers', 'Emulator options', 'Game versions', 'Sibling games'])
     );
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
@@ -457,7 +514,12 @@ describe('Forma’s shell', () => {
     await press('down');
     await press('confirm');
     await vi.waitFor(() =>
-      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'libretro thumbnails'])
+      expect(rows()).toEqual([
+        'Keep what it has',
+        'ScreenScraper',
+        'libretro thumbnails',
+        'Remove and delete'
+      ])
     );
     await press('down');
     await press('confirm');
@@ -615,7 +677,7 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Scrape Sonic']));
     await press('confirm');
     await vi.waitFor(() =>
-      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'Clear it'])
+      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'Remove and delete'])
     );
     await press('down');
     await press('down');
@@ -628,6 +690,41 @@ describe('Forma’s shell', () => {
     await press('confirm');
     await vi.waitFor(() =>
       expect(spy).toHaveBeenCalledWith('scraper_edit', { id: 1, fields: { genre: '' } })
+    );
+  });
+
+  it('a picture the game has can be removed and its file deleted, offers or not', async () => {
+    const { press, text, backend } = start(
+      ['scraper.manage'],
+      { view: 'systems', list: 'games', game: { id: 1, name: 'Sonic' } },
+      ['systems']
+    );
+    const invoke = backend.invoke.bind(backend);
+    const spy = vi.spyOn(backend, 'invoke').mockImplementation((command, args) =>
+      command === 'scraper_offers'
+        ? Promise.resolve({
+            text: [],
+            media: [{ kind: 'image', label: 'Screenshot', current: true, offers: [] }],
+            problems: []
+          } as never)
+        : invoke(command, args)
+    );
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Scrape'));
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Scrape Sonic']));
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Keep what it has', 'Remove and delete']));
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(text('.page > .panel li[role=option] .badge')).toEqual(['Will be deleted'])
+    );
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(spy).toHaveBeenCalledWith('scraper_remove_media', { id: 1, kinds: ['image'] })
     );
   });
 
@@ -698,10 +795,17 @@ describe('Forma’s shell', () => {
     while (text('.page li.selected .name')[0] !== 'Delete') await press('down');
 
     const invoke = vi.spyOn(backend, 'invoke');
-    await press('confirm'); // The first A only asks.
-    await vi.waitFor(() => expect(text('.toast')).toContain('Press A again to delete Sonic'));
+    await press('confirm'); // The first A only asks, on a page of its own, keeping it chosen.
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Delete Sonic?']));
+    expect(rows()).toEqual(['Keep it', 'Delete for good']);
+    expect(text('.page li.selected .name')).toEqual(['Keep it']);
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Delete'));
     expect(invoke).not.toHaveBeenCalledWith('library_delete_game', { id: 1 });
 
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Delete Sonic?']));
+    await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('library_delete_game', { id: 1 }));
     await vi.waitFor(() => expect(text('.toast')).toContain('Deleted Sonic'));
@@ -911,6 +1015,7 @@ describe('Forma’s shell', () => {
       'Achievements',
       'Netplay',
       'Interface',
+      'Screensaver',
       'Audio',
       'System',
       'Add-ons',
@@ -968,7 +1073,7 @@ describe('Forma’s shell', () => {
       });
       top += Math.ceil(own.length / 4) * 50 + 20;
     }
-    expect(tiles.length).toBe(16);
+    expect(tiles.length).toBe(17);
     const at = () => text('.menu li.selected .name')[0];
     expect(at()).toBe('Collections');
     await press('right');
@@ -981,13 +1086,17 @@ describe('Forma’s shell', () => {
     expect(at()).toBe('Achievements');
     await press('right');
     await press('down');
+    expect(at()).toBe('Screensaver');
+    await press('right');
     expect(at()).toBe('Audio');
     await press('right');
     expect(at()).toBe('System');
-    await press('right');
+    await press('down');
+    // the row's second line has one tile: the nearest across
     expect(at()).toBe('Add-ons');
     await press('down');
-    // the next row down, nearest across
+    expect(at()).toBe('Controllers');
+    await press('right');
     expect(at()).toBe('Network');
     await press('down');
     expect(at()).toBe('Restart');
@@ -1003,7 +1112,7 @@ describe('Forma’s shell', () => {
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 14; i++) await press('down');
+    for (let i = 0; i < 15; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
@@ -1100,7 +1209,7 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 12; i++) await press('down');
+    for (let i = 0; i < 13; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Network']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');
@@ -1547,5 +1656,103 @@ describe('Forma’s settings pages', () => {
     });
     // Not over a game: the card still shows the first session.
     expect(text('.unlocks .kicker')).toEqual(['2 achievements unlocked']);
+  });
+});
+
+describe('Forma’s screensaver', () => {
+  /** Start → Screensaver, then down to the row whose label starts with `label`. */
+  const toRow = async (h: ReturnType<typeof start>, label: string) => {
+    for (let i = 0; i < 20 && !h.text('.page li.selected')[0]?.startsWith(label); i++) {
+      await h.press('down');
+    }
+    expect(h.text('.page li.selected')[0]).toContain(label);
+  };
+
+  it('has ES’s settings under Start → Screensaver, saved as Forma’s', async () => {
+    const h = start(['settings.system']);
+    await h.openMenu('Screensaver');
+    await vi.waitFor(() => expect(h.text('.page li')[0]).toContain('Start after: 5 minutes'));
+    // Dim shows no slideshow rows.
+    expect(h.text('.page li').some((r) => r.includes('Next game after'))).toBe(false);
+    await h.press('right');
+    await vi.waitFor(() => expect(h.text('.page li')[0]).toContain('Start after: 10 minutes'));
+    await h.press('down');
+    await h.press('right');
+    await h.press('right');
+    await h.press('right');
+    await vi.waitFor(() => expect(h.text('.page li')[1]).toContain('Type: Videos'));
+    const rows = h.text('.page li');
+    for (const row of [
+      'Next game after: 10 s',
+      'Games: All games',
+      'Game info: Always',
+      'Sound: Off'
+    ])
+      expect(rows.some((r) => r.includes(row))).toBe(true);
+    expect(await h.forma.settings.getSystem('screensaver')).toMatchObject({
+      after: 10,
+      type: 'video'
+    });
+  });
+
+  it('starts after the minutes chosen, and the first press only wakes it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { shell, root, saver, forma } = start(['settings.system']);
+      await forma.settings.setSystem('screensaver', { after: 1, type: 'black' });
+      await vi.advanceTimersByTimeAsync(10);
+      shell.input({ action: 'down', button: null, gamepad: 0, pressed: true, repeat: false });
+      await vi.advanceTimersByTimeAsync(59_000);
+      expect(root.querySelector('.screensaver')!.hasAttribute('hidden')).toBe(true);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(root.querySelector('.screensaver.type-black')!.hasAttribute('hidden')).toBe(false);
+      expect(saver).toEqual([true]);
+      shell.input({ action: 'start', button: null, gamepad: 0, pressed: true, repeat: false });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(root.querySelector('.screensaver')!.hasAttribute('hidden')).toBe(true);
+      expect(saver).toEqual([true, false]);
+      // Start woke it and did not open the menu.
+      expect(root.querySelector('.menu')!.hasAttribute('hidden')).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows the library’s pictures with the game’s name, and changes game on request', async () => {
+    const h = start(['settings.system']);
+    await h.forma.settings.setSystem('screensaver', { type: 'slideshow', games: 'favorites' });
+    await h.openMenu('Screensaver');
+    await vi.waitFor(() => expect(h.text('.page li')[1]).toContain('Type: Slideshow'));
+    await toRow(h, 'Start the screensaver now');
+    await h.press('confirm');
+    const img = await vi.waitFor(() => {
+      const found = h.root.querySelector<HTMLImageElement>('.screensaver .stage img');
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    expect(decodeURIComponent(img.src)).toContain('Super Mario Bros.');
+    // jsdom loads no pictures: as if it had.
+    img.dispatchEvent(new Event('load'));
+    await vi.waitFor(() =>
+      expect(h.text('.screensaver .info .name')).toEqual(['Super Mario Bros.'])
+    );
+    expect(h.root.querySelector('.page')!.hasAttribute('hidden')).toBe(true);
+    // Left and right are its controls; B wakes it.
+    await h.press('right');
+    expect(h.root.querySelector('.screensaver')!.hasAttribute('hidden')).toBe(false);
+    await h.press('back');
+    expect(h.root.querySelector('.screensaver')!.hasAttribute('hidden')).toBe(true);
+    expect(h.saver).toEqual([true, false]);
+  });
+
+  it('says so when no game has what it would show', async () => {
+    const h = start(['settings.system']);
+    await h.forma.settings.setSystem('screensaver', { type: 'slideshow', picture: 'fanart' });
+    await h.openMenu('Screensaver');
+    await toRow(h, 'Start the screensaver now');
+    await h.press('confirm');
+    await vi.waitFor(() =>
+      expect(h.text('.screensaver .info .name')).toEqual(['No game has that picture yet'])
+    );
   });
 });

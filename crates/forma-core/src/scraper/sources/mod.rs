@@ -3,7 +3,7 @@
 mod arcadedb;
 mod hfsdb;
 mod igdb;
-mod launchbox;
+pub(super) mod launchbox;
 mod libretro;
 mod mobygames;
 pub(super) mod screenscraper;

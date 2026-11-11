@@ -88,6 +88,108 @@ pub fn encode(text: &str) -> String {
     out
 }
 
+/// Text with HTML's character codes (`&quot;`, `&#039;`, `&eacute;`…) as the characters they
+/// stand for, as some sources send their text. Twice over for text escaped twice
+/// (`&amp;quot;`). Anything else with `&` stays as it is.
+pub fn decode_entities(text: &str) -> String {
+    let once = decode_once(text);
+    if once.contains('&') && once != text {
+        decode_once(&once)
+    } else {
+        once
+    }
+}
+
+fn decode_once(text: &str) -> String {
+    if !text.contains('&') {
+        return text.to_owned();
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find('&') {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + 1..];
+        let decoded = after
+            .find(';')
+            .filter(|&end| end > 0 && end <= 10)
+            .and_then(|end| entity(&after[..end]).map(|c| (c, end)));
+        match decoded {
+            Some((c, end)) => {
+                out.push(c);
+                rest = &after[end + 1..];
+            }
+            None => {
+                out.push('&');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// The character `&name;` stands for.
+fn entity(name: &str) -> Option<char> {
+    if let Some(number) = name.strip_prefix('#') {
+        let code = match number.strip_prefix(['x', 'X']) {
+            Some(hex) => u32::from_str_radix(hex, 16).ok()?,
+            None => number.parse().ok()?,
+        };
+        return char::from_u32(code).filter(|c| !c.is_control() || *c == '\n');
+    }
+    Some(match name {
+        "quot" => '"',
+        "amp" => '&',
+        "apos" => '\'',
+        "lt" => '<',
+        "gt" => '>',
+        "nbsp" => ' ',
+        "hellip" => '…',
+        "mdash" => '—',
+        "ndash" => '–',
+        "lsquo" => '‘',
+        "rsquo" => '’',
+        "ldquo" => '“',
+        "rdquo" => '”',
+        "laquo" => '«',
+        "raquo" => '»',
+        "copy" => '©',
+        "reg" => '®',
+        "trade" => '™',
+        "deg" => '°',
+        "eacute" => 'é',
+        "egrave" => 'è',
+        "ecirc" => 'ê',
+        "euml" => 'ë',
+        "aacute" => 'á',
+        "agrave" => 'à',
+        "acirc" => 'â',
+        "auml" => 'ä',
+        "atilde" => 'ã',
+        "aring" => 'å',
+        "iacute" => 'í',
+        "icirc" => 'î',
+        "iuml" => 'ï',
+        "oacute" => 'ó',
+        "ocirc" => 'ô',
+        "ouml" => 'ö',
+        "otilde" => 'õ',
+        "uacute" => 'ú',
+        "ucirc" => 'û',
+        "uuml" => 'ü',
+        "ccedil" => 'ç',
+        "ntilde" => 'ñ',
+        "szlig" => 'ß',
+        "Eacute" => 'É',
+        "Agrave" => 'À',
+        "Ccedil" => 'Ç',
+        "Ouml" => 'Ö',
+        "Uuml" => 'Ü',
+        "Auml" => 'Ä',
+        _ => return None,
+    })
+}
+
 /// Text from HTML: tags dropped, paragraphs and breaks as new lines, entities decoded.
 pub fn strip_html(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
@@ -105,14 +207,7 @@ pub fn strip_html(html: &str) -> String {
         rest = &rest[lt + gt + 1..];
     }
     out.push_str(rest);
-    let out = out
-        .replace("&nbsp;", " ")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&amp;", "&");
+    let out = decode_entities(&out);
     let lines: Vec<&str> = out.lines().map(str::trim).collect();
     let mut joined = lines.join("\n");
     while joined.contains("\n\n\n") {
@@ -227,6 +322,23 @@ pub(crate) fn age_ratings<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn html_codes_become_the_characters_they_stand_for() {
+        assert_eq!(
+            decode_entities("a &quot;Family Game&quot; mode, Sega&#039;s &amp; Namco&#x27;s"),
+            "a \"Family Game\" mode, Sega's & Namco's"
+        );
+        assert_eq!(decode_entities("Pok&eacute;mon &hellip;"), "Pokémon …");
+        // Escaped twice by a source.
+        assert_eq!(decode_entities("&amp;quot;Hi&amp;quot;"), "\"Hi\"");
+        // Not a code: left alone.
+        assert_eq!(
+            decode_entities("Tom & Jerry; R&D &unknown; &"),
+            "Tom & Jerry; R&D &unknown; &"
+        );
+        assert_eq!(decode_entities("plain"), "plain");
+    }
 
     #[test]
     fn names_lose_their_tags_and_match_loosely() {

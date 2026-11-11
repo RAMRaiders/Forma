@@ -42,6 +42,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::library_prepare_media,
         commands::library_prepare_list,
         commands::library_search,
+        commands::library_random,
         commands::library_set_favorite,
         commands::library_delete_game,
         commands::nav_views,
@@ -62,6 +63,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         magazines::magazines_set_page,
         magazines::magazines_open,
         scraper::scraper_settings,
+        scraper::library_duplicates,
         scraper::scraper_configure,
         scraper::scraper_set_credential,
         scraper::scraper_start,
@@ -71,6 +73,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         scraper::scraper_preview,
         scraper::scraper_apply,
         scraper::scraper_edit,
+        scraper::scraper_remove_media,
         addons::addons_list,
         addons::addons_set_enabled,
         addons::addons_remove,
@@ -135,12 +138,14 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         music::video_stop,
         shell::shell_claim,
         shell::shell_set_open,
+        shell::shell_screensaver,
         shell::shell_started,
         status::status_get,
         shell::shell_set_context,
         shell::shell_info,
         shell::shell_set_theme_setting,
         shell::shell_open_view,
+        shell::shell_open_game,
     ]
 }
 

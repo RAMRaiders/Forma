@@ -173,6 +173,12 @@ export interface VersionGroup {
   }[];
 }
 
+/** Games LaunchBox says are one game under different names, by its name for it. Since 1.31.0. */
+export interface DuplicateGroup {
+  title: string;
+  games: { id: number; name: string; path: string }[];
+}
+
 export interface ViewInfo {
   id: string;
   name: string;
@@ -236,6 +242,8 @@ export interface ListFilter {
   /** At least this many players at once. */
   players?: number | null;
   favorites?: boolean;
+  /** Only these games: one game's versions and siblings (one game under other names). Since 1.30.0. */
+  games?: number[] | null;
 }
 
 export interface FilterChoice {
@@ -265,6 +273,8 @@ export interface Browse {
   /** Labels for a breadcrumb, one per path segment. */
   trail: Crumb[];
   listing: Listing;
+  /** A game list narrowed down by the user's filter: Back may first undo it. Since 1.30.0. */
+  filtered: boolean;
 }
 
 /**
@@ -577,6 +587,11 @@ export interface MediaChanged {
 export interface EventMap {
   /** The user picked a view in Forma's views list (Select): show it. */
   'nav:open': NavOpen;
+  /**
+   * The user chose a game in Forma's menu (Game versions, Sibling games): show it, in its
+   * system, as if browsed to. Since 1.31.0.
+   */
+  'nav:game': NavGame;
   /** Forma's shell is asked to open its magazines (`id`: one of them; `null`: the list). */
   'magazines:open': { id: string | null };
   /** After each game of a scraper run, and when it ends. */
@@ -610,6 +625,11 @@ export interface EventMap {
    */
   'media:changed': MediaChanged;
   'views:changed': null;
+  /**
+   * Forma's screensaver came on (`active: true`) or went (`false`). It may play a video of its
+   * own over the theme's, which stops: play yours again when it goes. Since 1.31.0.
+   */
+  screensaver: { active: boolean };
   input: InputEvent;
 }
 
@@ -680,6 +700,11 @@ export interface MusicSong {
 
 export interface NavOpen {
   view: string;
+}
+
+export interface NavGame {
+  game: number;
+  system: string;
 }
 
 export interface SettingsChanged {

@@ -216,7 +216,13 @@ pub fn gather(
             continue;
         }
         match source.lookup(http, creds, &query) {
-            Ok(Some(found)) => answers.push((source.name().to_owned(), found)),
+            Ok(Some(mut found)) => {
+                found.metadata.decode_entities();
+                for (name, _) in &mut found.notes.names {
+                    *name = super::text::decode_entities(name);
+                }
+                answers.push((source.name().to_owned(), found));
+            }
             Ok(None) => {}
             Err(LookupError::Credentials(e) | LookupError::Quota(e) | LookupError::Failed(e)) => {
                 problems.push(format!("{}: {e}", source.name()))
@@ -252,7 +258,8 @@ pub fn gather(
                 })
                 .collect(),
         })
-        .filter(|s| !s.offers.is_empty())
+        // What it has can be removed, offers or not.
+        .filter(|s| !s.offers.is_empty() || s.current.is_some())
         .collect();
 
     let mut urls = Vec::new();
@@ -277,11 +284,12 @@ pub fn gather(
                 }
             }
         }
-        if !offers.is_empty() {
+        let current = has_media(game, kind);
+        if !offers.is_empty() || current {
             media.push(MediaSection {
                 kind,
                 label: kind.label(),
-                current: has_media(game, kind),
+                current,
                 offers,
             });
         }
@@ -412,6 +420,51 @@ pub fn apply(
     }
     if !tags.is_empty() {
         set_tags(&system.rom_path, paths, rom, &game.name, &tags)?;
+    }
+    Ok(problems)
+}
+
+/// Takes media off a game: each kind out of its gamelist entry, and its file deleted when it is
+/// in the system's folder and no other game shows it (`shared`: other games' media paths).
+/// Returns what could not be deleted.
+pub fn remove_media(
+    paths: &Paths,
+    game: &Game,
+    system: &System,
+    kinds: &[MediaKind],
+    shared: &HashSet<String>,
+) -> Result<Vec<String>> {
+    let mut problems = Vec::new();
+    let mut tags: Vec<(&str, Tag)> = Vec::new();
+    for kind in kinds {
+        tags.push((kind.tag(), Tag::Remove));
+        let Some(file) = game.media.get(kind.tag()) else {
+            continue;
+        };
+        if shared.contains(file) {
+            continue;
+        }
+        if !Path::new(file).starts_with(&system.rom_path) {
+            problems.push(format!(
+                "{}: kept its file, outside the system's folder",
+                kind.label()
+            ));
+            continue;
+        }
+        match std::fs::remove_file(file) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => problems.push(format!("{}: {e}", kind.label())),
+        }
+    }
+    if !tags.is_empty() {
+        set_tags(
+            &system.rom_path,
+            paths,
+            Path::new(&game.path),
+            &game.name,
+            &tags,
+        )?;
     }
     Ok(problems)
 }

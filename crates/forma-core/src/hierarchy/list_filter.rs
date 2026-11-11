@@ -29,6 +29,8 @@ pub struct ListFilter {
     /// At least this many players at once.
     pub players: Option<i64>,
     pub favorites: bool,
+    /// Only these games: one game's versions and siblings (other names), from its Select menu.
+    pub games: Option<Vec<i64>>,
 }
 
 impl ListFilter {
@@ -117,6 +119,16 @@ impl Conds {
         }
         if f.favorites {
             self.sql.push("g.favorite = 1".into());
+        }
+        if let Some(games) = &f.games {
+            if games.is_empty() {
+                self.sql.push("0".into());
+            } else {
+                let marks = vec!["?"; games.len()].join(", ");
+                self.sql.push(format!("g.id IN ({marks})"));
+                self.params
+                    .extend(games.iter().map(|&id| Value::Integer(id)));
+            }
         }
     }
 }

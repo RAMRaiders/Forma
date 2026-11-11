@@ -75,6 +75,8 @@ pub struct Browse {
     pub path: Vec<String>,
     pub trail: Vec<Crumb>,
     pub listing: Listing,
+    /// A game list narrowed down by the user's filter: Back may first undo it.
+    pub filtered: bool,
 }
 
 impl Library {
@@ -93,6 +95,7 @@ impl Library {
         filter: &ListFilter,
     ) -> Result<Browse> {
         let (node, conds, trail) = self.node_at(view, path)?;
+        let filtered = matches!(node.kind, NodeKind::Games(_)) && !filter.is_empty();
 
         let listing = match &node.kind {
             NodeKind::GroupBy { key, sort, .. } => self.groups(*key, *sort, &conds, page)?,
@@ -120,6 +123,7 @@ impl Library {
             path: path.to_vec(),
             trail,
             listing,
+            filtered,
         })
     }
 

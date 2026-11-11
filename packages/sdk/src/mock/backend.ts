@@ -529,6 +529,19 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const settings = new Map<string, unknown>();
   const listeners = new Map<string, Set<Handler>>();
   let listFilter: Record<string, unknown> = {};
+  /** A game list with the user's filter: only its `games` is applied here. */
+  const narrowed = (browse: Browse): Browse => {
+    if (browse.listing.kind !== 'games' || Object.keys(listFilter).length === 0) return browse;
+    const only = listFilter.games as number[] | null | undefined;
+    const items = only
+      ? browse.listing.items.filter((g) => only.includes(g.id))
+      : browse.listing.items;
+    return {
+      ...browse,
+      filtered: true,
+      listing: { ...browse.listing, items, total: items.length }
+    };
+  };
   let defaultView: string | null = null;
   let shellContext: unknown = null;
   const network = structuredClone(snapshot.network);
@@ -774,7 +787,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
               kind: 'branches',
               items: names.map((n) => ({ id: slug(n), name: n, gameCount: inIt(n).length }))
             }
-          : { kind: 'games', items: [], total: 0 }
+          : { kind: 'games', items: [], total: 0 },
+        filtered: false
       };
     }
     const name =
@@ -785,7 +799,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
       view: 'collections',
       path,
       trail: [{ key: path[0]!, label: name }],
-      listing: { kind: 'games', items, total: items.length }
+      listing: { kind: 'games', items, total: items.length },
+      filtered: false
     };
   };
 
@@ -1055,6 +1070,14 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if ((media as number[]).length > 0) emit('media:changed', { game: id as number });
       return [];
     },
+    scraper_remove_media: ({ id, kinds }) => {
+      scraperAllowed();
+      const game = games.get(id as number) ?? fail('notFound', `no game ${String(id)}`);
+      const media = game.media as Record<string, string>;
+      for (const kind of kinds as string[]) delete media[kind];
+      emit('media:changed', { game: id as number });
+      return [];
+    },
     scraper_edit: ({ id, fields }) => {
       scraperAllowed();
       const game = games.get(id as number);
@@ -1104,6 +1127,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     // In the order the user chose, as Forma lists them (`SystemsOrder`).
     library_systems: () => orderSystems(snapshot.systems, settings.get('library.systemsOrder')),
     library_versions: () => [],
+    library_duplicates: () => [],
     library_game: ({ id }) => {
       const game = games.get(id as number);
       return game ? present(game) : null;
@@ -1120,6 +1144,20 @@ export function mockBackend(options: MockOptions = {}): Backend {
         })
         .slice(0, (limit as number | undefined) ?? 50)
         .map(present);
+    },
+    library_random: ({ media, limit, favorites, system }) => {
+      const kinds = (media as string[] | undefined) ?? [];
+      const picked = [...games.values()]
+        .filter((g) => !g.hidden)
+        .filter((g) => !favorites || g.favorite)
+        .filter((g) => !system || g.system === system)
+        .map(present)
+        .filter((g) => kinds.length === 0 || kinds.some((k) => k in g.media));
+      for (let i = picked.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [picked[i], picked[j]] = [picked[j]!, picked[i]!];
+      }
+      return picked.slice(0, Math.min(200, (limit as number | undefined) ?? 50));
     },
     library_set_favorite: ({ id, favorite }) => {
       const game = games.get(id as number) ?? fail('notFound', `no game with id ${String(id)}`);
@@ -1141,7 +1179,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const key = JSON.stringify([view, ...((path as string[] | undefined) ?? [])]);
       const found =
         snapshot.browse[key] ?? fail('invalid', `no such path in view \`${String(view)}\``);
-      return paginate(found, page as { offset: number; limit: number } | undefined, present);
+      return paginate(
+        narrowed(found),
+        page as { offset: number; limit: number } | undefined,
+        present
+      );
     },
     nav_filter_options: () => ({
       filter: listFilter,
@@ -1159,7 +1201,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
       players: []
     }),
     nav_set_filter: ({ filter }) => {
-      listFilter = (filter as Record<string, unknown> | null) ?? {};
+      listFilter = Object.fromEntries(
+        Object.entries((filter as Record<string, unknown> | null) ?? {}).filter(
+          ([, v]) => v !== null && v !== undefined && v !== false && v !== ''
+        )
+      );
+      emit('library:changed', { systems: [] } satisfies LibraryChanged);
       return 2;
     },
     nav_default_view: (): DefaultView => ({ id: defaultView ?? 'systems', notes: [] }),
@@ -1180,6 +1227,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
       emit('nav:open', { view });
       return null;
     },
+    shell_open_game: ({ id }) => {
+      const game = games.get(id as number);
+      if (!game) fail('notFound', `no game ${String(id)}`);
+      emit('nav:game', { game: game.id, system: game.system });
+      return null;
+    },
     shell_info: () => ({ context: shellContext }),
     shell_set_theme_setting: ({ key, value }) => {
       settings.set(settingKey(String(key), 'theme'), value);
@@ -1191,6 +1244,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const k = settingKey(String(key), scope);
       if (value === null || value === undefined) settings.delete(k);
       else settings.set(k, structuredClone(value));
+      // As Forma does for its menu's changes, which are the only ones to its own settings.
+      if (scope === 'system') emit('settings:changed', { scope: 'system', key, value });
       return null;
     },
     themes_list: (): ThemeInfo[] => [
@@ -1616,7 +1671,10 @@ export function mockBackend(options: MockOptions = {}): Backend {
     library_prepare_media: () => null,
     library_prepare_list: () => null,
     // The mock has no player: a game's video never shows, and the page stays as it is.
-    video_play: () => ({ playing: false, sound: settings.get('video.sound') !== false }),
+    video_play: ({ muted }) => ({
+      playing: false,
+      sound: settings.get('video.sound') !== false && muted !== true
+    }),
     video_stop: () => null,
     system_quit: () => power(),
     system_power: () => power(),

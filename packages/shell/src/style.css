@@ -1093,6 +1093,98 @@ kbd {
   text-align: center;
 }
 
+/* ---- Screensaver: over everything but the toast ---------------------------------------- */
+
+.screensaver {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  pointer-events: auto;
+  cursor: none;
+}
+
+/* Fades in, as ES's dims; plain opacity, no filters (the Pi's WebKit). */
+.screensaver.type-dim {
+  background: rgb(0 0 0 / 70%);
+  animation: saver-in 1200ms ease-out;
+}
+
+.screensaver.type-black {
+  animation: saver-in 600ms ease-out;
+}
+
+/* Videos play under the window, the page see-through. */
+.screensaver.type-video {
+  background: transparent;
+}
+
+.shell.saving .status,
+.shell.saving .song {
+  visibility: hidden;
+}
+
+.screensaver .stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.screensaver .stage img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+
+.screensaver.stretch .stage img {
+  object-fit: cover;
+}
+
+.screensaver .stage img.in {
+  opacity: 1;
+}
+
+.screensaver .info {
+  position: absolute;
+  left: calc(2.4em + var(--margin, 0vh));
+  bottom: calc(2.4em + var(--margin, 0vh));
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  max-width: 60vw;
+  padding: 0.8em 1.3em;
+  border-left: 0.25em solid var(--cyan);
+  border-radius: var(--radius);
+  background: rgb(4 6 12 / 72%);
+}
+
+.screensaver .info .name {
+  font-size: 1.5em;
+  font-weight: 700;
+}
+
+.screensaver .info .system {
+  color: var(--muted);
+}
+
+.screensaver .clock {
+  position: absolute;
+  top: calc(2em + var(--margin, 0vh));
+  right: calc(2.4em + var(--margin, 0vh));
+  font-family: var(--mono);
+  font-size: 2.2em;
+  color: rgb(230 247 255 / 75%);
+}
+
+@keyframes saver-in {
+  from {
+    opacity: 0;
+  }
+}
+
 .toast {
   position: fixed;
   bottom: 4.2em;
@@ -1111,7 +1203,8 @@ kbd {
   .switcher .panel,
   .menu .panel,
   .song,
-  .unlocks {
+  .unlocks,
+  .screensaver {
     animation: none;
   }
 }

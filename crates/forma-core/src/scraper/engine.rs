@@ -123,7 +123,7 @@ pub fn scrape_game(
         if !source.covers(&query) {
             continue;
         }
-        let found: Found = match source.lookup(http, creds, &query) {
+        let mut found: Found = match source.lookup(http, creds, &query) {
             Ok(Some(found)) => found,
             Ok(None) => continue,
             Err(e @ (LookupError::Credentials(_) | LookupError::Quota(_))) => {
@@ -136,6 +136,7 @@ pub fn scrape_game(
                 continue;
             }
         };
+        found.metadata.decode_entities();
 
         let mut gave = false;
         if want_metadata && found.metadata != Metadata::default() {

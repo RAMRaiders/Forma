@@ -26,7 +26,7 @@ import {
   systemsScreen
 } from './ui/screens.js';
 import { magazinesScreen } from './ui/magazines.js';
-import { versionsScreen } from './ui/gamedata.js';
+import { duplicatesScreen, versionsScreen } from './ui/gamedata.js';
 import { addonsScreen } from './ui/addons.js';
 import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
@@ -37,6 +37,7 @@ import { UnlocksView } from './ui/unlocks.js';
 import { collectionsScreen } from './ui/collections.js';
 import { controllersScreen } from './ui/controllers.js';
 import { Switcher } from './ui/switcher.js';
+import { Screensaver, screensaverScreen } from './ui/screensaver.js';
 
 /** What `shell_info` answers: the theme's context and its settings. */
 export interface ShellInfo {
@@ -61,7 +62,11 @@ export interface ShellCalls {
   info(): Promise<ShellInfo>;
   setOpen(open: boolean): Promise<void>;
   openView(view: string): Promise<void>;
+  /** Shows a game in the theme, as if browsed to. */
+  openGame(id: number): Promise<void>;
   setThemeSetting(key: string, value: unknown): Promise<void>;
+  /** The screensaver came on or went: input is the shell's meanwhile. */
+  screensaver(active: boolean): Promise<void>;
 }
 
 /** How long a power action waits for its second press. */
@@ -93,6 +98,8 @@ export class Shell {
   readonly #unlocks = new UnlocksView();
   /** Forma's magazine reader, over everything else. */
   readonly #reader: Reader;
+  /** After the minutes the user chose with no press: over everything. */
+  readonly #saver: Screensaver;
   #playing = false;
   /** The menu entry the open page, network screen or views list came from: B goes back to it. */
   #returnTo: number | null = null;
@@ -112,6 +119,18 @@ export class Shell {
   set playing(playing: boolean) {
     this.#playing = playing;
     this.#status.root.hidden = playing;
+    // Back from a game: the wait starts afresh.
+    if (!playing) this.#saver.poke();
+  }
+
+  /** The screensaver shows: every key and button is the shell's. */
+  get saving(): boolean {
+    return this.#saver.active;
+  }
+
+  /** A press the theme had, or a key: no screensaver yet. */
+  poke(): void {
+    if (!this.playing) this.#saver.poke();
   }
 
   constructor(
@@ -123,6 +142,17 @@ export class Shell {
     this.#page = new Page(notify, changed);
     this.#network = new NetworkScreen(forma, notify, changed);
     this.#reader = new Reader(forma, notify);
+    this.#saver = new Screensaver(forma, {
+      setActive: async (active) => {
+        // The corner's pads and connection would show through its videos.
+        this.root.classList.toggle('saving', active);
+        await calls.screensaver(active);
+        // Gone: input goes back to wherever it went before (a menu left open, or the theme).
+        if (!active) await calls.setOpen(this.open);
+      },
+      blocked: () => this.playing || this.#reader.open || this.#typing(),
+      system: async () => (await calls.info()).context?.system?.name ?? null
+    });
     // A theme's shortcut asks for Forma's magazines, or one of them.
     forma.events.on('magazines:open', ({ id }) => void this.openMagazines(id));
     // What plays moves on by itself: the music page follows.
@@ -167,6 +197,7 @@ export class Shell {
       this.#song,
       this.#unlocks.root,
       this.#reader.root,
+      this.#saver.root,
       this.#toast
     );
   }
@@ -242,6 +273,9 @@ export class Shell {
 
   input(e: InputEvent): void {
     if (this.playing) return;
+    // Showing, it takes every press; otherwise any press puts it off.
+    if (this.#saver.active) return void this.#saver.input(e);
+    this.#saver.poke();
     if (!this.open) {
       if (!e.pressed || e.repeat) return;
       // Opened afresh: nothing to go back to.
@@ -410,6 +444,12 @@ export class Shell {
         section: 'Settings'
       },
       {
+        id: 'screensaver',
+        label: 'Screensaver',
+        description: 'When it starts, and what it shows: dim, black, pictures or videos',
+        section: 'Settings'
+      },
+      {
         id: 'music',
         label: 'Audio',
         description: 'Video sound, music folders, playlists and web radios',
@@ -502,7 +542,7 @@ export class Shell {
         )
       : this.#page.show(
           game?.name ?? 'Games',
-          gamesScreen(this.forma, this.#page, theme, game, openViews)
+          gamesScreen(this.forma, this.#page, theme, game, openViews, () => this.#closeAll())
         ));
     this.#changed();
   }
@@ -574,6 +614,13 @@ export class Shell {
     this.#returnTo = m.selected;
     const context = this.#info?.context ?? {};
     const page = this.#page;
+    // A game chosen in a list of games: the menu shuts and the theme shows it.
+    const openGame = (id: number) => {
+      this.#closeAll();
+      this.calls.openGame(id).catch((error: unknown) => {
+        this.notify(FormaError.from(error).message);
+      });
+    };
     const show = (title: string, build: Parameters<Page['show']>[1]) => {
       m.close();
       this.#pageKind = id;
@@ -610,7 +657,12 @@ export class Shell {
           {
             label: 'Game versions',
             detail: 'Which games have several versions, per system',
-            run: () => page.push('Game versions', versionsScreen(this.forma, page))
+            run: () => page.push('Game versions', versionsScreen(this.forma, page, openGame))
+          },
+          {
+            label: 'Sibling games',
+            detail: 'One game under different names, by LaunchBox',
+            run: () => page.push('Sibling games', duplicatesScreen(this.forma, page, openGame))
           }
         ]);
       case 'system-options':
@@ -639,6 +691,15 @@ export class Shell {
         );
       case 'music':
         return show('Audio', musicScreen(this.forma, page));
+      case 'screensaver':
+        return show(
+          'Screensaver',
+          screensaverScreen(this.forma, page, () => {
+            this.#returnTo = null;
+            this.#closeAll();
+            void this.#saver.start();
+          })
+        );
       case 'ra':
         return show('RetroAchievements', retroAchievementsScreen(this.forma, page));
       case 'netplay':

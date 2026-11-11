@@ -1,4 +1,10 @@
-import type { Forma, ScraperOffers, ScraperSettings, VersionGroup } from '@ramraiders/forma-sdk';
+import type {
+  Forma,
+  MediaKind,
+  ScraperOffers,
+  ScraperSettings,
+  VersionGroup
+} from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
 import { backupNote, themeUse } from './scraper.js';
@@ -55,30 +61,49 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
   ];
 }
 
-/** How long Delete waits for its second press, as the power actions do. */
-const DELETE_CONFIRM_MS = 3000;
-
-/** Last on the page, apart from the rest. A second press soon after: a stray A does no harm. */
+/**
+ * Last on the page, apart from the rest. A page of its own asks first, saying what goes, with
+ * keeping it chosen: a stray A does no harm.
+ */
 export function deleteGameRow(forma: Forma, page: Page, game: { id: number; name: string }): Row {
-  let confirmUntil = 0;
   return {
     icon: 'delete',
     danger: true,
     label: 'Delete',
-    detail: 'Its ROM, details and pictures, for good. Press A twice',
-    run: () => {
-      const now = Date.now();
-      if (now > confirmUntil) {
-        confirmUntil = now + DELETE_CONFIRM_MS;
-        page.notify(`Press A again to delete ${game.name}`);
-        return;
-      }
-      confirmUntil = 0;
-      return page.run('Deleting…', async () => {
-        await forma.library.deleteGame(game.id);
-        page.close();
-        return `Deleted ${game.name}`;
-      });
+    detail: 'Its ROM, details and pictures, for good',
+    run: async () => {
+      const found = await forma.library.game(game.id).catch(() => null);
+      const file = found?.path.split('/').pop();
+      // Its box (or a screenshot), so there is no doubt which game goes.
+      const has = (found?.media ?? {}) as Partial<Record<string, string>>;
+      const kind = (['thumbnail', 'image'] as const).find((k) => has[k]);
+      const picture = kind ? forma.library.mediaUrl(game.id, kind, 320) : null;
+      await page.push(
+        `Delete ${game.name}?`,
+        () => [
+          {
+            label: 'Keep it',
+            detail: 'Nothing is deleted',
+            run: () => page.pop()
+          },
+          {
+            icon: 'delete',
+            danger: true,
+            label: 'Delete for good',
+            detail: file
+              ? `${file}, its details, pictures and videos`
+              : 'Its ROM, details and pictures',
+            image: picture,
+            run: () =>
+              page.run('Deleting…', async () => {
+                await forma.library.deleteGame(game.id);
+                page.close();
+                return `Deleted ${game.name}`;
+              })
+          }
+        ],
+        'It goes from the library and from the disk. This cannot be undone.'
+      );
     }
   };
 }
@@ -131,7 +156,11 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
 }
 
 /** Start → Games → Game versions: which titles have several files, per system. Read only. */
-export function versionsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+export function versionsScreen(
+  forma: Forma,
+  page: Page,
+  openGame: (id: number) => void
+): () => Promise<Row[]> {
   return async () => {
     const systems = await forma.library.systems();
     const found = await Promise.all(
@@ -144,14 +173,65 @@ export function versionsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
         return {
           label,
           detail: `${groups.length} ${groups.length === 1 ? 'title' : 'titles'} with several versions`,
-          run: () => page.push(label, () => groups.map((g) => versionGroupRow(page, g)))
+          run: () => page.push(label, () => groups.map((g) => versionGroupRow(page, g, openGame)))
         };
       });
     return rows.length > 0 ? rows : [{ label: 'Every game has just one version' }];
   };
 }
 
-function versionGroupRow(page: Page, group: VersionGroup): Row {
+/**
+ * Start → Games → Sibling games: games that are one game under different names, per
+ * system, by LaunchBox. Read only.
+ */
+export function duplicatesScreen(
+  forma: Forma,
+  page: Page,
+  openGame: (id: number) => void
+): () => Promise<Row[]> {
+  return async () => {
+    const systems = await forma.library.systems();
+    const found = await Promise.all(
+      systems.map(async (s) => ({ system: s, groups: await forma.library.duplicates(s.name) }))
+    );
+    if (found.every(({ groups }) => groups === null)) {
+      return [
+        {
+          label: "Needs LaunchBox's data",
+          detail: 'Turn LaunchBox on in Scraper and scrape a game once'
+        }
+      ];
+    }
+    const rows = found.flatMap(({ system, groups }): Row[] => {
+      if (!groups?.length) return [];
+      const label = system.fullname || system.name;
+      return [
+        {
+          label,
+          detail: `${groups.length} ${groups.length === 1 ? 'game' : 'games'} under several names`,
+          run: () =>
+            page.push(label, () =>
+              groups.map((g) => ({
+                label: g.title,
+                detail: [...new Set(g.games.map((x) => x.name))].join(' · '),
+                run: () =>
+                  page.push(g.title, () =>
+                    g.games.map((x) => ({
+                      label: x.name,
+                      detail: x.path,
+                      run: () => openGame(x.id)
+                    }))
+                  )
+              }))
+            )
+        }
+      ];
+    });
+    return rows.length > 0 ? rows : [{ label: 'No game is there twice under another name' }];
+  };
+}
+
+function versionGroupRow(page: Page, group: VersionGroup, openGame: (id: number) => void): Row {
   const identical = group.games.filter((g) => g.identicalTo !== null).length;
   return {
     label: group.title,
@@ -162,7 +242,8 @@ function versionGroupRow(page: Page, group: VersionGroup): Row {
         group.games.map((g) => ({
           label: g.tags.join(' · ') || 'No tags',
           detail: g.path,
-          badge: g.identicalTo !== null ? { text: 'Identical copy', kept: true } : undefined
+          badge: g.identicalTo !== null ? { text: 'Identical copy', kept: true } : undefined,
+          run: () => openGame(g.id)
         }))
       )
   };
@@ -195,7 +276,10 @@ function pick(forma: Forma, page: Page, game: { id: number; name: string }): Pro
       forma.scraper.settings(),
       fileNote(forma, game.id)
     ]);
-    if (offers.text.length === 0 && offers.media.length === 0) {
+    // Nothing offered and nothing to remove (a name stays).
+    const offered = [...offers.text, ...offers.media].some((s) => s.offers.length > 0);
+    const removable = offers.media.length > 0 || offers.text.some((s) => s.field !== 'name');
+    if (!offered && !removable) {
       return offers.problems[0] ?? 'No scraper knows this game';
     }
     await page.push(
@@ -222,14 +306,18 @@ function pickScreen(
   const media = new Map<string, number>();
   // Fields to empty on saving: what the game has now goes, and nothing takes its place.
   const cleared = new Set<string>();
+  // Media to delete on saving, likewise.
+  const removed = new Set<MediaKind>();
   for (const s of firstTime ? offers.text : []) {
-    if (s.current === null) text.set(s.field, s.offers[0]!.value);
+    const first = s.offers[0];
+    if (s.current === null && first) text.set(s.field, first.value);
   }
   for (const s of firstTime ? offers.media : []) {
     const use = themeUse(theme, s.kind);
     const replaced = offers.media.some((m) => m.kind === theme?.backups[s.kind]);
-    if (use !== 'unused' && !(use === 'backup' && replaced)) {
-      media.set(s.kind, s.offers[0]!.id);
+    const first = s.offers[0];
+    if (first && use !== 'unused' && !(use === 'backup' && replaced)) {
+      media.set(s.kind, first.id);
     }
   }
   const previews = new Map<number, string | null>();
@@ -282,7 +370,7 @@ function pickScreen(
           ...(section.field !== 'name' && section.current !== null
             ? [
                 {
-                  label: 'Clear it',
+                  label: 'Remove and delete',
                   detail: 'Removes what it has now, and takes nothing in its place',
                   run: choose(() => {
                     text.delete(section.field);
@@ -313,7 +401,11 @@ function pickScreen(
       ]
         .filter(Boolean)
         .join(' · '),
-      badge: offer ? { text: `From ${offer.source}` } : keptBadge(section.current),
+      badge: offer
+        ? { text: `From ${offer.source}` }
+        : removed.has(section.kind)
+          ? { text: 'Will be deleted' }
+          : keptBadge(section.current),
       image: offer ? previews.get(offer.id) : undefined,
       run: () =>
         page.run(`Loading ${section.label}…`, async () => {
@@ -325,21 +417,39 @@ function pickScreen(
           await page.push(section.label, () => [
             {
               label: section.current ? 'Keep what it has' : 'Leave empty',
-              run: choose(() => media.delete(section.kind))
+              run: choose(() => {
+                media.delete(section.kind);
+                removed.delete(section.kind);
+              })
             },
             ...section.offers.map((o) => ({
               label: o.source,
               detail: offerNote(o) || (previews.get(o.id) ? '' : 'No details from this source'),
               image: previews.get(o.id),
-              run: choose(() => media.set(section.kind, o.id))
-            }))
+              run: choose(() => {
+                removed.delete(section.kind);
+                media.set(section.kind, o.id);
+              })
+            })),
+            ...(section.current
+              ? [
+                  {
+                    label: 'Remove and delete',
+                    detail: 'Deletes its file, and takes nothing in its place',
+                    run: choose(() => {
+                      media.delete(section.kind);
+                      removed.add(section.kind);
+                    })
+                  }
+                ]
+              : [])
           ]);
         })
     };
   };
 
   return () => {
-    const changes = text.size + media.size + cleared.size;
+    const changes = text.size + media.size + cleared.size + removed.size;
     const unused = offers.media.filter((s) => themeUse(theme, s.kind) === 'unused');
     const sections: Row[] = [
       ...offers.text.map(textRow),
@@ -375,6 +485,9 @@ function pickScreen(
                       id,
                       Object.fromEntries([...cleared].map((field) => [field, '']))
                     );
+                  }
+                  if (removed.size > 0) {
+                    problems.push(...(await forma.scraper.removeMedia(id, [...removed])));
                   }
                   // Done with this game: back to the list, which keeps to it if it was renamed.
                   page.close();

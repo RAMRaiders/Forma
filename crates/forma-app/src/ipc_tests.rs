@@ -827,6 +827,57 @@ fn a_game_is_edited_by_hand_with_the_permission() {
 }
 
 #[test]
+fn a_games_picture_is_removed_and_its_file_deleted() {
+    let h = Harness::new(&["scraper.manage"]);
+    let found = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap();
+    let id = found[0]["id"].as_i64().unwrap();
+    let system = found[0]["system"].as_str().unwrap().to_owned();
+    let path = found[0]["path"].as_str().unwrap().to_owned();
+    let dir = h.state().paths.userdata.join(format!("roms/{system}"));
+    let stem = std::path::Path::new(&path)
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    std::fs::create_dir_all(dir.join("images")).unwrap();
+    let picture = dir.join(format!("images/{stem}-image.png"));
+    std::fs::write(&picture, b"png").unwrap();
+    h.call(
+        "scraper_edit",
+        json!({ "id": id, "fields": { "genre": "Adventure" } }),
+    )
+    .unwrap();
+    let list = dir.join("gamelist.xml");
+    let xml = std::fs::read_to_string(&list).unwrap();
+    let xml = xml.replace(
+        "<genre>Adventure</genre>",
+        &format!("<genre>Adventure</genre><image>./images/{stem}-image.png</image>"),
+    );
+    std::fs::write(&list, xml).unwrap();
+    h.state().library().refresh(&h.state().paths).unwrap();
+    let problems = h
+        .call(
+            "scraper_remove_media",
+            json!({ "id": id, "kinds": ["image"] }),
+        )
+        .unwrap();
+    assert_eq!(problems, json!([]));
+    assert!(!picture.exists(), "the file is deleted");
+    let xml = std::fs::read_to_string(&list).unwrap();
+    assert!(!xml.contains(&format!("{stem}-image.png")), "{xml}");
+    let denied = Harness::new(&[]);
+    let err = denied
+        .call(
+            "scraper_remove_media",
+            json!({ "id": id, "kinds": ["image"] }),
+        )
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+}
+
+#[test]
 fn scraper_settings_accounts_and_a_run_over_a_system() {
     let h = Harness::new(&["scraper.manage"]);
     let settings = h.call("scraper_settings", json!({})).unwrap();
@@ -1253,6 +1304,20 @@ fn the_shell_claims_its_token_once_and_then_may_do_what_forma_offers() {
     );
     h.call_as_shell(token, "shell_set_open", json!({ "open": true }))
         .unwrap();
+
+    // The screensaver: only the shell starts it, and every press is the shell's meanwhile.
+    assert_eq!(
+        code(
+            &h.call("shell_screensaver", json!({ "active": true }))
+                .unwrap_err()
+        ),
+        "permissionDenied"
+    );
+    h.call_as_shell(token, "shell_set_open", json!({ "open": false }))
+        .unwrap();
+    h.call_as_shell(token, "shell_screensaver", json!({ "active": true }))
+        .unwrap();
+    assert!(h.state().shell.is_open());
 }
 
 #[test]
@@ -1298,6 +1363,37 @@ fn the_shell_opens_a_view_in_the_theme() {
     assert_eq!(
         code(
             &h.call_as_shell(token, "shell_open_view", json!({ "view": "nope" }))
+                .unwrap_err()
+        ),
+        "notFound"
+    );
+}
+
+#[test]
+fn the_shell_opens_a_game_in_the_theme() {
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let hits = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap();
+    let id = hits[0]["id"].as_i64().unwrap();
+    let system = hits[0]["system"].as_str().unwrap().to_owned();
+    let opened = Arc::new(Mutex::new(None));
+    let seen = opened.clone();
+    h.window.listen_any(crate::shell::EVENT_NAV_GAME, move |e| {
+        *seen.lock().unwrap() = Some(e.payload().to_owned());
+    });
+    h.call_as_shell(token, "shell_open_game", json!({ "id": id }))
+        .unwrap();
+    assert_eq!(
+        opened.lock().unwrap().as_deref(),
+        Some(format!(r#"{{"game":{id},"system":"{system}"}}"#).as_str())
+    );
+    assert_eq!(
+        code(
+            &h.call_as_shell(token, "shell_open_game", json!({ "id": 999_999 }))
                 .unwrap_err()
         ),
         "notFound"
@@ -1428,4 +1524,25 @@ fn a_radio_addon_adds_stations_and_pages_and_runs_its_system_part() {
     h.call("addons_remove", json!({ "id": "radio-box" }))
         .unwrap();
     assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
+}
+
+#[test]
+fn random_games_for_the_screensaver_have_the_media_asked_for() {
+    let h = Harness::new(&[]);
+    let games = h
+        .call("library_random", json!({ "media": ["video"], "limit": 10 }))
+        .unwrap();
+    let games = games.as_array().unwrap();
+    assert!(!games.is_empty());
+    assert!(games.iter().all(|g| g["media"].get("video").is_some()));
+    let favourites = h
+        .call("library_random", json!({ "favorites": true }))
+        .unwrap();
+    assert!(
+        favourites
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|g| g["favorite"] == true)
+    );
 }

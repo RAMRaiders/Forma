@@ -8,12 +8,13 @@
 //! place. The library then re-imports it through the watcher, as for any gamelist change.
 
 pub mod companies;
+pub mod duplicates;
 mod engine;
 pub(crate) use text::title_key;
 pub mod pick;
 pub mod platforms;
 mod sources;
-mod text;
+pub(crate) mod text;
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -27,6 +28,14 @@ pub fn text_date(text: &str) -> Option<String> {
     text::date(text)
 }
 pub use sources::builtin;
+
+/// Builds LaunchBox's data again when an older Forma built it; `Ok(true)` when it did.
+pub fn upgrade_launchbox(
+    http: &dyn crate::net::Http,
+    paths: &crate::paths::Paths,
+) -> Result<bool, String> {
+    sources::launchbox::upgrade(http, &paths.cache_dir().join("launchbox.db"))
+}
 
 use crate::net::Http;
 
@@ -187,6 +196,22 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    /// HTML's character codes in its words as the characters they stand for (`&quot;` as `"`).
+    pub(crate) fn decode_entities(&mut self) {
+        for value in [
+            &mut self.name,
+            &mut self.description,
+            &mut self.developer,
+            &mut self.publisher,
+            &mut self.genre,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            *value = text::decode_entities(value);
+        }
+    }
+
     /// Fills what is empty here from `other`.
     pub(crate) fn fill_from(&mut self, other: Self) {
         fn take<T>(mine: &mut Option<T>, theirs: Option<T>) {

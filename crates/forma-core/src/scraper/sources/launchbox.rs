@@ -3,17 +3,18 @@
 //! fetches it once, keeps what it needs in a small database of its own, and answers from that;
 //! after [`MAX_AGE`] it fetches it again. Only the pictures come from the network per game.
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufReader, Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use quick_xml::Reader;
 use quick_xml::events::Event;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 
-use super::super::text::title_key;
+use super::super::text::{search_name, title_key};
 use super::super::{
     Credentials, Found, LookupError, MediaKind, Metadata, Query, Source, platforms,
 };
@@ -27,6 +28,8 @@ const IMAGES_URL: &str = "https://images.launchbox-app.com/";
 /// Well over the file's size, should it grow.
 const DATA_LIMIT: u64 = 512 << 20;
 const MAX_AGE: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+/// What the database holds; one built by an older Forma lacks the alternate names as written.
+const SCHEMA: i64 = 2;
 /// After a failed download, how long until another is tried.
 const RETRY_AFTER: Duration = Duration::from_secs(10 * 60);
 const PER_KIND: usize = 6;
@@ -62,6 +65,8 @@ static BUILDING: Mutex<()> = Mutex::new(());
 #[derive(Default)]
 struct State {
     db: Option<Connection>,
+    /// When the file open was written: another (see [`upgrade`]) is opened in its place.
+    opened: Option<SystemTime>,
     failed: Option<(Instant, String)>,
 }
 
@@ -111,10 +116,15 @@ impl LaunchBox {
                 }
             }
         }
+        let written = fs::metadata(&self.file).and_then(|m| m.modified()).ok();
+        if state.opened != written {
+            state.db = None;
+        }
         if state.db.is_none() && self.file.exists() {
             let db = Connection::open_with_flags(&self.file, OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .map_err(|e| LookupError::Failed(e.to_string()))?;
             state.db = Some(db);
+            state.opened = written;
         }
         if state.db.is_some() {
             return Ok(());
@@ -208,6 +218,7 @@ fn fill(zip: &[u8], temp: &Path) -> Result<(), String> {
              overview TEXT, developer TEXT, publisher TEXT, genres TEXT, players TEXT,
              released TEXT, rating REAL, esrb TEXT, votes INTEGER NOT NULL);
          CREATE TABLE title (key TEXT NOT NULL, game INTEGER NOT NULL, alternate INTEGER NOT NULL);
+         CREATE TABLE alias (game INTEGER NOT NULL, name TEXT NOT NULL, region TEXT);
          CREATE TABLE image (game INTEGER NOT NULL, type INTEGER NOT NULL, region TEXT,
              file TEXT NOT NULL);
          CREATE TABLE mame (file TEXT PRIMARY KEY, name TEXT NOT NULL) WITHOUT ROWID;",
@@ -224,6 +235,9 @@ fn fill(zip: &[u8], temp: &Path) -> Result<(), String> {
             .map_err(text)?;
         let mut image = tx
             .prepare("INSERT INTO image VALUES (?,?,?,?)")
+            .map_err(text)?;
+        let mut alias = tx
+            .prepare("INSERT INTO alias VALUES (?,?,?)")
             .map_err(text)?;
         records(
             archive.by_name("Metadata.xml").map_err(text)?,
@@ -270,6 +284,9 @@ fn fill(zip: &[u8], temp: &Path) -> Result<(), String> {
                             title
                                 .execute(params![title_key(name), id, 1])
                                 .map_err(text)?;
+                            alias
+                                .execute(params![id, name, field(fields, "Region")])
+                                .map_err(text)?;
                         }
                     }
                     "GameImage" => {
@@ -304,11 +321,110 @@ fn fill(zip: &[u8], temp: &Path) -> Result<(), String> {
     if games == 0 {
         return Err("it lists no games".to_owned());
     }
-    db.execute_batch(
+    db.execute_batch(&format!(
         "CREATE INDEX title_key ON title (key);
-         CREATE INDEX image_game ON image (game);",
-    )
+             CREATE INDEX image_game ON image (game);
+             CREATE INDEX alias_game ON alias (game);
+             PRAGMA user_version = {SCHEMA};"
+    ))
     .map_err(text)
+}
+
+/// What a database file holds ([`SCHEMA`]); 0 for none, or one from before it was counted.
+fn schema(file: &Path) -> i64 {
+    Connection::open_with_flags(file, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .and_then(|db| db.pragma_query_value(None, "user_version", |r| r.get(0)))
+        .unwrap_or(0)
+}
+
+/// Builds LaunchBox's data again when an older Forma built what is there: it answers on, but
+/// lacks what this one reads. `Ok(true)` when it did. Nothing is fetched when there is no data:
+/// the first lookup does it.
+pub(in crate::scraper) fn upgrade(http: &dyn Http, file: &Path) -> Result<bool, String> {
+    if !file.exists() || schema(file) >= SCHEMA {
+        return Ok(false);
+    }
+    let _one = BUILDING.lock().unwrap_or_else(PoisonError::into_inner);
+    if schema(file) >= SCHEMA {
+        return Ok(false);
+    }
+    fetch(http, file)?;
+    Ok(true)
+}
+
+/// Each game's LaunchBox game, and LaunchBox's name for it, by the game's id.
+pub(in crate::scraper) type Identified = HashMap<i64, (i64, String)>;
+
+/// Which LaunchBox game each of `games` (id, name, path) is, with LaunchBox's name for it, as a
+/// lookup would match it; `None` without the data.
+pub(in crate::scraper) fn identify(
+    file: &Path,
+    platforms: &[String],
+    games: &[(i64, &str, &str)],
+) -> Result<Option<Identified>, String> {
+    if !file.exists() {
+        return Ok(None);
+    }
+    let fail = |e: rusqlite::Error| e.to_string();
+    let db = Connection::open_with_flags(file, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(fail)?;
+    let on = platforms::launchbox(platforms);
+    let mut found = HashMap::new();
+    if on.is_empty() {
+        return Ok(Some(found));
+    }
+    let mut titles: HashMap<i64, String> = HashMap::new();
+    for (id, name, path) in games {
+        let rom = Path::new(path);
+        let part = |p: Option<&std::ffi::OsStr>| {
+            p.map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        };
+        let (file_name, stem) = (part(rom.file_name()), part(rom.file_stem()));
+        let name = search_name(name);
+        let query = Query {
+            system: "",
+            platforms,
+            file_name: &file_name,
+            stem: &stem,
+            name: &name,
+            size: 0,
+            hashes: None,
+            wanted: &[],
+            wants_metadata: false,
+        };
+        let Some(game) = matched(&db, &on, &query).map_err(fail)? else {
+            continue;
+        };
+        let title = match titles.entry(game) {
+            std::collections::hash_map::Entry::Occupied(known) => known.get().clone(),
+            std::collections::hash_map::Entry::Vacant(new) => new
+                .insert(
+                    db.query_row("SELECT name FROM game WHERE id = ?", [game], |r| r.get(0))
+                        .map_err(fail)?,
+                )
+                .clone(),
+        };
+        found.insert(*id, (game, title));
+    }
+    Ok(Some(found))
+}
+
+/// The game's other names, with the region each is used in, as written. None from a database
+/// an older Forma built.
+fn aliases(db: &Connection, game: i64) -> Vec<(String, Option<String>)> {
+    let Ok(mut stmt) =
+        db.prepare_cached("SELECT name, region FROM alias WHERE game = ? ORDER BY rowid")
+    else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::HashSet::new();
+    stmt.query_map([game], |r| Ok((r.get::<_, String>(0)?, r.get(1)?)))
+        .map(|rows| {
+            rows.filter_map(Result::ok)
+                .filter(|(name, _)| seen.insert(name.clone()))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn field<'a>(fields: &'a [(String, String)], name: &str) -> Option<&'a str> {
@@ -493,6 +609,11 @@ fn answer(db: &Connection, on: &[&str], query: &Query<'_>) -> rusqlite::Result<O
             media.push((*kind, url));
         }
     }
+    let own = metadata.name.clone();
+    notes.names = aliases(db, id)
+        .into_iter()
+        .filter(|(name, _)| Some(name) != own.as_ref())
+        .collect();
     Ok(Some(Found {
         metadata,
         media,

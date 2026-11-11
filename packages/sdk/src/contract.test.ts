@@ -93,7 +93,7 @@ describe('contract with the engine', () => {
     const crumb = keys<Crumb>()('key', 'label');
 
     for (const page of pages) {
-      expect(sorted(page)).toEqual(keys<Browse>()('view', 'path', 'trail', 'listing'));
+      expect(sorted(page)).toEqual(keys<Browse>()('view', 'path', 'trail', 'listing', 'filtered'));
       for (const c of page.trail) expect(sorted(c)).toEqual(crumb);
       const listing = page.listing;
       if (listing.kind === 'groups') {

@@ -103,7 +103,10 @@ pub fn fetch(
     };
     let mut saved = 0;
     for art in screenscraper::companies(http, credentials, &query)? {
-        // Filed under the name the library knows it by, and ScreenScraper's where that differs.
+        // Filed under ScreenScraper's name, and the library's too when it is the same company
+        // by another spelling (`Sega` and `Sega Enterprises`). Another company is not: the
+        // library may say a game's publisher is who ScreenScraper says developed it.
+        let theirs = slug(&art.name);
         let ours = if art.publisher {
             &game.publisher
         } else {
@@ -112,7 +115,8 @@ pub fn fetch(
         let slugs: BTreeSet<String> = ours
             .iter()
             .map(|n| slug(n))
-            .chain([slug(&art.name)])
+            .filter(|s| same_company(s, &theirs))
+            .chain([theirs.clone()])
             .filter(|s| !s.is_empty())
             .collect();
         if slugs.iter().all(|s| logo(paths, s).is_some()) {
@@ -137,6 +141,15 @@ pub fn fetch(
         let _ = write(&asked_file(paths, s), b"");
     }
     Ok(saved)
+}
+
+/// Whether two slugs name one company: the same, or one the other with words after it.
+fn same_company(a: &str, b: &str) -> bool {
+    let longer = |long: &str, short: &str| {
+        long.strip_prefix(short)
+            .is_some_and(|rest| rest.starts_with('-'))
+    };
+    !a.is_empty() && (a == b || longer(a, b) || longer(b, a))
 }
 
 fn write(path: &Path, png: &[u8]) -> std::io::Result<()> {
@@ -202,6 +215,15 @@ mod tests {
         assert_eq!(slug("I'Max"), "i-max");
         assert_eq!(slug("A.I Co"), "a-i-co");
         assert_eq!(slug("ナムコ"), "");
+    }
+
+    #[test]
+    fn a_company_is_itself_by_another_spelling_but_not_another_company() {
+        assert!(same_company("sega", "sega-enterprises"));
+        assert!(same_company("sega-enterprises", "sega"));
+        assert!(!same_company("namco", "namcot"));
+        assert!(!same_company("farsight-technologies", "active-enterprises"));
+        assert!(!same_company("", "sega"));
     }
 
     #[test]
