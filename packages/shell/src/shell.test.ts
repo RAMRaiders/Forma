@@ -500,7 +500,9 @@ describe('Forma’s shell', () => {
         'Delete'
       ])
     );
-    expect(text('.page h2')).toEqual(['Sonic']);
+    expect(text('.page h2')).toEqual(['SonicHomebrew Demo.nes']);
+    // The game's file, small under its name.
+    expect(text('.page h2 .file')).toEqual(['Homebrew Demo.nes']);
     expect(root.querySelector('.page li.danger .name')?.textContent).toBe('Delete');
 
     await press('confirm');

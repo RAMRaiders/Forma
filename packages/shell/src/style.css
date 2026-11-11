@@ -345,6 +345,25 @@
   background: var(--panel-solid, #0b111d);
 }
 
+/* Under the title, small: the game's file name, as it is on disk. */
+.switcher h2 .file {
+  flex-basis: 100%;
+  min-width: 0;
+  margin: -0.35em 0 0 calc(0.9em + 0.6em);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.58em;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.switcher h2:has(.file) {
+  flex-wrap: wrap;
+}
+
 /* No padding above the pinned title: WebKit pins below a scroller's padding, so the title would
    sit that much lower and cover the top of the list. */
 .switcher.page > .panel {

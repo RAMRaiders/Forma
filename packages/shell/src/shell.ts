@@ -552,6 +552,14 @@ export class Shell {
       },
       setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value)
     };
+    // The game's file, as it is on disk, small under its name.
+    const file =
+      list === 'games' && game
+        ? await this.forma.library
+            .game(game.id)
+            .then((g) => g?.path.split('/').pop() ?? undefined)
+            .catch(() => undefined)
+        : undefined;
     this.#pageKind = 'context';
     await (list === 'systems'
       ? this.#page.show(
@@ -567,7 +575,9 @@ export class Shell {
                 // Its video played over the theme's: the theme shows the game afresh after.
                 this.#reader.showMedia(g, () => void this.calls.openGame(g.id).catch(() => {}))
               )
-          })
+          }),
+          undefined,
+          file
         ));
     this.#changed();
   }

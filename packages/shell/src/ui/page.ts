@@ -33,6 +33,7 @@ interface Level {
   title: string;
   build: () => Row[] | Promise<Row[]>;
   note: string | null;
+  file: string | null;
   selected: number;
 }
 
@@ -51,6 +52,8 @@ export class Page {
   #selected = 0;
   #busy: string | null = null;
   #note: string | null = null;
+  /** A small line under the title, e.g. the game's file name. */
+  #file: string | null = null;
   #parents: Level[] = [];
 
   constructor(
@@ -63,9 +66,15 @@ export class Page {
     return !this.root.hidden;
   }
 
-  async show(title: string, build: () => Row[] | Promise<Row[]>, note?: string): Promise<void> {
+  /** `file`: a small line under the title, e.g. the game's ROM file name. */
+  async show(
+    title: string,
+    build: () => Row[] | Promise<Row[]>,
+    note?: string,
+    file?: string
+  ): Promise<void> {
     this.#parents = [];
-    return this.#open(title, build, note);
+    await this.#open(title, build, note, 0, file);
   }
 
   /** A deeper page, starting on row `at`; B comes back here. */
@@ -79,6 +88,7 @@ export class Page {
       title: this.#title,
       build: this.#build,
       note: this.#note,
+      file: this.#file,
       selected: this.#selected
     });
     return this.#open(title, build, note, at);
@@ -91,6 +101,7 @@ export class Page {
     this.#title = parent.title;
     this.#build = parent.build;
     this.#note = parent.note;
+    this.#file = parent.file;
     this.#selected = parent.selected;
     this.#rows = [];
     await this.refresh();
@@ -100,9 +111,11 @@ export class Page {
     title: string,
     build: () => Row[] | Promise<Row[]>,
     note?: string,
-    at = 0
+    at = 0,
+    file?: string
   ): Promise<void> {
     this.#title = title;
+    this.#file = file ?? null;
     this.#build = build;
     this.#note = note ?? null;
     this.#selected = at;
@@ -270,7 +283,7 @@ export class Page {
       el(
         'div',
         { class: 'panel' },
-        el('h2', {}, this.#title),
+        el('h2', {}, this.#title, this.#file ? el('small', { class: 'file' }, this.#file) : null),
         this.#busy
           ? el(
               'div',
