@@ -126,7 +126,8 @@ fn fields(game: &Element, system_dir: &Path, paths: &Paths) -> BTreeMap<&'static
             continue;
         };
         let value = match kind {
-            Kind::Text => Some(raw.to_owned()),
+            // Codes some scrapers left in (`&quot;`), as the characters they stand for.
+            Kind::Text => Some(crate::scraper::text::decode_entities(raw)),
             Kind::Date => es_date(raw).map(|(date, _)| date),
             Kind::DateTime => es_date(raw).map(|(date, time)| format!("{date}T{time}")),
             Kind::Rating => raw

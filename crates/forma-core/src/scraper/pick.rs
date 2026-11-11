@@ -216,7 +216,13 @@ pub fn gather(
             continue;
         }
         match source.lookup(http, creds, &query) {
-            Ok(Some(found)) => answers.push((source.name().to_owned(), found)),
+            Ok(Some(mut found)) => {
+                found.metadata.decode_entities();
+                for (name, _) in &mut found.notes.names {
+                    *name = super::text::decode_entities(name);
+                }
+                answers.push((source.name().to_owned(), found));
+            }
             Ok(None) => {}
             Err(LookupError::Credentials(e) | LookupError::Quota(e) | LookupError::Failed(e)) => {
                 problems.push(format!("{}: {e}", source.name()))
