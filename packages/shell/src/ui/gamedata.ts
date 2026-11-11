@@ -61,30 +61,49 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
   ];
 }
 
-/** How long Delete waits for its second press, as the power actions do. */
-const DELETE_CONFIRM_MS = 3000;
-
-/** Last on the page, apart from the rest. A second press soon after: a stray A does no harm. */
+/**
+ * Last on the page, apart from the rest. A page of its own asks first, saying what goes, with
+ * keeping it chosen: a stray A does no harm.
+ */
 export function deleteGameRow(forma: Forma, page: Page, game: { id: number; name: string }): Row {
-  let confirmUntil = 0;
   return {
     icon: 'delete',
     danger: true,
     label: 'Delete',
-    detail: 'Its ROM, details and pictures, for good. Press A twice',
-    run: () => {
-      const now = Date.now();
-      if (now > confirmUntil) {
-        confirmUntil = now + DELETE_CONFIRM_MS;
-        page.notify(`Press A again to delete ${game.name}`);
-        return;
-      }
-      confirmUntil = 0;
-      return page.run('Deleting…', async () => {
-        await forma.library.deleteGame(game.id);
-        page.close();
-        return `Deleted ${game.name}`;
-      });
+    detail: 'Its ROM, details and pictures, for good',
+    run: async () => {
+      const found = await forma.library.game(game.id).catch(() => null);
+      const file = found?.path.split('/').pop();
+      // Its box (or a screenshot), so there is no doubt which game goes.
+      const has = (found?.media ?? {}) as Partial<Record<string, string>>;
+      const kind = (['thumbnail', 'image'] as const).find((k) => has[k]);
+      const picture = kind ? forma.library.mediaUrl(game.id, kind, 320) : null;
+      await page.push(
+        `Delete ${game.name}?`,
+        () => [
+          {
+            label: 'Keep it',
+            detail: 'Nothing is deleted',
+            run: () => page.pop()
+          },
+          {
+            icon: 'delete',
+            danger: true,
+            label: 'Delete for good',
+            detail: file
+              ? `${file}, its details, pictures and videos`
+              : 'Its ROM, details and pictures',
+            image: picture,
+            run: () =>
+              page.run('Deleting…', async () => {
+                await forma.library.deleteGame(game.id);
+                page.close();
+                return `Deleted ${game.name}`;
+              })
+          }
+        ],
+        'It goes from the library and from the disk. This cannot be undone.'
+      );
     }
   };
 }

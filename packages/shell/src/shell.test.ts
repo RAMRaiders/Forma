@@ -777,10 +777,17 @@ describe('Forma’s shell', () => {
     while (text('.page li.selected .name')[0] !== 'Delete') await press('down');
 
     const invoke = vi.spyOn(backend, 'invoke');
-    await press('confirm'); // The first A only asks.
-    await vi.waitFor(() => expect(text('.toast')).toContain('Press A again to delete Sonic'));
+    await press('confirm'); // The first A only asks, on a page of its own, keeping it chosen.
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Delete Sonic?']));
+    expect(rows()).toEqual(['Keep it', 'Delete for good']);
+    expect(text('.page li.selected .name')).toEqual(['Keep it']);
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Delete'));
     expect(invoke).not.toHaveBeenCalledWith('library_delete_game', { id: 1 });
 
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Delete Sonic?']));
+    await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('library_delete_game', { id: 1 }));
     await vi.waitFor(() => expect(text('.toast')).toContain('Deleted Sonic'));
