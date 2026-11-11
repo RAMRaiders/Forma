@@ -1,3 +1,4 @@
+import { dumpLabel } from './dumps.js';
 import type {
   BatoceraSetting,
   Forma,
@@ -639,7 +640,18 @@ export function gamesScreen(
 ): () => Promise<Row[]> {
   return async () => {
     const rows: Row[] = game ? gameRows(forma, page, game) : [];
-    const same = game ? await sameGame(forma, game.id) : [];
+    const [same, full] = game
+      ? await Promise.all([sameGame(forma, game.id), forma.library.game(game.id).catch(() => null)])
+      : [[], null];
+    // What the catalogues say of its file, once Forma has checked it.
+    if (full?.dump) {
+      rows.push({
+        label: `ROM: ${dumpLabel(full.dump)}`,
+        detail:
+          full.dump.name ??
+          'In no No-Intro or Redump list: a hack, translation, homebrew, or a changed file'
+      });
+    }
     if (same.length > 1) {
       rows.push({
         icon: 'filter',

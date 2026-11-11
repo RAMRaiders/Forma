@@ -259,10 +259,10 @@ fn a_library_from_before_the_new_tags_reads_its_gamelists_again_once() {
         let report = lib.refresh(&fixture_paths()).unwrap();
         assert_eq!(report.gamelists_imported, 3);
     }
-    // As a database from before the last migration was left (it adds a column, so it is
-    // taken away too, as it was).
+    // As a database from before the last two migrations was left (they add a column and a
+    // table, so those are taken away too, as they were).
     let conn = Connection::open(&path).unwrap();
-    conn.execute_batch("ALTER TABLE game DROP COLUMN age_rating")
+    conn.execute_batch("ALTER TABLE game DROP COLUMN age_rating; DROP TABLE game_dump;")
         .unwrap();
     conn.pragma_update(None, "user_version", 8).unwrap();
     drop(conn);
@@ -595,4 +595,61 @@ fn random_games_keep_to_media_favourites_and_system() {
     assert!(names(&[], true, None).contains(&"Super Mario Bros.".to_owned()));
     assert!(names(&[], false, Some("nosuchsystem")).is_empty());
     assert_eq!(lib.random_games(&[], 1, false, None).unwrap().len(), 1);
+}
+
+#[test]
+fn dump_checks_are_kept_per_game_and_reported_per_system() {
+    let (mut lib, _) = refreshed();
+    let dump = |status: &str, catalogue: Option<&str>| crate::library::Dump {
+        status: status.into(),
+        catalogue: catalogue.map(Into::into),
+        name: catalogue.map(|_| "Super Mario Bros. (World)".into()),
+        region: None,
+    };
+    let mario = lib
+        .games("nes")
+        .unwrap()
+        .into_iter()
+        .find(|g| g.name == "Super Mario Bros.")
+        .unwrap();
+    let other = lib
+        .games("nes")
+        .unwrap()
+        .into_iter()
+        .find(|g| g.id != mario.id)
+        .unwrap();
+    let checks = vec![
+        (
+            mario.path.clone(),
+            "a".repeat(40),
+            dump("verified", Some("no-intro")),
+        ),
+        (
+            other.path.clone(),
+            "b".repeat(40),
+            dump("notCatalogued", None),
+        ),
+        (
+            "gone.nes".into(),
+            "c".repeat(40),
+            dump("verified", Some("no-intro")),
+        ),
+    ];
+    assert_eq!(lib.set_dumps("nes", &checks).unwrap(), 2);
+    assert_eq!(lib.set_dumps("nes", &checks).unwrap(), 0, "nothing new");
+    let game = lib.game(mario.id).unwrap().unwrap();
+    assert_eq!(game.dump.unwrap().catalogue.as_deref(), Some("no-intro"));
+    let report = lib.dump_report(&["nes".into(), "nothing".into()]).unwrap();
+    assert_eq!(report.len(), 1);
+    assert_eq!(
+        (
+            report[0].checked,
+            report[0].verified,
+            report[0].not_catalogued
+        ),
+        (2, 1, 1)
+    );
+    // Checked again without the other game: back to unknown.
+    assert_eq!(lib.set_dumps("nes", &checks[..1]).unwrap(), 1);
+    assert_eq!(lib.game(other.id).unwrap().unwrap().dump, None);
 }

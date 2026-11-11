@@ -6,12 +6,14 @@
 
 mod collections;
 mod computed;
+mod dumps;
 mod imports;
 mod recommend;
 mod refresh;
 mod schema;
 mod versions;
 
+pub use dumps::DumpReport;
 pub use versions::{GameVersion, VersionGroup};
 
 use std::collections::{BTreeMap, HashSet};
@@ -89,6 +91,24 @@ pub struct Game {
     pub iconic: bool,
     /// Media kind (`image`, `video`, `marquee`…) to absolute path.
     pub media: BTreeMap<String, String>,
+    /// Whether its file is a catalogued dump; `None` while unknown (not checked yet, or no
+    /// catalogue covers its system).
+    pub dump: Option<Dump>,
+}
+
+/// What the No-Intro or Redump DATs say of a game's file (see [`crate::dumps`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Dump {
+    /// `verified`: size, CRC32 and SHA1 as the DAT lists them. `crcOnly`: size and CRC32,
+    /// the DAT having no SHA1. `badDump`: a dump the DAT marks bad. `notCatalogued`: in no
+    /// DAT of its system (a hack, a translation, homebrew, a changed or bad file).
+    pub status: String,
+    /// `no-intro` or `redump`; `None` when not catalogued.
+    pub catalogue: Option<String>,
+    /// The DAT's name for it, e.g. `Super Mario Bros. (World)`.
+    pub name: Option<String>,
+    pub region: Option<String>,
 }
 
 pub(crate) const GAME_COLUMNS: &str = "g.id, g.system, g.path, g.name, g.description, g.developer, \
@@ -387,6 +407,7 @@ impl Library {
                     age_rating: r.get(19)?,
                     iconic: false,
                     media: BTreeMap::new(),
+                    dump: None,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -401,6 +422,21 @@ impl Library {
             game.media = media
                 .query_map([game.id], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<_>>()?;
+        }
+        let mut dump = self.conn.prepare_cached(
+            "SELECT status, catalogue, name, region FROM game_dump WHERE game_id = ?1",
+        )?;
+        for game in &mut games {
+            game.dump = dump
+                .query_row([game.id], |r| {
+                    Ok(Dump {
+                        status: r.get(0)?,
+                        catalogue: r.get(1)?,
+                        name: r.get(2)?,
+                        region: r.get(3)?,
+                    })
+                })
+                .optional()?;
         }
         Ok(games)
     }

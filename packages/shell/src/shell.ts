@@ -27,6 +27,7 @@ import {
 } from './ui/screens.js';
 import { magazinesScreen } from './ui/magazines.js';
 import { duplicatesScreen, versionsScreen } from './ui/gamedata.js';
+import { dumpsScreen } from './ui/dumps.js';
 import { addonsScreen } from './ui/addons.js';
 import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
@@ -653,6 +654,11 @@ export class Shell {
             detail: 'For every game: ratio, shaders, decorations…',
             run: () =>
               page.push('Emulator options', optionsScreen(this.forma, page, { level: 'global' }))
+          },
+          {
+            label: 'ROM check',
+            detail: 'Which files are the dumps No-Intro and Redump list',
+            run: () => page.push('ROM check', dumpsScreen(this.forma, page))
           },
           {
             label: 'Game versions',

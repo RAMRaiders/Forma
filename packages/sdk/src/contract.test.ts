@@ -66,7 +66,8 @@ describe('contract with the engine', () => {
       'lang',
       'ageRating',
       'iconic',
-      'media'
+      'media',
+      'dump'
     );
     for (const game of data.games) expect(sorted(game)).toEqual(expected);
   });

@@ -17,7 +17,8 @@ pub struct Identified {
     pub system: String,
     /// Relative to the system folder, as the import format keys it.
     pub path: String,
-    /// The file inside the archive that was identified, when `path` is a single-file archive.
+    /// The file that was identified, when not `path` itself: the one inside a single-file
+    /// archive, or a CUE sheet's first track.
     pub inner: Option<String>,
     /// Of the ROM: uncompressed, for an archive.
     pub size: u64,
@@ -64,7 +65,9 @@ pub fn identify(targets: &[Target], cache: &mut Cache) -> Result<(Vec<Identified
                 };
                 let cached = cache
                     .get(&file.full, stamp)?
-                    .filter(|e| e.ra_console == console.map(|c| c.0));
+                    .filter(|e| e.ra_console == console.map(|c| c.0))
+                    // Cached before CUE sheets were followed to their first track.
+                    .filter(|e| !(is_cue(&file.full) && e.inner.is_none()));
                 let entry = match cached {
                     Some(entry) => {
                         report.cached += 1;
@@ -150,6 +153,24 @@ fn learn(path: &Path, console: Option<Console>, skipped: &mut Vec<String>) -> Op
         }
         None => {}
     }
+    // A CUE sheet is a few lines of text: the disc is its tracks, and DATs list the first.
+    if let Some(track) = is_cue(path).then(|| first_track(path)).flatten() {
+        return match std::fs::File::open(&track)
+            .and_then(|f| hash_reader(std::io::BufReader::new(f)))
+        {
+            Ok((hashes, size)) => Some(Entry {
+                hashes,
+                inner: track.file_name().map(|n| n.to_string_lossy().into_owned()),
+                size,
+                ra: ra_of_file(),
+                ra_console,
+            }),
+            Err(e) => {
+                skipped.push(Error::io(&track, e).to_string());
+                None
+            }
+        };
+    }
     match std::fs::File::open(path).and_then(|f| hash_reader(std::io::BufReader::new(f))) {
         Ok((hashes, size)) => Some(Entry {
             hashes,
@@ -163,6 +184,33 @@ fn learn(path: &Path, console: Option<Console>, skipped: &mut Vec<String>) -> Op
             None
         }
     }
+}
+
+fn is_cue(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("cue"))
+}
+
+/// The first `FILE` a CUE sheet names, beside it: the first track, data on every disc a DAT
+/// lists. `None` for a sheet with no file in it.
+fn first_track(cue: &Path) -> Option<std::path::PathBuf> {
+    let text = std::fs::read(cue).ok()?;
+    let text = String::from_utf8_lossy(&text);
+    let line = text
+        .lines()
+        .map(str::trim)
+        .find(|l| l.len() > 5 && l[..5].eq_ignore_ascii_case("FILE "))?;
+    let rest = line[5..].trim();
+    let name = if let Some(quoted) = rest.strip_prefix('"') {
+        quoted.split('"').next()?
+    } else {
+        // Unquoted: the name, then the file type.
+        rest.rsplit_once(char::is_whitespace)
+            .map_or(rest, |(n, _)| n.trim())
+    };
+    // Only beside the sheet: a name never reaches out of its folder.
+    let file = Path::new(name).file_name()?;
+    Some(cue.with_file_name(file))
 }
 
 #[cfg(test)]
@@ -284,5 +332,54 @@ mod tests {
         std::fs::write(dir.path().join("roms/nes/B.nes"), b"changed").unwrap();
         let (_, report) = identify(&targets, &mut cache).unwrap();
         assert_eq!((report.hashed, report.cached), (1, 1));
+    }
+}
+
+#[cfg(test)]
+mod cue_tests {
+    use super::*;
+
+    #[test]
+    fn a_cue_sheet_is_identified_by_its_first_track() {
+        let dir = tempfile::tempdir().unwrap();
+        let psx = dir.path().join("roms/psx");
+        std::fs::create_dir_all(&psx).unwrap();
+        std::fs::write(
+            psx.join("Game (Europe).cue"),
+            "FILE \"Game (Europe) (Track 1).bin\" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\nFILE \"Game (Europe) (Track 2).bin\" BINARY\n  TRACK 02 AUDIO\n",
+        )
+        .unwrap();
+        std::fs::write(
+            psx.join("Game (Europe) (Track 1).bin"),
+            b"The quick brown fox jumps over the lazy dog",
+        )
+        .unwrap();
+        std::fs::write(psx.join("Game (Europe) (Track 2).bin"), b"audio").unwrap();
+        let targets = vec![Target {
+            system: "psx".into(),
+            root: psx,
+            extensions: vec![".cue".into()],
+        }];
+        let mut cache = Cache::in_memory().unwrap();
+        let (found, _) = identify(&targets, &mut cache).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].hashes.crc32, "414fa339");
+        assert_eq!(found[0].size, 43);
+        assert_eq!(
+            found[0].inner.as_deref(),
+            Some("Game (Europe) (Track 1).bin")
+        );
+    }
+
+    #[test]
+    fn reads_unquoted_names_and_stays_in_the_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let cue = dir.path().join("a.cue");
+        std::fs::write(&cue, "REM x\nfile track1.bin BINARY\n").unwrap();
+        assert_eq!(first_track(&cue), Some(dir.path().join("track1.bin")));
+        std::fs::write(&cue, "FILE \"../../etc/passwd\" BINARY\n").unwrap();
+        assert_eq!(first_track(&cue), Some(dir.path().join("passwd")));
+        std::fs::write(&cue, "TRACK 01 AUDIO\n").unwrap();
+        assert_eq!(first_track(&cue), None);
     }
 }

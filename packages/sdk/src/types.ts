@@ -157,6 +157,48 @@ export interface Game {
   iconic: boolean;
   /** Media kind → URL to load it from. */
   media: Partial<Record<MediaKind, string>>;
+  /**
+   * Whether its file is a catalogued dump, by its checksums in the No-Intro or Redump DATs;
+   * `null` while unknown (not checked yet, the check is off, or no catalogue covers its
+   * system). Since 1.32.0.
+   */
+  dump: GameDump | null;
+}
+
+/** What the No-Intro or Redump DATs say of a game's file. Since 1.32.0. */
+export interface GameDump {
+  /**
+   * `verified`: its size, CRC32 and SHA1 are a catalogued dump's. `crcOnly`: size and CRC32
+   * are, the DAT having no SHA1. `badDump`: a dump the DAT marks bad. `notCatalogued`: in no
+   * DAT of its system (a hack, a translation, homebrew, or a changed or damaged file).
+   */
+  status: 'verified' | 'crcOnly' | 'badDump' | 'notCatalogued';
+  /** `null` when not catalogued. */
+  catalogue: 'no-intro' | 'redump' | null;
+  /** The catalogue's name for it, e.g. `Super Mario Bros. (World)`. */
+  name: string | null;
+  region: string | null;
+}
+
+/** A system's dump check (`library.dumpChecks`). Since 1.32.0. */
+export interface DumpReport {
+  system: string;
+  games: number;
+  checked: number;
+  verified: number;
+  /** Matched on size and CRC32 only, or a dump the DAT marks bad. */
+  doubtful: number;
+  notCatalogued: number;
+}
+
+/** How far the dump check has got (`library.dumpChecks`). Since 1.32.0. */
+export interface DumpChecks {
+  /** Forma's setting `library.verifyDumps`, on unless turned off. */
+  on: boolean;
+  /** Hashing or checking now. */
+  running: boolean;
+  /** Per system a No-Intro or Redump DAT covers, with games. */
+  systems: DumpReport[];
 }
 
 /** A title with more than one version among a system's games. Since 1.26.0. */

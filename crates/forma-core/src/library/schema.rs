@@ -5,9 +5,22 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 9;
+pub(crate) const SCHEMA_VERSION: i64 = 10;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10];
+
+/// Whether each game's file is a catalogued dump (#115): what its hashes found in the No-Intro
+/// and Redump DATs. Worked out by Forma, so kept apart from what gamelists say.
+const V10: &str = r"
+CREATE TABLE game_dump (
+    game_id    INTEGER PRIMARY KEY REFERENCES game (id) ON DELETE CASCADE,
+    status     TEXT NOT NULL,   -- verified, crcOnly, badDump, notCatalogued
+    catalogue  TEXT,            -- no-intro, redump; NULL when not catalogued
+    name       TEXT,            -- the DAT's name for the game
+    region     TEXT,
+    sha1       TEXT NOT NULL
+) WITHOUT ROWID;
+";
 
 /// A game's age ratings (`agerating`, Forma's own tag): a column for themes, and every gamelist
 /// read again, once, for the tag.

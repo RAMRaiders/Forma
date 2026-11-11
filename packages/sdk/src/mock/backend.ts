@@ -1325,6 +1325,40 @@ export function mockBackend(options: MockOptions = {}): Backend {
       controllers: [{ player: 1, name: 'Xbox 360 Controller', kind: 'xbox' }],
       network: { kind: 'ethernet', internet: true }
     }),
+    library_dump_checks: () => {
+      const bySystem = new Map<
+        string,
+        {
+          games: number;
+          checked: number;
+          verified: number;
+          doubtful: number;
+          notCatalogued: number;
+        }
+      >();
+      for (const g of games.values()) {
+        const s = bySystem.get(g.system) ?? {
+          games: 0,
+          checked: 0,
+          verified: 0,
+          doubtful: 0,
+          notCatalogued: 0
+        };
+        s.games++;
+        if (g.dump) {
+          s.checked++;
+          if (g.dump.status === 'verified') s.verified++;
+          else if (g.dump.status === 'notCatalogued') s.notCatalogued++;
+          else s.doubtful++;
+        }
+        bySystem.set(g.system, s);
+      }
+      return {
+        on: settings.get('library.verifyDumps') !== false,
+        running: false,
+        systems: [...bySystem].map(([system, s]) => ({ system, ...s }))
+      };
+    },
     ra_matches: () => ({
       running: false,
       systems: [

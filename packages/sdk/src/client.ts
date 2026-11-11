@@ -7,6 +7,7 @@ import type {
   Browse,
   Controller,
   DefaultView,
+  DumpChecks,
   FilterOptions,
   ListFilter,
   EthernetConfig,
@@ -201,6 +202,12 @@ export class Forma {
           favorites: options?.favorites ?? false,
           system: options?.system ?? null
         }),
+      /**
+       * How much of the library is checked against the No-Intro and Redump DATs, per system.
+       * Forma hashes games in the background (never while one runs) and fetches the DATs of
+       * the systems present from libretro-database. Since 1.32.0.
+       */
+      dumpChecks: () => invoke<DumpChecks>('library_dump_checks'),
       setFavorite: (id: number, favorite: boolean) =>
         invoke<void>('library_set_favorite', { id, favorite }),
       /**

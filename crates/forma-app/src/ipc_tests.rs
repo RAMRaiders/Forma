@@ -1546,3 +1546,36 @@ fn random_games_for_the_screensaver_have_the_media_asked_for() {
             .all(|g| g["favorite"] == true)
     );
 }
+
+#[test]
+fn the_dump_check_reports_systems_a_catalogue_covers_and_can_be_turned_off() {
+    let h = Harness::new(&[]);
+    let checks = h.call("library_dump_checks", json!({})).unwrap();
+    assert_eq!(checks["on"], true);
+    let systems: Vec<&str> = checks["systems"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["system"].as_str().unwrap())
+        .collect();
+    assert!(systems.contains(&"nes"), "{systems:?}");
+    let games = h
+        .call("library_search", json!({ "query": "mario" }))
+        .unwrap();
+    assert!(
+        games[0].get("dump").is_some(),
+        "every game says, null while unknown"
+    );
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    h.call_as_shell(
+        token.as_str().unwrap(),
+        "settings_set",
+        json!({ "key": "library.verifyDumps", "value": false, "scope": "system" }),
+    )
+    .unwrap();
+    assert_eq!(
+        h.call("library_dump_checks", json!({})).unwrap()["on"],
+        false
+    );
+}

@@ -372,7 +372,7 @@ describe('Forma’s shell', () => {
     const details = () => text('.page > .panel li[role=option] .description');
     await openMenu('Games');
     await vi.waitFor(() => expect(rows()).toContain('Sibling games'));
-    for (let i = 0; i < 3; i++) await press('down');
+    for (let i = 0; i < 4; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toEqual(["Needs LaunchBox's data"]));
 
@@ -407,7 +407,13 @@ describe('Forma’s shell', () => {
       expect(selected()).toBe(label);
     };
     await vi.waitFor(() =>
-      expect(rows()).toEqual(['Scrapers', 'Emulator options', 'Game versions', 'Sibling games'])
+      expect(rows()).toEqual([
+        'Scrapers',
+        'Emulator options',
+        'ROM check',
+        'Game versions',
+        'Sibling games'
+      ])
     );
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
@@ -482,6 +488,8 @@ describe('Forma’s shell', () => {
         'Scrape',
         'Edit details',
         'Emulator settings',
+        // The mock's checked games: this one is in no catalogue.
+        'ROM: Not catalogued',
         'Filter list',
         'Delete'
       ])
@@ -1754,5 +1762,26 @@ describe('Forma’s screensaver', () => {
     await vi.waitFor(() =>
       expect(h.text('.screensaver .info .name')).toEqual(['No game has that picture yet'])
     );
+  });
+});
+
+describe('ROM check', () => {
+  it('shows each system’s dump check under Start → Games, and turns it off', async () => {
+    const { press, text, openMenu, forma } = start(['settings.system']);
+    await openMenu('Games');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    await vi.waitFor(() => expect(rows()).toContain('ROM check'));
+    for (let i = 0; i < 2; i++) await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()[0]).toBe('Check ROMs: On'));
+    const nes = rows().findIndex(
+      (r) => r.startsWith('Nintendo Entertainment System') || r === 'nes'
+    );
+    expect(nes).toBeGreaterThan(0);
+    expect(details()[nes]).toMatch(/^1 of \d+ games verified · 1 not catalogued/);
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()[0]).toBe('Check ROMs: Off'));
+    expect(await forma.settings.getSystem('library.verifyDumps')).toBe(false);
   });
 });
