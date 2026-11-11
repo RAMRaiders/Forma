@@ -428,6 +428,9 @@ export class Screensaver {
       this.#games = [];
     }
     if (run !== this.#run) return;
+    // Systems' full names, ready before the first game's name shows.
+    await this.#loadSystems();
+    if (run !== this.#run) return;
     if (this.#games.length === 0) {
       // Nothing to show: dimmed, saying why.
       this.root.classList.replace(`type-${s.type}`, 'type-dim');
@@ -540,16 +543,15 @@ export class Screensaver {
     if (info === 'start') this.#infoTimer = setTimeout(() => (this.#info.hidden = true), INFO_MS);
   }
 
-  #systems: Map<string, string> | null = null;
+  #systems = new Map<string, string>();
+
+  async #loadSystems(): Promise<void> {
+    if (this.#systems.size > 0) return;
+    const all = await this.forma.library.systems().catch(() => []);
+    for (const s of all) this.#systems.set(s.name, s.fullname || s.name);
+  }
 
   #systemName(name: string): string {
-    if (!this.#systems) {
-      this.#systems = new Map();
-      this.forma.library
-        .systems()
-        .then((all) => all.forEach((s) => this.#systems!.set(s.name, s.fullname || s.name)))
-        .catch(() => {});
-    }
     return this.#systems.get(name) ?? name;
   }
 }

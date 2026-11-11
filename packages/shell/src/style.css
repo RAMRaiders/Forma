@@ -1118,6 +1118,11 @@ kbd {
   background: transparent;
 }
 
+.shell.saving .status,
+.shell.saving .song {
+  visibility: hidden;
+}
+
 .screensaver .stage {
   position: absolute;
   inset: 0;

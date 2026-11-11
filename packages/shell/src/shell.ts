@@ -144,6 +144,8 @@ export class Shell {
     this.#reader = new Reader(forma, notify);
     this.#saver = new Screensaver(forma, {
       setActive: async (active) => {
+        // The corner's pads and connection would show through its videos.
+        this.root.classList.toggle('saving', active);
         await calls.screensaver(active);
         // Gone: input goes back to wherever it went before (a menu left open, or the theme).
         if (!active) await calls.setOpen(this.open);
