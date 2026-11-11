@@ -418,7 +418,13 @@ export class Forma {
         invoke<string[]>('scraper_apply', { id, text, media }),
       /** Changes a game's details by hand; `''` clears one. Since 1.25.0. */
       edit: (id: number, fields: Record<string, string>) =>
-        invoke<void>('scraper_edit', { id, fields })
+        invoke<void>('scraper_edit', { id, fields }),
+      /**
+       * Takes these kinds of media off a game and deletes their files (not one another game
+       * shows too). Returns what could not be deleted. Since 1.30.0.
+       */
+      removeMedia: (id: number, kinds: MediaKind[]) =>
+        invoke<string[]>('scraper_remove_media', { id, kinds })
     };
 
     /**

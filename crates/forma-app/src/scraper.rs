@@ -594,6 +594,37 @@ pub async fn scraper_apply<R: Runtime>(
     Ok(problems)
 }
 
+/// Takes pictures, videos or manuals off a game and deletes their files; returns what could
+/// not be deleted.
+#[tauri::command]
+pub async fn scraper_remove_media<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    id: i64,
+    kinds: Vec<MediaKind>,
+) -> ApiResult<Vec<String>> {
+    let events = app.clone();
+    let removed = !kinds.is_empty();
+    let problems = off_thread(app, move |state| {
+        caller.require(state, permissions::SCRAPER_MANAGE)?;
+        let (game, system) = target(state, id)?;
+        // A file another game shows too stays.
+        let shared = state
+            .library()
+            .games(&system.name)?
+            .into_iter()
+            .filter(|g| g.id != id)
+            .flat_map(|g| g.media.into_values())
+            .collect();
+        pick::remove_media(&state.paths, &game, &system, &kinds, &shared).map_err(internal)
+    })
+    .await?;
+    if removed {
+        let _ = events.emit(EVENT_MEDIA_CHANGED, MediaChanged { game: id });
+    }
+    Ok(problems)
+}
+
 /// Changes a game's details by hand; an empty value clears one.
 #[tauri::command]
 pub async fn scraper_edit<R: Runtime>(

@@ -1,4 +1,10 @@
-import type { Forma, ScraperOffers, ScraperSettings, VersionGroup } from '@ramraiders/forma-sdk';
+import type {
+  Forma,
+  MediaKind,
+  ScraperOffers,
+  ScraperSettings,
+  VersionGroup
+} from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
 import { backupNote, themeUse } from './scraper.js';
@@ -251,7 +257,10 @@ function pick(forma: Forma, page: Page, game: { id: number; name: string }): Pro
       forma.scraper.settings(),
       fileNote(forma, game.id)
     ]);
-    if (offers.text.length === 0 && offers.media.length === 0) {
+    // Nothing offered and nothing to remove (a name stays).
+    const offered = [...offers.text, ...offers.media].some((s) => s.offers.length > 0);
+    const removable = offers.media.length > 0 || offers.text.some((s) => s.field !== 'name');
+    if (!offered && !removable) {
       return offers.problems[0] ?? 'No scraper knows this game';
     }
     await page.push(
@@ -278,14 +287,18 @@ function pickScreen(
   const media = new Map<string, number>();
   // Fields to empty on saving: what the game has now goes, and nothing takes its place.
   const cleared = new Set<string>();
+  // Media to delete on saving, likewise.
+  const removed = new Set<MediaKind>();
   for (const s of firstTime ? offers.text : []) {
-    if (s.current === null) text.set(s.field, s.offers[0]!.value);
+    const first = s.offers[0];
+    if (s.current === null && first) text.set(s.field, first.value);
   }
   for (const s of firstTime ? offers.media : []) {
     const use = themeUse(theme, s.kind);
     const replaced = offers.media.some((m) => m.kind === theme?.backups[s.kind]);
-    if (use !== 'unused' && !(use === 'backup' && replaced)) {
-      media.set(s.kind, s.offers[0]!.id);
+    const first = s.offers[0];
+    if (first && use !== 'unused' && !(use === 'backup' && replaced)) {
+      media.set(s.kind, first.id);
     }
   }
   const previews = new Map<number, string | null>();
@@ -338,7 +351,7 @@ function pickScreen(
           ...(section.field !== 'name' && section.current !== null
             ? [
                 {
-                  label: 'Clear it',
+                  label: 'Remove and delete',
                   detail: 'Removes what it has now, and takes nothing in its place',
                   run: choose(() => {
                     text.delete(section.field);
@@ -369,7 +382,11 @@ function pickScreen(
       ]
         .filter(Boolean)
         .join(' · '),
-      badge: offer ? { text: `From ${offer.source}` } : keptBadge(section.current),
+      badge: offer
+        ? { text: `From ${offer.source}` }
+        : removed.has(section.kind)
+          ? { text: 'Will be deleted' }
+          : keptBadge(section.current),
       image: offer ? previews.get(offer.id) : undefined,
       run: () =>
         page.run(`Loading ${section.label}…`, async () => {
@@ -381,21 +398,39 @@ function pickScreen(
           await page.push(section.label, () => [
             {
               label: section.current ? 'Keep what it has' : 'Leave empty',
-              run: choose(() => media.delete(section.kind))
+              run: choose(() => {
+                media.delete(section.kind);
+                removed.delete(section.kind);
+              })
             },
             ...section.offers.map((o) => ({
               label: o.source,
               detail: offerNote(o) || (previews.get(o.id) ? '' : 'No details from this source'),
               image: previews.get(o.id),
-              run: choose(() => media.set(section.kind, o.id))
-            }))
+              run: choose(() => {
+                removed.delete(section.kind);
+                media.set(section.kind, o.id);
+              })
+            })),
+            ...(section.current
+              ? [
+                  {
+                    label: 'Remove and delete',
+                    detail: 'Deletes its file, and takes nothing in its place',
+                    run: choose(() => {
+                      media.delete(section.kind);
+                      removed.add(section.kind);
+                    })
+                  }
+                ]
+              : [])
           ]);
         })
     };
   };
 
   return () => {
-    const changes = text.size + media.size + cleared.size;
+    const changes = text.size + media.size + cleared.size + removed.size;
     const unused = offers.media.filter((s) => themeUse(theme, s.kind) === 'unused');
     const sections: Row[] = [
       ...offers.text.map(textRow),
@@ -431,6 +466,9 @@ function pickScreen(
                       id,
                       Object.fromEntries([...cleared].map((field) => [field, '']))
                     );
+                  }
+                  if (removed.size > 0) {
+                    problems.push(...(await forma.scraper.removeMedia(id, [...removed])));
                   }
                   // Done with this game: back to the list, which keeps to it if it was renamed.
                   page.close();

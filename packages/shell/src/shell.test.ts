@@ -501,7 +501,12 @@ describe('Forma’s shell', () => {
     await press('down');
     await press('confirm');
     await vi.waitFor(() =>
-      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'libretro thumbnails'])
+      expect(rows()).toEqual([
+        'Keep what it has',
+        'ScreenScraper',
+        'libretro thumbnails',
+        'Remove and delete'
+      ])
     );
     await press('down');
     await press('confirm');
@@ -659,7 +664,7 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Scrape Sonic']));
     await press('confirm');
     await vi.waitFor(() =>
-      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'Clear it'])
+      expect(rows()).toEqual(['Keep what it has', 'ScreenScraper', 'Remove and delete'])
     );
     await press('down');
     await press('down');
@@ -672,6 +677,41 @@ describe('Forma’s shell', () => {
     await press('confirm');
     await vi.waitFor(() =>
       expect(spy).toHaveBeenCalledWith('scraper_edit', { id: 1, fields: { genre: '' } })
+    );
+  });
+
+  it('a picture the game has can be removed and its file deleted, offers or not', async () => {
+    const { press, text, backend } = start(
+      ['scraper.manage'],
+      { view: 'systems', list: 'games', game: { id: 1, name: 'Sonic' } },
+      ['systems']
+    );
+    const invoke = backend.invoke.bind(backend);
+    const spy = vi.spyOn(backend, 'invoke').mockImplementation((command, args) =>
+      command === 'scraper_offers'
+        ? Promise.resolve({
+            text: [],
+            media: [{ kind: 'image', label: 'Screenshot', current: true, offers: [] }],
+            problems: []
+          } as never)
+        : invoke(command, args)
+    );
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Scrape'));
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Scrape Sonic']));
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Keep what it has', 'Remove and delete']));
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(text('.page > .panel li[role=option] .badge')).toEqual(['Will be deleted'])
+    );
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() =>
+      expect(spy).toHaveBeenCalledWith('scraper_remove_media', { id: 1, kinds: ['image'] })
     );
   });
 

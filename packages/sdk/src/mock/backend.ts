@@ -1070,6 +1070,14 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if ((media as number[]).length > 0) emit('media:changed', { game: id as number });
       return [];
     },
+    scraper_remove_media: ({ id, kinds }) => {
+      scraperAllowed();
+      const game = games.get(id as number) ?? fail('notFound', `no game ${String(id)}`);
+      const media = game.media as Record<string, string>;
+      for (const kind of kinds as string[]) delete media[kind];
+      emit('media:changed', { game: id as number });
+      return [];
+    },
     scraper_edit: ({ id, fields }) => {
       scraperAllowed();
       const game = games.get(id as number);

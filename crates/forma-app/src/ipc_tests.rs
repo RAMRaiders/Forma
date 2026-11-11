@@ -827,6 +827,57 @@ fn a_game_is_edited_by_hand_with_the_permission() {
 }
 
 #[test]
+fn a_games_picture_is_removed_and_its_file_deleted() {
+    let h = Harness::new(&["scraper.manage"]);
+    let found = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap();
+    let id = found[0]["id"].as_i64().unwrap();
+    let system = found[0]["system"].as_str().unwrap().to_owned();
+    let path = found[0]["path"].as_str().unwrap().to_owned();
+    let dir = h.state().paths.userdata.join(format!("roms/{system}"));
+    let stem = std::path::Path::new(&path)
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    std::fs::create_dir_all(dir.join("images")).unwrap();
+    let picture = dir.join(format!("images/{stem}-image.png"));
+    std::fs::write(&picture, b"png").unwrap();
+    h.call(
+        "scraper_edit",
+        json!({ "id": id, "fields": { "genre": "Adventure" } }),
+    )
+    .unwrap();
+    let list = dir.join("gamelist.xml");
+    let xml = std::fs::read_to_string(&list).unwrap();
+    let xml = xml.replace(
+        "<genre>Adventure</genre>",
+        &format!("<genre>Adventure</genre><image>./images/{stem}-image.png</image>"),
+    );
+    std::fs::write(&list, xml).unwrap();
+    h.state().library().refresh(&h.state().paths).unwrap();
+    let problems = h
+        .call(
+            "scraper_remove_media",
+            json!({ "id": id, "kinds": ["image"] }),
+        )
+        .unwrap();
+    assert_eq!(problems, json!([]));
+    assert!(!picture.exists(), "the file is deleted");
+    let xml = std::fs::read_to_string(&list).unwrap();
+    assert!(!xml.contains(&format!("{stem}-image.png")), "{xml}");
+    let denied = Harness::new(&[]);
+    let err = denied
+        .call(
+            "scraper_remove_media",
+            json!({ "id": id, "kinds": ["image"] }),
+        )
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+}
+
+#[test]
 fn scraper_settings_accounts_and_a_run_over_a_system() {
     let h = Harness::new(&["scraper.manage"]);
     let settings = h.call("scraper_settings", json!({})).unwrap();

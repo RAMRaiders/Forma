@@ -72,6 +72,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         scraper::scraper_preview,
         scraper::scraper_apply,
         scraper::scraper_edit,
+        scraper::scraper_remove_media,
         addons::addons_list,
         addons::addons_set_enabled,
         addons::addons_remove,
