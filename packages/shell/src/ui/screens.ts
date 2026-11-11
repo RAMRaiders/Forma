@@ -8,7 +8,6 @@ import type {
   ThemeInfo
 } from '@ramraiders/forma-sdk';
 
-import { dumpLabel } from './dumps.js';
 import { filterScreen, filterSummary } from './filter.js';
 import { mediaToShow } from './reader.js';
 import { deleteGameRow, gameRows } from './gamedata.js';
@@ -668,15 +667,6 @@ export function gamesScreen(
         label: 'Media',
         detail: pictures.map(([, label]) => label).join(' · '),
         run: () => look.media(full)
-      });
-    }
-    // What the catalogues say of its file, once Forma has checked it.
-    if (full?.dump) {
-      rows.push({
-        label: `ROM: ${dumpLabel(full.dump)}`,
-        detail:
-          full.dump.name ??
-          'In no No-Intro or Redump list: a hack, translation, homebrew, or a changed file'
       });
     }
     if (same.length > 1) {

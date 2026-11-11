@@ -494,8 +494,6 @@ describe('Forma’s shell', () => {
         'Scrape',
         'Edit details',
         'Emulator settings',
-        // The mock's checked games: this one is in no catalogue.
-        'ROM: Not catalogued',
         'Filter list',
         'Delete'
       ])
