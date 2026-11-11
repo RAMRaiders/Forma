@@ -634,10 +634,23 @@ export function gamesScreen(
   page: Page,
   theme: ThemeOnSelect,
   game: { id: number; name: string } | null,
-  views?: () => void
+  views?: () => void,
+  close: () => void = () => page.close()
 ): () => Promise<Row[]> {
   return async () => {
     const rows: Row[] = game ? gameRows(forma, page, game) : [];
+    const same = game ? await sameGame(forma, game.id) : [];
+    if (same.length > 1) {
+      rows.push({
+        icon: 'filter',
+        label: 'Versions and duplicates',
+        detail: `Only its ${same.length} versions and possible duplicates in the list; Back shows every game again`,
+        run: async () => {
+          await forma.nav.setFilter({ games: same });
+          close();
+        }
+      });
+    }
     const filter = await forma.nav.filterOptions().catch(() => null);
     if (filter) {
       const active = filterSummary(filter);
@@ -655,4 +668,23 @@ export function gamesScreen(
     if (game) rows.push(deleteGameRow(forma, page, game));
     return rows;
   };
+}
+
+/**
+ * A game and every other in the library that may be the same game: its versions (other files
+ * of one game) and possible duplicates (one game under other names, by LaunchBox). Its id alone
+ * if there is none.
+ */
+async function sameGame(forma: Forma, id: number): Promise<number[]> {
+  const game = await forma.library.game(id).catch(() => null);
+  if (!game) return [];
+  const [versions, duplicates] = await Promise.all([
+    forma.library.versions(game.system).catch(() => []),
+    forma.library.duplicates(game.system).catch(() => null)
+  ]);
+  const ids = new Set([id]);
+  for (const group of [...versions, ...(duplicates ?? [])]) {
+    if (group.games.some((g) => g.id === id)) group.games.forEach((g) => ids.add(g.id));
+  }
+  return [...ids];
 }

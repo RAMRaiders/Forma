@@ -529,6 +529,19 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const settings = new Map<string, unknown>();
   const listeners = new Map<string, Set<Handler>>();
   let listFilter: Record<string, unknown> = {};
+  /** A game list with the user's filter: only its `games` is applied here. */
+  const narrowed = (browse: Browse): Browse => {
+    if (browse.listing.kind !== 'games' || Object.keys(listFilter).length === 0) return browse;
+    const only = listFilter.games as number[] | null | undefined;
+    const items = only
+      ? browse.listing.items.filter((g) => only.includes(g.id))
+      : browse.listing.items;
+    return {
+      ...browse,
+      filtered: true,
+      listing: { ...browse.listing, items, total: items.length }
+    };
+  };
   let defaultView: string | null = null;
   let shellContext: unknown = null;
   const network = structuredClone(snapshot.network);
@@ -774,7 +787,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
               kind: 'branches',
               items: names.map((n) => ({ id: slug(n), name: n, gameCount: inIt(n).length }))
             }
-          : { kind: 'games', items: [], total: 0 }
+          : { kind: 'games', items: [], total: 0 },
+        filtered: false
       };
     }
     const name =
@@ -785,7 +799,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
       view: 'collections',
       path,
       trail: [{ key: path[0]!, label: name }],
-      listing: { kind: 'games', items, total: items.length }
+      listing: { kind: 'games', items, total: items.length },
+      filtered: false
     };
   };
 
@@ -1142,7 +1157,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const key = JSON.stringify([view, ...((path as string[] | undefined) ?? [])]);
       const found =
         snapshot.browse[key] ?? fail('invalid', `no such path in view \`${String(view)}\``);
-      return paginate(found, page as { offset: number; limit: number } | undefined, present);
+      return paginate(
+        narrowed(found),
+        page as { offset: number; limit: number } | undefined,
+        present
+      );
     },
     nav_filter_options: () => ({
       filter: listFilter,
@@ -1160,7 +1179,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
       players: []
     }),
     nav_set_filter: ({ filter }) => {
-      listFilter = (filter as Record<string, unknown> | null) ?? {};
+      listFilter = Object.fromEntries(
+        Object.entries((filter as Record<string, unknown> | null) ?? {}).filter(
+          ([, v]) => v !== null && v !== undefined && v !== false && v !== ''
+        )
+      );
+      emit('library:changed', { systems: [] } satisfies LibraryChanged);
       return 2;
     },
     nav_default_view: (): DefaultView => ({ id: defaultView ?? 'systems', notes: [] }),

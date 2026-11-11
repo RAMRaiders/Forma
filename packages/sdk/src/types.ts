@@ -242,6 +242,8 @@ export interface ListFilter {
   /** At least this many players at once. */
   players?: number | null;
   favorites?: boolean;
+  /** Only these games: one game's versions and possible duplicates. Since 1.30.0. */
+  games?: number[] | null;
 }
 
 export interface FilterChoice {
@@ -271,6 +273,8 @@ export interface Browse {
   /** Labels for a breadcrumb, one per path segment. */
   trail: Crumb[];
   listing: Listing;
+  /** A game list narrowed down by the user's filter: Back may first undo it. Since 1.30.0. */
+  filtered: boolean;
 }
 
 /**

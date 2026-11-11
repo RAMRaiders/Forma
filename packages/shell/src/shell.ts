@@ -504,7 +504,7 @@ export class Shell {
         )
       : this.#page.show(
           game?.name ?? 'Games',
-          gamesScreen(this.forma, this.#page, theme, game, openViews)
+          gamesScreen(this.forma, this.#page, theme, game, openViews, () => this.#closeAll())
         ));
     this.#changed();
   }

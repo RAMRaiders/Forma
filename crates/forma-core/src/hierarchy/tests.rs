@@ -621,6 +621,41 @@ fn a_list_narrows_down_by_name_letter_and_what_the_game_is() {
 }
 
 #[test]
+fn a_list_narrows_to_one_games_versions_and_says_it_is_filtered() {
+    let lib = library();
+    let view = bundled("systems");
+    let path = vec!["nes".to_owned()];
+    let page = Page {
+        offset: 0,
+        limit: 100,
+    };
+    let every = lib
+        .browse_filtered(&view, &path, page, &ListFilter::default())
+        .unwrap();
+    assert!(!every.filtered);
+    let Listing::Games { items, .. } = &every.listing else {
+        panic!("a game list")
+    };
+    let ids: Vec<i64> = items.iter().take(2).map(|g| g.id).collect();
+    let only = ListFilter {
+        games: Some(ids.clone()),
+        ..Default::default()
+    };
+    let some = lib.browse_filtered(&view, &path, page, &only).unwrap();
+    assert!(some.filtered);
+    let Listing::Games { items, total } = &some.listing else {
+        panic!("a game list")
+    };
+    assert_eq!(*total, 2);
+    assert!(items.iter().all(|g| ids.contains(&g.id)));
+    let none = ListFilter {
+        games: Some(Vec::new()),
+        ..Default::default()
+    };
+    assert_eq!(lib.filter_options(&view, &path, &none).unwrap().total, 0);
+}
+
+#[test]
 fn only_a_game_list_can_be_filtered() {
     let lib = library();
     assert!(

@@ -27,7 +27,8 @@ export function filterSummary({ filter: f }: FilterOptions): string {
     f.region && regionName(f.region),
     f.year,
     f.players && playersName(String(f.players)),
-    f.favorites && 'Favourites'
+    f.favorites && 'Favourites',
+    f.games && 'Versions and duplicates'
   ]
     .filter(Boolean)
     .join(' · ');
