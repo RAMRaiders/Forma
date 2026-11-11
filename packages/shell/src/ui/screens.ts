@@ -643,8 +643,8 @@ export function gamesScreen(
     if (same.length > 1) {
       rows.push({
         icon: 'filter',
-        label: 'Versions and duplicates',
-        detail: `Only its ${same.length} versions and possible duplicates in the list; Back shows every game again`,
+        label: 'Sibling games',
+        detail: `Only it and its ${same.length === 2 ? 'sibling' : `${same.length - 1} siblings`} (other versions, other names) in the list; Back shows every game again`,
         run: async () => {
           await forma.nav.setFilter({ games: same });
           close();
@@ -672,7 +672,7 @@ export function gamesScreen(
 
 /**
  * A game and every other in the library that may be the same game: its versions (other files
- * of one game) and possible duplicates (one game under other names, by LaunchBox). Its id alone
+ * of one game) and sibling games (one game under other names, by LaunchBox). Its id alone
  * if there is none.
  */
 async function sameGame(forma: Forma, id: number): Promise<number[]> {

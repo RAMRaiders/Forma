@@ -29,7 +29,7 @@ pub struct ListFilter {
     /// At least this many players at once.
     pub players: Option<i64>,
     pub favorites: bool,
-    /// Only these games: one game's versions and possible duplicates, from its Select menu.
+    /// Only these games: one game's versions and siblings (other names), from its Select menu.
     pub games: Option<Vec<i64>>,
 }
 

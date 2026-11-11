@@ -162,7 +162,7 @@ export function versionsScreen(
 }
 
 /**
- * Start → Games → Possible duplicates: games that are one game under different names, per
+ * Start → Games → Sibling games: games that are one game under different names, per
  * system, by LaunchBox. Read only.
  */
 export function duplicatesScreen(

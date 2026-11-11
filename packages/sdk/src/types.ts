@@ -242,7 +242,7 @@ export interface ListFilter {
   /** At least this many players at once. */
   players?: number | null;
   favorites?: boolean;
-  /** Only these games: one game's versions and possible duplicates. Since 1.30.0. */
+  /** Only these games: one game's versions and siblings (one game under other names). Since 1.30.0. */
   games?: number[] | null;
 }
 
@@ -588,7 +588,7 @@ export interface EventMap {
   /** The user picked a view in Forma's views list (Select): show it. */
   'nav:open': NavOpen;
   /**
-   * The user chose a game in Forma's menu (Game versions, Possible duplicates): show it, in its
+   * The user chose a game in Forma's menu (Game versions, Sibling games): show it, in its
    * system, as if browsed to. Since 1.29.0.
    */
   'nav:game': NavGame;

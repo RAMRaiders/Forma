@@ -94,7 +94,7 @@ far, from the root down.
 | `filterOptions()`            | The filter on the game list on screen and its choices        |
 | `setFilter(filter \| null)`  | Filters that list; `browse` follows, `library:changed` tells |
 
-Since 1.30.0 a filter's `games` keeps only those games (Select > Versions and duplicates sets it to one game's versions and possible duplicates), and `browse` says `filtered: true` for a filtered game list, so Back can show every game again first.
+Since 1.30.0 a filter's `games` keeps only those games (Select > Sibling games sets it to one game's versions and its other names), and `browse` says `filtered: true` for a filtered game list, so Back can show every game again first.
 | `defaultView()` | The boot view, and notes on any choice passed over |
 | `setDefaultView(id \| null)` | Makes `id` the boot view; `null` clears it |
 

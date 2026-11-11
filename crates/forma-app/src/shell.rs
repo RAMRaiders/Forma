@@ -41,7 +41,7 @@ pub const EVENT_SHELL_INPUT: &str = "shell:input";
 pub const EVENT_THEME_READY: &str = "shell:theme-ready";
 /// The user picked a view in Forma's views list; the theme shows it. `{ view }`.
 pub const EVENT_NAV_OPEN: &str = "nav:open";
-/// The user chose a game in Forma's menu (its versions, possible duplicates); the theme shows
+/// The user chose a game in Forma's menu (its versions, sibling games); the theme shows
 /// it. `{ game, system }`.
 pub const EVENT_NAV_GAME: &str = "nav:game";
 /// A setting changed from Forma's menu. `{ scope, key, value }`.

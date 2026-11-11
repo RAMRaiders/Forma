@@ -343,7 +343,7 @@ describe('Forma’s shell', () => {
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
   });
 
-  it('possible duplicates: one game under different names, per system', async () => {
+  it('sibling games: one game under different names, per system', async () => {
     const { press, text, openMenu, backend } = start([]);
     const invoke = backend.invoke.bind(backend);
     let answer: unknown = null;
@@ -353,7 +353,7 @@ describe('Forma’s shell', () => {
     const rows = () => text('.page > .panel li[role=option] .name');
     const details = () => text('.page > .panel li[role=option] .description');
     await openMenu('Games');
-    await vi.waitFor(() => expect(rows()).toContain('Possible duplicates'));
+    await vi.waitFor(() => expect(rows()).toContain('Sibling games'));
     for (let i = 0; i < 3; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toEqual(["Needs LaunchBox's data"]));
@@ -389,12 +389,7 @@ describe('Forma’s shell', () => {
       expect(selected()).toBe(label);
     };
     await vi.waitFor(() =>
-      expect(rows()).toEqual([
-        'Scrapers',
-        'Emulator options',
-        'Game versions',
-        'Possible duplicates'
-      ])
+      expect(rows()).toEqual(['Scrapers', 'Emulator options', 'Game versions', 'Sibling games'])
     );
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Start scraping'));

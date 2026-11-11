@@ -622,10 +622,9 @@ export class Shell {
             run: () => page.push('Game versions', versionsScreen(this.forma, page, openGame))
           },
           {
-            label: 'Possible duplicates',
+            label: 'Sibling games',
             detail: 'One game under different names, by LaunchBox',
-            run: () =>
-              page.push('Possible duplicates', duplicatesScreen(this.forma, page, openGame))
+            run: () => page.push('Sibling games', duplicatesScreen(this.forma, page, openGame))
           }
         ]);
       case 'system-options':
