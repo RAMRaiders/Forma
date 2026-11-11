@@ -41,6 +41,8 @@ pub const EVENT_SHELL_INPUT: &str = "shell:input";
 pub const EVENT_THEME_READY: &str = "shell:theme-ready";
 /// The user picked a view in Forma's views list; the theme shows it. `{ view }`.
 pub const EVENT_NAV_OPEN: &str = "nav:open";
+/// Forma's screensaver came on or went. `{ active }`.
+pub const EVENT_SCREENSAVER: &str = "screensaver";
 /// A setting changed from Forma's menu. `{ scope, key, value }`.
 pub const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
 
@@ -68,6 +70,12 @@ impl ShellState {
         self.page_ready.store(false, Ordering::SeqCst);
         self.open.store(false, Ordering::SeqCst);
         *self.context.lock().unwrap_or_else(PoisonError::into_inner) = Value::Null;
+    }
+
+    /// A menu, a page or the screensaver is up: all input is the shell's.
+    #[cfg(test)]
+    pub fn is_open(&self) -> bool {
+        self.open.load(Ordering::SeqCst)
     }
 
     pub fn page(&self) -> u64 {
@@ -202,6 +210,21 @@ pub fn shell_claim(state: State<'_, AppState>) -> ApiResult<String> {
 pub fn shell_set_open(state: State<'_, AppState>, caller: Caller, open: bool) -> ApiResult<()> {
     caller.shell_only()?;
     state.shell.open.store(open, Ordering::SeqCst);
+    Ok(())
+}
+
+/// Forma's screensaver came on or went: all input is the shell's while it shows, and the
+/// theme hears of it (`screensaver`) to pause what it plays and pick it up again.
+#[tauri::command]
+pub fn shell_screensaver<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    caller: Caller,
+    active: bool,
+) -> ApiResult<()> {
+    caller.shell_only()?;
+    state.shell.open.store(active, Ordering::SeqCst);
+    let _ = app.emit(EVENT_SCREENSAVER, serde_json::json!({ "active": active }));
     Ok(())
 }
 

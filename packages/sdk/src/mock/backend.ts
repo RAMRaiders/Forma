@@ -1121,6 +1121,20 @@ export function mockBackend(options: MockOptions = {}): Backend {
         .slice(0, (limit as number | undefined) ?? 50)
         .map(present);
     },
+    library_random: ({ media, limit, favorites, system }) => {
+      const kinds = (media as string[] | undefined) ?? [];
+      const picked = [...games.values()]
+        .filter((g) => !g.hidden)
+        .filter((g) => !favorites || g.favorite)
+        .filter((g) => !system || g.system === system)
+        .map(present)
+        .filter((g) => kinds.length === 0 || kinds.some((k) => k in g.media));
+      for (let i = picked.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [picked[i], picked[j]] = [picked[j]!, picked[i]!];
+      }
+      return picked.slice(0, Math.min(200, (limit as number | undefined) ?? 50));
+    },
     library_set_favorite: ({ id, favorite }) => {
       const game = games.get(id as number) ?? fail('notFound', `no game with id ${String(id)}`);
       game.favorite = Boolean(favorite);
@@ -1191,6 +1205,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const k = settingKey(String(key), scope);
       if (value === null || value === undefined) settings.delete(k);
       else settings.set(k, structuredClone(value));
+      // As Forma does for its menu's changes, which are the only ones to its own settings.
+      if (scope === 'system') emit('settings:changed', { scope: 'system', key, value });
       return null;
     },
     themes_list: (): ThemeInfo[] => [
@@ -1616,7 +1632,10 @@ export function mockBackend(options: MockOptions = {}): Backend {
     library_prepare_media: () => null,
     library_prepare_list: () => null,
     // The mock has no player: a game's video never shows, and the page stays as it is.
-    video_play: () => ({ playing: false, sound: settings.get('video.sound') !== false }),
+    video_play: ({ muted }) => ({
+      playing: false,
+      sound: settings.get('video.sound') !== false && muted !== true
+    }),
     video_stop: () => null,
     system_quit: () => power(),
     system_power: () => power(),

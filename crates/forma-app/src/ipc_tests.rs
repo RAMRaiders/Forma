@@ -1253,6 +1253,20 @@ fn the_shell_claims_its_token_once_and_then_may_do_what_forma_offers() {
     );
     h.call_as_shell(token, "shell_set_open", json!({ "open": true }))
         .unwrap();
+
+    // The screensaver: only the shell starts it, and every press is the shell's meanwhile.
+    assert_eq!(
+        code(
+            &h.call("shell_screensaver", json!({ "active": true }))
+                .unwrap_err()
+        ),
+        "permissionDenied"
+    );
+    h.call_as_shell(token, "shell_set_open", json!({ "open": false }))
+        .unwrap();
+    h.call_as_shell(token, "shell_screensaver", json!({ "active": true }))
+        .unwrap();
+    assert!(h.state().shell.is_open());
 }
 
 #[test]
@@ -1428,4 +1442,25 @@ fn a_radio_addon_adds_stations_and_pages_and_runs_its_system_part() {
     h.call("addons_remove", json!({ "id": "radio-box" }))
         .unwrap();
     assert_eq!(h.call("addons_list", json!({})).unwrap(), json!([]));
+}
+
+#[test]
+fn random_games_for_the_screensaver_have_the_media_asked_for() {
+    let h = Harness::new(&[]);
+    let games = h
+        .call("library_random", json!({ "media": ["video"], "limit": 10 }))
+        .unwrap();
+    let games = games.as_array().unwrap();
+    assert!(!games.is_empty());
+    assert!(games.iter().all(|g| g["media"].get("video").is_some()));
+    let favourites = h
+        .call("library_random", json!({ "favorites": true }))
+        .unwrap();
+    assert!(
+        favourites
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|g| g["favorite"] == true)
+    );
 }

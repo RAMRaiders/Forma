@@ -610,6 +610,11 @@ export interface EventMap {
    */
   'media:changed': MediaChanged;
   'views:changed': null;
+  /**
+   * Forma's screensaver came on (`active: true`) or went (`false`). It may play a video of its
+   * own over the theme's, which stops: play yours again when it goes. Since 1.29.0.
+   */
+  screensaver: { active: boolean };
   input: InputEvent;
 }
 
