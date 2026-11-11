@@ -80,6 +80,7 @@ mod tests {
                 crc32: "3fe272fb".into(),
                 md5: "337bd6f1a1163df31bf2633665589ab0".into(),
                 sha1: "dab79c84934f9aa5db4e7dad390e5d0c12443fa2".into(),
+                headerless: None,
             },
             ra: ra.map(str::to_owned),
         }
