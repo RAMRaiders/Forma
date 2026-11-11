@@ -566,3 +566,33 @@ fn the_systems_order_is_a_setting_by_name_unless_set() {
         .collect();
     assert!(years.windows(2).all(|w| w[0] <= w[1]), "{years:?}");
 }
+
+#[test]
+fn random_games_keep_to_media_favourites_and_system() {
+    let (lib, _) = refreshed();
+    let names = |media: &[&str], favorites: bool, system: Option<&str>| -> Vec<String> {
+        let mut names: Vec<String> = lib
+            .random_games(media, 50, favorites, system)
+            .unwrap()
+            .into_iter()
+            .map(|g| g.name)
+            .collect();
+        names.sort();
+        names
+    };
+    let with_video = names(&["video"], false, None);
+    assert!(with_video.contains(&"Super Mario Bros.".to_owned()));
+    for name in &with_video {
+        let game = lib.search(name, 1).unwrap().into_iter().next();
+        assert!(
+            game.is_none_or(|g| g.media.contains_key("video")),
+            "{name} has a video"
+        );
+    }
+    let all = names(&[], false, None);
+    assert!(all.len() >= with_video.len());
+    assert!(names(&[], true, None).iter().all(|n| all.contains(n)));
+    assert!(names(&[], true, None).contains(&"Super Mario Bros.".to_owned()));
+    assert!(names(&[], false, Some("nosuchsystem")).is_empty());
+    assert_eq!(lib.random_games(&[], 1, false, None).unwrap().len(), 1);
+}

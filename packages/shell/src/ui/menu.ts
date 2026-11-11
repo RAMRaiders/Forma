@@ -206,6 +206,10 @@ const ICONS: Record<string, string> = {
   interface: svg(
     '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.5-2-.4-1.4.4-2.5 1.9-2.5H18a3 3 0 0 0 3-3A9 9 0 0 0 12 3z"/><circle cx="7.5" cy="11" r="1.1" fill="currentColor"/><circle cx="10" cy="7" r="1.1" fill="currentColor"/><circle cx="15" cy="7.2" r="1.1" fill="currentColor"/>'
   ),
+  // A screen with a moon: the screensaver.
+  screensaver: svg(
+    '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M14.5 7.5a3.5 3.5 0 1 0 2 5.6 3 3 0 0 1-2-5.6z"/>'
+  ),
   music: svg(
     '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'
   ),

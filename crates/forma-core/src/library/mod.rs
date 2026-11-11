@@ -188,6 +188,37 @@ impl Library {
         )
     }
 
+    /// Up to `limit` visible games in a random order, each with at least one of the `media`
+    /// kinds (any game when it is empty); only favourites, or one system's, when asked. The
+    /// screensaver's slideshow and videos come from here.
+    pub fn random_games(
+        &self,
+        media: &[&str],
+        limit: usize,
+        favorites_only: bool,
+        system: Option<&str>,
+    ) -> Result<Vec<Game>> {
+        let kinds = serde_json::to_string(media).unwrap_or_else(|_| "[]".into());
+        self.query_games(
+            &format!(
+                "SELECT {GAME_COLUMNS} FROM game g
+                 WHERE g.present = 1 AND g.hidden = 0
+                   AND (?1 = 0 OR g.favorite = 1)
+                   AND (?2 IS NULL OR g.system = ?2)
+                   AND (json_array_length(?3) = 0 OR EXISTS (
+                     SELECT 1 FROM media m
+                     WHERE m.game_id = g.id AND m.kind IN (SELECT value FROM json_each(?3))))
+                 ORDER BY random() LIMIT ?4"
+            ),
+            params![
+                favorites_only,
+                system,
+                kinds,
+                i64::try_from(limit).unwrap_or(i64::MAX)
+            ],
+        )
+    }
+
     /// Records the user's choice, which outranks anything a gamelist or import says.
     pub fn set_favorite(&mut self, id: i64, favorite: bool) -> Result<()> {
         let tx = self.conn.transaction()?;

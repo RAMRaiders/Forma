@@ -72,11 +72,14 @@ function start(): void {
         setOpen: (open) => call('shell_set_open', { open }),
         openView: (view) => call('shell_open_view', { view }),
         openGame: (id) => call('shell_open_game', { id }),
-        setThemeSetting: (key, value) => call('shell_set_theme_setting', { key, value })
+        setThemeSetting: (key, value) => call('shell_set_theme_setting', { key, value }),
+        screensaver: (active) => call('shell_screensaver', { active })
       });
       shadow.append(shell.root);
 
       forma.input.on((e) => shell.input(e));
+      // The theme's input too, unseen by the shell otherwise: a press there is no idle screen.
+      void listen('input', () => shell.poke());
       forma.events.on('game:start', () => {
         shell.playing = true;
       });
@@ -101,6 +104,16 @@ function start(): void {
 function listenToKeyboard(shell: Shell): void {
   const onKey = (pressed: boolean) => (e: KeyboardEvent) => {
     const input = keyToInput(e.key, pressed, e.repeat);
+    if (shell.saving) {
+      // Any key goes to the screensaver, mapped or not, and no further: it wakes it, or with
+      // its controls on, changes game.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (input) shell.input(input);
+      else if (pressed) shell.poke();
+      return;
+    }
+    if (pressed) shell.poke();
     if (!input) return;
     const ours = shell.open || input.action === 'start' || input.action === 'select';
     if (!ours) return;

@@ -60,8 +60,9 @@ placeholder images for media. `forma.backendKind` says which one you got.
 | `systems()`                 | Systems with visible games, in the order the user chose       |
 | `game(id)`                  | One game, or `null`                                           |
 | `versions(system)`          | Titles with several versions, from file names (since 1.26.0)  |
-| `duplicates(system)`        | One game under different names, by LaunchBox (since 1.29.0)   |
+| `duplicates(system)`        | One game under different names, by LaunchBox (since 1.31.0)   |
 | `search(query, limit = 50)` | Games matching every word as a prefix, accents ignored        |
+| `random(options)`           | Games in a random order, with some media (since 1.31.0)       |
 | `setFavorite(id, favorite)` | Records the user's choice; emits `library:changed`            |
 | `mediaUrl(gameId, kind)`    | A URL for a game's `image`, `video`, `marquee`… (synchronous) |
 
@@ -185,6 +186,11 @@ shell's (below) or draws it itself, declaring `"draws": ["nowPlaying"]` in `them
 (`scope: "theme"`, declared in `theme.json`) or one of Forma's (`scope: "system"`, e.g.
 `display.margins`).
 
+`screensaver` (since 1.31.0) comes when Forma's screensaver starts (`{ active: true }`) and when
+it goes (`{ active: false }`). Forma's shell draws it over every theme (Start → Screensaver: dim,
+black, a slideshow of the library's pictures or its videos), and no input reaches the theme while
+it shows. Its videos replace the theme's own, which stops: play yours again when it goes.
+
 `on` returns a function that unsubscribes.
 
 ## `status`
@@ -234,6 +240,11 @@ on a loop. It stops by itself when a game starts or the page reloads.
 Whether it is heard is the user's choice: Start → Audio → Video sound (Forma's setting
 `video.sound`, on by default; a change comes as `settings:changed`, scope `system`, and the
 video playing follows). Heard, Forma lowers the music while it plays. No permission.
+`play(id, { muted: true })` (since 1.31.0) keeps one video silent whatever that setting says.
+
+`library.random({ media, limit, favorites, system })` (since 1.31.0) gives visible games in a
+random order, each with at least one of the `media` kinds (any game when there are none): only
+favourites, or one system's, if asked. At most 200, 50 unless `limit` says.
 
 ## `settings`
 

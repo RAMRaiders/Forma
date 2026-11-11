@@ -177,13 +177,30 @@ export class Forma {
       versions: (system: string) => invoke<VersionGroup[]>('library_versions', { system }),
       /**
        * A system's games that are one game under different names (`Rockman`, `Mega Man`), by
-       * LaunchBox's data on this machine; `null` until it has some. Since 1.29.0.
+       * LaunchBox's data on this machine; `null` until it has some. Since 1.31.0.
        */
       duplicates: (system: string) =>
         invoke<DuplicateGroup[] | null>('library_duplicates', { system }),
       /** Deletes a game and its files for good. Only Forma's own menu can. Since 1.25.0. */
       deleteGame: (id: number) => invoke<void>('library_delete_game', { id }),
       search: (query: string, limit?: number) => invoke<Game[]>('library_search', { query, limit }),
+      /**
+       * Games in a random order, for a screensaver or a "surprise me": those with any of the
+       * `media` kinds (any game without), only favourites, or one system's. At most 200.
+       * Since 1.31.0.
+       */
+      random: (options?: {
+        media?: MediaKind[];
+        limit?: number;
+        favorites?: boolean;
+        system?: string | null;
+      }) =>
+        invoke<Game[]>('library_random', {
+          media: options?.media ?? [],
+          limit: options?.limit,
+          favorites: options?.favorites ?? false,
+          system: options?.system ?? null
+        }),
       setFavorite: (id: number, favorite: boolean) =>
         invoke<void>('library_set_favorite', { id, favorite }),
       /**
@@ -621,10 +638,15 @@ export class Forma {
        * Plays a game's video on a loop, replacing any other, and resolves once it shows. Then
        * leave the page see-through where it should be seen. It stops by itself when a game
        * starts or the page reloads. Full screen, or in `area` of the screen (fractions of it):
-       * the picture fills the area, cut to its shape.
+       * the picture fills the area, cut to its shape. `muted` (since 1.31.0): silent this time,
+       * whatever the user's video sound setting says.
        */
-      play: (gameId: number, options?: { area?: VideoArea }) =>
-        invoke<VideoPlay>('video_play', { gameId, area: options?.area ?? null }),
+      play: (gameId: number, options?: { area?: VideoArea; muted?: boolean }) =>
+        invoke<VideoPlay>('video_play', {
+          gameId,
+          area: options?.area ?? null,
+          muted: options?.muted ?? false
+        }),
       /** Stops it, as soon as it should no longer be seen or heard. */
       stop: () => invoke<void>('video_stop')
     };
