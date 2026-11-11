@@ -6,7 +6,7 @@ use std::path::Path;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::error::{Error, Result};
-use crate::hash::Hashes;
+use crate::hash::{Hashes, Headerless};
 
 /// What identifies a file's contents without reading them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +52,7 @@ pub struct Entry {
 
 /// Bump when what is cached changes meaning. A cache is only a shortcut, so an old one is
 /// dropped and rebuilt rather than migrated.
-const VERSION: i64 = 3;
+const VERSION: i64 = 4;
 
 const SCHEMA: &str = r"
 DROP TABLE IF EXISTS hash;
@@ -66,7 +66,12 @@ CREATE TABLE hash (
     inner     TEXT,
     rom_size  INTEGER NOT NULL,
     ra        TEXT,
-    ra_console INTEGER
+    ra_console INTEGER,
+    -- Past a known header: its length and the hashes of what follows it.
+    bare_header INTEGER,
+    bare_crc32  TEXT,
+    bare_md5    TEXT,
+    bare_sha1   TEXT
 ) WITHOUT ROWID;
 ";
 
@@ -98,7 +103,8 @@ impl Cache {
         Ok(self
             .conn
             .prepare_cached(
-                "SELECT crc32, md5, sha1, inner, rom_size, ra, ra_console FROM hash
+                "SELECT crc32, md5, sha1, inner, rom_size, ra, ra_console, bare_header, bare_crc32,
+                        bare_md5, bare_sha1 FROM hash
                  WHERE path = ?1 AND size = ?2 AND mtime_ns = ?3",
             )?
             .query_row(params![key(path), size(stamp.size), stamp.mtime_ns], |r| {
@@ -107,6 +113,22 @@ impl Cache {
                         crc32: r.get(0)?,
                         md5: r.get(1)?,
                         sha1: r.get(2)?,
+                        headerless: match (
+                            r.get::<_, Option<i64>>(7)?,
+                            r.get::<_, Option<String>>(8)?,
+                            r.get::<_, Option<String>>(9)?,
+                            r.get::<_, Option<String>>(10)?,
+                        ) {
+                            (Some(header), Some(crc32), Some(md5), Some(sha1)) => {
+                                Some(Headerless {
+                                    header: u64::try_from(header).unwrap_or(0),
+                                    crc32,
+                                    md5,
+                                    sha1,
+                                })
+                            }
+                            _ => None,
+                        },
                     },
                     inner: r.get(3)?,
                     size: u64::try_from(r.get::<_, i64>(4)?).unwrap_or(0),
@@ -118,15 +140,18 @@ impl Cache {
     }
 
     pub fn put(&self, path: &Path, stamp: Stamp, entry: &Entry) -> Result<()> {
+        let bare = entry.hashes.headerless.as_ref();
         self.conn
             .prepare_cached(
                 "INSERT INTO hash (path, size, mtime_ns, crc32, md5, sha1, inner, rom_size, ra,
-                                   ra_console)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                                   ra_console, bare_header, bare_crc32, bare_md5, bare_sha1)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
                  ON CONFLICT (path) DO UPDATE SET size = excluded.size,
                      mtime_ns = excluded.mtime_ns, crc32 = excluded.crc32, md5 = excluded.md5,
                      sha1 = excluded.sha1, inner = excluded.inner, rom_size = excluded.rom_size,
-                     ra = excluded.ra, ra_console = excluded.ra_console",
+                     ra = excluded.ra, ra_console = excluded.ra_console,
+                     bare_header = excluded.bare_header, bare_crc32 = excluded.bare_crc32,
+                     bare_md5 = excluded.bare_md5, bare_sha1 = excluded.bare_sha1",
             )?
             .execute(params![
                 key(path),
@@ -139,6 +164,10 @@ impl Cache {
                 size(entry.size),
                 entry.ra,
                 entry.ra_console,
+                bare.map(|b| size(b.header)),
+                bare.map(|b| &b.crc32),
+                bare.map(|b| &b.md5),
+                bare.map(|b| &b.sha1),
             ])?;
         Ok(())
     }
@@ -177,6 +206,12 @@ mod tests {
                 crc32: tag.into(),
                 md5: tag.into(),
                 sha1: tag.into(),
+                headerless: Some(Headerless {
+                    header: 16,
+                    crc32: format!("{tag}-bare"),
+                    md5: format!("{tag}-bare"),
+                    sha1: format!("{tag}-bare"),
+                }),
             },
             inner: Some(format!("{tag}.nes")),
             size: 7,

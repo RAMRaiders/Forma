@@ -160,6 +160,7 @@ mod tests {
                 crc32: crc32.into(),
                 md5: String::new(),
                 sha1: sha1.into(),
+                headerless: None,
             },
             ra: None,
         }

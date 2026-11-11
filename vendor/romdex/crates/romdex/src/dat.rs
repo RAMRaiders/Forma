@@ -506,6 +506,20 @@ impl Index {
     /// The dump with this size and these hashes, if a DAT lists it. A DAT entry with a SHA1
     /// that differs is not a match, however the CRC32 agrees.
     pub fn lookup(&self, size: u64, hashes: &Hashes) -> Option<Match<'_>> {
+        self.lookup_exact(size, hashes).or_else(|| {
+            // Not as it is: perhaps without its header, as DATs list most headered ROMs.
+            let bare = hashes.headerless.as_ref()?;
+            let without = Hashes {
+                crc32: bare.crc32.clone(),
+                md5: bare.md5.clone(),
+                sha1: bare.sha1.clone(),
+                headerless: None,
+            };
+            self.lookup_exact(size.checked_sub(bare.header)?, &without)
+        })
+    }
+
+    fn lookup_exact(&self, size: u64, hashes: &Hashes) -> Option<Match<'_>> {
         let crc = hashes.crc32.to_ascii_lowercase();
         let sha1 = hashes.sha1.to_ascii_lowercase();
         let found = |at: usize, confidence| {
@@ -579,6 +593,7 @@ game (
             crc32: crc32.into(),
             md5: String::new(),
             sha1: sha1.into(),
+            headerless: None,
         }
     }
 
@@ -649,6 +664,17 @@ game (
             .lookup(32, &hashes("12345678", &"1".repeat(40)))
             .unwrap();
         assert!(bad.bad);
+        // A file with a header the DAT lists it without: found by what follows the header.
+        let mut headered = hashes("deadbeef", &"2".repeat(40));
+        headered.headerless = Some(crate::hash::Headerless {
+            header: 128,
+            crc32: "3337ec46".into(),
+            md5: String::new(),
+            sha1: sha1.into(),
+        });
+        let m = index.lookup(40976 + 128, &headered).unwrap();
+        assert_eq!(m.game, "Super Mario Bros. (World)");
+        assert_eq!(m.confidence, Confidence::Sha1);
     }
 
     #[test]
