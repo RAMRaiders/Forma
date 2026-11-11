@@ -190,6 +190,9 @@ shell's (below) or draws it itself, declaring `"draws": ["nowPlaying"]` in `them
 it goes (`{ active: false }`). Forma's shell draws it over every theme (Start → Screensaver: dim,
 black, a slideshow of the library's pictures or its videos), and no input reaches the theme while
 it shows. Its videos replace the theme's own, which stops: play yours again when it goes.
+While it shows, the theme's page holds still: Forma pauses its CSS animations and its
+`<video>`s, and plays them again after. Timers are the theme's: hold yours on `{ active: true }`
+(Dim leaves the theme in sight, so a carousel moving on under it shows).
 
 `on` returns a function that unsubscribes.
 
