@@ -15,9 +15,12 @@ async function sdk(permissions: string[] = []) {
 describe('the SDK surface', () => {
   it('library', async () => {
     const forma = await sdk();
-    // By name, as Forma lists them unless the user chose otherwise.
-    const names = (await forma.library.systems()).map((s) => s.fullname.toLowerCase());
-    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    // By maker, then year, as Forma lists them unless the user chose otherwise; without a
+    // maker last.
+    const makers = (await forma.library.systems()).map((s) => s.manufacturer?.toLowerCase() ?? '');
+    const named = makers.filter(Boolean);
+    expect(named).toEqual([...named].sort((a, b) => a.localeCompare(b)));
+    expect(makers.slice(named.length).every((m) => m === '')).toBe(true);
     const [zelda] = await forma.library.search('zelda', 5);
     expect(await forma.library.game(zelda!.id)).toMatchObject({ name: 'The Legend of Zelda' });
     const changed = new Promise<LibraryChanged>((resolve) => {

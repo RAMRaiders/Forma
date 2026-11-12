@@ -577,7 +577,9 @@ export class Shell {
     const list = info?.context?.list;
     const offers = onSelect(info?.theme.settings ?? [], list ?? '').length > 0;
     const game = info?.context?.game ?? null;
-    if (list !== 'systems' && !(list === 'games' && (offers || game))) return this.#openViews();
+    // Categories hold systems: their order is what Select offers there too.
+    const systems = list === 'systems' || list === 'categories';
+    if (!systems && !(list === 'games' && (offers || game))) return this.#openViews();
     const views = themeViews(await this.forma.nav.views().catch(() => []), info);
     const openViews =
       views.length > 1
@@ -602,7 +604,7 @@ export class Shell {
             .catch(() => undefined)
         : undefined;
     this.#pageKind = 'context';
-    await (list === 'systems'
+    await (systems
       ? this.#page.show(
           info?.context?.system?.fullname || info?.context?.system?.name || 'Systems',
           systemsScreen(this.forma, this.#page, openViews, theme, info?.context?.system ?? null)
