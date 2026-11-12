@@ -108,7 +108,46 @@ const GIVES: [MediaKind; 18] = {
     kinds
 };
 
+/// The regions anybody can read, in order: after the ROM's own (`regions_for`).
 const REGIONS: [&str; 8] = ["wor", "us", "eu", "ss", "uk", "fr", "de", "jp"];
+
+/// ScreenScraper's regions in the ROM's name (`Sonic (Europe).md`, `(USA, Europe)`), in the
+/// order they come, then the usual ones: a European copy gets its European name, box and date.
+pub(super) fn regions_for(stem: &str) -> Vec<&'static str> {
+    const TAGS: [(&str, &[&str]); 17] = [
+        ("World", &["wor"]),
+        ("USA", &["us"]),
+        ("Europe", &["eu"]),
+        ("Japan", &["jp"]),
+        ("UK", &["uk", "eu"]),
+        ("France", &["fr", "eu"]),
+        ("Germany", &["de", "eu"]),
+        ("Spain", &["es", "eu"]),
+        ("Italy", &["it", "eu"]),
+        ("Netherlands", &["nl", "eu"]),
+        ("Sweden", &["se", "eu"]),
+        ("Portugal", &["pt", "eu"]),
+        ("Brazil", &["br"]),
+        ("Canada", &["ca", "us"]),
+        ("Australia", &["au", "eu"]),
+        ("Korea", &["kr"]),
+        ("Asia", &["asi"]),
+    ];
+    let mut order: Vec<&'static str> = Vec::new();
+    let tags = stem
+        .split(['(', ')', ','])
+        .map(str::trim)
+        .filter_map(|word| TAGS.iter().find(|(tag, _)| *tag == word));
+    for code in tags
+        .flat_map(|(_, codes)| codes.iter())
+        .chain(REGIONS.iter())
+    {
+        if !order.contains(code) {
+            order.push(code);
+        }
+    }
+    order
+}
 
 impl Source for ScreenScraper {
     fn id(&self) -> &str {
@@ -139,7 +178,7 @@ impl Source for ScreenScraper {
         credentials: &Credentials,
         query: &Query<'_>,
     ) -> Result<Option<Found>, LookupError> {
-        Ok(ask(http, credentials, query)?.and_then(|game| parse(&game)))
+        Ok(ask(http, credentials, query)?.and_then(|game| parse(&game, query.stem)))
     }
 }
 
@@ -284,13 +323,13 @@ fn by_region_noted(list: &Value, key: &str, order: &[&str]) -> Option<(String, O
 }
 
 /// Every different name, the preferred region's first, with the regions that use it in words.
-fn names_by_region(list: &Value) -> Vec<(String, Option<String>)> {
+fn names_by_region(list: &Value, regions: &[&str]) -> Vec<(String, Option<String>)> {
     let mut items: Vec<&Value> = list
         .as_array()
         .map(|l| l.iter().collect())
         .unwrap_or_default();
     items.sort_by_key(|i| {
-        REGIONS
+        regions
             .iter()
             .position(|r| i["region"].as_str() == Some(r))
             .unwrap_or(usize::MAX)
@@ -376,14 +415,17 @@ fn variant(media_type: &str) -> Option<String> {
     Some(name.to_owned())
 }
 
-pub(super) fn parse(game: &Value) -> Option<Found> {
+/// The game ScreenScraper answered, for the ROM `stem`: what is shown first (its name, release
+/// date and media) is the ROM's own region's, where there is one ([`regions_for`]).
+pub(super) fn parse(game: &Value, stem: &str) -> Option<Found> {
     if !game.is_object() {
         return None;
     }
-    let mut names = names_by_region(&game["noms"]).into_iter();
+    let regions = regions_for(stem);
+    let mut names = names_by_region(&game["noms"], &regions).into_iter();
     let name = names.next();
     let description = by_region_noted(&game["synopsis"], "langue", &["en", "fr", "de", "es"]);
-    let released = by_region_noted(&game["dates"], "region", &REGIONS);
+    let released = by_region_noted(&game["dates"], "region", &regions);
     let genre = game["genres"].as_array().and_then(|genres| {
         let principal = genres
             .iter()
@@ -442,10 +484,10 @@ pub(super) fn parse(game: &Value) -> Option<Found> {
                 .filter(|m| m["type"].as_str() == Some(t))
                 .collect();
             of_type.sort_by_key(|m| {
-                REGIONS
+                regions
                     .iter()
                     .position(|r| m["region"].as_str() == Some(r))
-                    .unwrap_or(REGIONS.len())
+                    .unwrap_or(regions.len())
             });
             for m in of_type {
                 if let Some(url) = m["url"].as_str() {
