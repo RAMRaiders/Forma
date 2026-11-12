@@ -389,3 +389,107 @@ fn a_decoration_the_user_picks_meanwhile_is_theirs() {
     f.shaders.set(&Scope::Global, "DO_BEZEL", None).unwrap();
     assert_eq!(conf::read(&f.conf)["global.bezel"], "arcade");
 }
+
+/// The fixture's shaders with the sample preset active (its shader on, global and NES levels).
+fn with_preset(mut f: Fixture) -> Fixture {
+    let presets = Presets::with(
+        &f.root.join("presets.json"),
+        vec![crate::presets::tests::sample()],
+    );
+    presets.set_active(Some("sample")).unwrap();
+    f.shaders = f.shaders.with_presets(presets);
+    f
+}
+
+#[test]
+fn an_active_preset_switches_it_on_and_its_levels_sit_under_the_users() {
+    let f = with_preset(fixture("global.shaderset=scanlines\n"));
+    // On as the preset comes in, without the user switching it on.
+    f.shaders.refresh().unwrap();
+    assert!(f.shaders.page(&Scope::Global).unwrap().enabled);
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.shaderset"], "forma");
+    assert_eq!(conf["global.gfxbackend"], "vulkan");
+
+    // Its global value, then the user's over it.
+    let page = f.shaders.page(&Scope::Global).unwrap();
+    let gamma = param(&page, "GAMMA_OUT");
+    assert_eq!((gamma.value, gamma.inherited.value), (None, 0.8));
+    assert_eq!(gamma.inherited.from, "formaPreset");
+    // Its NES value is nearer to NES than the user's global one; another system gets the
+    // user's.
+    f.shaders
+        .set(&Scope::Global, "GAMMA_OUT", Some(0.5))
+        .unwrap();
+    let nes = f.shaders.page(&Scope::System("nes".into())).unwrap();
+    assert_eq!(param(&nes, "GAMMA_OUT").inherited.value, 1.2);
+    assert_eq!(param(&nes, "GAMMA_OUT").inherited.from, "formaPreset");
+    let snes = f.shaders.page(&Scope::System("snes".into())).unwrap();
+    assert_eq!(param(&snes, "GAMMA_OUT").inherited.value, 0.5);
+    assert_eq!(param(&snes, "GAMMA_OUT").inherited.from, "global");
+    // And a system of the preset's has its own file.
+    let user = f.root.join("user");
+    let nes = std::fs::read_to_string(user.join("forma/systems/nes.slangp")).unwrap();
+    assert!(nes.contains("GAMMA_OUT = \"1.200000\""), "{nes}");
+    let yml = std::fs::read_to_string(user.join("configs/forma/rendering-defaults.yml")).unwrap();
+    assert!(yml.contains("nes:\n  shader: forma/systems/nes\n"));
+    // Its bezel on: Batocera's decoration off (none set, which is none).
+    assert!(f.shaders.page(&Scope::Global).unwrap().draws_bezel);
+    assert!(!conf::read(&f.conf).contains_key("global.bezel"));
+}
+
+#[test]
+fn switched_off_by_the_user_it_stays_off_whatever_the_preset_says() {
+    let f = with_preset(fixture("global.shaderset=scanlines\n"));
+    f.shaders.refresh().unwrap();
+    f.shaders.set_enabled(false).unwrap();
+    assert!(!f.shaders.page(&Scope::Global).unwrap().enabled);
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.shaderset"], "scanlines");
+    assert!(!conf.contains_key("global.gfxbackend"));
+    f.shaders.refresh().unwrap();
+    assert!(!f.shaders.page(&Scope::Global).unwrap().enabled);
+
+    // The preset gone, off as before; switched on, on whatever the preset.
+    f.shaders.set_enabled(true).unwrap();
+    assert!(f.shaders.page(&Scope::Global).unwrap().enabled);
+}
+
+#[test]
+fn the_preset_gone_its_shader_goes_as_the_user_had_it() {
+    let f = with_preset(fixture("global.shaderset=scanlines\nglobal.bezel=arcade\n"));
+    f.shaders.refresh().unwrap();
+    assert_eq!(conf::read(&f.conf)["global.bezel"], "none");
+    let presets = f.shaders.presets.clone().unwrap();
+    presets.set_active(None).unwrap();
+    f.shaders.refresh().unwrap();
+    assert!(!f.shaders.page(&Scope::Global).unwrap().enabled);
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.shaderset"], "scanlines");
+    assert_eq!(conf["global.bezel"], "arcade");
+}
+
+#[test]
+fn a_file_from_before_presets_keeps_its_shader_set() {
+    let f = fixture("global.shaderset=forma\n");
+    let dir = f.root.join("user/forma");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("forma.json"),
+        r#"{ "enabled": true, "before_shaderset": "koko-aio", "set_backend": false }"#,
+    )
+    .unwrap();
+    f.shaders
+        .set(&Scope::Global, "GAMMA_OUT", Some(0.5))
+        .unwrap();
+    // Still on: nothing switched again, so what was there before is still koko-aio.
+    assert!(
+        !f.calls
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|c| c[0] == "global.shaderset")
+    );
+    f.shaders.set_enabled(false).unwrap();
+    assert_eq!(conf::read(&f.conf)["global.shaderset"], "koko-aio");
+}
