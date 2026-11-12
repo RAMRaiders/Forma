@@ -194,6 +194,11 @@ it goes (`{ active: false }`). Forma's shell draws it over every theme (Start â†
 black, a slideshow of the library's pictures or its videos), and no input reaches the theme while
 it shows. Its videos replace the theme's own, which stops: play yours again when it goes.
 
+`menu` (since 1.33.0) comes when Forma's menu opens (`{ open: true }`, Start or Select) and when it
+closes (`{ open: false }`). No input reaches the theme while it is open. Its panels are
+see-through, and on a Raspberry Pi a video playing under see-through pixels stutters and flickers
+them: stop your video when it opens and play it again when it closes.
+
 `on` returns a function that unsubscribes.
 
 ## `status`

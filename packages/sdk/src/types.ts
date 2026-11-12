@@ -681,6 +681,11 @@ export interface EventMap {
    * own over the theme's, which stops: play yours again when it goes. Since 1.31.0.
    */
   screensaver: { active: boolean };
+  /**
+   * Forma's menu opened (`open: true`) or closed. Stop a video under it (the menu's panel is
+   * see-through) and play it again once it closes. Since 1.33.0.
+   */
+  menu: { open: boolean };
   input: InputEvent;
 }
 
