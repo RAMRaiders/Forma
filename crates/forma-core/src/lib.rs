@@ -28,6 +28,7 @@ pub mod paths;
 pub mod ra_match;
 pub mod scan;
 pub mod scraper;
+pub mod shaders;
 pub mod store;
 pub mod sync;
 pub mod system_settings;
@@ -48,7 +49,7 @@ pub use paths::Paths;
 
 /// Version of the theme-facing API this core implements. Themes declare the range they need in
 /// `theme.json` (`"sdk": "^1"`) and `@ramraiders/forma-sdk` checks it against this value at startup.
-pub const SDK_API_VERSION: &str = "1.33.0";
+pub const SDK_API_VERSION: &str = "1.34.0";
 
 #[cfg(test)]
 mod tests {

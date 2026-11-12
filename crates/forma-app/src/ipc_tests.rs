@@ -79,6 +79,11 @@ impl Harness {
                 &paths.systems_cfg.with_file_name("es_features.cfg"),
                 &paths.userdata,
             ),
+            shaders: forma_core::shaders::Shaders::new(
+                Box::new(SystemShell),
+                &paths.batocera_conf(),
+                &paths.userdata,
+            ),
             music: forma_core::music::Player::new(
                 forma_core::music::Library {
                     music: paths.music_dir(),

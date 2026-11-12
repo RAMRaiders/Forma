@@ -15,6 +15,7 @@ mod permissions;
 mod protocol;
 mod ra_match;
 mod scraper;
+mod shaders;
 mod shell;
 mod splash;
 mod state;
@@ -108,6 +109,10 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::batocera_set,
         options::options_get,
         options::options_set,
+        shaders::shaders_get,
+        shaders::shaders_set,
+        shaders::shaders_set_preset,
+        shaders::shaders_set_enabled,
         system_settings::system_info,
         system_settings::system_settings,
         system_settings::system_settings_set,

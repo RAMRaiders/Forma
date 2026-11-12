@@ -12,6 +12,7 @@ import { filterScreen, filterSummary } from './filter.js';
 import { mediaToShow } from './reader.js';
 import { deleteGameRow, gameRows } from './gamedata.js';
 import { optionsScreen } from './settings.js';
+import { shaderScreen } from './shader.js';
 import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
 import { catalogueScreen, themeScreen } from './themes.js';
@@ -607,6 +608,16 @@ export function systemsScreen(
                 page.push(
                   `${title} emulator`,
                   optionsScreen(forma, page, { level: 'system', system: system.name })
+                )
+            },
+            {
+              icon: 'emulator' as const,
+              label: 'CRT shader',
+              detail: `koko-aio's preset and settings for every ${title} game`,
+              run: () =>
+                page.push(
+                  `${title} CRT shader`,
+                  shaderScreen(forma, page, { level: 'system', system: system.name })
                 )
             }
           ]

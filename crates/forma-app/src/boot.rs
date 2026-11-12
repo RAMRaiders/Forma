@@ -87,6 +87,11 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             &paths.systems_cfg.with_file_name("es_features.cfg"),
             &paths.userdata,
         ),
+        shaders: forma_core::shaders::Shaders::new(
+            Box::new(SystemShell),
+            &paths.batocera_conf(),
+            &paths.userdata,
+        ),
         music,
         magazines: forma_core::magazines::Reader::new(
             &paths,
