@@ -488,6 +488,10 @@ pub fn settings_set<R: Runtime>(
     if stored == achievements::API_KEY_SETTING || stored == achievements::USERNAME_SETTING {
         crate::ra_match::account_changed();
     }
+    // Turned on: check what is hashed (off, the results stay until it is on again).
+    if stored == forma_core::dumps::SETTING && value.as_ref() != Some(&Value::Bool(false)) {
+        crate::ra_match::dumps_changed();
+    }
     // A change made in Forma's menu: the theme follows it (screen margins, say).
     if caller.shell {
         let scope = match scope {

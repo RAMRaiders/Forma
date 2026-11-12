@@ -89,6 +89,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::ra_user,
         commands::ra_game,
         ra_match::ra_matches,
+        ra_match::library_dump_checks,
         commands::netplay_lobby,
         commands::netplay_lan,
         collections::collections_list,

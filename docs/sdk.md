@@ -63,6 +63,7 @@ placeholder images for media. `forma.backendKind` says which one you got.
 | `duplicates(system)`        | One game under different names, by LaunchBox (since 1.31.0)   |
 | `search(query, limit = 50)` | Games matching every word as a prefix, accents ignored        |
 | `random(options)`           | Games in a random order, with some media (since 1.31.0)       |
+| `dumpChecks()`              | The No-Intro / Redump check, per system (since 1.32.0)        |
 | `setFavorite(id, favorite)` | Records the user's choice; emits `library:changed`            |
 | `mediaUrl(gameId, kind)`    | A URL for a game's `image`, `video`, `marquee`… (synchronous) |
 
@@ -241,6 +242,20 @@ Whether it is heard is the user's choice: Start → Audio → Video sound (Forma
 `video.sound`, on by default; a change comes as `settings:changed`, scope `system`, and the
 video playing follows). Heard, Forma lowers the music while it plays. No permission.
 `play(id, { muted: true })` (since 1.31.0) keeps one video silent whatever that setting says.
+
+### Is it a catalogued dump?
+
+`Game.dump` (since 1.32.0) says whether the game's file is a dump No-Intro or Redump lists,
+by its checksums: `{ status, catalogue, name, region }`, `null` while unknown. `status` is
+`verified` (size, CRC32 and SHA1 as listed), `crcOnly` (size and CRC32; that DAT has no SHA1),
+`badDump` (a dump the DAT marks bad) or `notCatalogued` (a hack, a translation, homebrew, or a
+changed file). `catalogue` is `no-intro` or `redump`, and `name` the catalogue's name for it.
+
+Forma works it out in the background, from the hashes it already takes for RetroAchievements:
+it fetches libretro-database's DATs for the systems present (once a month) and checks each
+file, a CUE sheet by its first track. CHD discs are not checked yet. `library:changed` follows
+when results change. The user turns it off in Start → Games → ROM check (Forma's setting
+`library.verifyDumps`); `library.dumpChecks()` gives the counts that page shows.
 
 `library.random({ media, limit, favorites, system })` (since 1.31.0) gives visible games in a
 random order, each with at least one of the `media` kinds (any game when there are none): only

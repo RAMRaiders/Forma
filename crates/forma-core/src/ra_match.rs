@@ -39,13 +39,14 @@ pub fn open_cache(paths: &Paths) -> Result<HashCache> {
 /// find nothing. CHD comes with romdex R2.
 const NOT_HASHABLE: &[&str] = &[".chd"];
 
-/// The systems RetroAchievements supports, as romdex reads them from Batocera's systems,
-/// without the formats rcheevos cannot hash yet.
+/// The systems to hash: those RetroAchievements supports, and those a No-Intro or Redump DAT
+/// covers (#115), as romdex reads them from Batocera's systems, without the formats romdex
+/// cannot hash yet.
 pub fn targets(paths: &Paths) -> Vec<Target> {
     let (targets, _) = romdex::batocera::targets(&paths.userdata, &paths.systems_cfg);
     targets
         .into_iter()
-        .filter(|t| romdex::ra::console_for(&t.system).is_some())
+        .filter(|t| has_console(&t.system) || crate::dumps::has_dats(&t.system))
         .map(|mut t| {
             t.extensions.retain(|e| !NOT_HASHABLE.contains(&e.as_str()));
             t
@@ -54,17 +55,26 @@ pub fn targets(paths: &Paths) -> Vec<Target> {
         .collect()
 }
 
-/// One system's RA hashes, by path relative to its folder. Reads only changed files.
+/// Whether RetroAchievements has the system.
+pub fn has_console(system: &str) -> bool {
+    romdex::ra::console_for(system).is_some()
+}
+
+/// One system's files, identified: hashes, and RA hashes where RetroAchievements has the
+/// system. Reads only changed files.
 pub fn hash_system(
     target: &Target,
     cache: &mut HashCache,
-) -> Result<(Vec<(String, String)>, romdex::Report)> {
-    let (found, report) = romdex::identify(std::slice::from_ref(target), cache)?;
-    let hashes = found
-        .into_iter()
-        .filter_map(|i| Some((i.path, i.ra?.to_ascii_lowercase())))
-        .collect();
-    Ok((hashes, report))
+) -> Result<(Vec<romdex::Identified>, romdex::Report)> {
+    Ok(romdex::identify(std::slice::from_ref(target), cache)?)
+}
+
+/// The RA hashes among identified files, by path relative to the system's folder.
+pub fn ra_hashes(found: &[romdex::Identified]) -> Vec<(String, String)> {
+    found
+        .iter()
+        .filter_map(|i| Some((i.path.clone(), i.ra.as_ref()?.to_ascii_lowercase())))
+        .collect()
 }
 
 /// Games hashed but not matched yet, by RA console: `(game id, hash)`.
@@ -188,7 +198,8 @@ mod tests {
             "no CHD yet"
         );
         let mut cache = romdex::cache::Cache::in_memory().unwrap();
-        let (hashes, report) = hash_system(&nes, &mut cache).unwrap();
+        let (found, report) = hash_system(&nes, &mut cache).unwrap();
+        let hashes = ra_hashes(&found);
         assert_eq!(report.ra_hashed, hashes.len());
         assert!(!hashes.is_empty());
         assert_eq!(lib.set_ra_hashes("nes", &hashes).unwrap(), hashes.len());
@@ -265,12 +276,12 @@ mod tests {
             .unwrap();
         let mut hashes = romdex::cache::Cache::in_memory().unwrap();
         let (found, _) = hash_system(&nes, &mut hashes).unwrap();
-        lib.set_ra_hashes("nes", &found).unwrap();
+        lib.set_ra_hashes("nes", &ra_hashes(&found)).unwrap();
         let game = lib
             .games("nes")
             .unwrap()
             .into_iter()
-            .find(|g| g.ra_game_id.is_none() && found.iter().any(|(p, _)| *p == g.path))
+            .find(|g| g.ra_game_id.is_none() && found.iter().any(|i| i.path == g.path))
             .unwrap();
         let key = format!("nes[\"{}\"].retroachievements", game.path);
         (dir, paths, lib, account, game, key)

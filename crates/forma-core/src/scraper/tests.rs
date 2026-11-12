@@ -126,6 +126,7 @@ pub(super) fn game(path: &str, name: &str) -> Game {
         age_rating: None,
         iconic: false,
         media: BTreeMap::new(),
+        dump: None,
     }
 }
 

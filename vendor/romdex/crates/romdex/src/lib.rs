@@ -10,6 +10,7 @@
 pub mod archive;
 pub mod batocera;
 pub mod cache;
+pub mod dat;
 mod error;
 pub mod format;
 pub mod hash;

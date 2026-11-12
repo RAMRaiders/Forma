@@ -34,6 +34,36 @@ fn snapshot() -> String {
     let paths = fixtures();
     let mut lib = Library::open_in_memory().expect("database");
     lib.refresh(&paths).expect("refresh");
+    // The fixture ROMs are empty stubs: dump checks as a real NES folder would have them, for
+    // themes to draw.
+    let mut nes = lib.games("nes").expect("nes");
+    // Mario the catalogued dump, the homebrew not.
+    nes.sort_by_key(|g| !g.name.starts_with("Super Mario"));
+    nes.retain(|g| g.name.starts_with("Super Mario") || g.name.contains("Homebrew"));
+    let dumps: Vec<_> = nes
+        .iter()
+        .take(2)
+        .enumerate()
+        .map(|(i, g)| {
+            let dump = if i == 0 {
+                forma_core::library::Dump {
+                    status: "verified".into(),
+                    catalogue: Some("no-intro".into()),
+                    name: Some(format!("{} (World)", g.name)),
+                    region: Some("World".into()),
+                }
+            } else {
+                forma_core::library::Dump {
+                    status: "notCatalogued".into(),
+                    catalogue: None,
+                    name: None,
+                    region: None,
+                }
+            };
+            (g.path.clone(), "0".repeat(40), dump)
+        })
+        .collect();
+    lib.set_dumps("nes", &dumps).expect("dumps");
     let catalog = load_views(&paths);
 
     let mut browse = Map::new();

@@ -1,0 +1,9 @@
+clrmamepro (
+	name "Nintendo - Nintendo Entertainment System"
+	version "2026.10.07"
+)
+game (
+	name "Super Mario Bros. (World)"
+	region "World"
+	rom ( name "Super Mario Bros. (World).nes" size 43 crc 414FA339 sha1 2FD4E1C67A2D28FCED849EE1BB76E7391B93EB12 )
+)
