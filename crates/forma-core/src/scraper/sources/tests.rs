@@ -770,7 +770,7 @@ fn screenscraper_says_what_tells_its_media_and_text_apart() {
             { "type": "video-normalized", "url": "https://s/v", "format": "mp4", "size": "12400000" },
             { "type": "manuel", "url": "https://s/m", "region": "us", "format": "pdf" }
         ]
-    }))
+    }), "Sonic")
     .unwrap();
     let video = &found.notes.media["https://s/v"];
     assert_eq!(video.variant.as_deref(), Some("Small file"));
@@ -790,14 +790,17 @@ fn screenscraper_says_what_tells_its_media_and_text_apart() {
 
 #[test]
 fn screenscraper_offers_every_name_with_the_regions_using_it() {
-    let found = super::screenscraper::parse(&serde_json::json!({
-        "noms": [
-            { "region": "jp", "text": "Sonikku" },
-            { "region": "us", "text": "Sonic" },
-            { "region": "eu", "text": "Sonic" },
-            { "region": "ss", "text": "Sonic the Hedgehog" }
-        ]
-    }))
+    let found = super::screenscraper::parse(
+        &serde_json::json!({
+            "noms": [
+                { "region": "jp", "text": "Sonikku" },
+                { "region": "us", "text": "Sonic" },
+                { "region": "eu", "text": "Sonic" },
+                { "region": "ss", "text": "Sonic the Hedgehog" }
+            ]
+        }),
+        "Sonic",
+    )
     .unwrap();
     assert_eq!(found.metadata.name.as_deref(), Some("Sonic"));
     assert_eq!(
@@ -810,6 +813,49 @@ fn screenscraper_offers_every_name_with_the_regions_using_it() {
             ("Sonic the Hedgehog".to_owned(), None),
             ("Sonikku".to_owned(), Some("Japan".to_owned())),
         ]
+    );
+}
+
+#[test]
+fn screenscraper_puts_the_roms_own_region_first() {
+    let game = serde_json::json!({
+        "noms": [
+            { "region": "us", "text": "Sonic" },
+            { "region": "eu", "text": "Sonic the Hedgehog" },
+            { "region": "jp", "text": "Sonikku" }
+        ],
+        "dates": [
+            { "region": "us", "text": "1991-06-23" },
+            { "region": "eu", "text": "1991-06-21" }
+        ],
+        "medias": [
+            { "type": "box-2D", "url": "https://s/us", "region": "us" },
+            { "type": "box-2D", "url": "https://s/eu", "region": "eu" }
+        ]
+    });
+    let europe = super::screenscraper::parse(&game, "Sonic the Hedgehog (Europe)").unwrap();
+    assert_eq!(europe.metadata.name.as_deref(), Some("Sonic the Hedgehog"));
+    assert_eq!(europe.notes.text["releaseDate"], "Europe");
+    assert_eq!(
+        europe.media.first().map(|(_, url)| url.as_str()),
+        Some("https://s/eu")
+    );
+    // A country of Europe: its own, else Europe's.
+    let france = super::screenscraper::parse(&game, "Sonic (France)").unwrap();
+    assert_eq!(france.metadata.name.as_deref(), Some("Sonic the Hedgehog"));
+    // Japan's own name for a Japanese copy.
+    let japan = super::screenscraper::parse(&game, "Sonic the Hedgehog (Japan)").unwrap();
+    assert_eq!(japan.metadata.name.as_deref(), Some("Sonikku"));
+    // No region in the name: as before, World, then USA.
+    let plain = super::screenscraper::parse(&game, "Sonic").unwrap();
+    assert_eq!(plain.metadata.name.as_deref(), Some("Sonic"));
+    assert_eq!(
+        plain.media.first().map(|(_, url)| url.as_str()),
+        Some("https://s/us")
+    );
+    assert_eq!(
+        super::screenscraper::regions_for("Sonic (USA, Europe) (Rev 1)")[..3],
+        ["us", "eu", "wor"]
     );
 }
 
