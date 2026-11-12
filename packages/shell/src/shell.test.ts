@@ -407,7 +407,13 @@ describe('Forma’s shell', () => {
       expect(selected()).toBe(label);
     };
     await vi.waitFor(() =>
-      expect(rows()).toEqual(['Scrapers', 'Emulator options', 'Game versions', 'Sibling games'])
+      expect(rows()).toEqual([
+        'Scrapers',
+        'Emulator options',
+        'Game versions',
+        'Sibling games',
+        'CRT shader'
+      ])
     );
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
@@ -467,6 +473,42 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(at('TheGamesDB')).toBe('On · set up'));
   });
 
+  it('CRT shader: on for every game, a preset, and settings that inherit', async () => {
+    const { press, text, openMenu } = start(['settings.emulators']);
+    await openMenu('Games');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    const at = (label: string) => details()[rows().indexOf(label)];
+    const selected = () => text('.page li.selected .name')[0];
+    const goTo = async (label: string) => {
+      for (let i = 0; i < 40 && selected() !== label; i++) await press('down');
+      expect(selected()).toBe(label);
+    };
+    await vi.waitFor(() => expect(rows()).toContain('CRT shader'));
+    await goTo('CRT shader');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('CRT shader: Off'));
+    // Off, global still shows what it would be: its preset and the essentials.
+    expect(rows()).toContain('Starts from');
+    expect(at('Starts from')).toBe('Default · Monitor Balanced (koko-aio)');
+    expect(text('.page li.heading')).toEqual(['Essentials', 'More']);
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('CRT shader: On'));
+    // A switch flips; a number steps and stops at its ends.
+    await goTo('Bloom/Halation');
+    expect(at('Bloom/Halation')).toBe('Default · Off (koko-aio)');
+    await press('right');
+    await vi.waitFor(() => expect(at('Bloom/Halation')).toBe('On'));
+    await goTo('Bloom Strength');
+    await press('right');
+    await vi.waitFor(() => expect(at('Bloom Strength')).toBe('0.46'));
+    await goTo('All settings…');
+    expect(at('All settings…')).toBe('7 settings in 4 sections · 2 set here');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Bloom/Halation…'));
+    expect(at('Bloom/Halation…')).toBe('On · 2 set here');
+  });
+
   it('a game on Select: its details by hand, and each scraper’s answers to choose from', async () => {
     const { press, text, backend, root } = start(
       ['scraper.manage'],
@@ -482,6 +524,7 @@ describe('Forma’s shell', () => {
         'Scrape',
         'Edit details',
         'Emulator settings',
+        'CRT shader',
         'Filter list',
         'Delete'
       ])

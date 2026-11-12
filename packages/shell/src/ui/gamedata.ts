@@ -9,6 +9,7 @@ import type {
 import type { Page, Row } from './page.js';
 import { backupNote, themeUse } from './scraper.js';
 import { optionsScreen } from './settings.js';
+import { shaderScreen } from './shader.js';
 
 /** The fields a user can type, in order; `hint` says how, for those it matters for. */
 const EDITABLE: { field: string; label: string; hint?: string }[] = [
@@ -56,6 +57,16 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
         page.push(
           `${game.name} emulator`,
           optionsScreen(forma, page, { level: 'game', game: game.id })
+        )
+    },
+    {
+      icon: 'emulator',
+      label: 'CRT shader',
+      detail: 'koko-aio’s preset and settings for this game only',
+      run: () =>
+        page.push(
+          `${game.name} CRT shader`,
+          shaderScreen(forma, page, { level: 'game', game: game.id })
         )
     }
   ];

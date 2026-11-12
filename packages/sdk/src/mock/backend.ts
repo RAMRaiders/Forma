@@ -51,7 +51,8 @@ import type {
   ThemeCatalogue,
   Unsubscribe,
   ViewInfo,
-  WifiNetwork
+  WifiNetwork,
+  ShaderPage
 } from '../types.js';
 import data from './library.json' with { type: 'json' };
 
@@ -644,6 +645,83 @@ export function mockBackend(options: MockOptions = {}): Backend {
           ]
         : [];
     return [...own, { prefix: system, from: 'system' }, { prefix: 'global', from: 'global' }];
+  };
+  // Forma's CRT shader: a few of koko-aio's settings, in sections, and its levels.
+  const shaderCatalog: {
+    title: string;
+    params: [string, string, number, number, number, number][];
+  }[] = [
+    { title: 'General', params: [['GAMMA_OUT', 'Gamma out', 0.5, 0.1, 5, 0.01]] },
+    {
+      title: 'Low level Phosphor grid',
+      params: [
+        ['DO_PIXELGRID', 'Low level Phosphor grid', 0, 0, 1, 1],
+        ['DO_PIXELGRID_H', 'Scanlines (===) (0 to disable)', 1, 0, 1.25, 0.05]
+      ]
+    },
+    {
+      title: 'Bloom/Halation',
+      params: [
+        ['DO_BLOOM', 'Bloom/Halation', 0, 0, 1, 1],
+        ['BLOOM_MIX', 'Bloom Strength', 0.45, 0, 1, 0.01]
+      ]
+    },
+    {
+      title: 'Curvature/Corners/Edges',
+      params: [
+        ['DO_CURVATURE', 'Curvature/Corners/Edges', 0, 0, 1, 1],
+        ['GEOM_WARP_X', 'Warp X', 0.28, 0, 6, 0.01]
+      ]
+    }
+  ];
+  const shaderPresets = [
+    { value: 'Presets-ng/Monitor-Balanced', label: 'Monitor Balanced' },
+    { value: 'Presets-ng/Base', label: 'Base' },
+    { value: 'Presets_Handhelds-ng/GameboyAdvance', label: 'Handheld · GameboyAdvance' }
+  ];
+  const shaderLevels = new Map<string, { preset: string | null; values: Map<string, number> }>();
+  let shaderOn = false;
+  const shaderChain = (scope: OptionsScope): { key: string; from: 'global' | 'system' }[] =>
+    levels(scope).map((l) => ({ key: l.prefix, from: l.from }));
+  const shaderLevel = (key: string) => {
+    let level = shaderLevels.get(key);
+    if (!level) shaderLevels.set(key, (level = { preset: null, values: new Map() }));
+    return level;
+  };
+  const shaderPage = (scope: OptionsScope): ShaderPage => {
+    const [own, ...above] = shaderChain(scope);
+    const here = shaderLevels.get(own!.key);
+    const presetAbove = above.find((l) => shaderLevels.get(l.key)?.preset);
+    return {
+      available: true,
+      enabled: shaderOn,
+      preset: {
+        value: here?.preset ?? null,
+        inherited: presetAbove
+          ? { value: shaderLevels.get(presetAbove.key)!.preset!, from: presetAbove.from }
+          : { value: 'Presets-ng/Monitor-Balanced', from: 'shader' },
+        choices: shaderPresets
+      },
+      essentials: ['GAMMA_OUT', 'DO_PIXELGRID', 'DO_PIXELGRID_H', 'DO_BLOOM', 'BLOOM_MIX'],
+      sections: shaderCatalog.map((s) => ({
+        title: s.title,
+        switch: s.params[0]![0].startsWith('DO_') ? s.params[0]![0] : null,
+        params: s.params.map(([key, label, def, min, max, step]) => {
+          const from = above.find((l) => shaderLevels.get(l.key)?.values.has(key));
+          return {
+            key,
+            label,
+            min,
+            max,
+            step,
+            value: here?.values.get(key) ?? null,
+            inherited: from
+              ? { value: shaderLevels.get(from.key)!.values.get(key)!, from: from.from }
+              : { value: def, from: 'shader' }
+          };
+        })
+      }))
+    };
   };
   const optionsPage = (scope: OptionsScope): OptionsPage => {
     const chain = levels(scope);
@@ -1533,6 +1611,39 @@ export function mockBackend(options: MockOptions = {}): Backend {
     options_get: ({ scope }) => {
       optionsAllowed();
       return optionsPage(scope as OptionsScope);
+    },
+    shaders_get: ({ scope }) => {
+      optionsAllowed();
+      return shaderPage(scope as OptionsScope);
+    },
+    shaders_set: ({ scope, key, value }) => {
+      optionsAllowed();
+      const s = scope as OptionsScope;
+      const param =
+        shaderPage(s)
+          .sections.flatMap((x) => x.params)
+          .find((p) => p.key === key) ??
+        fail('invalid', `\`${String(key)}\` is not a koko-aio setting`);
+      const values = shaderLevel(shaderChain(s)[0]!.key).values;
+      if (value === null || value === undefined) values.delete(param.key);
+      else if (typeof value !== 'number' || value < param.min || value > param.max) {
+        fail('invalid', `${param.label} goes from ${param.min} to ${param.max}`);
+      } else values.set(param.key, value);
+      return null;
+    },
+    shaders_set_preset: ({ scope, preset }) => {
+      optionsAllowed();
+      const chosen = typeof preset === 'string' ? preset : null;
+      if (chosen !== null && !shaderPresets.some((p) => p.value === chosen)) {
+        fail('invalid', `no koko-aio preset \`${chosen}\``);
+      }
+      shaderLevel(shaderChain(scope as OptionsScope)[0]!.key).preset = chosen;
+      return null;
+    },
+    shaders_set_enabled: ({ enabled }) => {
+      optionsAllowed();
+      shaderOn = enabled === true;
+      return null;
     },
     options_set: ({ scope, key, value }) => {
       optionsAllowed();

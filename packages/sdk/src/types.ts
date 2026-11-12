@@ -947,6 +947,57 @@ export interface OptionsPage {
   flags: string[];
 }
 
+/** What applies at a shader level when it sets nothing, and where it comes from. */
+export interface ShaderInherited<T> {
+  value: T;
+  /**
+   * `global` or `system`: a level above sets it; `preset`: the preset it starts from does;
+   * `shader`: koko-aio's own default.
+   */
+  from: 'global' | 'system' | 'preset' | 'shader';
+}
+
+/** One of koko-aio's settings at a level. */
+export interface ShaderParam {
+  /** koko-aio's name for it, e.g. `BLOOM_MIX`. */
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  /** Set at this level; `null` when it inherits. */
+  value: number | null;
+  inherited: ShaderInherited<number>;
+}
+
+/** A section of koko-aio's settings, e.g. Bloom, switched on by its first setting. */
+export interface ShaderSection {
+  title: string;
+  /** The key of the setting that switches it on (also first in `params`), if it has one. */
+  switch: string | null;
+  params: ShaderParam[];
+}
+
+/**
+ * Forma's CRT shader for games (koko-aio) at one level: whether it is on, the preset the level
+ * starts from, and every setting, with what the level sets and what it inherits.
+ */
+export interface ShaderPage {
+  /** koko-aio is installed (Batocera ships it). */
+  available: boolean;
+  /** On for every game: switched globally (`shaders.setEnabled`). */
+  enabled: boolean;
+  preset: {
+    /** Chosen at this level, as `Presets-ng/Monitor-Balanced`; `null` when it inherits. */
+    value: string | null;
+    inherited: ShaderInherited<string>;
+    choices: OptionChoice[];
+  };
+  /** Keys of the settings worth having at hand, in order. */
+  essentials: string[];
+  sections: ShaderSection[];
+}
+
 /** One of Batocera's system settings, as EmulationStation's System settings menu offers it. */
 export interface SystemSetting {
   /** The `batocera.conf` key (`storage`: Batocera's boot configuration). */

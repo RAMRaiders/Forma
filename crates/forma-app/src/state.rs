@@ -55,6 +55,8 @@ pub struct AppState {
     pub batocera: BatoceraSettings,
     /// Batocera's emulator, core and game options.
     pub options: Options,
+    /// Forma's CRT shader for games (koko-aio), tuned per level.
+    pub shaders: forma_core::shaders::Shaders,
     /// Batocera's system settings.
     pub system_settings: SystemSettings,
     /// Batocera's content downloader.

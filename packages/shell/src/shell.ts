@@ -31,6 +31,7 @@ import { addonsScreen } from './ui/addons.js';
 import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
+import { shaderScreen } from './ui/shader.js';
 import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
 import { UnlocksView } from './ui/unlocks.js';
@@ -663,6 +664,11 @@ export class Shell {
             label: 'Sibling games',
             detail: 'One game under different names, by LaunchBox',
             run: () => page.push('Sibling games', duplicatesScreen(this.forma, page, openGame))
+          },
+          {
+            label: 'CRT shader',
+            detail: 'koko-aio on every game: on or off, its preset and settings',
+            run: () => page.push('CRT shader', shaderScreen(this.forma, page, { level: 'global' }))
           }
         ]);
       case 'system-options':
