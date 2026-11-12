@@ -621,7 +621,8 @@ export interface EventMap {
   'library:changed': LibraryChanged;
   /**
    * A game's pictures were replaced, often under the same file names: `library.mediaUrl` has
-   * new URLs for it from now on, so draw again whatever shows it. Since 1.27.0.
+   * new URLs for it from now on, so draw again whatever shows it. Sent after a pick is saved
+   * and for each game a scraper run saved pictures for. Since 1.27.0.
    */
   'media:changed': MediaChanged;
   'views:changed': null;
