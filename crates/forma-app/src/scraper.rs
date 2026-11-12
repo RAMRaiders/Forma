@@ -911,6 +911,11 @@ fn run<R: Runtime>(app: &AppHandle<R>, ids: &[i64]) {
             &system,
             &mut out_of_service,
         );
+        // Its pictures were replaced, often under the same names: as after a pick, so the
+        // theme reads them again (their URLs change) rather than showing what it has.
+        if outcome.as_ref().is_ok_and(|o| !o.media.is_empty()) {
+            let _ = app.emit(EVENT_MEDIA_CHANGED, MediaChanged { game: *id });
+        }
         let mut status = state.scraper.status();
         status.done += 1;
         match outcome {
