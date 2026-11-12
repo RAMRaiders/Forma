@@ -51,6 +51,7 @@ import type {
   BatoceraSetting,
   OptionsPage,
   OptionsScope,
+  Preset,
   ShaderPage,
   InfoItem,
   SystemSetting,
@@ -151,6 +152,7 @@ export class Forma {
   readonly batocera;
   readonly options;
   readonly shaders;
+  readonly presets;
   readonly store;
   readonly music;
   readonly video;
@@ -649,6 +651,18 @@ export class Forma {
        * unless its backend is already one slang shaders work with.
        */
       setEnabled: (enabled: boolean) => invoke<void>('shaders_set_enabled', { enabled })
+    };
+
+    /**
+     * Forma's presets: ready-made setups for a kind of machine and screen (emulator options and
+     * the CRT shader), one active or none, under the user's own settings. The shader follows at
+     * once, the options at the next launch. Needs the `settings.emulators` permission; Batocera
+     * only. Since 1.35.0.
+     */
+    this.presets = {
+      list: () => invoke<Preset[]>('presets_list'),
+      /** Makes `id` the active preset, or none with `null`. */
+      setActive: (id: string | null) => invoke<void>('presets_set_active', { id })
     };
 
     /**

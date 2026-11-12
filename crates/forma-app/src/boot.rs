@@ -64,6 +64,7 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     if shell_dir.is_none() {
         eprintln!("forma: the shell (shell.js) is missing: no Start menu over themes");
     }
+    let presets = forma_core::presets::Presets::new(&paths.forma_dir().join("presets.json"));
     app.manage(AppState {
         views: RwLock::new(load_views(&paths)),
         library: Mutex::new(library),
@@ -86,12 +87,15 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             &paths.batocera_conf(),
             &paths.systems_cfg.with_file_name("es_features.cfg"),
             &paths.userdata,
-        ),
+        )
+        .with_presets(presets.clone()),
         shaders: forma_core::shaders::Shaders::new(
             Box::new(SystemShell),
             &paths.batocera_conf(),
             &paths.userdata,
-        ),
+        )
+        .with_presets(presets.clone()),
+        presets: presets.clone(),
         music,
         magazines: forma_core::magazines::Reader::new(
             &paths,

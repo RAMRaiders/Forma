@@ -59,6 +59,7 @@ impl Harness {
         let mut library = Library::open_in_memory().unwrap();
         library.refresh(&paths).unwrap();
         let bundled = vec![theme_dir];
+        let presets = forma_core::presets::Presets::new(&paths.forma_dir().join("presets.json"));
         let state = AppState {
             views: RwLock::new(load_views(&paths)),
             library: Mutex::new(library),
@@ -78,12 +79,15 @@ impl Harness {
                 &paths.batocera_conf(),
                 &paths.systems_cfg.with_file_name("es_features.cfg"),
                 &paths.userdata,
-            ),
+            )
+            .with_presets(presets.clone()),
             shaders: forma_core::shaders::Shaders::new(
                 Box::new(SystemShell),
                 &paths.batocera_conf(),
                 &paths.userdata,
-            ),
+            )
+            .with_presets(presets.clone()),
+            presets: presets.clone(),
             music: forma_core::music::Player::new(
                 forma_core::music::Library {
                     music: paths.music_dir(),

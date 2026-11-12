@@ -532,6 +532,30 @@ describe('Forma’s shell', () => {
     expect(at('Bloom/Halation…')).toBe('On · 2 set here');
   });
 
+  it('presets: one is switched on from its page, and the CRT shader follows', async () => {
+    const { press, text, openMenu } = start(['settings.emulators']);
+    await openMenu('Presets');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    const at = (label: string) => details()[rows().indexOf(label)];
+    await vi.waitFor(() => expect(rows()).toContain('Raspberry Pi 5 · Monitor'));
+    expect(at('No preset')).toBe('In use: your own settings alone');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Raspberry Pi 5 · Monitor: Off'));
+    expect(text('.page li.heading')).toEqual([
+      'What it does',
+      'Emulator options it sets',
+      'Your settings'
+    ]);
+    expect(rows()).toContain('nds.shaderset = none');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Raspberry Pi 5 · Monitor: On'));
+    await press('back');
+    await vi.waitFor(() =>
+      expect(at('No preset')).toBe('Stop using Raspberry Pi 5 · Monitor: your own settings alone')
+    );
+  });
+
   it('a game on Select: its details by hand, and each scraper’s answers to choose from', async () => {
     const { press, text, backend, root } = start(
       ['scraper.manage'],
@@ -1203,6 +1227,7 @@ describe('Forma’s shell', () => {
       'Games',
       'Achievements',
       'Netplay',
+      'Presets',
       'Interface',
       'Screensaver',
       'Audio',
@@ -1214,7 +1239,7 @@ describe('Forma’s shell', () => {
       'Restart',
       'Shut down'
     ]);
-    expect(text('.menu h3')).toEqual(['Library', 'Play', 'Settings', 'Devices', 'Power']);
+    expect(text('.menu h3')).toEqual(['Library', 'Play', 'Setup', 'Settings', 'Devices', 'Power']);
     expect(text('.menu .about')).toEqual(['Your own lists of games']);
     expect(text('.hints .hint')).toEqual(['AChoose', 'BClose']);
     expect(open).toEqual([true]);
@@ -1262,7 +1287,7 @@ describe('Forma’s shell', () => {
       });
       top += Math.ceil(own.length / 4) * 50 + 20;
     }
-    expect(tiles.length).toBe(17);
+    expect(tiles.length).toBe(18);
     const at = () => text('.menu li.selected .name')[0];
     expect(at()).toBe('Collections');
     await press('right');
@@ -1275,6 +1300,11 @@ describe('Forma’s shell', () => {
     expect(at()).toBe('Achievements');
     await press('right');
     await press('down');
+    // a row of one tile: the nearest across
+    expect(at()).toBe('Presets');
+    await press('down');
+    expect(at()).toBe('Interface');
+    await press('right');
     expect(at()).toBe('Screensaver');
     await press('right');
     expect(at()).toBe('Audio');
@@ -1301,7 +1331,7 @@ describe('Forma’s shell', () => {
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 15; i++) await press('down');
+    for (let i = 0; i < 16; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Restart']);
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
@@ -1327,7 +1357,7 @@ describe('Forma’s shell', () => {
   it('switches theme, and sets the theme’s own settings, from Interface', async () => {
     const { press, text, settings, forma } = start(['settings.system']);
     await press('start');
-    for (let i = 0; i < 7; i++) await press('down');
+    for (let i = 0; i < 8; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Interface']));
     expect(text('.page li.heading')).toEqual(['Theme', 'Screen', 'Look', 'This theme']);
@@ -1369,7 +1399,7 @@ describe('Forma’s shell', () => {
       }
     ]);
     await press('start');
-    for (let i = 0; i < 7; i++) await press('down');
+    for (let i = 0; i < 8; i++) await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(root.querySelector('.page .theme-logo')).not.toBeNull());
     const logo = root.querySelector<HTMLImageElement>('.page .theme-logo')!;
@@ -1398,7 +1428,7 @@ describe('Forma’s shell', () => {
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
     const { press, text } = start(['system.network']);
     await press('start');
-    for (let i = 0; i < 13; i++) await press('down');
+    for (let i = 0; i < 14; i++) await press('down');
     expect(text('.menu li.selected .name')).toEqual(['Network']);
     await press('confirm');
     const rows = () => text('.network > .panel li .name');

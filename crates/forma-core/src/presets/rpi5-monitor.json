@@ -1,0 +1,38 @@
+{
+  "id": "rpi5-monitor",
+  "name": "Raspberry Pi 5 · Monitor",
+  "description": "A Pi 5 on a flat 1080p monitor: sharp pictures with a light CRT look the Pi's GPU keeps up with",
+  "notes": [
+    "CRT shader on: koko-aio's Monitor Balanced look, scanlines and mask, glow, halo and vignette",
+    "No bezel, ambilight, curvature, bloom or glare: the costliest parts on the Pi 5, and a flat monitor needs no frame",
+    "Batocera's decorations off, no smoothing, no integer scaling: the shader fills the screen",
+    "Rewind off: it costs the Pi 5 frames in the heavier systems",
+    "Nintendo DS without the CRT shader: its two screens are not a CRT's"
+  ],
+  "options": {
+    "global": {
+      "bezel": "none",
+      "smooth": "0",
+      "integerscale": "0",
+      "rewind": "0"
+    },
+    "systems": {
+      "nds": { "shaderset": "none" }
+    }
+  },
+  "shader": {
+    "enabled": true,
+    "global": {
+      "preset": "Presets-ng/Monitor-Balanced",
+      "values": {
+        "DO_BEZEL": 0,
+        "DO_AMBILIGHT": 0,
+        "DO_CURVATURE": 0,
+        "DO_BLOOM": 0,
+        "DO_SPOT": 0,
+        "DO_DYNZOOM": 0,
+        "DO_VIGNETTE": 1
+      }
+    }
+  }
+}
