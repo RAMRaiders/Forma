@@ -672,7 +672,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
         ['DO_CURVATURE', 'Curvature/Corners/Edges', 0, 0, 1, 1],
         ['GEOM_WARP_X', 'Warp X', 0.28, 0, 6, 0.01]
       ]
-    }
+    },
+    { title: 'Bezel', params: [['DO_BEZEL', 'Bezel', 0, 0, 1, 1]] }
   ];
   const shaderPresets = [
     { value: 'Presets-ng/Monitor-Balanced', label: 'Monitor Balanced' },
@@ -702,7 +703,21 @@ export function mockBackend(options: MockOptions = {}): Backend {
           : { value: 'Presets-ng/Monitor-Balanced', from: 'shader' },
         choices: shaderPresets
       },
-      essentials: ['GAMMA_OUT', 'DO_PIXELGRID', 'DO_PIXELGRID_H', 'DO_BLOOM', 'BLOOM_MIX'],
+      essentials: [
+        'GAMMA_OUT',
+        'DO_PIXELGRID',
+        'DO_PIXELGRID_H',
+        'DO_BLOOM',
+        'BLOOM_MIX',
+        'DO_BEZEL'
+      ],
+      drawsBezel:
+        shaderOn &&
+        (here?.values.get('DO_BEZEL') ??
+          above
+            .map((l) => shaderLevels.get(l.key)?.values.get('DO_BEZEL'))
+            .find((v) => v !== undefined) ??
+          0) >= 0.5,
       sections: shaderCatalog.map((s) => ({
         title: s.title,
         switch: s.params[0]![0].startsWith('DO_') ? s.params[0]![0] : null,

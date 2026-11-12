@@ -37,6 +37,7 @@ const CONFIG_INC: &str = r#"
 #pragma parameter LABEL0023 " " 0 0 0 1
 #pragma parameter DO_PIXELGRID		 "★  Low level Phosphor grid enable? (ph) ==>"	0.0 0.0 1.0 1.0
 #pragma parameter DO_PIXELGRID_H            "      ★ Scanlines (===) (0 to disable)"    	1.0 0.0 1.25 0.05
+#pragma parameter DO_BEZEL "★ Bezel enable? (bz) ==>" 0.0 0.0 1.0 1.0
 #pragma parameter TATE "★ Tate, use horizontal scanlines (0:disabled 1:auto 2:forced)" 1.0 0.0 2.0 1.0
 "#;
 
@@ -120,7 +121,12 @@ fn reads_koko_aio_settings_in_its_sections() {
     let titles: Vec<_> = page.sections.iter().map(|s| s.title.as_str()).collect();
     assert_eq!(
         titles,
-        ["General", "Bloom/Halation", "Low level Phosphor grid"]
+        [
+            "General",
+            "Bloom/Halation",
+            "Low level Phosphor grid",
+            "Bezel"
+        ]
     );
     let general: Vec<_> = page.sections[0]
         .params
@@ -149,7 +155,8 @@ fn reads_koko_aio_settings_in_its_sections() {
             "DO_PIXELGRID",
             "DO_PIXELGRID_H",
             "DO_BLOOM",
-            "BLOOM_MIX"
+            "BLOOM_MIX",
+            "DO_BEZEL"
         ]
     );
     let presets: Vec<_> = page
@@ -324,4 +331,61 @@ fn without_koko_aio_it_says_so() {
     let page = shaders.page(&Scope::Global).unwrap();
     assert!(!page.available);
     assert!(shaders.set_enabled(true).is_err());
+}
+
+#[test]
+fn koko_aio_s_bezel_turns_batocera_s_decoration_off_and_back() {
+    let f = fixture("global.bezel=thebezelproject\nmegadrive.bezel=default\n");
+    f.shaders.set_enabled(true).unwrap();
+    // The shader on, but no bezel of its own: decorations as they were.
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.bezel"], "thebezelproject");
+    assert_eq!(conf["megadrive.bezel"], "default");
+
+    f.shaders
+        .set(&Scope::Global, "DO_BEZEL", Some(1.0))
+        .unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.bezel"], "none");
+    // A system's own decoration would still frame it: off too.
+    assert_eq!(conf["megadrive.bezel"], "none");
+    assert!(
+        f.shaders
+            .page(&Scope::System("megadrive".into()))
+            .unwrap()
+            .draws_bezel
+    );
+
+    // A system that turns koko-aio's bezel off gets the decoration it had from global.
+    let snes = Scope::System("snes".into());
+    f.shaders.set(&snes, "DO_BEZEL", Some(0.0)).unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["snes.bezel"], "thebezelproject");
+    assert!(!f.shaders.page(&snes).unwrap().draws_bezel);
+
+    // Off: every key as the user had it.
+    f.shaders.set_enabled(false).unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.bezel"], "thebezelproject");
+    assert_eq!(conf["megadrive.bezel"], "default");
+    assert!(!conf.contains_key("snes.bezel"));
+}
+
+#[test]
+fn a_decoration_the_user_picks_meanwhile_is_theirs() {
+    let f = fixture("global.bezel=thebezelproject\n");
+    f.shaders.set_enabled(true).unwrap();
+    f.shaders
+        .set(&Scope::Global, "DO_BEZEL", Some(1.0))
+        .unwrap();
+    // Changed by hand (or from the emulator options) while Forma had it off…
+    FakeShell {
+        conf: f.conf.clone(),
+        calls: Arc::default(),
+    }
+    .run("batocera-settings-set", &["global.bezel", "arcade"])
+    .unwrap();
+    // …it is what comes back, not what was there before.
+    f.shaders.set(&Scope::Global, "DO_BEZEL", None).unwrap();
+    assert_eq!(conf::read(&f.conf)["global.bezel"], "arcade");
 }

@@ -9,6 +9,7 @@ import type {
 import { FormaError } from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
+import { SCREEN_MENUS, optionRow, sentence } from './settings.js';
 
 /** Where an inherited value comes from, said briefly. */
 const FROM: Record<ShaderInherited<unknown>['from'], string> = {
@@ -155,51 +156,84 @@ function allScreen(forma: Forma, page: Page, scope: OptionsScope): () => Promise
   };
 }
 
-/**
- * Forma's CRT shader at one level: on or off (for every game), the preset it starts from, the
- * settings worth having at hand, and every setting by koko-aio's sections. Used by the next
- * launch; a level that sets nothing inherits the one above.
- */
-export function shaderScreen(forma: Forma, page: Page, scope: OptionsScope): () => Promise<Row[]> {
-  return async () => {
-    const s = await forma.shaders.get(scope);
-    if (!s.available) {
-      return [{ label: 'koko-aio is not installed', detail: 'Batocera 41 and later ship it' }];
-    }
-    const toggle = () =>
-      page.run(s.enabled ? 'Switching off…' : 'Switching on…', async () => {
-        await forma.shaders.setEnabled(!s.enabled);
-        return s.enabled
-          ? 'CRT shader off: Batocera’s own shaders again'
-          : 'CRT shader on for every game, from the next launch';
-      });
-    const rows: Row[] = [
-      {
-        label: `CRT shader: ${s.enabled ? 'On' : 'Off'}`,
-        detail: s.enabled
-          ? 'koko-aio on every RetroArch game (RetroArch on Vulkan)'
-          : 'Batocera’s own shaders · A to switch koko-aio on for every game',
-        adjust: toggle,
-        run: toggle
-      }
+/** koko-aio's rows at one level: on or off, the preset, the essentials, and every setting. */
+function shaderRows(forma: Forma, page: Page, scope: OptionsScope, s: ShaderPage): Row[] {
+  if (!s.available) {
+    return [
+      { label: 'CRT shader', detail: 'koko-aio is not installed (Batocera 41 and later ship it)' }
     ];
-    if (!s.enabled && scope.level !== 'global') return rows;
-    rows.push(presetRow(forma, page, scope, s));
-    const params = new Map(s.sections.flatMap((x) => x.params).map((p) => [p.key, p]));
-    s.essentials.forEach((key, i) => {
-      const p = params.get(key);
-      if (p)
-        rows.push({
-          ...paramRow(forma, page, scope, p),
-          heading: i === 0 ? 'Essentials' : undefined
-        });
+  }
+  const toggle = () =>
+    page.run(s.enabled ? 'Switching off…' : 'Switching on…', async () => {
+      await forma.shaders.setEnabled(!s.enabled);
+      return s.enabled
+        ? 'CRT shader off: Batocera’s own shaders again'
+        : 'CRT shader on for every game, from the next launch';
     });
-    const set = [...params.values()].filter((p) => p.value !== null).length;
-    rows.push({
-      heading: 'More',
-      label: 'All settings…',
-      detail: `${params.size} settings in ${s.sections.length} sections${set > 0 ? ` · ${set} set here` : ''}`,
-      run: () => page.push('All settings', allScreen(forma, page, scope))
+  const rows: Row[] = [
+    {
+      heading: 'CRT shader',
+      label: `CRT shader: ${s.enabled ? 'On' : 'Off'}`,
+      detail: s.enabled
+        ? 'koko-aio on every RetroArch game (RetroArch on Vulkan)'
+        : 'Batocera’s own shaders · A to switch koko-aio on for every game',
+      adjust: toggle,
+      run: toggle
+    }
+  ];
+  if (!s.enabled && scope.level !== 'global') return rows;
+  rows.push(presetRow(forma, page, scope, s));
+  const params = new Map(s.sections.flatMap((x) => x.params).map((p) => [p.key, p]));
+  for (const key of s.essentials) {
+    const p = params.get(key);
+    if (p) rows.push(paramRow(forma, page, scope, p));
+  }
+  const set = [...params.values()].filter((p) => p.value !== null).length;
+  rows.push({
+    label: 'All settings…',
+    detail: `${params.size} settings in ${s.sections.length} sections${set > 0 ? ` · ${set} set here` : ''}`,
+    run: () => page.push('All settings', allScreen(forma, page, scope))
+  });
+  return rows;
+}
+
+/**
+ * How games look at one level: Forma's CRT shader (koko-aio: on or off for every game, the
+ * preset it starts from, its settings), then Batocera's picture and decoration options. Its
+ * shader set gives way to the CRT shader while that is on, and its decoration to koko-aio's
+ * bezel where that is on: two frames round a game are one too many. Used by the next launch;
+ * a level that sets nothing inherits the one above.
+ */
+export function screenScreen(forma: Forma, page: Page, scope: OptionsScope): () => Promise<Row[]> {
+  return async () => {
+    const [s, { options }] = await Promise.all([
+      forma.shaders.get(scope),
+      forma.options.get(scope)
+    ]);
+    const rows = shaderRows(forma, page, scope, s);
+    const on = s.available && s.enabled;
+    SCREEN_MENUS.forEach((menu) => {
+      options
+        .filter((o) => o.submenu === menu)
+        .forEach((o, i) => {
+          const heading =
+            i === 0 ? (menu === 'DECORATIONS' ? 'Decorations' : 'Picture') : undefined;
+          if (o.key === 'shaderset' && on) {
+            rows.push({
+              heading,
+              label: sentence(o.label),
+              detail: 'Off · Forma’s CRT shader instead'
+            });
+          } else if (o.key === 'bezel' && s.drawsBezel) {
+            rows.push({
+              heading,
+              label: sentence(o.label),
+              detail: 'Off · koko-aio draws the bezel'
+            });
+          } else {
+            rows.push({ ...optionRow(forma, page, scope, o), heading });
+          }
+        });
     });
     return rows;
   };

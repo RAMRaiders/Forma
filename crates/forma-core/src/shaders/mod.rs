@@ -67,6 +67,8 @@ const ESSENTIALS: &[&str] = &[
     "DO_BEZEL",
     "DO_AMBILIGHT",
 ];
+/// koko-aio's own bezel: on at a level, Batocera's decoration is off there.
+const BEZEL: &str = "DO_BEZEL";
 /// Forma's shader set, its presets and its own file, under the user's shaders folder.
 const SET: &str = "forma";
 /// How deep presets may reference one another before Forma stops following.
@@ -134,6 +136,16 @@ struct State {
     /// By system, then by the game's file name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     games: BTreeMap<String, BTreeMap<String, Level>>,
+    /// Batocera's decoration keys Forma changed (by their level's prefix, `global`, `snes`,
+    /// `snes["file"]`): what was there, and what Forma wrote.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    decorations: BTreeMap<String, Decoration>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+struct Decoration {
+    before: Option<String>,
+    wrote: Option<String>,
 }
 
 /// A level's page: whether the shader is there and on, its preset, and every setting.
@@ -148,6 +160,9 @@ pub struct ShaderPage {
     /// Keys of the settings worth having at hand, in order.
     pub essentials: Vec<String>,
     pub sections: Vec<ShaderSection>,
+    /// koko-aio draws its own bezel at this level, so Batocera's decoration is off here (and
+    /// back as it was when the bezel or the shader goes off).
+    pub draws_bezel: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -341,6 +356,7 @@ impl Shaders {
                 },
                 essentials: Vec::new(),
                 sections: Vec::new(),
+                draws_bezel: false,
             });
         };
         let here = own_level(&state, scope);
@@ -426,6 +442,7 @@ impl Shaders {
                 .map(|k| (*k).to_owned())
                 .collect(),
             sections,
+            draws_bezel: state.enabled && self.effective(&state, catalog, scope, BEZEL) >= 0.5,
         })
     }
 
@@ -469,7 +486,7 @@ impl Shaders {
         self.catalog().ok_or_else(not_installed)?;
         let mut state = self.state();
         if state.enabled == on {
-            return self.apply(&state);
+            return self.apply(state);
         }
         let conf = conf::read(&self.conf);
         if on {
@@ -502,7 +519,7 @@ impl Shaders {
             }
         }
         state.enabled = on;
-        self.apply(&state)
+        self.apply(state)
     }
 
     fn change(&self, scope: &Scope, edit: impl FnOnce(&mut Level)) -> Result<()> {
@@ -532,19 +549,21 @@ impl Shaders {
         for (system, file) in gone {
             conf::clear(&self.conf, &renderer_key(&system, &file))?;
         }
-        self.apply(&state)
+        self.apply(state)
     }
 
     /// Writes Forma's file, a preset per level that has one, its shader set, and the games'
     /// keys in `batocera.conf` (only while on).
-    fn apply(&self, state: &State) -> Result<()> {
+    fn apply(&self, mut state: State) -> Result<()> {
         let catalog = self.catalog().ok_or_else(not_installed)?;
         let root = self.user.join(SET);
         mkdir(&root)?;
+        self.sync_decorations(&mut state, catalog)?;
         write(
             &self.state_file(),
-            &serde_json::to_string_pretty(state).expect("state serialises"),
+            &serde_json::to_string_pretty(&state).expect("state serialises"),
         )?;
+        let state = &state;
         // Written afresh each time: a preset left from an unset level would linger.
         for dir in ["systems", "games"] {
             let path = root.join(dir);
@@ -616,6 +635,142 @@ impl Shaders {
             }
         }
         Ok(())
+    }
+
+    /// A setting's value at `scope`: the nearest level's, else its preset's, else koko-aio's.
+    fn effective(&self, state: &State, catalog: &Catalog, scope: &Scope, key: &str) -> f64 {
+        let (preset, levels) = self.chain(state, scope);
+        levels
+            .iter()
+            .rev()
+            .find_map(|(l, _)| l.values.get(key).copied())
+            .or_else(|| self.preset_values(catalog, &preset).get(key).copied())
+            .or_else(|| catalog.param(key).map(|p| p.default))
+            .unwrap_or(0.0)
+    }
+
+    /// Batocera's decoration off (`none`) at each level where Forma's shader is on and draws
+    /// its own bezel, and as the user had it everywhere else: two frames round a game are one
+    /// too many. Levels are walked top down, so a system without koko-aio's bezel under a
+    /// global with it gets its decoration back by a key of its own.
+    fn sync_decorations(&self, state: &mut State, catalog: &Catalog) -> Result<()> {
+        let conf = conf::read(&self.conf);
+        let key = |prefix: &str| format!("{prefix}.bezel");
+        // The user's own key at a level: what Forma found there, unless changed since.
+        let user = |state: &State, prefix: &str| -> Option<String> {
+            let now = conf.get(&key(prefix)).cloned();
+            match state.decorations.get(prefix) {
+                Some(d) if d.wrote == now => d.before.clone(),
+                _ => now,
+            }
+        };
+        let mut systems: std::collections::BTreeSet<String> =
+            state.systems.keys().cloned().collect();
+        systems.extend(HANDHELDS.iter().map(|(s, _)| (*s).to_owned()));
+        systems.extend(state.games.keys().cloned());
+        for k in conf.keys() {
+            if let Some(sys) = k.strip_suffix(".bezel")
+                && !sys.contains(['[', '.'])
+                && sys != "global"
+            {
+                systems.insert(sys.to_owned());
+            }
+        }
+        let mut scopes = vec![(Scope::Global, "global".to_owned())];
+        for system in &systems {
+            scopes.push((Scope::System(system.clone()), system.clone()));
+            for file in state.games.get(system).into_iter().flat_map(|g| g.keys()) {
+                let name: String = file.chars().filter(|c| *c != '=' && *c != '#').collect();
+                scopes.push((
+                    Scope::Game {
+                        system: system.clone(),
+                        file: file.clone(),
+                    },
+                    conf::game_prefix(system, &name),
+                ));
+            }
+        }
+        let none = || "none".to_owned();
+        // What applies at each level after Forma's keys, and what the user's own keys give.
+        let mut written: HashMap<String, String> = HashMap::new();
+        let mut users: HashMap<String, Option<String>> = HashMap::new();
+        let mut seen = Vec::new();
+        for (scope, prefix) in &scopes {
+            let parent = match scope {
+                Scope::Global => None,
+                Scope::System(_) => Some("global".to_owned()),
+                Scope::Game { system, .. } => Some(system.clone()),
+            };
+            let parent_written = parent
+                .as_ref()
+                .and_then(|p| written.get(p).cloned())
+                .unwrap_or_else(none);
+            let own = user(state, prefix);
+            let user_eff = own.clone().or_else(|| {
+                parent
+                    .as_ref()
+                    .and_then(|p| users.get(p).cloned().flatten())
+            });
+            let draws = state.enabled && self.effective(state, catalog, scope, BEZEL) >= 0.5;
+            let target = if draws {
+                none()
+            } else {
+                user_eff.clone().unwrap_or_else(none)
+            };
+            let desired = if own.clone().unwrap_or_else(|| parent_written.clone()) == target {
+                own.clone()
+            } else {
+                Some(target)
+            };
+            written.insert(prefix.clone(), desired.clone().unwrap_or(parent_written));
+            users.insert(prefix.clone(), user_eff);
+            self.set_key(&conf, &key(prefix), desired.as_deref())?;
+            if desired == own {
+                state.decorations.remove(prefix);
+            } else {
+                state.decorations.insert(
+                    prefix.clone(),
+                    Decoration {
+                        before: own,
+                        wrote: desired,
+                    },
+                );
+            }
+            seen.push(prefix.clone());
+        }
+        // A level Forma had changed that is gone (its game unset): back as it was.
+        let gone: Vec<String> = state
+            .decorations
+            .keys()
+            .filter(|p| !seen.contains(p))
+            .cloned()
+            .collect();
+        for prefix in gone {
+            let d = state.decorations.remove(&prefix).expect("listed");
+            if conf.get(&key(&prefix)) == d.wrote.as_ref() {
+                self.set_key(&conf, &key(&prefix), d.before.as_deref())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A `batocera.conf` key set, or cleared with `None`; left alone if it already is.
+    fn set_key(
+        &self,
+        conf: &HashMap<String, String>,
+        key: &str,
+        value: Option<&str>,
+    ) -> Result<()> {
+        if conf.get(key).map(String::as_str) == value {
+            return Ok(());
+        }
+        match value {
+            Some(v) => self
+                .shell
+                .run("batocera-settings-set", &[key, v])
+                .map(|_| ()),
+            None => conf::clear(&self.conf, key),
+        }
     }
 }
 

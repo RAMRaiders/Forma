@@ -32,7 +32,7 @@ import { addonsScreen } from './ui/addons.js';
 import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
 import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
-import { shaderScreen } from './ui/shader.js';
+import { screenScreen } from './ui/shader.js';
 import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
 import { UnlocksView } from './ui/unlocks.js';
@@ -726,7 +726,7 @@ export class Shell {
           },
           {
             label: 'Emulator options',
-            detail: 'For every game: ratio, shaders, decorations…',
+            detail: 'For every game: ratio, rewind, saves, controls…',
             run: () =>
               page.push('Emulator options', optionsScreen(this.forma, page, { level: 'global' }))
           },
@@ -746,9 +746,9 @@ export class Shell {
             run: () => page.push('Sibling games', duplicatesScreen(this.forma, page, openGame))
           },
           {
-            label: 'CRT shader',
-            detail: 'koko-aio on every game: on or off, its preset and settings',
-            run: () => page.push('CRT shader', shaderScreen(this.forma, page, { level: 'global' }))
+            label: 'Screen',
+            detail: 'For every game: CRT shader, picture and decorations',
+            run: () => page.push('Screen', screenScreen(this.forma, page, { level: 'global' }))
           }
         ]);
       case 'system-options':
