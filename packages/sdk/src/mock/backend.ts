@@ -682,6 +682,17 @@ export function mockBackend(options: MockOptions = {}): Backend {
   ];
   const shaderLevels = new Map<string, { preset: string | null; values: Map<string, number> }>();
   let shaderOn = false;
+  /** Systems and games switched on or off apart from the level above, by level key. */
+  const shaderSwitches = new Map<string, boolean>();
+  /** On at a level: the nearest level that says, else global. */
+  const shaderOnAt = (scope: OptionsScope) => {
+    const [own, ...above] = shaderChain(scope);
+    for (const l of [own!, ...above]) {
+      const set = shaderSwitches.get(l.key);
+      if (l.key !== 'global' && set !== undefined) return set;
+    }
+    return shaderOn;
+  };
   const shaderChain = (scope: OptionsScope): { key: string; from: 'global' | 'system' }[] =>
     levels(scope).map((l) => ({ key: l.prefix, from: l.from }));
   const shaderLevel = (key: string) => {
@@ -695,7 +706,19 @@ export function mockBackend(options: MockOptions = {}): Backend {
     const presetAbove = above.find((l) => shaderLevels.get(l.key)?.preset);
     return {
       available: true,
-      enabled: shaderOn,
+      enabled: shaderOnAt(scope),
+      switch: (() => {
+        const [own, ...above] = shaderChain(scope);
+        const from = above.find((l) => l.key !== 'global' && shaderSwitches.has(l.key));
+        return {
+          value: own!.key === 'global' ? shaderOn : (shaderSwitches.get(own!.key) ?? null),
+          inherited: from
+            ? { value: shaderSwitches.get(from.key)!, from: from.from }
+            : own!.key === 'global'
+              ? { value: false, from: 'shader' as const }
+              : { value: shaderOn, from: 'global' as const }
+        };
+      })(),
       preset: {
         value: here?.preset ?? null,
         inherited: presetAbove
@@ -712,7 +735,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
         'DO_BEZEL'
       ],
       drawsBezel:
-        shaderOn &&
+        shaderOnAt(scope) &&
         (here?.values.get('DO_BEZEL') ??
           above
             .map((l) => shaderLevels.get(l.key)?.values.get('DO_BEZEL'))
@@ -1703,9 +1726,15 @@ export function mockBackend(options: MockOptions = {}): Backend {
       shaderLevel(shaderChain(scope as OptionsScope)[0]!.key).preset = chosen;
       return null;
     },
-    shaders_set_enabled: ({ enabled }) => {
+    shaders_set_enabled: ({ enabled, scope }) => {
       optionsAllowed();
-      shaderOn = enabled === true;
+      const own = scope ? shaderChain(scope as OptionsScope)[0]!.key : 'global';
+      if (own === 'global') {
+        if (typeof enabled !== 'boolean')
+          fail('invalid', 'the CRT shader is on or off for every game');
+        shaderOn = enabled === true;
+      } else if (typeof enabled === 'boolean') shaderSwitches.set(own, enabled);
+      else shaderSwitches.delete(own);
       return null;
     },
     options_set: ({ scope, key, value }) => {

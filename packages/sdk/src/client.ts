@@ -646,9 +646,11 @@ export class Forma {
         invoke<void>('shaders_set_preset', { scope, preset }),
       /**
        * On for every game, or off: Batocera's own shader set back. On, RetroArch runs on Vulkan
-       * unless its backend is already one slang shaders work with.
+       * unless its backend is already one slang shaders work with. With a system's or a game's
+       * `scope` (since 1.35.0), on or off there over the level above, or `null` to inherit.
        */
-      setEnabled: (enabled: boolean) => invoke<void>('shaders_set_enabled', { enabled })
+      setEnabled: (enabled: boolean | null, scope?: OptionsScope) =>
+        invoke<void>('shaders_set_enabled', scope ? { enabled, scope } : { enabled })
     };
 
     /**

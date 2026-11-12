@@ -1004,6 +1004,14 @@ export interface OptionsPage {
   flags: string[];
 }
 
+/** The CRT shader on or off at a level (since 1.35.0). */
+export interface ShaderSwitch {
+  /** Set at this level, over the level above; global's is always set. */
+  value: boolean | null;
+  /** What this level has when it sets nothing: `global` or `system`. */
+  inherited: ShaderInherited<boolean>;
+}
+
 /** What applies at a shader level when it sets nothing, and where it comes from. */
 export interface ShaderInherited<T> {
   value: T;
@@ -1042,8 +1050,10 @@ export interface ShaderSection {
 export interface ShaderPage {
   /** koko-aio is installed (Batocera ships it). */
   available: boolean;
-  /** On for every game: switched globally (`shaders.setEnabled`). */
+  /** On at this level: its own switch, else the level above's (`shaders.setEnabled`). */
   enabled: boolean;
+  /** Switched on or off at this level, and what it inherits (since 1.35.0). */
+  switch: ShaderSwitch;
   preset: {
     /** Chosen at this level, as `Presets-ng/Monitor-Balanced`; `null` when it inherits. */
     value: string | null;

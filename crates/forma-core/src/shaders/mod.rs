@@ -103,6 +103,9 @@ impl Catalog {
 /// What is chosen at one level.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 struct Level {
+    /// On or off here, over the level above (a system's or a game's; global's is `enabled`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    enabled: Option<bool>,
     /// A preset to start from (under koko-aio, without `.slangp`), instead of the level above.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     preset: Option<String>,
@@ -112,7 +115,7 @@ struct Level {
 
 impl Level {
     fn is_empty(&self) -> bool {
-        self.preset.is_none() && self.values.is_empty()
+        self.enabled.is_none() && self.preset.is_none() && self.values.is_empty()
     }
 }
 
@@ -140,6 +143,40 @@ struct State {
     /// `snes["file"]`): what was there, and what Forma wrote.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     decorations: BTreeMap<String, Decoration>,
+    /// The `shaderset` and `gfxbackend` keys Forma set for a system or a game switched on or off
+    /// apart from the level above (by the full key): what was there, and what Forma wrote.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    switches: BTreeMap<String, Decoration>,
+}
+
+impl State {
+    /// On at `scope`: the nearest level that says, else the global switch.
+    fn on_at(&self, scope: &Scope) -> bool {
+        let system = |s: &str| self.systems.get(s).and_then(|l| l.enabled);
+        match scope {
+            Scope::Global => self.enabled,
+            Scope::System(s) => system(s).unwrap_or(self.enabled),
+            Scope::Game { system: s, file } => self
+                .games
+                .get(s)
+                .and_then(|g| g.get(file))
+                .and_then(|l| l.enabled)
+                .or_else(|| system(s))
+                .unwrap_or(self.enabled),
+        }
+    }
+
+    /// On or off as `scope` inherits it, and from where (`global` or `system`).
+    fn inherited_on(&self, scope: &Scope) -> (bool, &'static str) {
+        match scope {
+            Scope::Global => (false, "shader"),
+            Scope::System(_) => (self.enabled, "global"),
+            Scope::Game { system, .. } => match self.systems.get(system).and_then(|l| l.enabled) {
+                Some(on) => (on, "system"),
+                None => (self.enabled, "global"),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -154,8 +191,10 @@ struct Decoration {
 pub struct ShaderPage {
     /// koko-aio is installed.
     pub available: bool,
-    /// Forma's shader is on (for every level: it is switched globally).
+    /// Forma's shader is on at this level.
     pub enabled: bool,
+    /// Switched on or off at this level (global's is always set), and what it inherits.
+    pub switch: ShaderSwitch,
     pub preset: ShaderPreset,
     /// Keys of the settings worth having at hand, in order.
     pub essentials: Vec<String>,
@@ -163,6 +202,15 @@ pub struct ShaderPage {
     /// koko-aio draws its own bezel at this level, so Batocera's decoration is off here (and
     /// back as it was when the bezel or the shader goes off).
     pub draws_bezel: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShaderSwitch {
+    /// Set at this level: on or off, over the level above.
+    pub value: Option<bool>,
+    /// What this level has when it sets nothing.
+    pub inherited: ShaderInherited<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -345,7 +393,8 @@ impl Shaders {
         let Some(catalog) = self.catalog() else {
             return Ok(ShaderPage {
                 available: false,
-                enabled: state.enabled,
+                enabled: state.on_at(scope),
+                switch: switch_of(&state, scope),
                 preset: ShaderPreset {
                     value: None,
                     inherited: ShaderInherited {
@@ -427,7 +476,8 @@ impl Shaders {
         sections.retain(|s| !s.params.is_empty());
         Ok(ShaderPage {
             available: true,
-            enabled: state.enabled,
+            enabled: state.on_at(scope),
+            switch: switch_of(&state, scope),
             preset: ShaderPreset {
                 value: here.and_then(|l| l.preset.clone()),
                 inherited: ShaderInherited {
@@ -442,7 +492,7 @@ impl Shaders {
                 .map(|k| (*k).to_owned())
                 .collect(),
             sections,
-            draws_bezel: state.enabled && self.effective(&state, catalog, scope, BEZEL) >= 0.5,
+            draws_bezel: state.on_at(scope) && self.effective(&state, catalog, scope, BEZEL) >= 0.5,
         })
     }
 
@@ -522,6 +572,21 @@ impl Shaders {
         self.apply(state)
     }
 
+    /// Switches Forma's shader on or off for a system or a game, over the level above, or back
+    /// to what it inherits with `None`. Globally, it is [`Self::set_enabled`].
+    pub fn set_enabled_at(&self, scope: &Scope, on: Option<bool>) -> Result<()> {
+        match (scope, on) {
+            (Scope::Global, Some(on)) => self.set_enabled(on),
+            (Scope::Global, None) => Err(Error::Invalid(
+                "the CRT shader is on or off for every game: it inherits from nothing".into(),
+            )),
+            _ => {
+                self.catalog().ok_or_else(not_installed)?;
+                self.change(scope, |level| level.enabled = on)
+            }
+        }
+    }
+
     fn change(&self, scope: &Scope, edit: impl FnOnce(&mut Level)) -> Result<()> {
         let mut state = self.state();
         let level = match scope {
@@ -558,6 +623,7 @@ impl Shaders {
         let catalog = self.catalog().ok_or_else(not_installed)?;
         let root = self.user.join(SET);
         mkdir(&root)?;
+        self.sync_switches(&mut state)?;
         self.sync_decorations(&mut state, catalog)?;
         write(
             &self.state_file(),
@@ -624,7 +690,7 @@ impl Shaders {
                 };
                 preset(&scope, &name)?;
                 let key = renderer_key(system, file);
-                if state.enabled {
+                if state.on_at(&scope) {
                     self.shell.run(
                         "batocera-settings-set",
                         &[key.as_str(), &format!("{SET}/{name}")],
@@ -711,7 +777,7 @@ impl Shaders {
                     .as_ref()
                     .and_then(|p| users.get(p).cloned().flatten())
             });
-            let draws = state.enabled && self.effective(state, catalog, scope, BEZEL) >= 0.5;
+            let draws = state.on_at(scope) && self.effective(state, catalog, scope, BEZEL) >= 0.5;
             let target = if draws {
                 none()
             } else {
@@ -754,6 +820,100 @@ impl Shaders {
         Ok(())
     }
 
+    /// A system or a game switched on or off apart from the level above, by Batocera's own keys
+    /// at its level: on under an off level, Forma's shader set (and RetroArch on Vulkan there
+    /// unless a backend that runs slang shaders applies); off under an on level, the user's own
+    /// shader set for it, else none. Anything else, and a level gone, as the user had it.
+    fn sync_switches(&self, state: &mut State) -> Result<()> {
+        let conf = conf::read(&self.conf);
+        let mut scopes = Vec::new();
+        for system in state.systems.keys() {
+            scopes.push((Scope::System(system.clone()), system.clone()));
+        }
+        for (system, games) in &state.games {
+            for file in games.keys() {
+                let name: String = file.chars().filter(|c| *c != '=' && *c != '#').collect();
+                scopes.push((
+                    Scope::Game {
+                        system: system.clone(),
+                        file: file.clone(),
+                    },
+                    conf::game_prefix(system, &name),
+                ));
+            }
+        }
+        let mut seen = Vec::new();
+        for (scope, prefix) in scopes {
+            let on = state.on_at(&scope);
+            let (above, _) = state.inherited_on(&scope);
+            let set = format!("{prefix}.shaderset");
+            let backend = format!("{prefix}.gfxbackend");
+            let user_set = own_key(state, &conf, &set);
+            let user_backend = own_key(state, &conf, &backend);
+            let (want_set, want_backend) = if on == above {
+                (None, None)
+            } else if on {
+                let system = scope.system().unwrap_or_default();
+                let slang = [
+                    user_backend.clone(),
+                    conf.get(&format!("{system}.gfxbackend")).cloned(),
+                    conf.get("global.gfxbackend").cloned(),
+                ]
+                .into_iter()
+                .flatten()
+                .next()
+                .is_some_and(|b| b == "vulkan" || b == "glcore");
+                (Some(SET.to_owned()), (!slang).then(|| "vulkan".to_owned()))
+            } else {
+                (
+                    Some(user_set.clone().unwrap_or_else(|| "none".to_owned())),
+                    None,
+                )
+            };
+            self.write_own(state, &conf, &set, user_set, want_set)?;
+            self.write_own(state, &conf, &backend, user_backend, want_backend)?;
+            seen.extend([set, backend]);
+        }
+        let gone: Vec<String> = state
+            .switches
+            .keys()
+            .filter(|k| !seen.contains(k))
+            .cloned()
+            .collect();
+        for key in gone {
+            let d = state.switches.remove(&key).expect("listed");
+            if conf.get(&key) == d.wrote.as_ref() {
+                self.set_key(&conf, &key, d.before.as_deref())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// `key` as Forma wants it (`want`), else as the user had it (`user`), keeping track.
+    fn write_own(
+        &self,
+        state: &mut State,
+        conf: &HashMap<String, String>,
+        key: &str,
+        user: Option<String>,
+        want: Option<String>,
+    ) -> Result<()> {
+        let target = want.or_else(|| user.clone());
+        self.set_key(conf, key, target.as_deref())?;
+        if target == user {
+            state.switches.remove(key);
+        } else {
+            state.switches.insert(
+                key.to_owned(),
+                Decoration {
+                    before: user,
+                    wrote: target,
+                },
+            );
+        }
+        Ok(())
+    }
+
     /// A `batocera.conf` key set, or cleared with `None`; left alone if it already is.
     fn set_key(
         &self,
@@ -771,6 +931,27 @@ impl Shaders {
                 .map(|_| ()),
             None => conf::clear(&self.conf, key),
         }
+    }
+}
+
+/// The user's own value of a key Forma may have set: what Forma found there, unless changed
+/// since.
+fn own_key(state: &State, conf: &HashMap<String, String>, key: &str) -> Option<String> {
+    let now = conf.get(key).cloned();
+    match state.switches.get(key) {
+        Some(d) if d.wrote == now => d.before.clone(),
+        _ => now,
+    }
+}
+
+fn switch_of(state: &State, scope: &Scope) -> ShaderSwitch {
+    let (value, from) = state.inherited_on(scope);
+    ShaderSwitch {
+        value: match scope {
+            Scope::Global => Some(state.enabled),
+            _ => own_level(state, scope).and_then(|l| l.enabled),
+        },
+        inherited: ShaderInherited { value, from },
     }
 }
 

@@ -56,16 +56,22 @@ pub async fn shaders_set_preset<R: Runtime>(
     .await
 }
 
-/// Switches Forma's shader on for every game, or off (Batocera's shader set back).
+/// Switches Forma's shader on for every game, or off (Batocera's shader set back); with a
+/// system's or a game's `scope`, on or off there over the level above, or `null` to inherit.
 #[tauri::command]
 pub async fn shaders_set_enabled<R: Runtime>(
     app: AppHandle<R>,
     caller: Caller,
-    enabled: bool,
+    enabled: Option<bool>,
+    scope: Option<OptionsScope>,
 ) -> ApiResult<()> {
     off_thread(app, move |state| {
         allowed(state, caller)?;
-        Ok(state.shaders.set_enabled(enabled)?)
+        let scope = match scope {
+            Some(scope) => resolve(state, scope)?.0,
+            None => forma_core::options::Scope::Global,
+        };
+        Ok(state.shaders.set_enabled_at(&scope, enabled)?)
     })
     .await
 }

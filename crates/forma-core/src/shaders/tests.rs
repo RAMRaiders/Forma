@@ -389,3 +389,74 @@ fn a_decoration_the_user_picks_meanwhile_is_theirs() {
     f.shaders.set(&Scope::Global, "DO_BEZEL", None).unwrap();
     assert_eq!(conf::read(&f.conf)["global.bezel"], "arcade");
 }
+
+#[test]
+fn a_system_switched_off_under_global_has_its_own_shader_set_or_none() {
+    let f = fixture("snes.shaderset=retro\n");
+    f.shaders.set_enabled(true).unwrap();
+    let snes = Scope::System("snes".into());
+    let nes = Scope::System("nes".into());
+    let page = f.shaders.page(&snes).unwrap();
+    assert!(page.enabled);
+    assert_eq!(page.switch.value, None);
+    assert_eq!(
+        (page.switch.inherited.value, page.switch.inherited.from),
+        (true, "global")
+    );
+
+    f.shaders.set_enabled_at(&snes, Some(false)).unwrap();
+    f.shaders.set_enabled_at(&nes, Some(false)).unwrap();
+    let conf = conf::read(&f.conf);
+    // The user's own shader set for SNES; none for NES, which had none.
+    assert_eq!(conf["snes.shaderset"], "retro");
+    assert_eq!(conf["nes.shaderset"], "none");
+    assert!(!f.shaders.page(&snes).unwrap().enabled);
+    // A game of it inherits the system's.
+    let page = f.shaders.page(&game()).unwrap();
+    assert!(!page.enabled);
+    assert_eq!(page.switch.inherited.from, "system");
+    // Its renderer key only while on for it.
+    f.shaders.set(&game(), "GAMMA_OUT", Some(1.0)).unwrap();
+    assert!(!conf::read(&f.conf).contains_key(r#"snes["Mario  World 1.sfc"]-renderer.shader"#));
+    f.shaders.set_enabled_at(&game(), Some(true)).unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf[r#"snes["Mario  World 1.sfc"].shaderset"#], "forma");
+    assert!(conf.contains_key(r#"snes["Mario  World 1.sfc"]-renderer.shader"#));
+
+    // Back to what they inherit: the user's keys as they were.
+    f.shaders.set_enabled_at(&game(), None).unwrap();
+    f.shaders.set_enabled_at(&snes, None).unwrap();
+    f.shaders.set_enabled_at(&nes, None).unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["snes.shaderset"], "retro");
+    assert!(!conf.contains_key("nes.shaderset"));
+    assert!(!conf.contains_key(r#"snes["Mario  World 1.sfc"].shaderset"#));
+    assert!(f.shaders.page(&snes).unwrap().enabled);
+}
+
+#[test]
+fn a_system_switched_on_under_global_off_gets_forma_and_a_slang_backend() {
+    let f = fixture("");
+    let snes = Scope::System("snes".into());
+    f.shaders.set_enabled_at(&snes, Some(true)).unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["snes.shaderset"], "forma");
+    assert_eq!(conf["snes.gfxbackend"], "vulkan");
+    assert!(!conf.contains_key("global.shaderset"));
+    assert!(f.shaders.page(&snes).unwrap().enabled);
+    assert!(!f.shaders.page(&Scope::Global).unwrap().enabled);
+
+    // On for every game: SNES needs no keys of its own any more.
+    f.shaders.set_enabled(true).unwrap();
+    let conf = conf::read(&f.conf);
+    assert!(!conf.contains_key("snes.shaderset"));
+    assert!(!conf.contains_key("snes.gfxbackend"));
+    assert_eq!(conf["global.shaderset"], "forma");
+
+    // A backend that runs slang already: none set.
+    let f = fixture("global.gfxbackend=glcore\n");
+    f.shaders.set_enabled_at(&snes, Some(true)).unwrap();
+    assert!(!conf::read(&f.conf).contains_key("snes.gfxbackend"));
+    // Global inherits from nothing.
+    assert!(f.shaders.set_enabled_at(&Scope::Global, None).is_err());
+}

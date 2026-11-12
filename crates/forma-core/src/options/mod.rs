@@ -40,7 +40,7 @@ pub enum Scope {
 }
 
 impl Scope {
-    fn system(&self) -> Option<&str> {
+    pub(crate) fn system(&self) -> Option<&str> {
         match self {
             Self::Global => None,
             Self::System(s) | Self::Game { system: s, .. } => Some(s),

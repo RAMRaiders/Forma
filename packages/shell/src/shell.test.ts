@@ -428,8 +428,7 @@ describe('Forma’s shell', () => {
         'Emulator options',
         'ROM check',
         'Game versions',
-        'Sibling games',
-        'Screen'
+        'Sibling games'
       ])
     );
     await press('confirm');
@@ -490,7 +489,7 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(at('TheGamesDB')).toBe('On · set up'));
   });
 
-  it('screen: the CRT shader, then picture and decorations, which give way to it', async () => {
+  it('emulator options: the CRT shader, picture and decorations among them, which give way to it', async () => {
     const { press, text, openMenu } = start(['settings.emulators']);
     await openMenu('Games');
     const rows = () => text('.page > .panel li[role=option] .name');
@@ -501,14 +500,15 @@ describe('Forma’s shell', () => {
       for (let i = 0; i < 60 && selected() !== label; i++) await press('down');
       expect(selected()).toBe(label);
     };
-    await vi.waitFor(() => expect(rows()).toContain('Screen'));
-    await goTo('Screen');
+    await vi.waitFor(() => expect(rows()).toContain('Emulator options'));
+    await goTo('Emulator options');
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('CRT shader: Off'));
     // Off, global still shows what it would be; Batocera's shader set is there to pick.
     expect(at('Starts from')).toBe('Default · Monitor Balanced (koko-aio)');
-    expect(text('.page li.heading')).toEqual(['CRT shader', 'Picture', 'Decorations']);
+    expect(text('.page li.heading').slice(0, 3)).toEqual(['CRT shader', 'Picture', 'Decorations']);
     expect(at('Shader set')).not.toContain('Off ·');
+    await goTo('CRT shader: Off');
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('CRT shader: On'));
     expect(at('Shader set')).toBe('Off · Forma’s CRT shader instead');
@@ -547,7 +547,6 @@ describe('Forma’s shell', () => {
         'Scrape',
         'Edit details',
         'Emulator settings',
-        'Screen',
         'Filter list',
         'Delete'
       ])
@@ -1232,7 +1231,31 @@ describe('Forma’s shell', () => {
     await press('start');
     expect(text('.menu li .name').slice(0, 2)).toEqual(['Game options', 'System options']);
     expect(text('.menu h3')[0]).toBe('Selected');
-    expect(text('.menu .about')).toEqual(['Emulator, core and options for Super Metroid only']);
+    expect(text('.menu .about')).toEqual([
+      'Emulator, CRT shader, decorations and options for Super Metroid only'
+    ]);
+  });
+
+  it('a system’s emulator options switch the CRT shader for it alone, over global', async () => {
+    const { press, text } = start(['settings.emulators'], {
+      view: 'systems',
+      system: { name: 'snes', fullname: 'Super Nintendo' }
+    });
+    await press('start');
+    expect(text('.menu li.selected .name')).toEqual(['System options']);
+    await press('confirm');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    const at = (label: string) => details()[rows().indexOf(label)];
+    const selected = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(rows()).toContain('CRT shader: Off'));
+    expect(at('CRT shader: Off')).toBe('Default · Off (global) · A to switch it on here');
+    while (selected() !== 'CRT shader: Off') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('CRT shader: On'));
+    expect(at('CRT shader: On')).toBe('On here, over global (Off)');
+    // Its settings show while it is on here.
+    expect(rows()).toContain('Starts from');
   });
 
   it('moves across the menu as it looks: rows of tiles, left and right too', async () => {

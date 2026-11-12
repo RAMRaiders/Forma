@@ -310,6 +310,28 @@ describe('mock backend', () => {
     });
   });
 
+  it('the CRT shader on or off per system and game, over global', async () => {
+    const b = mockBackend({ permissions: ['settings.emulators'] });
+    type Page = {
+      enabled: boolean;
+      switch: { value: boolean | null; inherited: { from: string } };
+    };
+    const get = (scope: unknown) => b.invoke<Page>('shaders_get', { scope });
+    const snes = { level: 'system', system: 'snes' };
+    expect((await get(snes)).switch).toEqual({
+      value: null,
+      inherited: { value: false, from: 'global' }
+    });
+    await b.invoke('shaders_set_enabled', { enabled: true, scope: snes });
+    expect((await get(snes)).enabled).toBe(true);
+    expect((await get({ level: 'global' })).enabled).toBe(false);
+    await b.invoke('shaders_set_enabled', { enabled: null, scope: snes });
+    expect((await get(snes)).enabled).toBe(false);
+    await expect(b.invoke('shaders_set_enabled', { enabled: null })).rejects.toMatchObject({
+      code: 'invalid'
+    });
+  });
+
   it('emulator options: levels, inheritance, the emulator choosing the options', async () => {
     const global = { level: 'global' } as const;
     await expect(mockBackend().invoke('options_get', { scope: global })).rejects.toMatchObject({
