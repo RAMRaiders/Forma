@@ -84,22 +84,22 @@ pub fn theme_ready<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) {
 }
 
 #[tauri::command]
-pub fn library_systems(state: State<'_, AppState>) -> ApiResult<Vec<SystemSummary>> {
-    Ok(state.library().systems_in_order()?)
+pub async fn library_systems<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<SystemSummary>> {
+    off_thread(app, move |state| Ok(state.library().systems_in_order()?)).await
 }
 
 /// The titles of a system with more than one version.
 #[tauri::command]
-pub fn library_versions(
-    state: State<'_, AppState>,
+pub async fn library_versions<R: Runtime>(
+    app: AppHandle<R>,
     system: String,
 ) -> ApiResult<Vec<forma_core::library::VersionGroup>> {
-    Ok(state.library().versions(&system)?)
+    off_thread(app, move |state| Ok(state.library().versions(&system)?)).await
 }
 
 #[tauri::command]
-pub fn library_game(state: State<'_, AppState>, id: i64) -> ApiResult<Option<Game>> {
-    Ok(state.library().game(id)?.map(expose))
+pub async fn library_game<R: Runtime>(app: AppHandle<R>, id: i64) -> ApiResult<Option<Game>> {
+    off_thread(app, move |state| Ok(state.library().game(id)?.map(expose))).await
 }
 
 /// A picture a theme will soon show: a game's media `kind` at about `width` px.
@@ -229,36 +229,42 @@ pub async fn library_prepare_list<R: Runtime>(
 }
 
 #[tauri::command]
-pub fn library_search(
-    state: State<'_, AppState>,
+pub async fn library_search<R: Runtime>(
+    app: AppHandle<R>,
     query: String,
     limit: Option<usize>,
 ) -> ApiResult<Vec<Game>> {
-    let games = state
-        .library()
-        .search(&query, limit.unwrap_or(50).min(500))?;
-    Ok(games.into_iter().map(expose).collect())
+    off_thread(app, move |state| {
+        let games = state
+            .library()
+            .search(&query, limit.unwrap_or(50).min(500))?;
+        Ok(games.into_iter().map(expose).collect())
+    })
+    .await
 }
 
 /// Games in a random order, for a screensaver: those with any of `media` (any game when
 /// empty), only favourites or one system's when asked. At most 200.
 #[tauri::command]
-pub fn library_random(
-    state: State<'_, AppState>,
+pub async fn library_random<R: Runtime>(
+    app: AppHandle<R>,
     media: Option<Vec<String>>,
     limit: Option<usize>,
     favorites: Option<bool>,
     system: Option<String>,
 ) -> ApiResult<Vec<Game>> {
-    let media = media.unwrap_or_default();
-    let kinds: Vec<&str> = media.iter().map(String::as_str).collect();
-    let games = state.library().random_games(
-        &kinds,
-        limit.unwrap_or(50).min(200),
-        favorites.unwrap_or(false),
-        system.as_deref(),
-    )?;
-    Ok(games.into_iter().map(expose).collect())
+    off_thread(app, move |state| {
+        let media = media.unwrap_or_default();
+        let kinds: Vec<&str> = media.iter().map(String::as_str).collect();
+        let games = state.library().random_games(
+            &kinds,
+            limit.unwrap_or(50).min(200),
+            favorites.unwrap_or(false),
+            system.as_deref(),
+        )?;
+        Ok(games.into_iter().map(expose).collect())
+    })
+    .await
 }
 
 /// Deletes a game for good: only Forma's own menu can, and it asks first.
@@ -343,42 +349,45 @@ pub fn nav_views(state: State<'_, AppState>) -> Vec<ViewInfo> {
 }
 
 #[tauri::command]
-pub fn nav_browse(
-    state: State<'_, AppState>,
+pub async fn nav_browse<R: Runtime>(
+    app: AppHandle<R>,
     view: String,
     path: Vec<String>,
     page: Option<Page>,
 ) -> ApiResult<Browse> {
-    let view = state
-        .views()
-        .get(&view)
-        .cloned()
-        .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no view `{view}`")))?;
-    let page = page.unwrap_or_default();
-    let key = (view.id.clone(), path.clone());
-    let filter = {
-        let on_screen = list_on_screen(&state);
-        if on_screen.list.as_ref() == Some(&key) {
-            on_screen.filter.clone()
-        } else {
-            ListFilter::default()
+    off_thread(app, move |state| {
+        let view = state
+            .views()
+            .get(&view)
+            .cloned()
+            .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no view `{view}`")))?;
+        let page = page.unwrap_or_default();
+        let key = (view.id.clone(), path.clone());
+        let filter = {
+            let on_screen = list_on_screen(state);
+            if on_screen.list.as_ref() == Some(&key) {
+                on_screen.filter.clone()
+            } else {
+                ListFilter::default()
+            }
+        };
+        let mut browse = state
+            .library()
+            .browse_filtered(&view, &path, page, &filter)?;
+        if let Listing::Games { items, .. } = &mut browse.listing {
+            *items = std::mem::take(items).into_iter().map(expose).collect();
+            // A list being opened. A theme counting another list's games asks for one.
+            let mut on_screen = list_on_screen(state);
+            if page.offset == 0 && page.limit > 1 && on_screen.list.as_ref() != Some(&key) {
+                *on_screen = ListOnScreen {
+                    list: Some(key),
+                    filter: ListFilter::default(),
+                };
+            }
         }
-    };
-    let mut browse = state
-        .library()
-        .browse_filtered(&view, &path, page, &filter)?;
-    if let Listing::Games { items, .. } = &mut browse.listing {
-        *items = std::mem::take(items).into_iter().map(expose).collect();
-        // A list being opened. A theme counting another list's games asks for one.
-        let mut on_screen = list_on_screen(&state);
-        if page.offset == 0 && page.limit > 1 && on_screen.list.as_ref() != Some(&key) {
-            *on_screen = ListOnScreen {
-                list: Some(key),
-                filter: ListFilter::default(),
-            };
-        }
-    }
-    Ok(browse)
+        Ok(browse)
+    })
+    .await
 }
 
 fn list_on_screen(state: &AppState) -> std::sync::MutexGuard<'_, ListOnScreen> {
@@ -406,8 +415,8 @@ fn filter_result(state: &AppState, filter: Option<ListFilter>) -> ApiResult<Opti
 
 /// What the game list on screen can be filtered by, and its filter now. `null` with no list.
 #[tauri::command]
-pub fn nav_filter_options(state: State<'_, AppState>) -> ApiResult<Option<FilterOptions>> {
-    filter_result(&state, None)
+pub async fn nav_filter_options<R: Runtime>(app: AppHandle<R>) -> ApiResult<Option<FilterOptions>> {
+    off_thread(app, move |state| filter_result(state, None)).await
 }
 
 /// Filters the game list on screen; the theme reads it again on `library:changed`. Returns how
@@ -470,21 +479,24 @@ pub fn nav_set_default_view(state: State<'_, AppState>, id: Option<String>) -> A
 }
 
 #[tauri::command]
-pub fn settings_get(
-    state: State<'_, AppState>,
+pub async fn settings_get<R: Runtime>(
+    app: AppHandle<R>,
     caller: Caller,
     key: String,
     scope: Option<Scope>,
 ) -> ApiResult<Option<Value>> {
-    let key = permissions::setting_key(
-        &theme(&state)?,
-        scope.unwrap_or(Scope::Theme),
-        &key,
-        caller.shell,
-    )?;
-    let raw = state.library().setting(&key)?;
-    // Values are stored as JSON; a value written outside the SDK is returned as a string.
-    Ok(raw.map(|r| serde_json::from_str(&r).unwrap_or(Value::String(r))))
+    off_thread(app, move |state| {
+        let key = permissions::setting_key(
+            &theme(state)?,
+            scope.unwrap_or(Scope::Theme),
+            &key,
+            caller.shell,
+        )?;
+        let raw = state.library().setting(&key)?;
+        // Values are stored as JSON; a value written outside the SDK is returned as a string.
+        Ok(raw.map(|r| serde_json::from_str(&r).unwrap_or(Value::String(r))))
+    })
+    .await
 }
 
 #[tauri::command]

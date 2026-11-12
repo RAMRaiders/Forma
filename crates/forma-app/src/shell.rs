@@ -28,7 +28,7 @@ use tauri::ipc::{CommandArg, CommandItem, InvokeError};
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
 use crate::api::{ApiError, ApiResult, ErrorCode};
-use crate::commands::theme;
+use crate::commands::{off_thread, theme};
 use crate::permissions;
 use crate::state::AppState;
 
@@ -46,6 +46,8 @@ pub const EVENT_NAV_OPEN: &str = "nav:open";
 pub const EVENT_NAV_GAME: &str = "nav:game";
 /// Forma's screensaver came on or went. `{ active }`.
 pub const EVENT_SCREENSAVER: &str = "screensaver";
+/// The shell's menu opened or closed: `{ open }`.
+pub const EVENT_MENU: &str = "menu";
 /// A setting changed from Forma's menu. `{ scope, key, value }`.
 pub const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
 
@@ -208,11 +210,20 @@ pub fn shell_claim(state: State<'_, AppState>) -> ApiResult<String> {
     })
 }
 
-/// The shell opened or closed its menu: input follows.
+/// The shell opened or closed its menu: input follows, and the theme hears of it (`menu`) to
+/// stop what it plays under the menu (a video under its see-through panel) and pick it up again.
 #[tauri::command]
-pub fn shell_set_open(state: State<'_, AppState>, caller: Caller, open: bool) -> ApiResult<()> {
+pub fn shell_set_open<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    caller: Caller,
+    open: bool,
+) -> ApiResult<()> {
     caller.shell_only()?;
-    state.shell.open.store(open, Ordering::SeqCst);
+    let was = state.shell.open.swap(open, Ordering::SeqCst);
+    if was != open {
+        let _ = app.emit(EVENT_MENU, serde_json::json!({ "open": open }));
+    }
     Ok(())
 }
 
@@ -306,51 +317,54 @@ pub struct ThemeSettingValue {
 
 /// What the menu needs when it opens: the theme's context and its settings.
 #[tauri::command]
-pub fn shell_info(state: State<'_, AppState>, caller: Caller) -> ApiResult<ShellInfo> {
-    caller.shell_only()?;
-    let theme = theme(&state)?;
-    let logo = crate::state::theme_logo_url(&theme);
-    let manifest = theme.manifest.clone().unwrap_or_else(|| {
-        // An available theme always has one; this keeps the menu working regardless.
-        forma_core::themes::ThemeManifest::unnamed(&theme.id)
-    });
-    let library = state.library();
-    let settings = manifest
-        .settings
-        .iter()
-        .map(|s| {
-            let stored = library
-                .setting(&format!("theme.{}.{}", theme.id, s.key))
-                .ok()
-                .flatten()
-                .and_then(|raw| serde_json::from_str(&raw).ok());
-            ThemeSettingValue {
-                value: stored
-                    .filter(|v| s.accepts(v))
-                    .unwrap_or_else(|| s.default.clone()),
-                setting: s.clone(),
-            }
+pub async fn shell_info<R: Runtime>(app: AppHandle<R>, caller: Caller) -> ApiResult<ShellInfo> {
+    off_thread(app, move |state| {
+        caller.shell_only()?;
+        let theme = theme(state)?;
+        let logo = crate::state::theme_logo_url(&theme);
+        let manifest = theme.manifest.clone().unwrap_or_else(|| {
+            // An available theme always has one; this keeps the menu working regardless.
+            forma_core::themes::ThemeManifest::unnamed(&theme.id)
+        });
+        let library = state.library();
+        let settings = manifest
+            .settings
+            .iter()
+            .map(|s| {
+                let stored = library
+                    .setting(&format!("theme.{}.{}", theme.id, s.key))
+                    .ok()
+                    .flatten()
+                    .and_then(|raw| serde_json::from_str(&raw).ok());
+                ThemeSettingValue {
+                    value: stored
+                        .filter(|v| s.accepts(v))
+                        .unwrap_or_else(|| s.default.clone()),
+                    setting: s.clone(),
+                }
+            })
+            .collect();
+        drop(library);
+        Ok(ShellInfo {
+            context: state
+                .shell
+                .context
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone(),
+            theme: ShellTheme {
+                id: theme.id,
+                name: manifest.name,
+                version: manifest.version,
+                settings,
+                views: manifest.views,
+                draws: manifest.draws,
+                logo,
+            },
+            forma_version: env!("CARGO_PKG_VERSION"),
         })
-        .collect();
-    drop(library);
-    Ok(ShellInfo {
-        context: state
-            .shell
-            .context
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone(),
-        theme: ShellTheme {
-            id: theme.id,
-            name: manifest.name,
-            version: manifest.version,
-            settings,
-            views: manifest.views,
-            draws: manifest.draws,
-            logo,
-        },
-        forma_version: env!("CARGO_PKG_VERSION"),
     })
+    .await
 }
 
 /// Sets one of the theme's declared settings and tells the theme.

@@ -4,21 +4,24 @@
 
 use forma_core::hierarchy::load_views;
 use forma_core::library::Collection;
-use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::api::ApiResult;
-use crate::commands::{EVENT_LIBRARY_CHANGED, EVENT_VIEWS_CHANGED, LibraryChanged};
+use crate::commands::{EVENT_LIBRARY_CHANGED, EVENT_VIEWS_CHANGED, LibraryChanged, off_thread};
 use crate::state::AppState;
 
 #[tauri::command]
-pub fn collections_list(state: State<'_, AppState>) -> ApiResult<Vec<Collection>> {
-    Ok(state.library().collections()?)
+pub async fn collections_list<R: Runtime>(app: AppHandle<R>) -> ApiResult<Vec<Collection>> {
+    off_thread(app, move |state| Ok(state.library().collections()?)).await
 }
 
 /// The collections a game is in.
 #[tauri::command]
-pub fn collections_of(state: State<'_, AppState>, game_id: i64) -> ApiResult<Vec<String>> {
-    Ok(state.library().collections_of(game_id)?)
+pub async fn collections_of<R: Runtime>(app: AppHandle<R>, game_id: i64) -> ApiResult<Vec<String>> {
+    off_thread(app, move |state| {
+        Ok(state.library().collections_of(game_id)?)
+    })
+    .await
 }
 
 #[tauri::command]
