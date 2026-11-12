@@ -15,6 +15,7 @@ import type {
   EventMap,
   Fetched,
   Game,
+  GameSaves,
   InputEvent,
   LaunchRequest,
   MediaChanged,
@@ -177,6 +178,11 @@ export class Forma {
       /** In the order the user chose (`SystemsOrder`): keep it, rather than sorting them. */
       systems: () => invoke<SystemSummary[]>('library_systems'),
       game: (id: number) => invoke<Game | null>('library_game', { id }),
+      /**
+       * What a game has saved: RetroArch's battery save and save states (a standalone emulator's
+       * own are not counted). Since 1.35.0.
+       */
+      saves: (id: number) => invoke<GameSaves>('library_saves', { id }),
       /** A system's titles with more than one version. Since 1.26.0. */
       versions: (system: string) => invoke<VersionGroup[]>('library_versions', { system }),
       /**

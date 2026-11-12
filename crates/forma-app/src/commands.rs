@@ -102,6 +102,26 @@ pub async fn library_game<R: Runtime>(app: AppHandle<R>, id: i64) -> ApiResult<O
     off_thread(app, move |state| Ok(state.library().game(id)?.map(expose))).await
 }
 
+/// What a game has saved (RetroArch's battery save and save states); none for a game Forma
+/// does not have.
+#[tauri::command]
+pub async fn library_saves<R: Runtime>(
+    app: AppHandle<R>,
+    id: i64,
+) -> ApiResult<forma_core::saves::Saves> {
+    off_thread(app, move |state| {
+        let Some(game) = state.library().game(id)? else {
+            return Ok(forma_core::saves::Saves::default());
+        };
+        Ok(forma_core::saves::of(
+            &state.paths.userdata.join("saves"),
+            &game.system,
+            &game.path,
+        ))
+    })
+    .await
+}
+
 /// A picture a theme will soon show: a game's media `kind` at about `width` px.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

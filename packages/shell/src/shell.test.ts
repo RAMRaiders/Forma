@@ -1657,7 +1657,9 @@ describe('Forma’s settings pages', () => {
     const { press, text, openMenu } = start(['settings.emulators'], context);
     const rows = () => text('.page > .panel li[role=option] .name');
     await openMenu('System options');
-    await vi.waitFor(() => expect(rows().slice(0, 2)).toEqual(['Emulator', 'Core']));
+    // The emulator and its core as one row.
+    await vi.waitFor(() => expect(rows()[0]).toBe('Core'));
+    expect(rows()).not.toContain('Emulator');
     expect(text('.page .heading')).toContain('Advanced options');
     expect(rows()).toContain('Palette');
     while (text('.page li.selected .name')[0] !== 'Core') await press('down');

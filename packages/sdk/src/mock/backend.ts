@@ -797,7 +797,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
       };
     };
     const found = page ?? fail('notFound', `no system \`${chain[chain.length - 2]?.prefix}\``);
-    return { options: found.options.map(fill), flags: [...found.flags] };
+    return {
+      options: found.options.map(fill),
+      flags: [...found.flags],
+      cores: structuredClone(found.cores ?? [])
+    };
   };
 
   const emit = (event: string, payload: unknown) => {
@@ -1262,6 +1266,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const game = games.get(id as number);
       return game ? present(game) : null;
     },
+    library_saves: ({ id }) =>
+      // The first game has a battery save and two states; the rest none.
+      id === 1
+        ? { battery: true, states: 2, latest: '2026-11-01T20:15:00Z' }
+        : { battery: false, states: 0, latest: null },
     library_search: ({ query, limit }) => {
       const words = fold(String(query)).split(/\s+/).filter(Boolean);
       if (words.length === 0) return [];
