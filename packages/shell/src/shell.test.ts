@@ -428,7 +428,8 @@ describe('Forma’s shell', () => {
         'Emulator options',
         'ROM check',
         'Game versions',
-        'Sibling games'
+        'Sibling games',
+        'Screen'
       ])
     );
     await press('confirm');
@@ -489,6 +490,48 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(at('TheGamesDB')).toBe('On · set up'));
   });
 
+  it('screen: the CRT shader, then picture and decorations, which give way to it', async () => {
+    const { press, text, openMenu } = start(['settings.emulators']);
+    await openMenu('Games');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const details = () => text('.page > .panel li[role=option] .description');
+    const at = (label: string) => details()[rows().indexOf(label)];
+    const selected = () => text('.page li.selected .name')[0];
+    const goTo = async (label: string) => {
+      for (let i = 0; i < 60 && selected() !== label; i++) await press('down');
+      expect(selected()).toBe(label);
+    };
+    await vi.waitFor(() => expect(rows()).toContain('Screen'));
+    await goTo('Screen');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('CRT shader: Off'));
+    // Off, global still shows what it would be; Batocera's shader set is there to pick.
+    expect(at('Starts from')).toBe('Default · Monitor Balanced (koko-aio)');
+    expect(text('.page li.heading')).toEqual(['CRT shader', 'Picture', 'Decorations']);
+    expect(at('Shader set')).not.toContain('Off ·');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('CRT shader: On'));
+    expect(at('Shader set')).toBe('Off · Forma’s CRT shader instead');
+    // A switch flips; a number steps and stops at its ends.
+    await goTo('Bloom/Halation');
+    expect(at('Bloom/Halation')).toBe('Default · Off (koko-aio)');
+    await press('right');
+    await vi.waitFor(() => expect(at('Bloom/Halation')).toBe('On'));
+    await goTo('Bloom Strength');
+    await press('right');
+    await vi.waitFor(() => expect(at('Bloom Strength')).toBe('0.46'));
+    // koko-aio's bezel on: Batocera's decoration is off.
+    expect(at('Decoration set')).not.toContain('koko-aio');
+    await goTo('Bezel');
+    await press('right');
+    await vi.waitFor(() => expect(at('Decoration set')).toBe('Off · koko-aio draws the bezel'));
+    await goTo('All settings…');
+    expect(at('All settings…')).toBe('8 settings in 5 sections · 3 set here');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Bloom/Halation…'));
+    expect(at('Bloom/Halation…')).toBe('On · 2 set here');
+  });
+
   it('a game on Select: its details by hand, and each scraper’s answers to choose from', async () => {
     const { press, text, backend, root } = start(
       ['scraper.manage'],
@@ -504,6 +547,7 @@ describe('Forma’s shell', () => {
         'Scrape',
         'Edit details',
         'Emulator settings',
+        'Screen',
         'Filter list',
         'Delete'
       ])
@@ -1551,7 +1595,9 @@ describe('Forma’s settings pages', () => {
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Game aspect ratio'));
     expect(text('.page h2')).toEqual(['Emulator options']);
-    expect(rows()).toContain('Game rendering & shaders…');
+    // How the game looks is on Screen, not here.
+    expect(rows()).not.toContain('Game rendering & shaders…');
+    expect(rows()).not.toContain('Decorations…');
     while (selected() !== 'Game aspect ratio') await press('down');
     expect(text('.page li.selected .description')).toEqual(['Default']);
     // A list to pick from, which goes back to the option with its new value.
@@ -1561,13 +1607,13 @@ describe('Forma’s settings pages', () => {
     await press('confirm');
     await vi.waitFor(() => expect(text('.page li.selected .description')).toEqual(['4/3']));
     // Its own page: B comes back to the row it was opened from.
-    while (selected() !== 'Game rendering & shaders…') await press('down');
+    while (selected() !== 'AI game translation…') await press('down');
     await press('confirm');
-    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Game rendering & shaders']));
-    expect(rows()).toEqual(['Shader set', 'Integer scaling (pixel perfect)']);
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['AI game translation']));
+    expect(rows()).toHaveLength(1);
     await press('back');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Emulator options']));
-    expect(selected()).toBe('Game rendering & shaders…');
+    expect(selected()).toBe('AI game translation…');
   });
 
   it("a system's options follow its core, and a game inherits them", async () => {

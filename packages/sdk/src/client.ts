@@ -51,6 +51,7 @@ import type {
   BatoceraSetting,
   OptionsPage,
   OptionsScope,
+  ShaderPage,
   InfoItem,
   SystemSetting,
   StorePackage,
@@ -149,6 +150,7 @@ export class Forma {
   readonly updates;
   readonly batocera;
   readonly options;
+  readonly shaders;
   readonly store;
   readonly music;
   readonly video;
@@ -624,6 +626,29 @@ export class Forma {
       /** Sets one, checked against its choices or range; `null` unsets it (it inherits again). */
       set: (scope: OptionsScope, key: string, value: string | null) =>
         invoke<void>('options_set', { scope, key, value })
+    };
+
+    /**
+     * Forma's CRT shader for games: koko-aio (Batocera ships it), on for every game or off, and
+     * tuned per level as the emulator options are (global, system, game). Each level starts
+     * from a preset (the level above's unless it picks its own) and changes some of its
+     * settings. Used by the next launch. Needs the `settings.emulators` permission; Batocera
+     * only. Since 1.34.0.
+     */
+    this.shaders = {
+      /** A level's preset and settings, with what it sets and what it inherits. */
+      get: (scope: OptionsScope) => invoke<ShaderPage>('shaders_get', { scope }),
+      /** Sets a setting, checked against its range; `null` unsets it (it inherits again). */
+      set: (scope: OptionsScope, key: string, value: number | null) =>
+        invoke<void>('shaders_set', { scope, key, value }),
+      /** The preset a level starts from; `null` for the level above's again. */
+      setPreset: (scope: OptionsScope, preset: string | null) =>
+        invoke<void>('shaders_set_preset', { scope, preset }),
+      /**
+       * On for every game, or off: Batocera's own shader set back. On, RetroArch runs on Vulkan
+       * unless its backend is already one slang shaders work with.
+       */
+      setEnabled: (enabled: boolean) => invoke<void>('shaders_set_enabled', { enabled })
     };
 
     /**

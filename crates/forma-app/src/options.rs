@@ -23,7 +23,7 @@ pub enum OptionsScope {
     Game { game: i64 },
 }
 
-fn allowed(state: &AppState, caller: Caller) -> ApiResult<()> {
+pub(crate) fn allowed(state: &AppState, caller: Caller) -> ApiResult<()> {
     caller.require(state, permissions::SETTINGS_EMULATORS)?;
     if !state.on_batocera {
         return Err(ApiError::new(
@@ -35,7 +35,7 @@ fn allowed(state: &AppState, caller: Caller) -> ApiResult<()> {
 }
 
 /// The core's scope, and the system it needs (its emulators and cores).
-fn resolve(state: &AppState, scope: OptionsScope) -> ApiResult<(Scope, Option<System>)> {
+pub(crate) fn resolve(state: &AppState, scope: OptionsScope) -> ApiResult<(Scope, Option<System>)> {
     let (scope, name) = match scope {
         OptionsScope::Global => return Ok((Scope::Global, None)),
         OptionsScope::System { system } => (Scope::System(system.clone()), system),
