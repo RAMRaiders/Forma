@@ -60,7 +60,7 @@ export function sentence(label: string): string {
 const CYCLE_MAX = 6;
 
 /** A list to pick one from, as a deeper page; `null` is the "default" entry. */
-function pick(
+export function pick(
   page: Page,
   title: string,
   choices: OptionChoice[],

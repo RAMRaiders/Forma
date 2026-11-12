@@ -684,6 +684,30 @@ export function mockBackend(options: MockOptions = {}): Backend {
   let shaderOn = false;
   /** Systems and games switched on or off apart from the level above, by level key. */
   const shaderSwitches = new Map<string, boolean>();
+  /** Batocera's set a level has instead of none, while off there (global's under `global`). */
+  const shaderSets = new Map<string, string>();
+  const batoceraSets = ['retro', 'scanlines'];
+  /** The shader a level has as a choice's value, from `chain[at]` up. */
+  const shaderAt = (
+    chain: { key: string; from: 'global' | 'system' }[],
+    at: number
+  ): { value: string; from: 'global' | 'system' } => {
+    const preset = () =>
+      chain
+        .slice(at)
+        .map((l) => shaderLevels.get(l.key)?.preset)
+        .find(Boolean) ?? 'Presets-ng/Monitor-Balanced';
+    const off = (key: string) => {
+      const set = shaderSets.get(key);
+      return set ? `set:${set}` : 'none';
+    };
+    for (const l of chain.slice(at)) {
+      if (l.key === 'global') break;
+      const on = shaderSwitches.get(l.key);
+      if (on !== undefined) return { value: on ? `crt:${preset()}` : off(l.key), from: 'system' };
+    }
+    return { value: shaderOn ? `crt:${preset()}` : off('global'), from: 'global' };
+  };
   /** On at a level: the nearest level that says, else global. */
   const shaderOnAt = (scope: OptionsScope) => {
     const [own, ...above] = shaderChain(scope);
@@ -717,6 +741,21 @@ export function mockBackend(options: MockOptions = {}): Backend {
             : own!.key === 'global'
               ? { value: false, from: 'shader' as const }
               : { value: shaderOn, from: 'global' as const }
+        };
+      })(),
+      shader: (() => {
+        const chain = shaderChain(scope);
+        const global = chain[0]!.key === 'global';
+        const own = global || shaderSwitches.has(chain[0]!.key);
+        const inherited = global ? { value: 'none', from: 'shader' as const } : shaderAt(chain, 1);
+        return {
+          value: own ? shaderAt(chain, 0).value : null,
+          inherited,
+          choices: [
+            { value: 'none', label: 'None' },
+            ...shaderPresets.map((p) => ({ value: `crt:${p.value}`, label: `CRT · ${p.label}` })),
+            ...batoceraSets.map((n) => ({ value: `set:${n}`, label: `Batocera · ${n}` }))
+          ]
         };
       })(),
       preset: {
@@ -1744,6 +1783,43 @@ export function mockBackend(options: MockOptions = {}): Backend {
         shaderOn = enabled === true;
       } else if (typeof enabled === 'boolean') shaderSwitches.set(own, enabled);
       else shaderSwitches.delete(own);
+      return null;
+    },
+    shaders_choose: ({ scope, choice }) => {
+      optionsAllowed();
+      const chain = shaderChain(scope as OptionsScope);
+      const own = chain[0]!.key;
+      const c = typeof choice === 'string' ? choice : null;
+      if (c === null) {
+        if (own === 'global') fail('invalid', 'global inherits from nothing');
+        shaderSwitches.delete(own);
+        shaderSets.delete(own);
+        shaderLevel(own).preset = null;
+        return null;
+      }
+      const preset = c.startsWith('crt:') ? c.slice(4) : null;
+      const set = c.startsWith('set:') ? c.slice(4) : null;
+      if (
+        c !== 'none' &&
+        !(preset && shaderPresets.some((p) => p.value === preset)) &&
+        !(set && batoceraSets.includes(set))
+      ) {
+        fail('invalid', `no shader \`${c}\``);
+      }
+      const on = preset !== null;
+      if (own === 'global') shaderOn = on;
+      else shaderSwitches.set(own, on);
+      if (set) shaderSets.set(own, set);
+      else if (!on) shaderSets.delete(own);
+      if (preset) {
+        // The preset it would start from anyway: none of its own.
+        const start =
+          chain
+            .slice(1)
+            .map((l) => shaderLevels.get(l.key)?.preset)
+            .find(Boolean) ?? 'Presets-ng/Monitor-Balanced';
+        shaderLevel(own).preset = preset === start ? null : preset;
+      }
       return null;
     },
     options_set: ({ scope, key, value }) => {

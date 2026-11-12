@@ -656,7 +656,15 @@ export class Forma {
        * `scope` (since 1.35.0), on or off there over the level above, or `null` to inherit.
        */
       setEnabled: (enabled: boolean | null, scope?: OptionsScope) =>
-        invoke<void>('shaders_set_enabled', scope ? { enabled, scope } : { enabled })
+        invoke<void>('shaders_set_enabled', scope ? { enabled, scope } : { enabled }),
+      /**
+       * The shader at a level, as one choice from `ShaderPage.shader.choices`: `none`,
+       * `crt:<preset>` (Forma's koko-aio from that preset, tuned by its settings) or
+       * `set:<name>` (one of Batocera's shader sets); `null` for the level above's (not
+       * globally). Forma owns Batocera's `shaderset` keys. Since 1.35.0.
+       */
+      choose: (scope: OptionsScope, choice: string | null) =>
+        invoke<void>('shaders_choose', { scope, choice })
     };
 
     /**
