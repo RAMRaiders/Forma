@@ -1,7 +1,9 @@
 import type {
+  CoreChoice,
   Forma,
   OptionChoice,
   OptionItem,
+  OptionsPage,
   OptionsScope,
   SystemSetting
 } from '@ramraiders/forma-sdk';
@@ -162,8 +164,52 @@ function optionsScreen(
   scope: OptionsScope,
   submenu: string | null = null
 ): () => Promise<Row[]> {
-  return async () =>
-    optionRows(forma, page, scope, (await forma.options.get(scope)).options, submenu);
+  return async () => optionRows(forma, page, scope, await forma.options.get(scope), submenu);
+}
+
+/**
+ * The emulator and core as one row: every core the system can run, a standalone emulator as
+ * one of them. Choosing sets the emulator, then its core where it has some to choose from.
+ */
+function coreRow(
+  forma: Forma,
+  page: Page,
+  scope: OptionsScope,
+  options: OptionItem[],
+  cores: CoreChoice[]
+): Row {
+  const emulator = options.find((o) => o.key === 'emulator')!;
+  const core = options.find((o) => o.key === 'core');
+  const key = (c: CoreChoice) => `${c.emulator}/${c.core}`;
+  const set = emulator.value !== null || (core?.value ?? null) !== null;
+  const em = emulator.value ?? emulator.inherited?.value ?? emulator.default;
+  const co = core ? (core.value ?? core.inherited?.value ?? core.default) : em;
+  const now =
+    cores.find((c) => c.emulator === em && c.core === co) ?? cores.find((c) => c.emulator === em);
+  const from = !set && (emulator.inherited ?? core?.inherited) ? ' (system)' : '';
+  const choose = async (value: string | null) => {
+    // Unsetting the emulator unsets its core too.
+    if (value === null) return forma.options.set(scope, 'emulator', null);
+    const c = cores.find((x) => key(x) === value);
+    if (!c) return;
+    await forma.options.set(scope, 'emulator', c.emulator);
+    const { options: after } = await forma.options.get(scope);
+    if (after.some((o) => o.key === 'core')) await forma.options.set(scope, 'core', c.core);
+  };
+  return {
+    label: 'Core',
+    detail: set ? (now?.label ?? '') : `Default · ${now?.label ?? '?'}${from}`,
+    alt: set ? { label: 'Default', run: () => page.run('Saving…', () => choose(null)) } : undefined,
+    run: () =>
+      pick(
+        page,
+        'Core',
+        cores.map((c) => ({ value: key(c), label: c.default ? `${c.label} (default)` : c.label })),
+        set && now ? key(now) : null,
+        choose,
+        'Default'
+      )
+  };
 }
 
 /** {@link optionsScreen}'s rows, from a level's options already had. */
@@ -171,12 +217,17 @@ export function optionRows(
   forma: Forma,
   page: Page,
   scope: OptionsScope,
-  options: OptionItem[],
+  { options, cores }: OptionsPage,
   submenu: string | null = null
 ): Row[] {
   {
-    const here = options.filter((o) => o.submenu === submenu);
-    const rows: Row[] = [];
+    // The emulator and core as one Core row, where the system has cores to choose from.
+    const oneRow =
+      submenu === null && cores.length > 0 && options.some((o) => o.key === 'emulator');
+    const here = options.filter(
+      (o) => o.submenu === submenu && !(oneRow && (o.key === 'emulator' || o.key === 'core'))
+    );
+    const rows: Row[] = oneRow ? [coreRow(forma, page, scope, options, cores)] : [];
     // Ungrouped first, in Batocera's order; then each group under its heading.
     const groups: (string | null)[] = [null];
     for (const o of here) if (o.group && !groups.includes(o.group)) groups.push(o.group);

@@ -23,6 +23,7 @@ import type {
   BatoceraSetting,
   OptionItem,
   OptionsPage,
+  CoreChoice,
   InfoItem,
   SystemSetting,
   StorePackage,
@@ -203,7 +204,8 @@ describe('contract with the engine', () => {
 
   it('emulator options', () => {
     const pages = Object.values(data.options) as unknown as OptionsPage[];
-    const page = keys<OptionsPage>()('options', 'flags');
+    const page = keys<OptionsPage>()('options', 'flags', 'cores');
+    const core = keys<CoreChoice>()('emulator', 'core', 'label', 'default');
     const item = keys<OptionItem>()(
       'key',
       'label',
@@ -222,7 +224,9 @@ describe('contract with the engine', () => {
     for (const p of pages) {
       expect(sorted(p)).toEqual(page);
       for (const o of p.options) expect(sorted(o)).toEqual(item);
+      for (const c of p.cores) expect(sorted(c)).toEqual(core);
     }
+    expect(pages.some((p) => p.cores.some((c) => c.label.endsWith('(standalone)')))).toBe(true);
     const kinds = new Set(pages.flatMap((p) => p.options.map((o) => o.kind)));
     expect(kinds).toEqual(new Set(['choice', 'number', 'text']));
   });

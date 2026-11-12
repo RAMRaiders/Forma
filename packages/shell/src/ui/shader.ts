@@ -228,11 +228,12 @@ export function emulatorScreen(
   scope: OptionsScope
 ): () => Promise<Row[]> {
   return async () => {
-    const [{ options }, s] = await Promise.all([
+    const [optionsPage, s] = await Promise.all([
       forma.options.get(scope),
       forma.shaders.get(scope).catch(() => null)
     ]);
-    const rows = optionRows(forma, page, scope, options);
+    const { options } = optionsPage;
+    const rows = optionRows(forma, page, scope, optionsPage);
     // After the emulator and core (and anything else ungrouped), before the option groups.
     const at = rows.findIndex((r) => r.heading);
     const screen = s ? screenRows(forma, page, scope, s, options) : [];

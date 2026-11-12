@@ -1002,6 +1002,31 @@ export interface OptionsPage {
   options: OptionItem[];
   /** What the chosen emulator supports: `netplay`, `cheevos`, `padtokeyboard`. */
   flags: string[];
+  /**
+   * Every emulator and core the system can run, as one list (a system's and a game's page;
+   * empty globally): one choice sets `emulator`, then `core`. Since 1.35.0.
+   */
+  cores: CoreChoice[];
+}
+
+/** What a game has saved, as RetroArch keeps it (`library.saves`). Since 1.35.0. */
+export interface GameSaves {
+  /** A battery save: the game's own save, as on the cartridge. */
+  battery: boolean;
+  /** Save states, the automatic one included. */
+  states: number;
+  /** When the latest was written (ISO 8601, UTC); `null` with none. */
+  latest: string | null;
+}
+
+/** One emulator and one of its cores, as one choice (`OptionsPage.cores`). Since 1.35.0. */
+export interface CoreChoice {
+  emulator: string;
+  core: string;
+  /** `pcsx_rearmed` for a RetroArch core, `duckstation (standalone)`, `mupen64plus · rice`. */
+  label: string;
+  /** What the system runs when nothing is set. */
+  default: boolean;
 }
 
 /** The CRT shader on or off at a level (since 1.35.0). */

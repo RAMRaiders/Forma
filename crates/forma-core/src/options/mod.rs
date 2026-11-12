@@ -68,6 +68,21 @@ pub struct OptionsPage {
     pub options: Vec<OptionItem>,
     /// What the chosen emulator supports: `netplay`, `cheevos`, `padtokeyboard`.
     pub flags: Vec<String>,
+    /// Every emulator and core the system can run, as one list (a system's and a game's page;
+    /// empty globally): one choice sets both `emulator` and `core`.
+    pub cores: Vec<CoreChoice>,
+}
+
+/// One emulator and one of its cores.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoreChoice {
+    pub emulator: String,
+    pub core: String,
+    /// `pcsx_rearmed` for a RetroArch core, `duckstation (standalone)`, `mupen64plus · rice`.
+    pub label: String,
+    /// What the system runs when nothing is set.
+    pub default: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -169,6 +184,7 @@ impl Options {
 
         let mut options = Vec::new();
         let mut flags = Vec::new();
+        let mut cores = Vec::new();
         match (scope.system(), system) {
             (None, _) => {
                 for f in &self.features().global {
@@ -184,6 +200,7 @@ impl Options {
                 let emulator = chosen("emulator")
                     .filter(|e| system.emulators.iter().any(|em| &em.name == e))
                     .or_else(|| default_emulator(system).map(str::to_owned));
+                cores = core_choices(system);
                 if let Some(emulator) = &emulator {
                     options.push(emulator_item(system, &lookup));
                     let em = system.emulators.iter().find(|em| &em.name == emulator);
@@ -202,7 +219,11 @@ impl Options {
             }
             (Some(name), _) => return Err(Error::Invalid(format!("no system `{name}`"))),
         }
-        Ok(OptionsPage { options, flags })
+        Ok(OptionsPage {
+            options,
+            flags,
+            cores,
+        })
     }
 
     /// Sets an option at `scope`, or unsets it with `None` (the level then inherits).
@@ -345,6 +366,44 @@ fn folders(dirs: &[PathBuf]) -> Vec<OptionChoice> {
     std::iter::once(choice("none", "None"))
         .chain(names.iter().map(|n| choice(n, &n.replace('_', " "))))
         .collect()
+}
+
+/// Every emulator's cores, the system's default first among them as Batocera lists them.
+fn core_choices(system: &System) -> Vec<CoreChoice> {
+    let default = default_emulator(system).map(|em| {
+        let core = system
+            .emulators
+            .iter()
+            .find(|e| e.name == em)
+            .and_then(default_core);
+        (em.to_owned(), core.map(str::to_owned))
+    });
+    let mut out = Vec::new();
+    for em in &system.emulators {
+        let names: Vec<&str> = if em.cores.is_empty() {
+            vec![em.name.as_str()]
+        } else {
+            em.cores.iter().map(|c| c.name.as_str()).collect()
+        };
+        for core in names {
+            let label = if em.name == "libretro" {
+                core.to_owned()
+            } else if core == em.name {
+                format!("{core} (standalone)")
+            } else {
+                format!("{} · {core}", em.name)
+            };
+            out.push(CoreChoice {
+                default: default
+                    .as_ref()
+                    .is_some_and(|(e, c)| *e == em.name && c.as_deref().is_none_or(|c| c == core)),
+                emulator: em.name.clone(),
+                core: core.to_owned(),
+                label,
+            });
+        }
+    }
+    out
 }
 
 fn default_emulator(system: &System) -> Option<&str> {

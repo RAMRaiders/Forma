@@ -3889,6 +3889,7 @@
   },
   "options": {
     "global": {
+      "cores": [],
       "flags": [],
       "options": [
         {
@@ -4084,10 +4085,25 @@
       ]
     },
     "homebrew||": {
+      "cores": [],
       "flags": [],
       "options": []
     },
     "megadrive|libretro|": {
+      "cores": [
+        {
+          "core": "genesisplusgx",
+          "default": true,
+          "emulator": "libretro",
+          "label": "genesisplusgx"
+        },
+        {
+          "core": "picodrive",
+          "default": false,
+          "emulator": "libretro",
+          "label": "picodrive"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -4221,6 +4237,20 @@
       ]
     },
     "megadrive|libretro|genesisplusgx": {
+      "cores": [
+        {
+          "core": "genesisplusgx",
+          "default": true,
+          "emulator": "libretro",
+          "label": "genesisplusgx"
+        },
+        {
+          "core": "picodrive",
+          "default": false,
+          "emulator": "libretro",
+          "label": "picodrive"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -4354,6 +4384,20 @@
       ]
     },
     "megadrive|libretro|picodrive": {
+      "cores": [
+        {
+          "core": "genesisplusgx",
+          "default": true,
+          "emulator": "libretro",
+          "label": "genesisplusgx"
+        },
+        {
+          "core": "picodrive",
+          "default": false,
+          "emulator": "libretro",
+          "label": "picodrive"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -4487,6 +4531,20 @@
       ]
     },
     "megadrive||": {
+      "cores": [
+        {
+          "core": "genesisplusgx",
+          "default": true,
+          "emulator": "libretro",
+          "label": "genesisplusgx"
+        },
+        {
+          "core": "picodrive",
+          "default": false,
+          "emulator": "libretro",
+          "label": "picodrive"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -4620,6 +4678,26 @@
       ]
     },
     "nes|libretro|": {
+      "cores": [
+        {
+          "core": "fceumm",
+          "default": true,
+          "emulator": "libretro",
+          "label": "fceumm"
+        },
+        {
+          "core": "nestopia",
+          "default": false,
+          "emulator": "libretro",
+          "label": "nestopia"
+        },
+        {
+          "core": "mesen",
+          "default": false,
+          "emulator": "libretro",
+          "label": "mesen"
+        }
+      ],
       "flags": [
         "netplay",
         "cheevos"
@@ -4808,6 +4886,26 @@
       ]
     },
     "nes|libretro|fceumm": {
+      "cores": [
+        {
+          "core": "fceumm",
+          "default": true,
+          "emulator": "libretro",
+          "label": "fceumm"
+        },
+        {
+          "core": "nestopia",
+          "default": false,
+          "emulator": "libretro",
+          "label": "nestopia"
+        },
+        {
+          "core": "mesen",
+          "default": false,
+          "emulator": "libretro",
+          "label": "mesen"
+        }
+      ],
       "flags": [
         "netplay",
         "cheevos"
@@ -4996,6 +5094,26 @@
       ]
     },
     "nes|libretro|mesen": {
+      "cores": [
+        {
+          "core": "fceumm",
+          "default": true,
+          "emulator": "libretro",
+          "label": "fceumm"
+        },
+        {
+          "core": "nestopia",
+          "default": false,
+          "emulator": "libretro",
+          "label": "nestopia"
+        },
+        {
+          "core": "mesen",
+          "default": false,
+          "emulator": "libretro",
+          "label": "mesen"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -5133,6 +5251,26 @@
       ]
     },
     "nes|libretro|nestopia": {
+      "cores": [
+        {
+          "core": "fceumm",
+          "default": true,
+          "emulator": "libretro",
+          "label": "fceumm"
+        },
+        {
+          "core": "nestopia",
+          "default": false,
+          "emulator": "libretro",
+          "label": "nestopia"
+        },
+        {
+          "core": "mesen",
+          "default": false,
+          "emulator": "libretro",
+          "label": "mesen"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -5270,6 +5408,26 @@
       ]
     },
     "nes||": {
+      "cores": [
+        {
+          "core": "fceumm",
+          "default": true,
+          "emulator": "libretro",
+          "label": "fceumm"
+        },
+        {
+          "core": "nestopia",
+          "default": false,
+          "emulator": "libretro",
+          "label": "nestopia"
+        },
+        {
+          "core": "mesen",
+          "default": false,
+          "emulator": "libretro",
+          "label": "mesen"
+        }
+      ],
       "flags": [
         "netplay",
         "cheevos"
@@ -5458,6 +5616,26 @@
       ]
     },
     "psx|duckstation|": {
+      "cores": [
+        {
+          "core": "swanstation",
+          "default": true,
+          "emulator": "libretro",
+          "label": "swanstation"
+        },
+        {
+          "core": "pcsx_rearmed",
+          "default": false,
+          "emulator": "libretro",
+          "label": "pcsx_rearmed"
+        },
+        {
+          "core": "duckstation",
+          "default": false,
+          "emulator": "duckstation",
+          "label": "duckstation (standalone)"
+        }
+      ],
       "flags": [
         "cheevos"
       ],
@@ -5561,6 +5739,26 @@
       ]
     },
     "psx|duckstation|duckstation": {
+      "cores": [
+        {
+          "core": "swanstation",
+          "default": true,
+          "emulator": "libretro",
+          "label": "swanstation"
+        },
+        {
+          "core": "pcsx_rearmed",
+          "default": false,
+          "emulator": "libretro",
+          "label": "pcsx_rearmed"
+        },
+        {
+          "core": "duckstation",
+          "default": false,
+          "emulator": "duckstation",
+          "label": "duckstation (standalone)"
+        }
+      ],
       "flags": [
         "cheevos"
       ],
@@ -5664,6 +5862,26 @@
       ]
     },
     "psx|libretro|": {
+      "cores": [
+        {
+          "core": "swanstation",
+          "default": true,
+          "emulator": "libretro",
+          "label": "swanstation"
+        },
+        {
+          "core": "pcsx_rearmed",
+          "default": false,
+          "emulator": "libretro",
+          "label": "pcsx_rearmed"
+        },
+        {
+          "core": "duckstation",
+          "default": false,
+          "emulator": "duckstation",
+          "label": "duckstation (standalone)"
+        }
+      ],
       "flags": [
         "cheevos"
       ],
@@ -5842,6 +6060,26 @@
       ]
     },
     "psx|libretro|pcsx_rearmed": {
+      "cores": [
+        {
+          "core": "swanstation",
+          "default": true,
+          "emulator": "libretro",
+          "label": "swanstation"
+        },
+        {
+          "core": "pcsx_rearmed",
+          "default": false,
+          "emulator": "libretro",
+          "label": "pcsx_rearmed"
+        },
+        {
+          "core": "duckstation",
+          "default": false,
+          "emulator": "duckstation",
+          "label": "duckstation (standalone)"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -5979,6 +6217,26 @@
       ]
     },
     "psx|libretro|swanstation": {
+      "cores": [
+        {
+          "core": "swanstation",
+          "default": true,
+          "emulator": "libretro",
+          "label": "swanstation"
+        },
+        {
+          "core": "pcsx_rearmed",
+          "default": false,
+          "emulator": "libretro",
+          "label": "pcsx_rearmed"
+        },
+        {
+          "core": "duckstation",
+          "default": false,
+          "emulator": "duckstation",
+          "label": "duckstation (standalone)"
+        }
+      ],
       "flags": [
         "cheevos"
       ],
@@ -6157,6 +6415,26 @@
       ]
     },
     "psx||": {
+      "cores": [
+        {
+          "core": "swanstation",
+          "default": true,
+          "emulator": "libretro",
+          "label": "swanstation"
+        },
+        {
+          "core": "pcsx_rearmed",
+          "default": false,
+          "emulator": "libretro",
+          "label": "pcsx_rearmed"
+        },
+        {
+          "core": "duckstation",
+          "default": false,
+          "emulator": "duckstation",
+          "label": "duckstation (standalone)"
+        }
+      ],
       "flags": [
         "cheevos"
       ],
@@ -6335,6 +6613,14 @@
       ]
     },
     "snes|libretro|": {
+      "cores": [
+        {
+          "core": "bsnes",
+          "default": true,
+          "emulator": "libretro",
+          "label": "bsnes"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -6464,6 +6750,14 @@
       ]
     },
     "snes|libretro|bsnes": {
+      "cores": [
+        {
+          "core": "bsnes",
+          "default": true,
+          "emulator": "libretro",
+          "label": "bsnes"
+        }
+      ],
       "flags": [],
       "options": [
         {
@@ -6593,6 +6887,14 @@
       ]
     },
     "snes||": {
+      "cores": [
+        {
+          "core": "bsnes",
+          "default": true,
+          "emulator": "libretro",
+          "label": "bsnes"
+        }
+      ],
       "flags": [],
       "options": [
         {

@@ -39,6 +39,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::theme_ready,
         commands::library_systems,
         commands::library_game,
+        commands::library_saves,
         commands::library_versions,
         commands::library_prepare_media,
         commands::library_prepare_list,

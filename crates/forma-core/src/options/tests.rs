@@ -288,3 +288,16 @@ fn video_mode_labels_are_tidied() {
     );
     assert_eq!(video_mode_label("maximum 1920x1080"), "Maximum 1920x1080");
 }
+
+#[test]
+fn a_system_lists_every_emulator_and_core_as_one_choice() {
+    let f = fixture("");
+    let psx = f.page(&Scope::System("psx".into()));
+    let labels: Vec<_> = psx.cores.iter().map(|c| c.label.as_str()).collect();
+    assert!(labels.contains(&"swanstation"), "{labels:?}");
+    assert!(labels.contains(&"duckstation (standalone)"), "{labels:?}");
+    // One default: what the system runs when nothing is set.
+    assert_eq!(psx.cores.iter().filter(|c| c.default).count(), 1);
+    // Globally, nothing to choose.
+    assert!(f.page(&Scope::Global).cores.is_empty());
+}
