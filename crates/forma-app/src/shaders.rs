@@ -56,6 +56,23 @@ pub async fn shaders_set_preset<R: Runtime>(
     .await
 }
 
+/// Chooses the shader at a level: `none`, `crt:<preset>` (Forma's koko-aio from that preset),
+/// `set:<name>` (one of Batocera's sets), or `null` for the level above's (not globally).
+#[tauri::command]
+pub async fn shaders_choose<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    scope: OptionsScope,
+    choice: Option<String>,
+) -> ApiResult<()> {
+    off_thread(app, move |state| {
+        allowed(state, caller)?;
+        let scope = resolve(state, scope)?.0;
+        Ok(state.shaders.choose(&scope, choice.as_deref())?)
+    })
+    .await
+}
+
 /// Switches Forma's shader on for every game, or off (Batocera's shader set back); with a
 /// system's or a game's `scope`, on or off there over the level above, or `null` to inherit.
 #[tauri::command]

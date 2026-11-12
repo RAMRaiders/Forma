@@ -1079,6 +1079,16 @@ export interface ShaderPage {
   enabled: boolean;
   /** Switched on or off at this level, and what it inherits (since 1.35.0). */
   switch: ShaderSwitch;
+  /**
+   * The shader at this level as one choice (`shaders.choose`): `none`, `crt:<preset>` or
+   * `set:<name>`. Globally always chosen. Since 1.35.0.
+   */
+  shader: {
+    /** Chosen at this level; `null` when it has the level above's. */
+    value: string | null;
+    inherited: ShaderInherited<string>;
+    choices: OptionChoice[];
+  };
   preset: {
     /** Chosen at this level, as `Presets-ng/Monitor-Balanced`; `null` when it inherits. */
     value: string | null;

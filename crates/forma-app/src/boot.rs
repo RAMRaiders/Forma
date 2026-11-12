@@ -141,6 +141,10 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             move |event| on_sync(&events, event),
         );
         *state.sync.lock().unwrap_or_else(PoisonError::into_inner) = Some(sync);
+        // Batocera's shader keys from before Forma owned them, as Forma's choices from now on.
+        if let Err(error) = state.shaders.adopt() {
+            eprintln!("forma: shader keys: {error}");
+        }
     });
 
     crate::music::start(app.handle().clone());
