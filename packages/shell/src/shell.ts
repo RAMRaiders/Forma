@@ -72,6 +72,8 @@ export interface ShellCalls {
 
 /** How long a power action waits for its second press. */
 const CONFIRM_MS = 3000;
+/** Select held this long, on a game list, is "favourites only" on or off; shorter, its menu. */
+export const HOLD_MS = 600;
 
 /**
  * Forma's menus over the theme: Start opens the menu, Select the views. Whatever the theme, the
@@ -295,11 +297,24 @@ export class Shell {
     if (this.#saver.active) return void this.#saver.input(e);
     this.#saver.poke();
     if (!this.open) {
+      if (!e.pressed && e.action === 'select' && this.#selectHold !== undefined) {
+        clearTimeout(this.#selectHold);
+        this.#selectHold = undefined;
+        void this.#openContext();
+        return;
+      }
       if (!e.pressed || e.repeat) return;
       // Opened afresh: nothing to go back to.
       this.#returnTo = null;
       if (e.action === 'start') void this.#openMenu();
-      else if (e.action === 'select') void this.#openContext();
+      else if (e.action === 'select') {
+        // Its menu on release; held, the favourites filter instead.
+        clearTimeout(this.#selectHold);
+        this.#selectHold = setTimeout(() => {
+          this.#selectHold = undefined;
+          void this.#toggleFavourites();
+        }, HOLD_MS);
+      }
       return;
     }
     // Select shuts the page it opened, as it shuts the views list.
@@ -531,6 +546,28 @@ export class Shell {
    * systems, their order; showing games, the theme's own settings for a game list, under its
    * logo (those it marks `"select": ["games"]`); elsewhere, the views list.
    */
+  #selectHold: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Select held on a game list: shows only its favourites, or, already so, takes that away
+   * again; the rest of the filter stays. Elsewhere, Select's menu as a press opens it.
+   */
+  async #toggleFavourites(): Promise<void> {
+    const info = await this.#loadInfo();
+    if (info?.context?.list !== 'games') return this.#openContext();
+    const options = await this.forma.nav.filterOptions().catch(() => null);
+    if (!options) return;
+    const { filter } = options;
+    const on = !filter.favorites;
+    const left = await this.forma.nav.setFilter({ ...filter, favorites: on }).catch(() => null);
+    if (left === null) return;
+    if (on && left === 0) {
+      await this.forma.nav.setFilter(filter).catch(() => {});
+      return this.notify('No favourites in this list');
+    }
+    this.notify(on ? 'Favourites only' : 'Favourites or not');
+  }
+
   async #openContext(): Promise<void> {
     const info = await this.#loadInfo();
     const list = info?.context?.list;

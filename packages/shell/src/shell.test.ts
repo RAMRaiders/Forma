@@ -14,7 +14,7 @@ import {
 import { mockBackend } from '@ramraiders/forma-sdk/mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Shell, type ShellInfo } from './shell.js';
+import { HOLD_MS, Shell, type ShellInfo } from './shell.js';
 import { backupNote, themeUse } from './ui/scraper.js';
 
 beforeEach(() => {
@@ -87,7 +87,16 @@ function start(
 
   const press = async (action: InputEvent['action'], repeat = false) => {
     shell.input({ action, button: null, gamepad: 0, pressed: true, repeat });
+    // Let go at once (Select's menu comes on release), unless a repeat: still held.
+    if (!repeat) shell.input({ action, button: null, gamepad: 0, pressed: false, repeat: false });
     await vi.waitFor(() => Promise.resolve());
+    await new Promise((r) => setTimeout(r, 0));
+  };
+  /** Holds a button `ms`, then lets go. */
+  const hold = async (action: InputEvent['action'], ms: number) => {
+    shell.input({ action, button: null, gamepad: 0, pressed: true, repeat: false });
+    await new Promise((r) => setTimeout(r, ms));
+    shell.input({ action, button: null, gamepad: 0, pressed: false, repeat: false });
     await new Promise((r) => setTimeout(r, 0));
   };
   const text = (selector: string) =>
@@ -103,6 +112,7 @@ function start(
     await press('confirm');
   };
   return {
+    hold,
     shell,
     root,
     press,
@@ -589,6 +599,34 @@ describe('Forma’s shell', () => {
     await press('confirm');
     await vi.waitFor(() => expect(rows()).not.toContain('Clear filter'));
     expect(spy).toHaveBeenCalledWith('nav_set_filter', { filter: null });
+  });
+
+  it('Select held on a game list shows only its favourites, and held again, all', async () => {
+    const { press, hold, text, backend } = start([], {
+      view: 'systems',
+      list: 'games',
+      game: { id: 1, name: 'Sonic' }
+    });
+    const spy = vi.spyOn(backend, 'invoke');
+    await hold('select', HOLD_MS + 100);
+    await vi.waitFor(() =>
+      expect(spy).toHaveBeenCalledWith('nav_set_filter', { filter: { favorites: true } })
+    );
+    // No menu: the filter is on, said so.
+    expect(text('.page > .panel li[role=option] .name')).toEqual([]);
+    await vi.waitFor(() => expect(text('.toast')).toContain('Favourites only'));
+    // Another part of the filter stays when it goes.
+    await backend.invoke('nav_set_filter', { filter: { favorites: true, letter: 'S' } });
+    spy.mockClear();
+    await hold('select', HOLD_MS + 100);
+    await vi.waitFor(() =>
+      expect(spy).toHaveBeenCalledWith('nav_set_filter', {
+        filter: { favorites: false, letter: 'S' }
+      })
+    );
+    // A press is still the menu.
+    await press('select');
+    await vi.waitFor(() => expect(text('.page li .name')).toContain('Filter list'));
   });
 
   it('a game scraped for the first time starts from the first scraper’s answers', async () => {
