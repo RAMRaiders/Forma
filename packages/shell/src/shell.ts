@@ -39,6 +39,7 @@ import { collectionsScreen } from './ui/collections.js';
 import { controllersScreen } from './ui/controllers.js';
 import { Switcher } from './ui/switcher.js';
 import { Screensaver, screensaverScreen } from './ui/screensaver.js';
+import { freezeTheme } from './ui/freeze.js';
 
 /** What `shell_info` answers: the theme's context and its settings. */
 export interface ShellInfo {
@@ -147,6 +148,8 @@ export class Shell {
       setActive: async (active) => {
         // The corner's pads and connection would show through its videos.
         this.root.classList.toggle('saving', active);
+        // Under it, the theme's page holds still (Dim shows it through).
+        freezeTheme(active);
         await calls.screensaver(active);
         // Gone: input goes back to wherever it went before (a menu left open, or the theme).
         if (!active) await calls.setOpen(this.open);
