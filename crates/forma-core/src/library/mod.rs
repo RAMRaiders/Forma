@@ -124,7 +124,7 @@ impl Library {
     }
 
     /// Systems with at least one visible game, in the order the user set
-    /// ([`SYSTEMS_ORDER_SETTING`]): by name unless they chose otherwise.
+    /// ([`SYSTEMS_ORDER_SETTING`]): by maker, then year, unless they chose otherwise.
     pub fn systems_in_order(&self) -> Result<Vec<SystemSummary>> {
         let mut systems = self.systems()?;
         let order = self.setting_text(SYSTEMS_ORDER_SETTING)?;
@@ -527,26 +527,26 @@ fn default_name(path: &str) -> String {
 /// back to `gamelist.xml`: see [`Library::write_back_to_gamelist`].
 pub const GAMELIST_WRITE_BACK_SETTING: &str = "library.gamelistWriteBack";
 
-/// Forma's setting for the order systems are listed in, for every theme: `name` (A to Z, the
-/// default), `maker` (by manufacturer, then oldest first) or `year` (oldest first).
+/// Forma's setting for the order systems are listed in, for every theme: `maker` (by
+/// manufacturer, then oldest first: the default), `name` (A to Z) or `year` (oldest first).
 pub const SYSTEMS_ORDER_SETTING: &str = "library.systemsOrder";
 
 /// How systems are listed ([`SYSTEMS_ORDER_SETTING`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SystemsOrder {
-    #[default]
     Name,
+    #[default]
     Maker,
     Year,
 }
 
 impl SystemsOrder {
-    /// The setting's value; anything else (or none) is by name.
+    /// The setting's value; anything else (or none) is by maker.
     pub fn parse(value: Option<&str>) -> Self {
         match value.map(str::trim) {
-            Some("maker") => Self::Maker,
+            Some("name") => Self::Name,
             Some("year") => Self::Year,
-            _ => Self::Name,
+            _ => Self::Maker,
         }
     }
 }

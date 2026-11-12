@@ -541,7 +541,7 @@ fn lists_systems_by_name_maker_or_year() {
 }
 
 #[test]
-fn the_systems_order_is_a_setting_by_name_unless_set() {
+fn the_systems_order_is_a_setting_by_maker_then_year_unless_set() {
     let (mut lib, _) = refreshed();
     let names = |lib: &Library| -> Vec<String> {
         lib.systems_in_order()
@@ -550,11 +550,27 @@ fn the_systems_order_is_a_setting_by_name_unless_set() {
             .map(|s| s.fullname)
             .collect()
     };
+    // Unset: by maker (those without one last), each maker's oldest first.
+    let keys: Vec<(bool, String, i64)> = lib
+        .systems_in_order()
+        .unwrap()
+        .into_iter()
+        .map(|s| {
+            let maker = s.manufacturer.unwrap_or_default().trim().to_lowercase();
+            (maker.is_empty(), maker, s.release_year.unwrap_or(i64::MAX))
+        })
+        .collect();
+    let mut sorted = keys.clone();
+    sorted.sort();
+    assert_eq!(keys, sorted);
+    assert_eq!(SystemsOrder::parse(Some("sideways")), SystemsOrder::Maker);
+
+    lib.set_setting(SYSTEMS_ORDER_SETTING, Some("\"name\""))
+        .unwrap();
     let by_name = names(&lib);
     let mut sorted = by_name.clone();
     sorted.sort_by_key(|n| n.to_lowercase());
     assert_eq!(by_name, sorted);
-    assert_eq!(SystemsOrder::parse(Some("sideways")), SystemsOrder::Name);
 
     lib.set_setting(SYSTEMS_ORDER_SETTING, Some("\"year\""))
         .unwrap();

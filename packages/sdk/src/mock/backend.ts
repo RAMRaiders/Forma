@@ -1853,7 +1853,7 @@ function escapeXml(s: string): string {
   );
 }
 
-/** Forma's systems order (`SystemsOrder`): by name unless the setting says maker or year. */
+/** Forma's systems order (`SystemsOrder`): by maker unless the setting says name or year. */
 function orderSystems(systems: SystemSummary[], order: unknown): SystemSummary[] {
   const name = (s: SystemSummary) => s.fullname.toLowerCase();
   const year = (s: SystemSummary) => s.releaseYear ?? Number.MAX_SAFE_INTEGER;
@@ -1861,7 +1861,7 @@ function orderSystems(systems: SystemSummary[], order: unknown): SystemSummary[]
   const byName = (a: SystemSummary, b: SystemSummary) => name(a).localeCompare(name(b));
   return [...systems].sort((a, b) => {
     if (order === 'year') return year(a) - year(b) || byName(a, b);
-    if (order === 'maker') {
+    if (order !== 'name') {
       const [ma, mb] = [maker(a), maker(b)];
       if (ma !== mb) return ma === null ? 1 : mb === null ? -1 : ma.localeCompare(mb);
       return year(a) - year(b) || byName(a, b);

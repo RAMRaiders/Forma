@@ -941,20 +941,30 @@ describe('Forma’s shell', () => {
     await press('select');
     await vi.waitFor(() => expect(text('.page li .name').length).toBeGreaterThan(0));
     expect(text('.page h2')).toEqual(['Systems']);
-    expect(text('.page li .name')).toEqual(['Order: Name (A to Z)']);
-    await press('right');
-    await vi.waitFor(() => expect(text('.page li .name')).toEqual(['Order: Manufacturer']));
-    expect(await forma.settings.getSystem('library.systemsOrder')).toBe('maker');
+    // By maker, then year, unless chosen otherwise.
+    expect(text('.page li .name')).toEqual(['Order: Manufacturer, then year']);
     const makers = (await forma.library.systems()).map((s) => s.manufacturer ?? '');
     // By maker; those without one last.
     const named = makers.filter(Boolean);
     expect(named).toEqual([...named].sort((a, b) => a.localeCompare(b)));
     expect(makers.slice(named.length).every((m) => m === '')).toBe(true);
+    await press('right');
+    await vi.waitFor(() => expect(text('.page li .name')).toEqual(['Order: Name (A to Z)']));
+    expect(await forma.settings.getSystem('library.systemsOrder')).toBe('name');
     await press('left');
     await press('left');
     await vi.waitFor(() => expect(text('.page li .name')).toEqual(['Order: Year']));
     await press('select');
     expect(shell.open).toBe(false);
+  });
+
+  it('on Select over categories, offers the order of the systems in them too', async () => {
+    const { press, text } = start(['settings.system'], { view: 'systems', list: 'categories' }, [
+      'systems'
+    ]);
+    await press('select');
+    await vi.waitFor(() => expect(text('.page li .name').length).toBeGreaterThan(0));
+    expect(text('.page li .name')).toEqual(['Order: Manufacturer, then year']);
   });
 
   it('on Select over games, offers the theme’s own settings for them, as Theme', async () => {
