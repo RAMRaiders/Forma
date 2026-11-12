@@ -712,8 +712,8 @@ export interface ShellContext {
 
 /**
  * How `library.systems()` lists systems, Forma's setting `library.systemsOrder` (scope
- * `system`): `name` (A to Z, the default), `maker` (by manufacturer, then oldest first) or
- * `year` (oldest first). The user sets it in Forma's Select menu; when it changes, Forma sends
+ * `system`): `maker` (by manufacturer, then oldest first: the default, since 1.34.0), `name`
+ * (A to Z) or `year` (oldest first). The user sets it in Forma's Select menu; when it changes, Forma sends
  * `settings:changed` and a theme reads `library.systems()` again.
  */
 export type SystemsOrder = 'name' | 'maker' | 'year';

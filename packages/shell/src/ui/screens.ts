@@ -566,9 +566,10 @@ async function themeSelectRow(page: Page, list: string, hooks: ThemeOnSelect): P
 /** Forma's setting for how every theme lists systems (`SystemsOrder` in the SDK). */
 const SYSTEMS_ORDER_SETTING = 'library.systemsOrder';
 
+/** The first is Forma's default. */
 const SYSTEMS_ORDERS: { value: SystemsOrder; label: string }[] = [
+  { value: 'maker', label: 'Manufacturer, then year' },
   { value: 'name', label: 'Name (A to Z)' },
-  { value: 'maker', label: 'Manufacturer' },
   { value: 'year', label: 'Year' }
 ];
 
