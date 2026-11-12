@@ -118,7 +118,7 @@ function optionDetail(o: OptionItem): string {
   return from ? `Default · ${from}` : 'Default';
 }
 
-function optionRow(forma: Forma, page: Page, scope: OptionsScope, o: OptionItem): Row {
+export function optionRow(forma: Forma, page: Page, scope: OptionsScope, o: OptionItem): Row {
   const set = (value: string | null) => forma.options.set(scope, o.key, value);
   const save = (value: string | null) => page.run('Saving…', () => set(value));
   const label = sentence(o.label);
@@ -144,6 +144,12 @@ function optionRow(forma: Forma, page: Page, scope: OptionsScope, o: OptionItem)
   }
   return row;
 }
+
+/**
+ * Batocera's pages of options that are about how the game looks: on Forma's Screen page, with
+ * its CRT shader, not among the emulator's.
+ */
+export const SCREEN_MENUS = ['GAME RENDERING & SHADERS', 'DECORATIONS'];
 
 /**
  * Emulator options at one level, as ES's game settings menus have them: the emulator and core,
@@ -175,7 +181,11 @@ export function optionsScreen(
     }
     if (submenu === null) {
       const pages: string[] = [];
-      for (const o of options) if (o.submenu && !pages.includes(o.submenu)) pages.push(o.submenu);
+      for (const o of options) {
+        if (o.submenu && !pages.includes(o.submenu) && !SCREEN_MENUS.includes(o.submenu)) {
+          pages.push(o.submenu);
+        }
+      }
       pages.forEach((name, i) => {
         const inside = options.filter((o) => o.submenu === name);
         const set = inside.filter((o) => o.value !== null).length;

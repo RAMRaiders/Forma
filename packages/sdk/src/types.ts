@@ -996,6 +996,11 @@ export interface ShaderPage {
   /** Keys of the settings worth having at hand, in order. */
   essentials: string[];
   sections: ShaderSection[];
+  /**
+   * koko-aio draws its own bezel at this level (the shader on, its Bezel on), so Forma has
+   * Batocera's decoration off here; as it was again when either goes off.
+   */
+  drawsBezel: boolean;
 }
 
 /** One of Batocera's system settings, as EmulationStation's System settings menu offers it. */
