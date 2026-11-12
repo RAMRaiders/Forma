@@ -25,7 +25,6 @@ import {
   retroAchievementsScreen,
   systemsScreen
 } from './ui/screens.js';
-import { presetsScreen } from './ui/presets.js';
 import { magazinesScreen } from './ui/magazines.js';
 import { duplicatesScreen, versionsScreen } from './ui/gamedata.js';
 import { dumpsScreen } from './ui/dumps.js';
@@ -402,13 +401,7 @@ export class Shell {
 
   async #openMenu(at = 0): Promise<void> {
     this.#confirming = null;
-    const [info, active] = await Promise.all([
-      this.#loadInfo(),
-      this.forma.presets
-        .list()
-        .then((list) => list.find((p) => p.active) ?? null)
-        .catch(() => null)
-    ]);
+    const info = await this.#loadInfo();
     const context = info?.context ?? {};
     const { game, system } = context;
     const views = !(info?.theme.views && info.theme.views.length <= 1);
@@ -478,14 +471,6 @@ export class Shell {
         label: 'Netplay',
         description: game ? `Host ${game.name}, or join a room` : 'Play online with others',
         section: 'Play'
-      },
-      {
-        id: 'presets',
-        label: 'Presets',
-        description: active
-          ? `${active.name} in use · ready-made setups for your machine and screen`
-          : 'Ready-made setups for your machine and screen: emulator options and CRT shader',
-        section: 'Setup'
       },
       {
         id: 'interface',
@@ -734,8 +719,6 @@ export class Shell {
         return show('Content downloader', storeScreen(this.forma, page));
       case 'system-settings':
         return show('System settings', systemSettingsScreen(this.forma, page));
-      case 'presets':
-        return show('Presets', presetsScreen(this.forma, page));
       case 'games':
         return show('Games', () => [
           {

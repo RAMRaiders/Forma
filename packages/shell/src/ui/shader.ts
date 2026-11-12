@@ -15,9 +15,7 @@ import { SCREEN_MENUS, optionRow, sentence } from './settings.js';
 const FROM: Record<ShaderInherited<unknown>['from'], string> = {
   global: 'global',
   system: 'system',
-  // The active Forma preset, and the koko-aio look a level starts from.
-  formaPreset: 'preset',
-  preset: 'look',
+  preset: 'preset',
   shader: 'koko-aio'
 };
 

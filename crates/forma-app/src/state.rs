@@ -57,8 +57,6 @@ pub struct AppState {
     pub options: Options,
     /// Forma's CRT shader for games (koko-aio), tuned per level.
     pub shaders: forma_core::shaders::Shaders,
-    /// Forma's presets, and the one active.
-    pub presets: forma_core::presets::Presets,
     /// Batocera's system settings.
     pub system_settings: SystemSettings,
     /// Batocera's content downloader.

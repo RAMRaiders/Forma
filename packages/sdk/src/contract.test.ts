@@ -23,7 +23,6 @@ import type {
   BatoceraSetting,
   OptionItem,
   OptionsPage,
-  Preset,
   InfoItem,
   SystemSetting,
   StorePackage,
@@ -268,17 +267,6 @@ describe('contract with the engine', () => {
     for (const p of data.store) expect(sorted(p)).toEqual(pkg);
     expect(data.store.some((p) => p.installed)).toBe(true);
     expect(data.store.some((p) => p.update)).toBe(true);
-  });
-
-  it("Forma's presets", () => {
-    const presets: Preset[] = data.presets;
-    const pi = presets.find((p) => p.id === 'rpi5-monitor')!;
-    expect(Object.keys(pi).sort()).toEqual(
-      ['active', 'description', 'id', 'name', 'notes', 'options', 'shader'].sort()
-    );
-    expect(pi.active).toBe(true);
-    expect(pi.shader).toBe(true);
-    expect(pi.options).toContain('nds.shaderset = none');
   });
 
   it('the music folder', () => {

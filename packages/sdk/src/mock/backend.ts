@@ -52,7 +52,6 @@ import type {
   Unsubscribe,
   ViewInfo,
   WifiNetwork,
-  Preset,
   ShaderPage
 } from '../types.js';
 import data from './library.json' with { type: 'json' };
@@ -683,25 +682,6 @@ export function mockBackend(options: MockOptions = {}): Backend {
   ];
   const shaderLevels = new Map<string, { preset: string | null; values: Map<string, number> }>();
   let shaderOn = false;
-  /** Switched off by the user: a preset does not switch it on. */
-  let shaderOff = false;
-  const presets: Omit<Preset, 'active'>[] = [
-    {
-      id: 'rpi5-monitor',
-      name: 'Raspberry Pi 5 · Monitor',
-      description:
-        "A Pi 5 on a flat 1080p monitor: sharp pictures with a light CRT look the Pi's GPU keeps up with",
-      notes: [
-        "CRT shader on: koko-aio's Monitor Balanced look, scanlines and mask, glow, halo and vignette",
-        'Rewind off: it costs the Pi 5 frames in the heavier systems'
-      ],
-      options: ['global.rewind = 0', 'global.smooth = 0', 'nds.shaderset = none'],
-      shader: true
-    }
-  ];
-  let activePreset: string | null = null;
-  const shaderEnabled = () =>
-    shaderOn || (!shaderOff && presets.some((p) => p.id === activePreset && p.shader));
   const shaderChain = (scope: OptionsScope): { key: string; from: 'global' | 'system' }[] =>
     levels(scope).map((l) => ({ key: l.prefix, from: l.from }));
   const shaderLevel = (key: string) => {
@@ -715,7 +695,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     const presetAbove = above.find((l) => shaderLevels.get(l.key)?.preset);
     return {
       available: true,
-      enabled: shaderEnabled(),
+      enabled: shaderOn,
       preset: {
         value: here?.preset ?? null,
         inherited: presetAbove
@@ -732,7 +712,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
         'DO_BEZEL'
       ],
       drawsBezel:
-        shaderEnabled() &&
+        shaderOn &&
         (here?.values.get('DO_BEZEL') ??
           above
             .map((l) => shaderLevels.get(l.key)?.values.get('DO_BEZEL'))
@@ -1726,20 +1706,6 @@ export function mockBackend(options: MockOptions = {}): Backend {
     shaders_set_enabled: ({ enabled }) => {
       optionsAllowed();
       shaderOn = enabled === true;
-      shaderOff = !shaderOn;
-      return null;
-    },
-    presets_list: () => {
-      optionsAllowed();
-      return presets.map((p) => ({ ...p, active: p.id === activePreset }));
-    },
-    presets_set_active: ({ id }) => {
-      optionsAllowed();
-      const chosen = typeof id === 'string' ? id : null;
-      if (chosen !== null && !presets.some((p) => p.id === chosen)) {
-        fail('invalid', `no preset \`${chosen}\``);
-      }
-      activePreset = chosen;
       return null;
     },
     options_set: ({ scope, key, value }) => {

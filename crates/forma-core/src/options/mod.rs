@@ -20,7 +20,6 @@ use serde::Serialize;
 
 use crate::error::{Error, Result};
 use crate::host::Shell;
-use crate::presets::Presets;
 use crate::systems::System;
 use features::{Feature, Features, Preset};
 
@@ -104,7 +103,7 @@ pub struct OptionChoice {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Inherited {
     pub value: String,
-    /// `global`, `system` or `preset` (the active Forma preset).
+    /// `global` or `system`.
     pub from: &'static str,
 }
 
@@ -115,7 +114,6 @@ pub struct Options {
     shaders: Vec<PathBuf>,
     decorations: Vec<PathBuf>,
     features: OnceLock<Features>,
-    presets: Option<Presets>,
 }
 
 impl Options {
@@ -129,14 +127,7 @@ impl Options {
             shaders: vec![SHADERS.into(), userdata.join("shaders/configs")],
             decorations: vec![DECORATIONS.into(), userdata.join("decorations")],
             features: OnceLock::new(),
-            presets: None,
         }
-    }
-
-    /// The active Forma preset's options go under the user's, each at its level.
-    pub fn with_presets(mut self, presets: Presets) -> Self {
-        self.presets = Some(presets);
-        self
     }
 
     /// For tests and the mock: where shader sets and decorations are.
@@ -162,26 +153,17 @@ impl Options {
     pub fn page(&self, scope: &Scope, system: Option<&System>) -> Result<OptionsPage> {
         let conf = conf::read(&self.conf);
         let prefixes = scope.prefixes();
-        let preset = self.presets.as_ref().and_then(Presets::active);
-        // Nearest first: the game's, the system's, the preset's for the system, the user's
-        // global, the preset's global.
         let lookup = |key: &str| {
-            let mut levels: Vec<(Option<String>, &'static str)> = Vec::new();
-            for (p, from) in &prefixes {
-                if *from == "global"
-                    && let (Some(preset), Some(system)) = (&preset, scope.system())
-                {
-                    let theirs = preset.options.systems.get(system).and_then(|o| o.get(key));
-                    levels.push((theirs.cloned(), "preset"));
-                }
-                levels.push((conf.get(&format!("{p}.{key}")).cloned(), from));
-            }
-            if let Some(preset) = &preset {
-                levels.push((preset.options.global.get(key).cloned(), "preset"));
-            }
-            let mut levels = levels.into_iter();
-            let value = levels.next().and_then(|(v, _)| v);
-            let inherited = levels.find_map(|(v, from)| Some(Inherited { value: v?, from }));
+            let mut levels = prefixes
+                .iter()
+                .map(|(p, from)| (conf.get(&format!("{p}.{key}")), *from));
+            let value = levels.next().and_then(|(v, _)| v.cloned());
+            let inherited = levels
+                .find_map(|(v, from)| Some((v?, from)))
+                .map(|(v, from)| Inherited {
+                    value: v.clone(),
+                    from,
+                });
             (value, inherited)
         };
 

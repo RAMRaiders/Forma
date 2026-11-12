@@ -310,28 +310,6 @@ describe('mock backend', () => {
     });
   });
 
-  it('presets: one active or none, its shader on unless the user switched it off', async () => {
-    const b = mockBackend({ permissions: ['settings.emulators'] });
-    type Listed = { id: string; active: boolean; shader: boolean }[];
-    const list = () => b.invoke<Listed>('presets_list');
-    const on = async () =>
-      (await b.invoke<{ enabled: boolean }>('shaders_get', { scope: { level: 'global' } })).enabled;
-    expect((await list()).some((p) => p.active)).toBe(false);
-    expect(await on()).toBe(false);
-
-    await b.invoke('presets_set_active', { id: 'rpi5-monitor' });
-    expect((await list()).find((p) => p.id === 'rpi5-monitor')?.active).toBe(true);
-    expect(await on()).toBe(true);
-    await b.invoke('shaders_set_enabled', { enabled: false });
-    expect(await on()).toBe(false);
-
-    await expect(b.invoke('presets_set_active', { id: 'nope' })).rejects.toMatchObject({
-      code: 'invalid'
-    });
-    await b.invoke('presets_set_active', { id: null });
-    expect((await list()).some((p) => p.active)).toBe(false);
-  });
-
   it('emulator options: levels, inheritance, the emulator choosing the options', async () => {
     const global = { level: 'global' } as const;
     await expect(mockBackend().invoke('options_get', { scope: global })).rejects.toMatchObject({

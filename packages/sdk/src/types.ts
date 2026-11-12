@@ -988,11 +988,8 @@ export interface OptionItem {
   default: string | null;
   /** Set at this level; `null` when it is not. */
   value: string | null;
-  /**
-   * Set at a level this one inherits from, when this one does not: `global` or `system` (the
-   * user's), or `preset` (the active preset's, since 1.35.0).
-   */
-  inherited: { value: string; from: 'global' | 'system' | 'preset' } | null;
+  /** Set at a level this one inherits from, when this one does not. */
+  inherited: { value: string; from: 'global' | 'system' } | null;
 }
 
 export interface OptionChoice {
@@ -1011,30 +1008,10 @@ export interface OptionsPage {
 export interface ShaderInherited<T> {
   value: T;
   /**
-   * `global` or `system`: a level above sets it; `formaPreset`: the active Forma preset does
-   * (since 1.35.0); `preset`: the koko-aio preset it starts from does; `shader`: koko-aio's own
-   * default.
+   * `global` or `system`: a level above sets it; `preset`: the preset it starts from does;
+   * `shader`: koko-aio's own default.
    */
-  from: 'global' | 'system' | 'formaPreset' | 'preset' | 'shader';
-}
-
-/**
- * One of Forma's presets: a ready-made setup for a kind of machine and screen. Its emulator
- * options and CRT shader sit under the user's own settings at each level (a system's own value,
- * then the preset's for that system, then the user's global one, then the preset's global one),
- * so what the user sets always wins. Since 1.35.0.
- */
-export interface Preset {
-  id: string;
-  name: string;
-  description: string;
-  /** What it does, a line each. */
-  notes: string[];
-  active: boolean;
-  /** Every option it sets, as `global.smooth = 0` or `nds.shaderset = none`. */
-  options: string[];
-  /** It switches Forma's CRT shader on (unless the user switched it off). */
-  shader: boolean;
+  from: 'global' | 'system' | 'preset' | 'shader';
 }
 
 /** One of koko-aio's settings at a level. */

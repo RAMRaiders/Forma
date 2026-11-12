@@ -229,33 +229,6 @@ fn a_game_overrides_its_system_which_overrides_global() {
 }
 
 #[test]
-fn the_active_presets_options_sit_under_the_users_at_each_level() {
-    let mut f = fixture("global.ratio=1/1\n");
-    let dir = tempfile::tempdir().unwrap();
-    let presets = crate::presets::Presets::with(
-        &dir.path().join("presets.json"),
-        vec![crate::presets::tests::sample()],
-    );
-    presets.set_active(Some("sample")).unwrap();
-    f.options.presets = Some(presets);
-    let from = |scope: &Scope, key: &str| {
-        let item = item(&f.page(scope), key).clone();
-        item.inherited.map(|i| (i.value, i.from))
-    };
-    // The preset's global value under the user's global one.
-    assert_eq!(from(&Scope::Global, "rewind"), Some(("0".into(), "preset")));
-    assert_eq!(
-        item(&f.page(&Scope::Global), "ratio").value.as_deref(),
-        Some("1/1")
-    );
-    // Its NES value is nearer to NES than the user's global one.
-    let nes = Scope::System("nes".into());
-    assert_eq!(from(&nes, "ratio"), Some(("16/9".into(), "preset")));
-    assert_eq!(from(&nes_game(), "ratio"), Some(("16/9".into(), "preset")));
-    assert_eq!(from(&nes, "rewind"), Some(("0".into(), "preset")));
-}
-
-#[test]
 fn values_are_checked_against_the_option() {
     let f = fixture("");
     let nes = Scope::System("nes".into());

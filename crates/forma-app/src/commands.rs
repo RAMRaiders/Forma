@@ -765,16 +765,6 @@ pub fn launch_game<R: Runtime>(
     ) {
         eprintln!("forma: achievements setting for the launch: {e}");
     }
-    // The active preset's options, for this launch only, where the user set none (after the
-    // achievements', which clears what a launch before left; taken out with them after).
-    let game = &prepared.game;
-    let file = game.path.rsplit('/').next().unwrap_or(&game.path);
-    if let Err(e) = state
-        .presets
-        .before_launch(&state.paths.batocera_conf(), &game.system, file)
-    {
-        eprintln!("forma: the preset's options for the launch: {e}");
-    }
     std::thread::Builder::new()
         .name("forma-game".into())
         .spawn(move || run_session(&app, prepared))

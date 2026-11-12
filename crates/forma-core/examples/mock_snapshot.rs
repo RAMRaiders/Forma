@@ -170,20 +170,8 @@ fn snapshot() -> String {
         "options": options,
         "system": system,
         "store": store,
-        "presets": presets(),
     });
     serde_json::to_string_pretty(&doc).expect("json") + "\n"
-}
-
-/// Forma's presets as the menu lists them, the first one active.
-fn presets() -> Value {
-    let dir = tempfile::tempdir().expect("temp dir");
-    let presets = forma_core::presets::Presets::new(&dir.path().join("presets.json"));
-    let first = forma_core::presets::Presets::built_in()
-        .first()
-        .map(|p| p.id.clone());
-    presets.set_active(first.as_deref()).expect("active");
-    serde_json::to_value(presets.list()).expect("json")
 }
 
 /// Emulator options: the engine's page for global, and for every fixture system with each

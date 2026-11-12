@@ -12,7 +12,6 @@ mod magazines;
 mod music;
 mod options;
 mod permissions;
-mod presets;
 mod protocol;
 mod ra_match;
 mod scraper;
@@ -114,8 +113,6 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         shaders::shaders_set,
         shaders::shaders_set_preset,
         shaders::shaders_set_enabled,
-        presets::presets_list,
-        presets::presets_set_active,
         system_settings::system_info,
         system_settings::system_settings,
         system_settings::system_settings_set,

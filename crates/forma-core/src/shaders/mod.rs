@@ -29,7 +29,6 @@ use crate::error::{Error, Result};
 use crate::host::Shell;
 use crate::options::conf;
 use crate::options::{OptionChoice, Scope};
-use crate::presets::{PresetShader, Presets};
 
 const BATOCERA_SHADERS: &str = "/usr/share/batocera/shaders";
 /// koko-aio, under a shaders folder.
@@ -101,14 +100,14 @@ impl Catalog {
     }
 }
 
-/// What is chosen at one level (the user's, or a Forma preset's).
+/// What is chosen at one level.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub(crate) struct Level {
+struct Level {
     /// A preset to start from (under koko-aio, without `.slangp`), instead of the level above.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) preset: Option<String>,
+    preset: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub(crate) values: BTreeMap<String, f64>,
+    values: BTreeMap<String, f64>,
 }
 
 impl Level {
@@ -120,19 +119,8 @@ impl Level {
 /// Forma's file: whether it is on, what was there before, and every level.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 struct State {
-    /// Switched on by the user.
     #[serde(default)]
     enabled: bool,
-    /// Switched off by the user: a preset that would switch it on does not.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    disabled: bool,
-    /// Forma's shader set is in `batocera.conf` (set as it was switched on). Before presets this
-    /// was `enabled`, which is what a file without it means.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    switched: Option<bool>,
-    /// The active Forma preset's levels, under the user's (not kept in the file).
-    #[serde(skip)]
-    preset: Option<PresetShader>,
     /// `global.shaderset` and `global.gfxbackend` before Forma's were set, to put back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     before_shaderset: Option<String>,
@@ -152,25 +140,6 @@ struct State {
     /// `snes["file"]`): what was there, and what Forma wrote.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     decorations: BTreeMap<String, Decoration>,
-}
-
-impl State {
-    /// On for every game: switched on by the user, or by the active preset unless the user
-    /// switched it off.
-    fn on(&self) -> bool {
-        self.enabled || (!self.disabled && self.preset.as_ref().is_some_and(|p| p.enabled))
-    }
-
-    /// The systems that have a level, the user's or the preset's.
-    fn systems(&self) -> Vec<String> {
-        let mut systems: Vec<String> = self.systems.keys().cloned().collect();
-        if let Some(p) = &self.preset {
-            systems.extend(p.systems.keys().cloned());
-        }
-        systems.sort_unstable();
-        systems.dedup();
-        systems
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -232,8 +201,7 @@ pub struct ShaderParam {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ShaderInherited<T> {
     pub value: T,
-    /// `global`, `system`, `formaPreset` (the active Forma preset), `preset` (the koko-aio
-    /// preset's own value) or `shader` (koko-aio's default).
+    /// `global`, `system`, `preset` (the preset's own value) or `shader` (koko-aio's default).
     pub from: &'static str,
 }
 
@@ -244,7 +212,6 @@ pub struct Shaders {
     batocera: PathBuf,
     user: PathBuf,
     catalog: OnceLock<Option<Catalog>>,
-    presets: Option<Presets>,
 }
 
 impl Shaders {
@@ -265,14 +232,7 @@ impl Shaders {
             batocera: batocera.to_path_buf(),
             user: user.to_path_buf(),
             catalog: OnceLock::new(),
-            presets: None,
         }
-    }
-
-    /// The active Forma preset's shader goes under the user's levels.
-    pub fn with_presets(mut self, presets: Presets) -> Self {
-        self.presets = Some(presets);
-        self
     }
 
     fn koko(&self) -> PathBuf {
@@ -295,27 +255,10 @@ impl Shaders {
     }
 
     fn state(&self) -> State {
-        let mut state: State = std::fs::read_to_string(self.state_file())
+        std::fs::read_to_string(self.state_file())
             .ok()
             .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default();
-        // A file from before presets: its shader set is in as it was switched on.
-        state.switched.get_or_insert(state.enabled);
-        state.preset = self
-            .presets
-            .as_ref()
-            .and_then(Presets::active)
-            .and_then(|p| p.shader);
-        state
-    }
-
-    /// After the active preset changed: Forma's shader as it now is (on or off, its files).
-    /// Nothing to do without koko-aio.
-    pub fn refresh(&self) -> Result<()> {
-        if self.catalog().is_none() {
-            return Ok(());
-        }
-        self.apply(self.state())
+            .unwrap_or_default()
     }
 
     /// The presets a level can start from, as `Presets-ng/Monitor-Balanced`.
@@ -347,48 +290,30 @@ impl Shaders {
         out
     }
 
-    /// The preset a scope starts from and where that choice comes from, and the levels whose
-    /// values apply over it, top down. The active Forma preset's levels each go under the
-    /// user's own at the same level.
+    /// The preset a scope starts from, and the levels whose values apply over it, top down.
     fn chain<'s>(
         &self,
         state: &'s State,
         scope: &Scope,
-    ) -> (String, &'static str, Vec<(&'s Level, &'static str)>) {
-        const FORMA: &str = "formaPreset";
-        let ours = state.preset.as_ref();
-        let mut levels = Vec::new();
-        if let Some(p) = ours {
-            levels.push((&p.global, FORMA));
-        }
-        levels.push((&state.global, "global"));
-        let (mut preset, mut from) = match (
-            &state.global.preset,
-            ours.and_then(|p| p.global.preset.as_ref()),
-        ) {
-            (Some(own), _) => (own.clone(), "global"),
-            (None, Some(theirs)) => (theirs.clone(), FORMA),
-            (None, None) => (DEFAULT_PRESET.to_owned(), "shader"),
-        };
+    ) -> (String, Vec<(&'s Level, &'static str)>) {
+        let mut preset = state
+            .global
+            .preset
+            .clone()
+            .unwrap_or_else(|| DEFAULT_PRESET.to_owned());
+        let mut levels = vec![(&state.global, "global")];
         let (system, file) = match scope {
-            Scope::Global => return (preset, from, levels),
+            Scope::Global => return (preset, levels),
             Scope::System(s) => (s.as_str(), None),
             Scope::Game { system, file } => (system.as_str(), Some(file.as_str())),
         };
-        let theirs = ours.and_then(|p| p.systems.get(system));
         let level = state.systems.get(system);
         if let Some(own) = level.and_then(|l| l.preset.clone()) {
-            (preset, from) = (own, "system");
-            levels.clear();
-        } else if let Some(p) = theirs.and_then(|l| l.preset.clone()) {
-            (preset, from) = (p, FORMA);
+            preset = own;
             levels.clear();
         } else if let Some((_, handheld)) = HANDHELDS.iter().find(|(s, _)| *s == system) {
-            (preset, from) = ((*handheld).to_owned(), "shader");
+            preset = (*handheld).to_owned();
             levels.clear();
-        }
-        if let Some(theirs) = theirs {
-            levels.push((theirs, FORMA));
         }
         if let Some(level) = level {
             levels.push((level, "system"));
@@ -396,14 +321,14 @@ impl Shaders {
         if let Some(file) = file {
             let level = state.games.get(system).and_then(|g| g.get(file));
             if let Some(own) = level.and_then(|l| l.preset.clone()) {
-                (preset, from) = (own, "game");
+                preset = own;
                 levels.clear();
             }
             if let Some(level) = level {
                 levels.push((level, "game"));
             }
         }
-        (preset, from, levels)
+        (preset, levels)
     }
 
     /// A preset's values, following its references (each file's own values over theirs).
@@ -420,7 +345,7 @@ impl Shaders {
         let Some(catalog) = self.catalog() else {
             return Ok(ShaderPage {
                 available: false,
-                enabled: state.on(),
+                enabled: state.enabled,
                 preset: ShaderPreset {
                     value: None,
                     inherited: ShaderInherited {
@@ -440,8 +365,26 @@ impl Shaders {
         if let Some(level) = own_level_mut(&mut without, scope) {
             level.preset = None;
         }
-        let (start, from_preset, _) = self.chain(&without, scope);
-        let (preset, _, levels) = self.chain(&state, scope);
+        let (start, _) = self.chain(&without, scope);
+        let from_preset = match scope {
+            Scope::Global => "shader",
+            Scope::System(s) if HANDHELDS.iter().any(|(h, _)| h == s) => "shader",
+            Scope::System(_) => "global",
+            Scope::Game { system, .. } => {
+                if state
+                    .systems
+                    .get(system)
+                    .is_some_and(|l| l.preset.is_some())
+                {
+                    "system"
+                } else if HANDHELDS.iter().any(|(h, _)| h == system) {
+                    "shader"
+                } else {
+                    "global"
+                }
+            }
+        };
+        let (preset, levels) = self.chain(&state, scope);
         let preset_values = self.preset_values(catalog, &preset);
         let above: Vec<_> = levels
             .iter()
@@ -484,7 +427,7 @@ impl Shaders {
         sections.retain(|s| !s.params.is_empty());
         Ok(ShaderPage {
             available: true,
-            enabled: state.on(),
+            enabled: state.enabled,
             preset: ShaderPreset {
                 value: here.and_then(|l| l.preset.clone()),
                 inherited: ShaderInherited {
@@ -499,7 +442,7 @@ impl Shaders {
                 .map(|k| (*k).to_owned())
                 .collect(),
             sections,
-            draws_bezel: state.on() && self.effective(&state, catalog, scope, BEZEL) >= 0.5,
+            draws_bezel: state.enabled && self.effective(&state, catalog, scope, BEZEL) >= 0.5,
         })
     }
 
@@ -538,25 +481,12 @@ impl Shaders {
         self.change(scope, |level| level.preset = preset.map(str::to_owned))
     }
 
-    /// Switches Forma's shader on for every game, or off (Batocera's shader set back), whatever
-    /// the active preset says.
+    /// Switches Forma's shader on for every game, or off (Batocera's shader set back).
     pub fn set_enabled(&self, on: bool) -> Result<()> {
         self.catalog().ok_or_else(not_installed)?;
         let mut state = self.state();
-        state.enabled = on;
-        state.disabled = !on;
-        self.apply(state)
-    }
-
-    /// Forma's shader set in `batocera.conf` as the shader is on or off: set as it comes on
-    /// (with RetroArch on a backend slang shaders work with), and what was there before put
-    /// back as it goes off.
-    fn switch(&self, state: &mut State) -> Result<()> {
-        let on = state.on();
-        let was = state.switched.unwrap_or(false);
-        state.switched = Some(on);
-        if on == was {
-            return Ok(());
+        if state.enabled == on {
+            return self.apply(state);
         }
         let conf = conf::read(&self.conf);
         if on {
@@ -588,7 +518,8 @@ impl Shaders {
                 }
             }
         }
-        Ok(())
+        state.enabled = on;
+        self.apply(state)
     }
 
     fn change(&self, scope: &Scope, edit: impl FnOnce(&mut Level)) -> Result<()> {
@@ -627,7 +558,6 @@ impl Shaders {
         let catalog = self.catalog().ok_or_else(not_installed)?;
         let root = self.user.join(SET);
         mkdir(&root)?;
-        self.switch(&mut state)?;
         self.sync_decorations(&mut state, catalog)?;
         write(
             &self.state_file(),
@@ -642,7 +572,7 @@ impl Shaders {
             }
         }
         let preset = |scope: &Scope, name: &str| -> Result<()> {
-            let (base, _, levels) = self.chain(state, scope);
+            let (base, levels) = self.chain(state, scope);
             let mut values = BTreeMap::new();
             for (level, _) in &levels {
                 values.extend(level.values.iter().map(|(k, v)| (k.clone(), *v)));
@@ -668,14 +598,14 @@ impl Shaders {
             "## Forma: koko-aio, as tuned in Forma's menus (written by Forma)\n\
              default:\n  shader: forma/global\n",
         );
-        let mut systems = state.systems();
+        let mut systems: Vec<&str> = state.systems.keys().map(String::as_str).collect();
         for (handheld, _) in HANDHELDS {
-            if !systems.iter().any(|s| s == handheld) {
-                systems.push((*handheld).to_owned());
+            if !systems.contains(handheld) {
+                systems.push(handheld);
             }
         }
         systems.sort_unstable();
-        for system in &systems {
+        for system in systems {
             preset(
                 &Scope::System(system.to_owned()),
                 &format!("systems/{system}"),
@@ -694,7 +624,7 @@ impl Shaders {
                 };
                 preset(&scope, &name)?;
                 let key = renderer_key(system, file);
-                if state.on() {
+                if state.enabled {
                     self.shell.run(
                         "batocera-settings-set",
                         &[key.as_str(), &format!("{SET}/{name}")],
@@ -709,7 +639,7 @@ impl Shaders {
 
     /// A setting's value at `scope`: the nearest level's, else its preset's, else koko-aio's.
     fn effective(&self, state: &State, catalog: &Catalog, scope: &Scope, key: &str) -> f64 {
-        let (preset, _, levels) = self.chain(state, scope);
+        let (preset, levels) = self.chain(state, scope);
         levels
             .iter()
             .rev()
@@ -734,7 +664,8 @@ impl Shaders {
                 _ => now,
             }
         };
-        let mut systems: std::collections::BTreeSet<String> = state.systems().into_iter().collect();
+        let mut systems: std::collections::BTreeSet<String> =
+            state.systems.keys().cloned().collect();
         systems.extend(HANDHELDS.iter().map(|(s, _)| (*s).to_owned()));
         systems.extend(state.games.keys().cloned());
         for k in conf.keys() {
@@ -780,7 +711,7 @@ impl Shaders {
                     .as_ref()
                     .and_then(|p| users.get(p).cloned().flatten())
             });
-            let draws = state.on() && self.effective(state, catalog, scope, BEZEL) >= 0.5;
+            let draws = state.enabled && self.effective(state, catalog, scope, BEZEL) >= 0.5;
             let target = if draws {
                 none()
             } else {

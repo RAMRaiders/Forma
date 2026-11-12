@@ -105,18 +105,11 @@ function labelOf(choices: OptionChoice[], value: string): string {
   return choices.find((c) => c.value === value)?.label ?? value;
 }
 
-/** Where an inherited option comes from, said briefly. */
-const FROM_OPTION: Record<NonNullable<OptionItem['inherited']>['from'], string> = {
-  global: 'game settings',
-  system: 'system',
-  preset: 'preset'
-};
-
 /** What an option is now: set here, inherited from a level above, or Batocera's default. */
 function optionDetail(o: OptionItem): string {
   if (o.value !== null) return o.kind === 'choice' ? labelOf(o.choices, o.value) : o.value;
   const from = o.inherited
-    ? `${o.kind === 'choice' ? labelOf(o.choices, o.inherited.value) : o.inherited.value} (${FROM_OPTION[o.inherited.from]})`
+    ? `${o.kind === 'choice' ? labelOf(o.choices, o.inherited.value) : o.inherited.value} (${o.inherited.from === 'global' ? 'game settings' : 'system'})`
     : o.default !== null
       ? o.kind === 'choice'
         ? labelOf(o.choices, o.default)
