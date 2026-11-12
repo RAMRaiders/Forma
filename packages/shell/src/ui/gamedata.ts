@@ -8,8 +8,7 @@ import type {
 
 import type { Page, Row } from './page.js';
 import { backupNote, themeUse } from './scraper.js';
-import { optionsScreen } from './settings.js';
-import { screenScreen } from './shader.js';
+import { emulatorScreen } from './shader.js';
 
 /** The fields a user can type, in order; `hint` says how, for those it matters for. */
 const EDITABLE: { field: string; label: string; hint?: string }[] = [
@@ -52,21 +51,11 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
     {
       icon: 'emulator',
       label: 'Emulator settings',
-      detail: 'Graphics, gameplay and emulator, for this game only',
+      detail: 'Emulator, CRT shader, picture, decorations and gameplay, for this game only',
       run: () =>
         page.push(
           `${game.name} emulator`,
-          optionsScreen(forma, page, { level: 'game', game: game.id })
-        )
-    },
-    {
-      icon: 'emulator',
-      label: 'Screen',
-      detail: 'CRT shader, picture and decorations, for this game only',
-      run: () =>
-        page.push(
-          `${game.name} screen`,
-          screenScreen(forma, page, { level: 'game', game: game.id })
+          emulatorScreen(forma, page, { level: 'game', game: game.id })
         )
     }
   ];

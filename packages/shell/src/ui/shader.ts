@@ -1,6 +1,7 @@
 import type {
   Forma,
   OptionChoice,
+  OptionItem,
   OptionsScope,
   ShaderInherited,
   ShaderPage,
@@ -9,7 +10,7 @@ import type {
 import { FormaError } from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
-import { SCREEN_MENUS, optionRow, sentence } from './settings.js';
+import { SCREEN_MENUS, optionRow, optionRows, sentence } from './settings.js';
 
 /** Where an inherited value comes from, said briefly. */
 const FROM: Record<ShaderInherited<unknown>['from'], string> = {
@@ -163,20 +164,36 @@ function shaderRows(forma: Forma, page: Page, scope: OptionsScope, s: ShaderPage
       { label: 'CRT shader', detail: 'koko-aio is not installed (Batocera 41 and later ship it)' }
     ];
   }
-  const toggle = () =>
-    page.run(s.enabled ? 'Switching off…' : 'Switching on…', async () => {
-      await forma.shaders.setEnabled(!s.enabled);
-      return s.enabled
-        ? 'CRT shader off: Batocera’s own shaders again'
-        : 'CRT shader on for every game, from the next launch';
+  const global = scope.level === 'global';
+  // Globally, on or off for every game; for a system or a game, over the level above.
+  const setHere = (on: boolean | null) =>
+    page.run('Saving…', async () => {
+      await forma.shaders.setEnabled(on, scope);
+      if (on === null) return 'CRT shader as the level above has it, from the next launch';
+      return `CRT shader ${on ? 'on' : 'off'} here, from the next launch`;
     });
+  const toggle = global
+    ? () =>
+        page.run(s.enabled ? 'Switching off…' : 'Switching on…', async () => {
+          await forma.shaders.setEnabled(!s.enabled);
+          return s.enabled
+            ? 'CRT shader off: Batocera’s own shaders again'
+            : 'CRT shader on for every game, from the next launch';
+        })
+    : () => setHere(!s.enabled);
+  const { value, inherited } = s.switch;
   const rows: Row[] = [
     {
       heading: 'CRT shader',
       label: `CRT shader: ${s.enabled ? 'On' : 'Off'}`,
-      detail: s.enabled
-        ? 'koko-aio on every RetroArch game (RetroArch on Vulkan)'
-        : 'Batocera’s own shaders · A to switch koko-aio on for every game',
+      detail: global
+        ? s.enabled
+          ? 'koko-aio on every RetroArch game (RetroArch on Vulkan); a system or a game can say otherwise'
+          : 'Batocera’s own shaders · A to switch koko-aio on for every game'
+        : value === null
+          ? `Default · ${inherited.value ? 'On' : 'Off'} (${FROM[inherited.from]}) · A to switch it ${s.enabled ? 'off' : 'on'} here`
+          : `${value ? 'On' : 'Off'} here, over ${FROM[inherited.from]} (${inherited.value ? 'On' : 'Off'})`,
+      alt: !global && value !== null ? { label: 'Default', run: () => setHere(null) } : undefined,
       adjust: toggle,
       run: toggle
     }
@@ -198,43 +215,63 @@ function shaderRows(forma: Forma, page: Page, scope: OptionsScope, s: ShaderPage
 }
 
 /**
- * How games look at one level: Forma's CRT shader (koko-aio: on or off for every game, the
- * preset it starts from, its settings), then Batocera's picture and decoration options. Its
- * shader set gives way to the CRT shader while that is on, and its decoration to koko-aio's
- * bezel where that is on: two frames round a game are one too many. Used by the next launch;
- * a level that sets nothing inherits the one above.
+ * Emulator options at one level, with how games look there among them: Forma's CRT shader
+ * (koko-aio: on or off, the preset it starts from, its settings), then Batocera's picture and
+ * decoration options, after the emulator and core. Its shader set gives way to the CRT shader
+ * while that is on, and its decoration to koko-aio's bezel where that is on: two frames round a
+ * game are one too many. Global sets them for every game; a system or a game says otherwise
+ * for itself. Used by the next launch.
  */
-export function screenScreen(forma: Forma, page: Page, scope: OptionsScope): () => Promise<Row[]> {
+export function emulatorScreen(
+  forma: Forma,
+  page: Page,
+  scope: OptionsScope
+): () => Promise<Row[]> {
   return async () => {
-    const [s, { options }] = await Promise.all([
-      forma.shaders.get(scope),
-      forma.options.get(scope)
+    const [{ options }, s] = await Promise.all([
+      forma.options.get(scope),
+      forma.shaders.get(scope).catch(() => null)
     ]);
-    const rows = shaderRows(forma, page, scope, s);
-    const on = s.available && s.enabled;
-    SCREEN_MENUS.forEach((menu) => {
-      options
-        .filter((o) => o.submenu === menu)
-        .forEach((o, i) => {
-          const heading =
-            i === 0 ? (menu === 'DECORATIONS' ? 'Decorations' : 'Picture') : undefined;
-          if (o.key === 'shaderset' && on) {
-            rows.push({
-              heading,
-              label: sentence(o.label),
-              detail: 'Off · Forma’s CRT shader instead'
-            });
-          } else if (o.key === 'bezel' && s.drawsBezel) {
-            rows.push({
-              heading,
-              label: sentence(o.label),
-              detail: 'Off · koko-aio draws the bezel'
-            });
-          } else {
-            rows.push({ ...optionRow(forma, page, scope, o), heading });
-          }
-        });
-    });
+    const rows = optionRows(forma, page, scope, options);
+    // After the emulator and core (and anything else ungrouped), before the option groups.
+    const at = rows.findIndex((r) => r.heading);
+    const screen = s ? screenRows(forma, page, scope, s, options) : [];
+    rows.splice(at < 0 ? rows.length : at, 0, ...screen);
     return rows;
   };
+}
+
+/** How games look at one level: the CRT shader, then Batocera's picture and decorations. */
+function screenRows(
+  forma: Forma,
+  page: Page,
+  scope: OptionsScope,
+  s: ShaderPage,
+  options: OptionItem[]
+): Row[] {
+  const rows = shaderRows(forma, page, scope, s);
+  const on = s.available && s.enabled;
+  SCREEN_MENUS.forEach((menu) => {
+    options
+      .filter((o) => o.submenu === menu)
+      .forEach((o, i) => {
+        const heading = i === 0 ? (menu === 'DECORATIONS' ? 'Decorations' : 'Picture') : undefined;
+        if (o.key === 'shaderset' && on) {
+          rows.push({
+            heading,
+            label: sentence(o.label),
+            detail: 'Off · Forma’s CRT shader instead'
+          });
+        } else if (o.key === 'bezel' && s.drawsBezel) {
+          rows.push({
+            heading,
+            label: sentence(o.label),
+            detail: 'Off · koko-aio draws the bezel'
+          });
+        } else {
+          rows.push({ ...optionRow(forma, page, scope, o), heading });
+        }
+      });
+  });
+  return rows;
 }

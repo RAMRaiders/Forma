@@ -156,14 +156,25 @@ export const SCREEN_MENUS = ['GAME RENDERING & SHADERS', 'DECORATIONS'];
  * then the core's options, in Batocera's groups; an option with a `submenu` sits on a page of its
  * own. Read again after every change: another emulator or core means other options.
  */
-export function optionsScreen(
+function optionsScreen(
   forma: Forma,
   page: Page,
   scope: OptionsScope,
   submenu: string | null = null
 ): () => Promise<Row[]> {
-  return async () => {
-    const { options } = await forma.options.get(scope);
+  return async () =>
+    optionRows(forma, page, scope, (await forma.options.get(scope)).options, submenu);
+}
+
+/** {@link optionsScreen}'s rows, from a level's options already had. */
+export function optionRows(
+  forma: Forma,
+  page: Page,
+  scope: OptionsScope,
+  options: OptionItem[],
+  submenu: string | null = null
+): Row[] {
+  {
     const here = options.filter((o) => o.submenu === submenu);
     const rows: Row[] = [];
     // Ungrouped first, in Batocera's order; then each group under its heading.
@@ -198,7 +209,7 @@ export function optionsScreen(
       });
     }
     return rows;
-  };
+  }
 }
 
 const APPLIES: Record<SystemSetting['applies'], string> = {

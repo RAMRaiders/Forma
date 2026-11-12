@@ -11,8 +11,7 @@ import type {
 import { filterScreen, filterSummary } from './filter.js';
 import { mediaToShow } from './reader.js';
 import { deleteGameRow, gameRows } from './gamedata.js';
-import { optionsScreen } from './settings.js';
-import { screenScreen } from './shader.js';
+import { emulatorScreen } from './shader.js';
 import { playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
 import { catalogueScreen, themeScreen } from './themes.js';
@@ -604,21 +603,11 @@ export function systemsScreen(
               icon: 'emulator' as const,
               heading: title,
               label: 'Emulator settings',
-              detail: `Graphics, gameplay and emulator, for every ${title} game`,
+              detail: `Emulator, CRT shader, picture, decorations and gameplay, for every ${title} game`,
               run: () =>
                 page.push(
                   `${title} emulator`,
-                  optionsScreen(forma, page, { level: 'system', system: system.name })
-                )
-            },
-            {
-              icon: 'emulator' as const,
-              label: 'Screen',
-              detail: `CRT shader, picture and decorations, for every ${title} game`,
-              run: () =>
-                page.push(
-                  `${title} screen`,
-                  screenScreen(forma, page, { level: 'system', system: system.name })
+                  emulatorScreen(forma, page, { level: 'system', system: system.name })
                 )
             }
           ]
