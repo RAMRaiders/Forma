@@ -1,4 +1,4 @@
-import type { DumpReport, Forma, GameDump } from '@ramraiders/forma-sdk';
+import type { DumpReport, Forma } from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
 
@@ -73,20 +73,4 @@ export function dumpsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
     }
     return rows;
   };
-}
-
-/** A game's dump status in words, for its menu: `Verified · No-Intro`. */
-export function dumpLabel(dump: GameDump): string {
-  const catalogue =
-    dump.catalogue === 'redump' ? 'Redump' : dump.catalogue === 'no-intro' ? 'No-Intro' : null;
-  switch (dump.status) {
-    case 'verified':
-      return `Verified · ${catalogue}`;
-    case 'crcOnly':
-      return `Matched by CRC32 · ${catalogue}`;
-    case 'badDump':
-      return `Bad dump · ${catalogue}`;
-    default:
-      return 'Not catalogued';
-  }
 }

@@ -60,6 +60,8 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         catalogue::themes_install,
         magazines::magazines_list,
         magazines::magazines_pages,
+        magazines::library_manual,
+        magazines::library_open_manual,
         magazines::magazines_set_page,
         magazines::magazines_open,
         scraper::scraper_settings,

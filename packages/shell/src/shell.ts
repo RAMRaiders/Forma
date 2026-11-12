@@ -156,6 +156,7 @@ export class Shell {
     });
     // A theme's shortcut asks for Forma's magazines, or one of them.
     forma.events.on('magazines:open', ({ id }) => void this.openMagazines(id));
+    forma.events.on('manual:open', ({ gameId }) => void this.openManual(gameId));
     // What plays moves on by itself: the music page follows.
     forma.events.on('music:changed', () => {
       if (this.#page.open && this.#pageKind === 'music') void this.#page.refresh();
@@ -265,6 +266,22 @@ export class Shell {
       if (magazine) await this.#read(magazine);
       else this.notify('That magazine is no longer there');
     }
+  }
+
+  /** The reader over Select's page, which is there again when it closes. */
+  async #look(open: () => void | Promise<void>): Promise<void> {
+    await open();
+    this.#changed();
+  }
+
+  /** A theme asked for a game's manual (`library.openManual`): the reader, on its own. */
+  async openManual(gameId: number): Promise<void> {
+    if (this.playing) return;
+    const game = await this.forma.library.game(gameId).catch(() => null);
+    if (!game?.media.manual) return this.notify('This game has no manual');
+    this.#closeAll();
+    await this.#reader.showManual(game);
+    this.#changed();
   }
 
   async #read(magazine: Parameters<Reader['show']>[0]): Promise<void> {
@@ -535,6 +552,14 @@ export class Shell {
       },
       setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value)
     };
+    // The game's file, as it is on disk, small under its name.
+    const file =
+      list === 'games' && game
+        ? await this.forma.library
+            .game(game.id)
+            .then((g) => g?.path.split('/').pop() ?? undefined)
+            .catch(() => undefined)
+        : undefined;
     this.#pageKind = 'context';
     await (list === 'systems'
       ? this.#page.show(
@@ -543,7 +568,16 @@ export class Shell {
         )
       : this.#page.show(
           game?.name ?? 'Games',
-          gamesScreen(this.forma, this.#page, theme, game, openViews, () => this.#closeAll())
+          gamesScreen(this.forma, this.#page, theme, game, openViews, () => this.#closeAll(), {
+            manual: (g) => void this.#look(() => this.#reader.showManual(g)),
+            media: (g) =>
+              void this.#look(() =>
+                // Its video played over the theme's: the theme shows the game afresh after.
+                this.#reader.showMedia(g, () => void this.calls.openGame(g.id).catch(() => {}))
+              )
+          }),
+          undefined,
+          file
         ));
     this.#changed();
   }

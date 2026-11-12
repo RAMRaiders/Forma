@@ -47,6 +47,16 @@ pub trait Resolver {
         let _ = (id, page, width);
         None
     }
+    /// Page `page` (from 0) of a game's manual, as a magazine's is made.
+    fn manual_page(&self, game_id: i64, page: usize, width: u32) -> Option<PathBuf> {
+        let _ = (game_id, page, width);
+        None
+    }
+}
+
+/// A game's manual page URL, with `{page}` for the page (from 0).
+pub fn manual_url(game_id: i64) -> String {
+    format!("{ORIGIN}/manual/{{page}}/{game_id}")
 }
 
 /// A magazine's page URL, with `{page}` for the page number (from 0): `forma.magazines.pageUrl`
@@ -147,6 +157,22 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
             {
                 Some(file) => serve(&file, None, None),
                 None => status(StatusCode::NOT_FOUND, "no such page"),
+            }
+        }
+        (Some("manual"), Some(page), Some(id)) => {
+            let width = request
+                .uri()
+                .query()
+                .and_then(|q| q.split('&').find_map(|p| p.strip_prefix("w=")))
+                .and_then(|w| w.parse::<u32>().ok())
+                .filter(|w| (1..=MAX_WIDTH).contains(w))
+                .unwrap_or(1280);
+            match (page.parse().ok(), id.parse().ok()) {
+                (Some(page), Some(id)) => match resolver.manual_page(id, page, width) {
+                    Some(file) => serve(&file, None, None),
+                    None => status(StatusCode::NOT_FOUND, "no such page"),
+                },
+                _ => status(StatusCode::NOT_FOUND, "no such page"),
             }
         }
         (Some("company"), Some(slug), None) => match resolver.company_logo(slug) {

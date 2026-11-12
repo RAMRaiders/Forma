@@ -64,6 +64,8 @@ placeholder images for media. `forma.backendKind` says which one you got.
 | `search(query, limit = 50)` | Games matching every word as a prefix, accents ignored        |
 | `random(options)`           | Games in a random order, with some media (since 1.31.0)       |
 | `dumpChecks()`              | The No-Intro / Redump check, per system (since 1.32.0)        |
+| `manual(id)`                | A game's manual as pages, or `null` (since 1.33.0)            |
+| `openManual(id)`            | Opens it in Forma's reader (since 1.33.0)                     |
 | `setFavorite(id, favorite)` | Records the user's choice; emits `library:changed`            |
 | `mediaUrl(gameId, kind)`    | A URL for a game's `image`, `video`, `marquee`… (synchronous) |
 
@@ -242,6 +244,15 @@ Whether it is heard is the user's choice: Start → Audio → Video sound (Forma
 `video.sound`, on by default; a change comes as `settings:changed`, scope `system`, and the
 video playing follows). Heard, Forma lowers the music while it plays. No permission.
 `play(id, { muted: true })` (since 1.31.0) keeps one video silent whatever that setting says.
+
+### Its manual
+
+A game with `manual` media (a PDF, an archive of pages or one picture) is read in Forma's reader,
+as a magazine is: `library.openManual(id)` opens it over the theme (`manual:open`, answered by
+the shell), with its pages, zoom (A or R2 in, X or L2 out) and B to close. A theme that draws
+the pages itself asks `library.manual(id)` for `{ pages, pageUrl }` and
+`library.manualPageUrl(manual, page, width)` for each page (since 1.33.0). The user also finds
+it, and the game's pictures and video, on Select's page for the game.
 
 ### Is it a catalogued dump?
 

@@ -4,7 +4,13 @@
  * permissions a test asks for; inside Forma the shell's token lets it past them whatever the
  * theme declares, which `ipc_tests.rs` checks on the Rust side.
  */
-import { Forma, type InputEvent, type MediaKind, type ShellContext } from '@ramraiders/forma-sdk';
+import {
+  Forma,
+  type Game,
+  type InputEvent,
+  type MediaKind,
+  type ShellContext
+} from '@ramraiders/forma-sdk';
 import { mockBackend } from '@ramraiders/forma-sdk/mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -348,7 +354,7 @@ describe('Forma’s shell', () => {
     expect(where()).toBe('Retro Gamer 1 · 2 / 8 · A: zoom');
     expect(page()).toContain('page%201');
     await press('confirm');
-    expect(where()).toBe('Retro Gamer 1 · 2 / 8 · A: whole page');
+    expect(where()).toBe('Retro Gamer 1 · 2 / 8 · 1.5× · A: in · X: out');
     await press('back');
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
     await vi.waitFor(() =>
@@ -488,13 +494,13 @@ describe('Forma’s shell', () => {
         'Scrape',
         'Edit details',
         'Emulator settings',
-        // The mock's checked games: this one is in no catalogue.
-        'ROM: Not catalogued',
         'Filter list',
         'Delete'
       ])
     );
-    expect(text('.page h2')).toEqual(['Sonic']);
+    expect(text('.page h2')).toEqual(['SonicHomebrew Demo.nes']);
+    // The game's file, small under its name.
+    expect(text('.page h2 .file')).toEqual(['Homebrew Demo.nes']);
     expect(root.querySelector('.page li.danger .name')?.textContent).toBe('Delete');
 
     await press('confirm');
@@ -915,6 +921,89 @@ describe('Forma’s shell', () => {
     await press('start');
     await vi.waitFor(() => expect(text('.toast')).toContain('Tuned to 99.1'));
     await vi.waitFor(() => expect(at('Frequency')).toBe('99.1'));
+  });
+
+  it('a game’s manual from Select: pages turned, zoomed in and out, back to Select', async () => {
+    const { press, text, root } = start([], {
+      view: 'systems',
+      list: 'games',
+      game: { id: 2, name: 'Super Mario Bros.' }
+    });
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const where = () => text('.reader .where')[0];
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Manual'));
+    expect(rows().indexOf('Media')).toBe(rows().indexOf('Manual') + 1);
+    while (text('.page li.selected .name')[0] !== 'Manual') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(where()).toBe('Super Mario Bros. manual · 1 / 8 · A: zoom'));
+    await press('right');
+    await press('pageDown');
+    expect(where()).toBe('Super Mario Bros. manual · 3 / 8 · A: zoom');
+    await press('confirm');
+    await press('r2');
+    expect(where()).toBe('Super Mario Bros. manual · 3 / 8 · 2× · A: in · X: out');
+    expect(root.querySelector('.reader')!.classList.contains('zoomed')).toBe(true);
+    // Zoomed, Left and Right move over the page; L1 and R1 still turn.
+    await press('left');
+    expect(where()).toContain('3 / 8');
+    await press('pageUp');
+    expect(where()).toContain('2 / 8');
+    await press('west');
+    await press('l2');
+    expect(where()).toBe('Super Mario Bros. manual · 2 / 8 · A: zoom');
+    // Back at 1×: fitted to the screen by its style, nothing left of the zoom.
+    expect(root.querySelector('.reader')!.classList.contains('zoomed')).toBe(false);
+    expect(root.querySelector<HTMLElement>('.reader .page')!.style.width).toBe('');
+    expect(root.querySelector<HTMLElement>('.reader .sheet')!.scrollTop).toBe(0);
+    await press('back');
+    expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
+    expect(rows()).toContain('Manual');
+  });
+
+  it('a game’s media from Select: its pictures one by one, its video played by Forma', async () => {
+    const { press, text, root, backend } = start([], {
+      view: 'systems',
+      list: 'games',
+      game: { id: 2, name: 'Super Mario Bros.' }
+    });
+    // The mock draws no video; here Mario has one.
+    const invoke = backend.invoke.bind(backend);
+    const spy = vi.spyOn(backend, 'invoke').mockImplementation(async (command, args) => {
+      const answer = await invoke(command, args);
+      return command === 'library_game' && answer
+        ? { ...(answer as Game), media: { ...(answer as Game).media, video: 'v.mp4' } }
+        : answer;
+    });
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const where = () => text('.reader .where')[0];
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Media'));
+    const at = rows().indexOf('Media');
+    expect(text('.page > .panel li[role=option] .description')[at]).toBe(
+      'Video · Screenshot · Box spine · Whole box · Marquee · Banner · Flyer · Cabinet'
+    );
+    while (text('.page li.selected .name')[0] !== 'Media') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(where()).toBe('Super Mario Bros. · Video (1 / 8)'));
+    expect(spy).toHaveBeenCalledWith('video_play', expect.objectContaining({ gameId: 2 }));
+    expect(root.querySelector('.reader')!.classList.contains('video')).toBe(true);
+    await press('right');
+    expect(where()).toBe('Super Mario Bros. · Screenshot (2 / 8) · A: zoom');
+    expect(spy.mock.calls.some(([command]) => command === 'video_stop')).toBe(true);
+    expect(root.querySelector('.reader')!.classList.contains('video')).toBe(false);
+    await press('confirm');
+    expect(where()).toBe('Super Mario Bros. · Screenshot (2 / 8) · 1.5× · A: in · X: out');
+    await press('back');
+    expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
+  });
+
+  it('a theme opens a game’s manual in Forma’s reader', async () => {
+    const { text, forma } = start();
+    await forma.library.openManual(2);
+    await vi.waitFor(() =>
+      expect(text('.reader .where')[0]).toBe('Super Mario Bros. manual · 1 / 8 · A: zoom')
+    );
   });
 
   it('magazines: a theme opens one in Forma’s reader', async () => {

@@ -197,6 +197,17 @@ impl Resolver for AppState {
         }
     }
 
+    fn manual_page(&self, game_id: i64, page: usize, width: u32) -> Option<PathBuf> {
+        let file = crate::magazines::manual_file(self, game_id)?;
+        match self.magazines.file_page(&file, page, width) {
+            Ok(file) => Some(file),
+            Err(e) => {
+                eprintln!("forma: manual page: {e}");
+                None
+            }
+        }
+    }
+
     fn shell_file(&self, name: &str) -> Option<PathBuf> {
         let dir = self.shell_dir.as_ref()?;
         crate::protocol::inside_dir(dir, name)

@@ -816,6 +816,20 @@ export function mockBackend(options: MockOptions = {}): Backend {
       reading.set(String(id), Number(page));
       return null;
     },
+    library_manual: ({ gameId }) => {
+      const game = games.get(Number(gameId));
+      if (!game?.media.manual) return null;
+      return {
+        pages: MAGAZINE_PAGES,
+        pageUrl: `data:image/svg+xml,${encodeURIComponent(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="990"><rect width="100%" height="100%" fill="#f4efe1"/><text x="50%" y="45%" font-size="48" text-anchor="middle">${escapeXml(game.name)} manual</text><text x="50%" y="55%" font-size="40" text-anchor="middle">page {page}</text></svg>`
+        ).replace('%7Bpage%7D', '{page}')}#`
+      };
+    },
+    library_open_manual: ({ gameId }) => {
+      emit('manual:open', { gameId: Number(gameId) });
+      return null;
+    },
     magazines_open: ({ id }) => {
       emit('magazines:open', { id: (id as string | null) ?? null });
       return null;

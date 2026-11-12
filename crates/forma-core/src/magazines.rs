@@ -43,6 +43,8 @@ pub enum Format {
     Tar,
     Pdf,
     Folder,
+    /// One picture: a page on its own (a manual scraped as an image).
+    Image,
 }
 
 impl Format {
@@ -253,6 +255,33 @@ impl Reader {
 
     fn page_names(&self, id: &str) -> Result<(PathBuf, Vec<String>, Format)> {
         let (path, format) = self.locate(id)?;
+        self.names_at(path, format, id)
+    }
+
+    /// Any document's file, not only the magazines folder's: a game's manual (PDF, an archive
+    /// of pages, or one picture). How many pages it has.
+    pub fn file_page_count(&self, path: &Path) -> Result<usize> {
+        let format = file_format(path)?;
+        Ok(self
+            .names_at(path.to_path_buf(), format, &path.display().to_string())?
+            .1
+            .len())
+    }
+
+    /// Page `index` (from 0) of any document's file, as [`Reader::page`] makes it.
+    pub fn file_page(&self, path: &Path, index: usize, width: u32) -> Result<PathBuf> {
+        let format = file_format(path)?;
+        let label = path.display().to_string();
+        let (path, names, format) = self.names_at(path.to_path_buf(), format, &label)?;
+        self.render(&path, &names, format, &label, index, width)
+    }
+
+    fn names_at(
+        &self,
+        path: PathBuf,
+        format: Format,
+        id: &str,
+    ) -> Result<(PathBuf, Vec<String>, Format)> {
         let modified = std::fs::metadata(&path)
             .and_then(|m| m.modified())
             .map_err(|e| Error::io(&path, e))?;
@@ -273,6 +302,13 @@ impl Reader {
                     (1..=count).map(|n| n.to_string()).collect(),
                     format,
                 );
+            }
+            Format::Image => {
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                return self.remember(path, modified, vec![name], format);
             }
             Format::Zip => zip_names(&path)?,
             Format::Folder => std::fs::read_dir(&path)
@@ -326,12 +362,29 @@ impl Reader {
             .find(|w| *w >= width)
             .unwrap_or(WIDTHS[WIDTHS.len() - 1]);
         let (path, names, format) = self.page_names(id)?;
+        self.render(&path, &names, format, id, index, width)
+    }
+
+    fn render(
+        &self,
+        path: &Path,
+        names: &[String],
+        format: Format,
+        id: &str,
+        index: usize,
+        width: u32,
+    ) -> Result<PathBuf> {
+        let width = WIDTHS
+            .iter()
+            .copied()
+            .find(|w| *w >= width)
+            .unwrap_or(WIDTHS[WIDTHS.len() - 1]);
         let name = names
             .get(index)
             .ok_or_else(|| Error::Invalid(format!("`{id}` has {} pages", names.len())))?;
         let file = self
             .cache
-            .join(format!("{}-{index}-{width}.jpg", key(&path)));
+            .join(format!("{}-{index}-{width}.jpg", key(path)));
         if file.is_file() {
             return Ok(file);
         }
@@ -363,7 +416,8 @@ impl Reader {
                     )?,
                 );
             }
-            Format::Zip => zip_entry(&path, name)?,
+            Format::Image => std::fs::read(path).map_err(|e| Error::io(path, e))?,
+            Format::Zip => zip_entry(path, name)?,
             Format::Folder => {
                 let page = path.join(name);
                 std::fs::read(&page).map_err(|e| Error::io(&page, e))?
@@ -380,7 +434,7 @@ impl Reader {
         };
         let image = ImageReader::new(std::io::Cursor::new(bytes))
             .with_guessed_format()
-            .map_err(|e| Error::io(&path, e))?
+            .map_err(|e| Error::io(path, e))?
             .decode()
             .map_err(|e| Error::Invalid(format!("page {} of `{id}`: {e}", index + 1)))?;
         let image = if image.width() > width {
@@ -464,6 +518,20 @@ fn zip_entry(path: &Path, name: &str) -> Result<Vec<u8>> {
         .read_to_end(&mut bytes)
         .map_err(|e| Error::io(path, e))?;
     Ok(bytes)
+}
+
+/// The format of a document's file by its extension: an archive, a PDF or a picture.
+fn file_format(path: &Path) -> Result<Format> {
+    if !path.is_file() {
+        return Err(Error::Invalid(format!("no file `{}`", path.display())));
+    }
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
+    Format::of(path)
+        .or_else(|| is_image(&name).then_some(Format::Image))
+        .ok_or_else(|| Error::Invalid(format!("`{}` is no document", path.display())))
 }
 
 #[cfg(test)]
@@ -604,6 +672,40 @@ mod tests {
         // Listed once while the file is unchanged.
         reader.page_count("c.pdf").unwrap();
         assert_eq!(log.iter().filter(|c| c.starts_with("pdfinfo")).count(), 1);
+    }
+
+    #[test]
+    fn a_manual_anywhere_is_read_as_a_magazine_is_and_a_picture_is_one_page() {
+        let (dir, paths) = fixture_copy();
+        let manuals = dir.path().join("roms/nes/manuals");
+        std::fs::create_dir_all(&manuals).unwrap();
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let reader = Reader::new(&paths, Box::new(FakeTools(calls.clone())));
+
+        let pdf = manuals.join("Mario.pdf");
+        std::fs::write(&pdf, "pdf").unwrap();
+        assert_eq!(reader.file_page_count(&pdf).unwrap(), 12);
+        reader.file_page(&pdf, 0, 640).unwrap();
+        assert!(
+            calls
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .starts_with("pdftoppm -f 1 -l 1")
+        );
+
+        let picture = manuals.join("Zelda.png");
+        std::fs::write(&picture, png(1000, 1400)).unwrap();
+        assert_eq!(reader.file_page_count(&picture).unwrap(), 1);
+        let page = image::open(reader.file_page(&picture, 0, 600).unwrap()).unwrap();
+        assert_eq!(page.width(), 640);
+        assert!(reader.file_page(&picture, 1, 600).is_err());
+
+        let text = manuals.join("notes.txt");
+        std::fs::write(&text, "no").unwrap();
+        assert!(reader.file_page_count(&text).is_err());
+        assert!(reader.file_page_count(&manuals.join("gone.pdf")).is_err());
     }
 
     #[test]
