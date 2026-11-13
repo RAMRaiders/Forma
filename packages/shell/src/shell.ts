@@ -31,8 +31,8 @@ import { dumpsScreen } from './ui/dumps.js';
 import { addonsScreen } from './ui/addons.js';
 import { scraperScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
-import { optionsScreen, systemSettingsScreen } from './ui/settings.js';
-import { screenScreen } from './ui/shader.js';
+import { systemSettingsScreen } from './ui/settings.js';
+import { emulatorScreen } from './ui/shader.js';
 import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
 import { UnlocksView } from './ui/unlocks.js';
@@ -411,7 +411,7 @@ export class Shell {
             {
               id: 'game-options',
               label: 'Game options',
-              description: `Emulator, core and options for ${game.name} only`,
+              description: `Emulator, CRT shader, decorations and options for ${game.name} only`,
               section: 'Selected'
             }
           ]
@@ -421,7 +421,7 @@ export class Shell {
             {
               id: 'system-options',
               label: 'System options',
-              description: `Emulator, core and options for every ${system.fullname || system.name} game`,
+              description: `Emulator, CRT shader, decorations and options for every ${system.fullname || system.name} game`,
               section: 'Selected'
             }
           ]
@@ -457,7 +457,7 @@ export class Shell {
       {
         id: 'games',
         label: 'Games',
-        description: 'Scrapers and emulator options',
+        description: 'Scrapers, emulator options and CRT shader',
         section: 'Library'
       },
       {
@@ -728,9 +728,9 @@ export class Shell {
           },
           {
             label: 'Emulator options',
-            detail: 'For every game: ratio, rewind, saves, controls…',
+            detail: 'For every game: emulator, CRT shader, picture, decorations, rewind, saves…',
             run: () =>
-              page.push('Emulator options', optionsScreen(this.forma, page, { level: 'global' }))
+              page.push('Emulator options', emulatorScreen(this.forma, page, { level: 'global' }))
           },
           {
             label: 'ROM check',
@@ -746,24 +746,19 @@ export class Shell {
             label: 'Sibling games',
             detail: 'One game under different names, by LaunchBox',
             run: () => page.push('Sibling games', duplicatesScreen(this.forma, page, openGame))
-          },
-          {
-            label: 'Screen',
-            detail: 'For every game: CRT shader, picture and decorations',
-            run: () => page.push('Screen', screenScreen(this.forma, page, { level: 'global' }))
           }
         ]);
       case 'system-options':
         if (!context.system) return;
         return show(
           `${context.system.fullname || context.system.name} options`,
-          optionsScreen(this.forma, page, { level: 'system', system: context.system.name })
+          emulatorScreen(this.forma, page, { level: 'system', system: context.system.name })
         );
       case 'game-options':
         if (!context.game) return;
         return show(
           `${context.game.name} options`,
-          optionsScreen(this.forma, page, { level: 'game', game: context.game.id })
+          emulatorScreen(this.forma, page, { level: 'game', game: context.game.id })
         );
       case 'interface':
         return show(

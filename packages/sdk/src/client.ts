@@ -15,6 +15,7 @@ import type {
   EventMap,
   Fetched,
   Game,
+  GameSaves,
   InputEvent,
   LaunchRequest,
   MediaChanged,
@@ -177,6 +178,11 @@ export class Forma {
       /** In the order the user chose (`SystemsOrder`): keep it, rather than sorting them. */
       systems: () => invoke<SystemSummary[]>('library_systems'),
       game: (id: number) => invoke<Game | null>('library_game', { id }),
+      /**
+       * What a game has saved: RetroArch's battery save and save states (a standalone emulator's
+       * own are not counted). Since 1.35.0.
+       */
+      saves: (id: number) => invoke<GameSaves>('library_saves', { id }),
       /** A system's titles with more than one version. Since 1.26.0. */
       versions: (system: string) => invoke<VersionGroup[]>('library_versions', { system }),
       /**
@@ -636,19 +642,19 @@ export class Forma {
      * only. Since 1.34.0.
      */
     this.shaders = {
-      /** A level's preset and settings, with what it sets and what it inherits. */
+      /** A level's shader and its settings, with what it sets and what it inherits. */
       get: (scope: OptionsScope) => invoke<ShaderPage>('shaders_get', { scope }),
       /** Sets a setting, checked against its range; `null` unsets it (it inherits again). */
       set: (scope: OptionsScope, key: string, value: number | null) =>
         invoke<void>('shaders_set', { scope, key, value }),
-      /** The preset a level starts from; `null` for the level above's again. */
-      setPreset: (scope: OptionsScope, preset: string | null) =>
-        invoke<void>('shaders_set_preset', { scope, preset }),
       /**
-       * On for every game, or off: Batocera's own shader set back. On, RetroArch runs on Vulkan
-       * unless its backend is already one slang shaders work with.
+       * The shader at a level, as one choice from `ShaderPage.shader.choices`: `none`,
+       * `crt:<preset>` (Forma's koko-aio from that preset, tuned by its settings) or
+       * `set:<name>` (one of Batocera's shader sets); `null` for the level above's (not
+       * globally). Forma owns Batocera's `shaderset` keys. Since 1.35.0.
        */
-      setEnabled: (enabled: boolean) => invoke<void>('shaders_set_enabled', { enabled })
+      choose: (scope: OptionsScope, choice: string | null) =>
+        invoke<void>('shaders_choose', { scope, choice })
     };
 
     /**

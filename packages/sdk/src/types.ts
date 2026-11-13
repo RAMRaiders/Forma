@@ -1002,6 +1002,31 @@ export interface OptionsPage {
   options: OptionItem[];
   /** What the chosen emulator supports: `netplay`, `cheevos`, `padtokeyboard`. */
   flags: string[];
+  /**
+   * Every emulator and core the system can run, as one list (a system's and a game's page;
+   * empty globally): one choice sets `emulator`, then `core`. Since 1.35.0.
+   */
+  cores: CoreChoice[];
+}
+
+/** What a game has saved, as RetroArch keeps it (`library.saves`). Since 1.35.0. */
+export interface GameSaves {
+  /** A battery save: the game's own save, as on the cartridge. */
+  battery: boolean;
+  /** Save states, the automatic one included. */
+  states: number;
+  /** When the latest was written (ISO 8601, UTC); `null` with none. */
+  latest: string | null;
+}
+
+/** One emulator and one of its cores, as one choice (`OptionsPage.cores`). Since 1.35.0. */
+export interface CoreChoice {
+  emulator: string;
+  core: string;
+  /** `pcsx_rearmed` for a RetroArch core, `duckstation (standalone)`, `mupen64plus · rice`. */
+  label: string;
+  /** What the system runs when nothing is set. */
+  default: boolean;
 }
 
 /** What applies at a shader level when it sets nothing, and where it comes from. */
@@ -1042,10 +1067,14 @@ export interface ShaderSection {
 export interface ShaderPage {
   /** koko-aio is installed (Batocera ships it). */
   available: boolean;
-  /** On for every game: switched globally (`shaders.setEnabled`). */
+  /** Forma's koko-aio is the shader at this level (`shader` is a `crt:` choice). */
   enabled: boolean;
-  preset: {
-    /** Chosen at this level, as `Presets-ng/Monitor-Balanced`; `null` when it inherits. */
+  /**
+   * The shader at this level as one choice (`shaders.choose`): `none`, `crt:<preset>` or
+   * `set:<name>`. Globally always chosen. Since 1.35.0.
+   */
+  shader: {
+    /** Chosen at this level; `null` when it has the level above's. */
     value: string | null;
     inherited: ShaderInherited<string>;
     choices: OptionChoice[];

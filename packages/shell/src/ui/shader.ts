@@ -1,6 +1,6 @@
 import type {
   Forma,
-  OptionChoice,
+  OptionItem,
   OptionsScope,
   ShaderInherited,
   ShaderPage,
@@ -9,7 +9,7 @@ import type {
 import { FormaError } from '@ramraiders/forma-sdk';
 
 import type { Page, Row } from './page.js';
-import { SCREEN_MENUS, optionRow, sentence } from './settings.js';
+import { SCREEN_MENUS, optionRow, optionRows, pick, sentence } from './settings.js';
 
 /** Where an inherited value comes from, said briefly. */
 const FROM: Record<ShaderInherited<unknown>['from'], string> = {
@@ -28,10 +28,6 @@ function isSwitch(p: ShaderParam): boolean {
 export function shown(value: number, step: number): string {
   const decimals = Math.min(4, (String(step).split('.')[1] ?? '').length);
   return String(Number(value.toFixed(decimals)));
-}
-
-function presetLabel(choices: OptionChoice[], value: string): string {
-  return choices.find((c) => c.value === value)?.label ?? value.split('/').pop()!;
 }
 
 function valueText(p: ShaderParam, value: number): string {
@@ -81,48 +77,6 @@ function paramRow(forma: Forma, page: Page, scope: OptionsScope, p: ShaderParam)
   return row;
 }
 
-/** The preset a level starts from: its own, or the level above's (Default). */
-function presetRow(forma: Forma, page: Page, scope: OptionsScope, s: ShaderPage): Row {
-  const { value, inherited, choices } = s.preset;
-  const set = (preset: string | null) =>
-    page.run('Saving…', () => forma.shaders.setPreset(scope, preset));
-  return {
-    label: 'Starts from',
-    detail:
-      value !== null
-        ? presetLabel(choices, value)
-        : `Default · ${presetLabel(choices, inherited.value)} (${FROM[inherited.from]})`,
-    alt: value !== null ? { label: 'Default', run: () => set(null) } : undefined,
-    run: () => {
-      const at = value === null ? 0 : choices.findIndex((c) => c.value === value) + 1;
-      const choose = (preset: string | null) => async () => {
-        try {
-          await forma.shaders.setPreset(scope, preset);
-        } catch (error) {
-          page.notify(FormaError.from(error).message);
-        }
-        await page.pop();
-      };
-      return page.push(
-        'Starts from',
-        () => [
-          {
-            label: `${value === null ? '✓ ' : ''}Default · ${presetLabel(choices, inherited.value)}`,
-            detail: 'What the level above uses',
-            run: choose(null)
-          },
-          ...choices.map((c) => ({
-            label: c.value === value ? `✓ ${c.label}` : c.label,
-            run: choose(c.value)
-          }))
-        ],
-        undefined,
-        Math.max(0, at)
-      );
-    }
-  };
-}
-
 /** Every setting of one of koko-aio's sections. */
 function sectionScreen(
   forma: Forma,
@@ -156,33 +110,56 @@ function allScreen(forma: Forma, page: Page, scope: OptionsScope): () => Promise
   };
 }
 
-/** koko-aio's rows at one level: on or off, the preset, the essentials, and every setting. */
+/** A shader choice's label (`crt:<preset>` too, when its preset is not among them). */
+function choiceLabel(s: ShaderPage, value: string): string {
+  return (
+    s.shader.choices.find((c) => c.value === value)?.label ??
+    `CRT · ${value.split('/').pop()!.replace(/[-_]/g, ' ')}`
+  );
+}
+
+/**
+ * The shader at one level, as one choice: none, Forma's koko-aio from one of its presets, or
+ * one of Batocera's sets. With koko-aio's, its essential settings and every other below it.
+ */
 function shaderRows(forma: Forma, page: Page, scope: OptionsScope, s: ShaderPage): Row[] {
   if (!s.available) {
     return [
-      { label: 'CRT shader', detail: 'koko-aio is not installed (Batocera 41 and later ship it)' }
+      {
+        heading: 'Shader',
+        label: 'Shader',
+        detail: 'koko-aio is not installed (Batocera 41 and later ship it)'
+      }
     ];
   }
-  const toggle = () =>
-    page.run(s.enabled ? 'Switching off…' : 'Switching on…', async () => {
-      await forma.shaders.setEnabled(!s.enabled);
-      return s.enabled
-        ? 'CRT shader off: Batocera’s own shaders again'
-        : 'CRT shader on for every game, from the next launch';
-    });
+  const global = scope.level === 'global';
+  const { value, inherited, choices } = s.shader;
+  const choose = (choice: string | null) =>
+    forma.shaders.choose(scope, choice).then(() => undefined);
   const rows: Row[] = [
     {
-      heading: 'CRT shader',
-      label: `CRT shader: ${s.enabled ? 'On' : 'Off'}`,
-      detail: s.enabled
-        ? 'koko-aio on every RetroArch game (RetroArch on Vulkan)'
-        : 'Batocera’s own shaders · A to switch koko-aio on for every game',
-      adjust: toggle,
-      run: toggle
+      heading: 'Shader',
+      label: 'Shader',
+      detail:
+        value !== null
+          ? choiceLabel(s, value)
+          : `Default · ${choiceLabel(s, inherited.value)} (${FROM[inherited.from]})`,
+      alt:
+        !global && value !== null
+          ? { label: 'Default', run: () => page.run('Saving…', () => choose(null)) }
+          : undefined,
+      run: () =>
+        pick(
+          page,
+          'Shader',
+          choices,
+          value,
+          choose,
+          global ? null : `Default · ${choiceLabel(s, inherited.value)}`
+        )
     }
   ];
-  if (!s.enabled && scope.level !== 'global') return rows;
-  rows.push(presetRow(forma, page, scope, s));
+  if (!(value ?? inherited.value).startsWith('crt:')) return rows;
   const params = new Map(s.sections.flatMap((x) => x.params).map((p) => [p.key, p]));
   for (const key of s.essentials) {
     const p = params.get(key);
@@ -198,43 +175,57 @@ function shaderRows(forma: Forma, page: Page, scope: OptionsScope, s: ShaderPage
 }
 
 /**
- * How games look at one level: Forma's CRT shader (koko-aio: on or off for every game, the
- * preset it starts from, its settings), then Batocera's picture and decoration options. Its
- * shader set gives way to the CRT shader while that is on, and its decoration to koko-aio's
- * bezel where that is on: two frames round a game are one too many. Used by the next launch;
- * a level that sets nothing inherits the one above.
+ * Emulator options at one level, with how games look there among them: the shader (one choice:
+ * none, Forma's koko-aio from a preset with its settings, or one of Batocera's sets), then
+ * Batocera's picture and decoration options, after the core. Its decoration gives way to
+ * koko-aio's bezel where that is on: two frames round a game are one too many. Global sets them
+ * for every game; a system or a game says otherwise for itself. Used by the next launch.
  */
-export function screenScreen(forma: Forma, page: Page, scope: OptionsScope): () => Promise<Row[]> {
+export function emulatorScreen(
+  forma: Forma,
+  page: Page,
+  scope: OptionsScope
+): () => Promise<Row[]> {
   return async () => {
-    const [s, { options }] = await Promise.all([
-      forma.shaders.get(scope),
-      forma.options.get(scope)
+    const [optionsPage, s] = await Promise.all([
+      forma.options.get(scope),
+      forma.shaders.get(scope).catch(() => null)
     ]);
-    const rows = shaderRows(forma, page, scope, s);
-    const on = s.available && s.enabled;
-    SCREEN_MENUS.forEach((menu) => {
-      options
-        .filter((o) => o.submenu === menu)
-        .forEach((o, i) => {
-          const heading =
-            i === 0 ? (menu === 'DECORATIONS' ? 'Decorations' : 'Picture') : undefined;
-          if (o.key === 'shaderset' && on) {
-            rows.push({
-              heading,
-              label: sentence(o.label),
-              detail: 'Off · Forma’s CRT shader instead'
-            });
-          } else if (o.key === 'bezel' && s.drawsBezel) {
-            rows.push({
-              heading,
-              label: sentence(o.label),
-              detail: 'Off · koko-aio draws the bezel'
-            });
-          } else {
-            rows.push({ ...optionRow(forma, page, scope, o), heading });
-          }
-        });
-    });
+    const { options } = optionsPage;
+    const rows = optionRows(forma, page, scope, optionsPage);
+    // After the emulator and core (and anything else ungrouped), before the option groups.
+    const at = rows.findIndex((r) => r.heading);
+    const screen = s ? screenRows(forma, page, scope, s, options) : [];
+    rows.splice(at < 0 ? rows.length : at, 0, ...screen);
     return rows;
   };
+}
+
+/** How games look at one level: the shader, then Batocera's picture and decorations (its
+ * shader set not among them: the shader row is the one place to choose it). */
+function screenRows(
+  forma: Forma,
+  page: Page,
+  scope: OptionsScope,
+  s: ShaderPage,
+  options: OptionItem[]
+): Row[] {
+  const rows = shaderRows(forma, page, scope, s);
+  SCREEN_MENUS.forEach((menu) => {
+    options
+      .filter((o) => o.submenu === menu && o.key !== 'shaderset')
+      .forEach((o, i) => {
+        const heading = i === 0 ? (menu === 'DECORATIONS' ? 'Decorations' : 'Picture') : undefined;
+        if (o.key === 'bezel' && s.drawsBezel) {
+          rows.push({
+            heading,
+            label: sentence(o.label),
+            detail: 'Off · koko-aio draws the bezel'
+          });
+        } else {
+          rows.push({ ...optionRow(forma, page, scope, o), heading });
+        }
+      });
+  });
+  return rows;
 }

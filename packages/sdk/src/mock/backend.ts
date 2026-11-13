@@ -682,6 +682,35 @@ export function mockBackend(options: MockOptions = {}): Backend {
   ];
   const shaderLevels = new Map<string, { preset: string | null; values: Map<string, number> }>();
   let shaderOn = false;
+  /** Systems and games with a shader of their own: Forma's (true) or not, by level key. */
+  const shaderSwitches = new Map<string, boolean>();
+  /** Batocera's set a level has instead of none, while off there (global's under `global`). */
+  const shaderSets = new Map<string, string>();
+  const batoceraSets = ['retro', 'scanlines'];
+  /** The shader a level has as a choice's value, from `chain[at]` up. */
+  const shaderAt = (
+    chain: { key: string; from: 'global' | 'system' }[],
+    at: number
+  ): { value: string; from: 'global' | 'system' } => {
+    const preset = () =>
+      chain
+        .slice(at)
+        .map((l) => shaderLevels.get(l.key)?.preset)
+        .find(Boolean) ?? 'Presets-ng/Monitor-Balanced';
+    const off = (key: string) => {
+      const set = shaderSets.get(key);
+      return set ? `set:${set}` : 'none';
+    };
+    for (const l of chain.slice(at)) {
+      if (l.key === 'global') break;
+      const on = shaderSwitches.get(l.key);
+      if (on !== undefined) return { value: on ? `crt:${preset()}` : off(l.key), from: 'system' };
+    }
+    return { value: shaderOn ? `crt:${preset()}` : off('global'), from: 'global' };
+  };
+  /** Forma's shader at a level: its choice, or the nearest level's above, is a `crt:` one. */
+  const shaderOnAt = (scope: OptionsScope) =>
+    shaderAt(shaderChain(scope), 0).value.startsWith('crt:');
   const shaderChain = (scope: OptionsScope): { key: string; from: 'global' | 'system' }[] =>
     levels(scope).map((l) => ({ key: l.prefix, from: l.from }));
   const shaderLevel = (key: string) => {
@@ -692,17 +721,24 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const shaderPage = (scope: OptionsScope): ShaderPage => {
     const [own, ...above] = shaderChain(scope);
     const here = shaderLevels.get(own!.key);
-    const presetAbove = above.find((l) => shaderLevels.get(l.key)?.preset);
     return {
       available: true,
-      enabled: shaderOn,
-      preset: {
-        value: here?.preset ?? null,
-        inherited: presetAbove
-          ? { value: shaderLevels.get(presetAbove.key)!.preset!, from: presetAbove.from }
-          : { value: 'Presets-ng/Monitor-Balanced', from: 'shader' },
-        choices: shaderPresets
-      },
+      enabled: shaderOnAt(scope),
+      shader: (() => {
+        const chain = shaderChain(scope);
+        const global = chain[0]!.key === 'global';
+        const own = global || shaderSwitches.has(chain[0]!.key);
+        const inherited = global ? { value: 'none', from: 'shader' as const } : shaderAt(chain, 1);
+        return {
+          value: own ? shaderAt(chain, 0).value : null,
+          inherited,
+          choices: [
+            { value: 'none', label: 'None' },
+            ...shaderPresets.map((p) => ({ value: `crt:${p.value}`, label: `CRT · ${p.label}` })),
+            ...batoceraSets.map((n) => ({ value: `set:${n}`, label: `Batocera · ${n}` }))
+          ]
+        };
+      })(),
       essentials: [
         'GAMMA_OUT',
         'DO_PIXELGRID',
@@ -712,7 +748,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
         'DO_BEZEL'
       ],
       drawsBezel:
-        shaderOn &&
+        shaderOnAt(scope) &&
         (here?.values.get('DO_BEZEL') ??
           above
             .map((l) => shaderLevels.get(l.key)?.values.get('DO_BEZEL'))
@@ -774,7 +810,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
       };
     };
     const found = page ?? fail('notFound', `no system \`${chain[chain.length - 2]?.prefix}\``);
-    return { options: found.options.map(fill), flags: [...found.flags] };
+    return {
+      options: found.options.map(fill),
+      flags: [...found.flags],
+      cores: structuredClone(found.cores ?? [])
+    };
   };
 
   const emit = (event: string, payload: unknown) => {
@@ -1239,6 +1279,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
       const game = games.get(id as number);
       return game ? present(game) : null;
     },
+    library_saves: ({ id }) =>
+      // The first game has a battery save and two states; the rest none.
+      id === 1
+        ? { battery: true, states: 2, latest: '2026-11-01T20:15:00Z' }
+        : { battery: false, states: 0, latest: null },
     library_search: ({ query, limit }) => {
       const words = fold(String(query)).split(/\s+/).filter(Boolean);
       if (words.length === 0) return [];
@@ -1694,18 +1739,41 @@ export function mockBackend(options: MockOptions = {}): Backend {
       } else values.set(param.key, value);
       return null;
     },
-    shaders_set_preset: ({ scope, preset }) => {
+    shaders_choose: ({ scope, choice }) => {
       optionsAllowed();
-      const chosen = typeof preset === 'string' ? preset : null;
-      if (chosen !== null && !shaderPresets.some((p) => p.value === chosen)) {
-        fail('invalid', `no koko-aio preset \`${chosen}\``);
+      const chain = shaderChain(scope as OptionsScope);
+      const own = chain[0]!.key;
+      const c = typeof choice === 'string' ? choice : null;
+      if (c === null) {
+        if (own === 'global') fail('invalid', 'global inherits from nothing');
+        shaderSwitches.delete(own);
+        shaderSets.delete(own);
+        shaderLevel(own).preset = null;
+        return null;
       }
-      shaderLevel(shaderChain(scope as OptionsScope)[0]!.key).preset = chosen;
-      return null;
-    },
-    shaders_set_enabled: ({ enabled }) => {
-      optionsAllowed();
-      shaderOn = enabled === true;
+      const preset = c.startsWith('crt:') ? c.slice(4) : null;
+      const set = c.startsWith('set:') ? c.slice(4) : null;
+      if (
+        c !== 'none' &&
+        !(preset && shaderPresets.some((p) => p.value === preset)) &&
+        !(set && batoceraSets.includes(set))
+      ) {
+        fail('invalid', `no shader \`${c}\``);
+      }
+      const on = preset !== null;
+      if (own === 'global') shaderOn = on;
+      else shaderSwitches.set(own, on);
+      if (set) shaderSets.set(own, set);
+      else if (!on) shaderSets.delete(own);
+      if (preset) {
+        // The preset it would start from anyway: none of its own.
+        const start =
+          chain
+            .slice(1)
+            .map((l) => shaderLevels.get(l.key)?.preset)
+            .find(Boolean) ?? 'Presets-ng/Monitor-Balanced';
+        shaderLevel(own).preset = preset === start ? null : preset;
+      }
       return null;
     },
     options_set: ({ scope, key, value }) => {

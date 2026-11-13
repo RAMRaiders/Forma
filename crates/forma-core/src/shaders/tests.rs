@@ -106,6 +106,18 @@ fn param<'p>(page: &'p ShaderPage, key: &str) -> &'p ShaderParam {
         .unwrap()
 }
 
+/// Forma's shader for every game, from the default preset.
+fn on(f: &Fixture) {
+    f.shaders
+        .choose(&Scope::Global, Some("crt:Presets-ng/Monitor-Balanced"))
+        .unwrap();
+}
+
+/// No shader for any game.
+fn off(f: &Fixture) {
+    f.shaders.choose(&Scope::Global, Some("none")).unwrap();
+}
+
 fn game() -> Scope {
     Scope::Game {
         system: "snes".into(),
@@ -160,10 +172,10 @@ fn reads_koko_aio_settings_in_its_sections() {
         ]
     );
     let presets: Vec<_> = page
-        .preset
+        .shader
         .choices
         .iter()
-        .map(|c| c.label.as_str())
+        .filter_map(|c| c.label.strip_prefix("CRT · "))
         .collect();
     assert_eq!(
         presets,
@@ -175,7 +187,6 @@ fn reads_koko_aio_settings_in_its_sections() {
 fn values_come_from_the_preset_chain_then_each_level() {
     let f = fixture("");
     let page = f.shaders.page(&Scope::Global).unwrap();
-    assert_eq!(page.preset.inherited.value, DEFAULT_PRESET);
     // The preset's own value over its reference's; the root's over koko-aio's default.
     assert_eq!(param(&page, "BLOOM_MIX").inherited.value, 0.2);
     assert_eq!(param(&page, "BLOOM_MIX").inherited.from, "preset");
@@ -208,18 +219,18 @@ fn checks_settings_and_presets() {
     );
     assert!(
         f.shaders
-            .set_preset(&Scope::Global, Some("Presets-ng/Nope"))
+            .choose(&Scope::Global, Some("crt:Presets-ng/Nope"))
             .is_err()
     );
     f.shaders
-        .set_preset(&Scope::Global, Some("Presets-ng/Base"))
+        .choose(&Scope::Global, Some("crt:Presets-ng/Base"))
         .unwrap();
 }
 
 #[test]
-fn switched_on_it_sets_its_shader_set_and_vulkan_and_puts_them_back() {
+fn switched_on_it_sets_its_shader_set_and_vulkan_and_none_puts_the_backend_back() {
     let f = fixture("global.shaderset=scanlines\n");
-    f.shaders.set_enabled(true).unwrap();
+    on(&f);
     let conf = conf::read(&f.conf);
     assert_eq!(conf["global.shaderset"], "forma");
     assert_eq!(conf["global.gfxbackend"], "vulkan");
@@ -232,17 +243,17 @@ fn switched_on_it_sets_its_shader_set_and_vulkan_and_puts_them_back() {
     assert!(gba.contains("Presets_Handhelds-ng/GameboyAdvance.slangp\""));
     assert!(f.shaders.page(&Scope::Global).unwrap().enabled);
 
-    f.shaders.set_enabled(false).unwrap();
+    off(&f);
     let conf = conf::read(&f.conf);
-    assert_eq!(conf["global.shaderset"], "scanlines");
+    assert_eq!(conf["global.shaderset"], "none");
     assert!(!conf.contains_key("global.gfxbackend"));
 }
 
 #[test]
 fn a_backend_the_user_chose_for_slang_is_kept() {
     let f = fixture("global.gfxbackend=glcore\n");
-    f.shaders.set_enabled(true).unwrap();
-    f.shaders.set_enabled(false).unwrap();
+    on(&f);
+    off(&f);
     assert_eq!(conf::read(&f.conf)["global.gfxbackend"], "glcore");
     let backend_sets = f
         .calls
@@ -257,7 +268,7 @@ fn a_backend_the_user_chose_for_slang_is_kept() {
 #[test]
 fn writes_flattened_presets_and_a_games_key() {
     let f = fixture("");
-    f.shaders.set_enabled(true).unwrap();
+    on(&f);
     f.shaders
         .set(&Scope::Global, "BLOOM_MIX", Some(0.6))
         .unwrap();
@@ -301,18 +312,23 @@ fn a_level_with_its_own_preset_starts_over_from_it() {
         .unwrap();
     let snes = Scope::System("snes".into());
     f.shaders
-        .set_preset(&snes, Some("Presets-ng/Base"))
+        .choose(&snes, Some("crt:Presets-ng/Base"))
         .unwrap();
     let page = f.shaders.page(&snes).unwrap();
-    assert_eq!(page.preset.value.as_deref(), Some("Presets-ng/Base"));
-    assert_eq!(page.preset.inherited.value, DEFAULT_PRESET);
+    assert_eq!(page.shader.value.as_deref(), Some("crt:Presets-ng/Base"));
+    assert_eq!(page.shader.inherited.value, "none");
     // Global's change is not carried over to it: Base's own value.
     assert_eq!(param(&page, "BLOOM_MIX").inherited.value, 0.3);
     assert_eq!(param(&page, "BLOOM_MIX").inherited.from, "preset");
     // A game of it starts from it.
     let page = f.shaders.page(&game()).unwrap();
-    assert_eq!(page.preset.inherited.value, "Presets-ng/Base");
-    assert_eq!(page.preset.inherited.from, "system");
+    assert_eq!(
+        (
+            page.shader.inherited.value.as_str(),
+            page.shader.inherited.from
+        ),
+        ("crt:Presets-ng/Base", "system")
+    );
 }
 
 #[test]
@@ -330,13 +346,13 @@ fn without_koko_aio_it_says_so() {
     );
     let page = shaders.page(&Scope::Global).unwrap();
     assert!(!page.available);
-    assert!(shaders.set_enabled(true).is_err());
+    assert!(shaders.choose(&Scope::Global, Some("none")).is_err());
 }
 
 #[test]
 fn koko_aio_s_bezel_turns_batocera_s_decoration_off_and_back() {
     let f = fixture("global.bezel=thebezelproject\nmegadrive.bezel=default\n");
-    f.shaders.set_enabled(true).unwrap();
+    on(&f);
     // The shader on, but no bezel of its own: decorations as they were.
     let conf = conf::read(&f.conf);
     assert_eq!(conf["global.bezel"], "thebezelproject");
@@ -364,7 +380,7 @@ fn koko_aio_s_bezel_turns_batocera_s_decoration_off_and_back() {
     assert!(!f.shaders.page(&snes).unwrap().draws_bezel);
 
     // Off: every key as the user had it.
-    f.shaders.set_enabled(false).unwrap();
+    off(&f);
     let conf = conf::read(&f.conf);
     assert_eq!(conf["global.bezel"], "thebezelproject");
     assert_eq!(conf["megadrive.bezel"], "default");
@@ -374,7 +390,7 @@ fn koko_aio_s_bezel_turns_batocera_s_decoration_off_and_back() {
 #[test]
 fn a_decoration_the_user_picks_meanwhile_is_theirs() {
     let f = fixture("global.bezel=thebezelproject\n");
-    f.shaders.set_enabled(true).unwrap();
+    on(&f);
     f.shaders
         .set(&Scope::Global, "DO_BEZEL", Some(1.0))
         .unwrap();
@@ -388,4 +404,154 @@ fn a_decoration_the_user_picks_meanwhile_is_theirs() {
     // …it is what comes back, not what was there before.
     f.shaders.set(&Scope::Global, "DO_BEZEL", None).unwrap();
     assert_eq!(conf::read(&f.conf)["global.bezel"], "arcade");
+}
+
+/// Batocera's sets in the fixture: one stock, one of the user's, and the stock koko-aio's.
+fn with_sets(f: &Fixture) {
+    for dir in [
+        "batocera/configs/retro",
+        "user/configs/koko-aio",
+        "user/configs/mine",
+    ] {
+        std::fs::create_dir_all(f.root.join(dir)).unwrap();
+    }
+}
+
+#[test]
+fn one_choice_per_level_owns_batocera_s_shader_keys() {
+    let f = fixture("");
+    with_sets(&f);
+    let snes = Scope::System("snes".into());
+    let page = f.shaders.page(&Scope::Global).unwrap();
+    let values: Vec<&str> = page
+        .shader
+        .choices
+        .iter()
+        .map(|c| c.value.as_str())
+        .collect();
+    // None, Forma's from each preset, Batocera's but its stock koko-aio (Forma's is it).
+    assert_eq!(
+        values,
+        [
+            "none",
+            "crt:Presets-ng/Base",
+            "crt:Presets-ng/Monitor-Balanced",
+            "crt:Presets_Handhelds-ng/GameboyAdvance",
+            "set:mine",
+            "set:retro"
+        ]
+    );
+    assert_eq!(page.shader.value.as_deref(), Some("none"));
+    assert!(f.shaders.choose(&Scope::Global, None).is_err());
+    assert!(f.shaders.choose(&snes, Some("set:koko-aio")).is_err());
+
+    // Forma's globally: its set, and Vulkan.
+    f.shaders
+        .choose(&Scope::Global, Some("crt:Presets-ng/Monitor-Balanced"))
+        .unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.shaderset"], "forma");
+    assert_eq!(conf["global.gfxbackend"], "vulkan");
+    let page = f.shaders.page(&snes).unwrap();
+    assert!(page.enabled);
+    assert_eq!(page.shader.value, None);
+    assert_eq!(
+        (
+            page.shader.inherited.value.as_str(),
+            page.shader.inherited.from
+        ),
+        ("crt:Presets-ng/Monitor-Balanced", "global")
+    );
+
+    // SNES with one of Batocera's, a game of it Forma's from another preset.
+    f.shaders.choose(&snes, Some("set:retro")).unwrap();
+    f.shaders
+        .choose(&game(), Some("crt:Presets-ng/Base"))
+        .unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["snes.shaderset"], "retro");
+    assert_eq!(conf[r#"snes["Mario  World 1.sfc"].shaderset"#], "forma");
+    assert!(conf.contains_key(r#"snes["Mario  World 1.sfc"]-renderer.shader"#));
+    let page = f.shaders.page(&game()).unwrap();
+    assert_eq!(page.shader.value.as_deref(), Some("crt:Presets-ng/Base"));
+    assert_eq!(
+        (
+            page.shader.inherited.value.as_str(),
+            page.shader.inherited.from
+        ),
+        ("set:retro", "system")
+    );
+
+    // None for SNES; then back to what they inherit: no keys of their own.
+    f.shaders.choose(&snes, Some("none")).unwrap();
+    assert_eq!(conf::read(&f.conf)["snes.shaderset"], "none");
+    f.shaders.choose(&game(), None).unwrap();
+    f.shaders.choose(&snes, None).unwrap();
+    let conf = conf::read(&f.conf);
+    assert!(!conf.contains_key("snes.shaderset"));
+    assert!(!conf.contains_key(r#"snes["Mario  World 1.sfc"].shaderset"#));
+    assert!(!conf.contains_key(r#"snes["Mario  World 1.sfc"]-renderer.shader"#));
+
+    // None globally: no shader, the backend as it was.
+    f.shaders.choose(&Scope::Global, Some("none")).unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.shaderset"], "none");
+    assert!(!conf.contains_key("global.gfxbackend"));
+}
+
+#[test]
+fn picking_the_preset_it_would_start_from_keeps_the_settings_above() {
+    let f = fixture("");
+    let snes = Scope::System("snes".into());
+    f.shaders
+        .choose(&Scope::Global, Some("crt:Presets-ng/Base"))
+        .unwrap();
+    f.shaders
+        .set(&Scope::Global, "GAMMA_OUT", Some(0.8))
+        .unwrap();
+    // Global's own preset, picked again for SNES: no preset of its own, global's settings stay.
+    f.shaders
+        .choose(&snes, Some("crt:Presets-ng/Base"))
+        .unwrap();
+    let page = f.shaders.page(&snes).unwrap();
+    assert_eq!(page.shader.value.as_deref(), Some("crt:Presets-ng/Base"));
+    assert_eq!(param(&page, "GAMMA_OUT").inherited.value, 0.8);
+}
+
+#[test]
+fn batocera_s_keys_are_taken_in_as_choices() {
+    let f = fixture(concat!(
+        "global.shaderset=koko-aio\n",
+        "snes.shaderset=retro\n",
+        "nes.shaderset=none\n",
+        "snes[\"Zelda.sfc\"].shaderset=koko-aio\n",
+    ));
+    with_sets(&f);
+    let page = f.shaders.page(&Scope::Global).unwrap();
+    assert!(page.enabled);
+    assert_eq!(
+        page.shader.value.as_deref(),
+        Some("crt:Presets-ng/Monitor-Balanced")
+    );
+    let snes = f.shaders.page(&Scope::System("snes".into())).unwrap();
+    assert_eq!(snes.shader.value.as_deref(), Some("set:retro"));
+    let nes = f.shaders.page(&Scope::System("nes".into())).unwrap();
+    assert_eq!(nes.shader.value.as_deref(), Some("none"));
+    let zelda = Scope::Game {
+        system: "snes".into(),
+        file: "Zelda.sfc".into(),
+    };
+    let zelda = f.shaders.page(&zelda).unwrap();
+    assert!(zelda.enabled);
+    assert_eq!(zelda.shader.inherited.value, "set:retro");
+
+    // Written as Forma's once, at start; not again after.
+    f.shaders.adopt().unwrap();
+    let conf = conf::read(&f.conf);
+    assert_eq!(conf["global.shaderset"], "forma");
+    assert_eq!(conf["snes.shaderset"], "retro");
+    assert_eq!(conf["nes.shaderset"], "none");
+    std::fs::write(&f.conf, "global.shaderset=retro\n").unwrap();
+    f.shaders.adopt().unwrap();
+    assert_eq!(conf::read(&f.conf)["global.shaderset"], "retro");
 }
