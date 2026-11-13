@@ -25,6 +25,10 @@ batocera-services start forma                          # take over now, or reboo
   path ends. `batocera-es-swissknife --reboot` would do nothing: it only acts while
   EmulationStation is running.
 - The log is `/userdata/system/logs/forma.log`.
+- `./update.sh forma-aarch64.tar.gz` updates an installed Forma from a test build: the program,
+  the shell and the themes swapped in place, the libraries kept (a build that needs new ones
+  needs the AppImage and `install.sh`). The version before stays in `app.prev`;
+  `./update.sh --back` returns to it.
 - `./uninstall.sh` disables the service and removes the program; `--purge` removes Forma's data
   too. Gamelists are never written; network settings are, as below.
 
@@ -206,10 +210,13 @@ Batocera box and a Raspberry Pi 4. **Not yet run:** it needs the hardware.
 
 ### What to build
 
-The **Spike AppImage** workflow (Actions tab → Run workflow) builds both on GitHub's own x86_64
-and arm64 runners. It runs only when started by hand, and puts them on the branch's private
-pre-release, `spike-<branch>` (e.g. `spike-main`), replacing the previous run's:
-`gh release download spike-main -p 'forma-aarch64.AppImage'`. To build locally instead:
+The **Spike AppImage** workflow (Actions tab → Run workflow) builds on GitHub's own x86_64 and
+arm64 runners. It runs only when started by hand, and puts what it built on the branch's private
+pre-release, `spike-<branch>` (e.g. `spike-main`), replacing the previous run's. On `main`, or
+with **full** ticked, that is both AppImages:
+`gh release download spike-main -p 'forma-aarch64.AppImage'`. On any other branch it is the Pi's
+update alone, `forma-aarch64.tar.gz` for `update.sh`, built in about half the time: no AppImage
+to pack. To build locally instead:
 
 `scripts/spike/build-appimage.sh amd64` (and `arm64`) builds the same AppImage in Docker, with
 WebKitGTK and the default theme inside, into `dist-spike/<arch>/`. Nothing in the repository's

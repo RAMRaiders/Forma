@@ -1,11 +1,20 @@
-# Builds the Forma AppImages for testing on Batocera boxes (#39). Manual only. Each run replaces
-# the branch's pre-release, `spike-<branch>` (the repository is private, so it is too), with
-# the AppImages of the commit it built: release files do not count against the Actions storage
-# that artifacts fill. Nothing else is tagged or published. See docs/batocera-integration.md.
+# Builds Forma for testing on Batocera boxes (#39). Manual only. Each run replaces the branch's
+# pre-release, `spike-<branch>` (the repository is private, so it is too), with what it built:
+# release files do not count against the Actions storage that artifacts fill. Nothing else is
+# tagged or published. See docs/batocera-integration.md.
+#
+# A test branch builds the Pi's (aarch64) program alone, with the shell and the themes, as
+# forma-aarch64.tar.gz: scripts/batocera/update.sh swaps it into an installed Forma, in minutes
+# less than packing an AppImage. `main`, or `full`, builds the AppImages, for both machines.
 name: Spike AppImage
 
 on:
   workflow_dispatch:
+    inputs:
+      full:
+        description: AppImages for x86_64 and aarch64, not only the Pi's update
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -40,17 +49,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # 22.04's glibc (2.35) is older than Batocera's, so the AppImages run there.
-          - arch: x86_64
-            runner: ubuntu-22.04
-          - arch: aarch64
-            runner: ubuntu-22.04-arm
+        # 22.04's glibc (2.35) is older than Batocera's, so what it builds runs there. A test
+        # build is for the Pi alone.
+        include: ${{ fromJSON((github.ref_name == 'main' || inputs.full) && '[{"arch":"x86_64","runner":"ubuntu-22.04"},{"arch":"aarch64","runner":"ubuntu-22.04-arm"}]' || '[{"arch":"aarch64","runner":"ubuntu-22.04-arm"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       # linuxdeploy is itself an AppImage; do not depend on FUSE being there.
       APPIMAGE_EXTRACT_AND_RUN: 1
+      FULL: ${{ github.ref_name == 'main' || inputs.full }}
     steps:
       - uses: actions/checkout@v4
 
@@ -59,15 +66,17 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # Cached: installed afresh they took a minute and a half on the arm runner.
+      # gstreamer1.0-libav: H.264 and AAC, for game preview videos and Batocera's splash
+      # (bundled by bundleMediaFramework; a Pi 5 has no H.264 hardware decoder).
       - name: System libraries (WebKitGTK, gamepads)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev libssl-dev libxdo-dev librsvg2-dev \
-            libayatana-appindicator3-dev libudev-dev file patchelf \
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+        with:
+          packages: >-
+            libwebkit2gtk-4.1-dev libssl-dev libxdo-dev librsvg2-dev
+            libayatana-appindicator3-dev libudev-dev file patchelf
             gstreamer1.0-libav gstreamer1.0-plugins-good
-          # gstreamer1.0-libav: H.264 and AAC, for game preview videos and Batocera's splash
-          # (bundled by bundleMediaFramework; a Pi 5 has no H.264 hardware decoder).
+          version: ${{ matrix.arch }}-1
 
       - name: Rust, as rust-toolchain.toml pins it
         run: |
@@ -98,15 +107,33 @@ jobs:
         env:
           FORMA_SCREENSCRAPER_DEV_ID: ${{ secrets.SCREENSCRAPER_DEV_ID }}
           FORMA_SCREENSCRAPER_DEV_PASSWORD: ${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
-        run: >-
-          npx tauri build --bundles appimage --config
-          '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../build/themes/cyber":"themes/cyber","../../packages/theme-default/dist":"themes/default","../../packages/shell/dist":"shell"}}}'
+        run: |
+          if [ "$FULL" = true ]; then
+            npx tauri build --bundles appimage --config \
+              '{"bundle":{"active":true,"targets":["appimage"],"resources":{"../../build/themes/cyber":"themes/cyber","../../packages/theme-default/dist":"themes/default","../../packages/shell/dist":"shell"}}}'
+          else
+            npx tauri build --no-bundle
+          fi
+
+      # The update: the program and its resources where the AppImage has them (usr/bin,
+      # usr/lib/Forma), for scripts/batocera/update.sh. Its libraries are the installed ones.
+      - name: Pack the update
+        run: |
+          u=build/update
+          rm -rf "$u" && mkdir -p "$u/usr/bin" "$u/usr/lib/Forma/themes"
+          cp target/release/forma "$u/usr/bin/forma"
+          cp -r packages/shell/dist "$u/usr/lib/Forma/shell"
+          cp -r build/themes/cyber "$u/usr/lib/Forma/themes/cyber"
+          cp -r packages/theme-default/dist "$u/usr/lib/Forma/themes/default"
+          tar -C "$u" -czf "forma-${{ matrix.arch }}.tar.gz" usr
 
       - name: Attach it to the pre-release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release.outputs.tag }}
         run: |
+          gh release upload "$TAG" "forma-${{ matrix.arch }}.tar.gz" --clobber
+          [ "$FULL" = true ] || exit 0
           files=(target/release/bundle/appimage/*.AppImage)
           [ -f "${files[0]}" ] || { echo "::error::no AppImage was built"; exit 1; }
           cp "${files[0]}" "forma-${{ matrix.arch }}.AppImage"
