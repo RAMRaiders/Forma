@@ -1029,14 +1029,6 @@ export interface CoreChoice {
   default: boolean;
 }
 
-/** The CRT shader on or off at a level (since 1.35.0). */
-export interface ShaderSwitch {
-  /** Set at this level, over the level above; global's is always set. */
-  value: boolean | null;
-  /** What this level has when it sets nothing: `global` or `system`. */
-  inherited: ShaderInherited<boolean>;
-}
-
 /** What applies at a shader level when it sets nothing, and where it comes from. */
 export interface ShaderInherited<T> {
   value: T;
@@ -1075,22 +1067,14 @@ export interface ShaderSection {
 export interface ShaderPage {
   /** koko-aio is installed (Batocera ships it). */
   available: boolean;
-  /** On at this level: its own switch, else the level above's (`shaders.setEnabled`). */
+  /** Forma's koko-aio is the shader at this level (`shader` is a `crt:` choice). */
   enabled: boolean;
-  /** Switched on or off at this level, and what it inherits (since 1.35.0). */
-  switch: ShaderSwitch;
   /**
    * The shader at this level as one choice (`shaders.choose`): `none`, `crt:<preset>` or
    * `set:<name>`. Globally always chosen. Since 1.35.0.
    */
   shader: {
     /** Chosen at this level; `null` when it has the level above's. */
-    value: string | null;
-    inherited: ShaderInherited<string>;
-    choices: OptionChoice[];
-  };
-  preset: {
-    /** Chosen at this level, as `Presets-ng/Monitor-Balanced`; `null` when it inherits. */
     value: string | null;
     inherited: ShaderInherited<string>;
     choices: OptionChoice[];

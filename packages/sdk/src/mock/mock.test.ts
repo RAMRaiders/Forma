@@ -310,26 +310,36 @@ describe('mock backend', () => {
     });
   });
 
-  it('the CRT shader on or off per system and game, over global', async () => {
+  it('one shader choice per level, a system over global', async () => {
     const b = mockBackend({ permissions: ['settings.emulators'] });
     type Page = {
       enabled: boolean;
-      switch: { value: boolean | null; inherited: { from: string } };
+      shader: { value: string | null; inherited: { value: string; from: string } };
     };
     const get = (scope: unknown) => b.invoke<Page>('shaders_get', { scope });
+    const global = { level: 'global' };
     const snes = { level: 'system', system: 'snes' };
-    expect((await get(snes)).switch).toEqual({
+    expect((await get(global)).shader.value).toBe('none');
+    expect((await get(snes)).shader).toMatchObject({
       value: null,
-      inherited: { value: false, from: 'global' }
+      inherited: { value: 'none', from: 'global' }
     });
-    await b.invoke('shaders_set_enabled', { enabled: true, scope: snes });
-    expect((await get(snes)).enabled).toBe(true);
-    expect((await get({ level: 'global' })).enabled).toBe(false);
-    await b.invoke('shaders_set_enabled', { enabled: null, scope: snes });
-    expect((await get(snes)).enabled).toBe(false);
-    await expect(b.invoke('shaders_set_enabled', { enabled: null })).rejects.toMatchObject({
-      code: 'invalid'
+    await b.invoke('shaders_choose', { scope: snes, choice: 'crt:Presets-ng/Base' });
+    expect(await get(snes)).toMatchObject({
+      enabled: true,
+      shader: { value: 'crt:Presets-ng/Base' }
     });
+    expect((await get(global)).enabled).toBe(false);
+    await b.invoke('shaders_choose', { scope: snes, choice: 'set:retro' });
+    expect(await get(snes)).toMatchObject({ enabled: false, shader: { value: 'set:retro' } });
+    await b.invoke('shaders_choose', { scope: snes, choice: null });
+    expect((await get(snes)).shader.value).toBeNull();
+    await expect(b.invoke('shaders_choose', { scope: global, choice: null })).rejects.toMatchObject(
+      { code: 'invalid' }
+    );
+    await expect(
+      b.invoke('shaders_choose', { scope: snes, choice: 'set:nope' })
+    ).rejects.toMatchObject({ code: 'invalid' });
   });
 
   it('emulator options: levels, inheritance, the emulator choosing the options', async () => {
