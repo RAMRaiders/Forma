@@ -682,7 +682,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   ];
   const shaderLevels = new Map<string, { preset: string | null; values: Map<string, number> }>();
   let shaderOn = false;
-  /** Systems and games switched on or off apart from the level above, by level key. */
+  /** Systems and games with a shader of their own: Forma's (true) or not, by level key. */
   const shaderSwitches = new Map<string, boolean>();
   /** Batocera's set a level has instead of none, while off there (global's under `global`). */
   const shaderSets = new Map<string, string>();
@@ -708,15 +708,9 @@ export function mockBackend(options: MockOptions = {}): Backend {
     }
     return { value: shaderOn ? `crt:${preset()}` : off('global'), from: 'global' };
   };
-  /** On at a level: the nearest level that says, else global. */
-  const shaderOnAt = (scope: OptionsScope) => {
-    const [own, ...above] = shaderChain(scope);
-    for (const l of [own!, ...above]) {
-      const set = shaderSwitches.get(l.key);
-      if (l.key !== 'global' && set !== undefined) return set;
-    }
-    return shaderOn;
-  };
+  /** Forma's shader at a level: its choice, or the nearest level's above, is a `crt:` one. */
+  const shaderOnAt = (scope: OptionsScope) =>
+    shaderAt(shaderChain(scope), 0).value.startsWith('crt:');
   const shaderChain = (scope: OptionsScope): { key: string; from: 'global' | 'system' }[] =>
     levels(scope).map((l) => ({ key: l.prefix, from: l.from }));
   const shaderLevel = (key: string) => {
@@ -727,22 +721,9 @@ export function mockBackend(options: MockOptions = {}): Backend {
   const shaderPage = (scope: OptionsScope): ShaderPage => {
     const [own, ...above] = shaderChain(scope);
     const here = shaderLevels.get(own!.key);
-    const presetAbove = above.find((l) => shaderLevels.get(l.key)?.preset);
     return {
       available: true,
       enabled: shaderOnAt(scope),
-      switch: (() => {
-        const [own, ...above] = shaderChain(scope);
-        const from = above.find((l) => l.key !== 'global' && shaderSwitches.has(l.key));
-        return {
-          value: own!.key === 'global' ? shaderOn : (shaderSwitches.get(own!.key) ?? null),
-          inherited: from
-            ? { value: shaderSwitches.get(from.key)!, from: from.from }
-            : own!.key === 'global'
-              ? { value: false, from: 'shader' as const }
-              : { value: shaderOn, from: 'global' as const }
-        };
-      })(),
       shader: (() => {
         const chain = shaderChain(scope);
         const global = chain[0]!.key === 'global';
@@ -758,13 +739,6 @@ export function mockBackend(options: MockOptions = {}): Backend {
           ]
         };
       })(),
-      preset: {
-        value: here?.preset ?? null,
-        inherited: presetAbove
-          ? { value: shaderLevels.get(presetAbove.key)!.preset!, from: presetAbove.from }
-          : { value: 'Presets-ng/Monitor-Balanced', from: 'shader' },
-        choices: shaderPresets
-      },
       essentials: [
         'GAMMA_OUT',
         'DO_PIXELGRID',
@@ -1763,26 +1737,6 @@ export function mockBackend(options: MockOptions = {}): Backend {
       else if (typeof value !== 'number' || value < param.min || value > param.max) {
         fail('invalid', `${param.label} goes from ${param.min} to ${param.max}`);
       } else values.set(param.key, value);
-      return null;
-    },
-    shaders_set_preset: ({ scope, preset }) => {
-      optionsAllowed();
-      const chosen = typeof preset === 'string' ? preset : null;
-      if (chosen !== null && !shaderPresets.some((p) => p.value === chosen)) {
-        fail('invalid', `no koko-aio preset \`${chosen}\``);
-      }
-      shaderLevel(shaderChain(scope as OptionsScope)[0]!.key).preset = chosen;
-      return null;
-    },
-    shaders_set_enabled: ({ enabled, scope }) => {
-      optionsAllowed();
-      const own = scope ? shaderChain(scope as OptionsScope)[0]!.key : 'global';
-      if (own === 'global') {
-        if (typeof enabled !== 'boolean')
-          fail('invalid', 'the CRT shader is on or off for every game');
-        shaderOn = enabled === true;
-      } else if (typeof enabled === 'boolean') shaderSwitches.set(own, enabled);
-      else shaderSwitches.delete(own);
       return null;
     },
     shaders_choose: ({ scope, choice }) => {

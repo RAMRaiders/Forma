@@ -152,8 +152,8 @@ struct State {
     /// `snes["file"]`): what was there, and what Forma wrote.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     decorations: BTreeMap<String, Decoration>,
-    /// The `shaderset` and `gfxbackend` keys Forma set for a system or a game switched on or off
-    /// apart from the level above (by the full key): what was there, and what Forma wrote.
+    /// The `gfxbackend` keys Forma set for a level with its shader (by the full key): what was
+    /// there, and what Forma wrote.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     switches: BTreeMap<String, Decoration>,
 }
@@ -174,18 +174,6 @@ impl State {
                 .unwrap_or(self.enabled),
         }
     }
-
-    /// On or off as `scope` inherits it, and from where (`global` or `system`).
-    fn inherited_on(&self, scope: &Scope) -> (bool, &'static str) {
-        match scope {
-            Scope::Global => (false, "shader"),
-            Scope::System(_) => (self.enabled, "global"),
-            Scope::Game { system, .. } => match self.systems.get(system).and_then(|l| l.enabled) {
-                Some(on) => (on, "system"),
-                None => (self.enabled, "global"),
-            },
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -202,12 +190,9 @@ pub struct ShaderPage {
     pub available: bool,
     /// Forma's shader is on at this level.
     pub enabled: bool,
-    /// Switched on or off at this level (global's is always set), and what it inherits.
-    pub switch: ShaderSwitch,
     /// The shader at this level, as one choice: `none`, `crt:<preset>` (Forma's koko-aio from
     /// that preset) or `set:<name>` (one of Batocera's shader sets). Since SDK 1.35.0.
     pub shader: ShaderChoice,
-    pub preset: ShaderPreset,
     /// Keys of the settings worth having at hand, in order.
     pub essentials: Vec<String>,
     pub sections: Vec<ShaderSection>,
@@ -218,29 +203,10 @@ pub struct ShaderPage {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ShaderSwitch {
-    /// Set at this level: on or off, over the level above.
-    pub value: Option<bool>,
-    /// What this level has when it sets nothing.
-    pub inherited: ShaderInherited<bool>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ShaderChoice {
     /// Chosen at this level (always, globally); `None` inherits.
     pub value: Option<String>,
     /// What this level has when it chooses nothing.
-    pub inherited: ShaderInherited<String>,
-    pub choices: Vec<OptionChoice>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ShaderPreset {
-    /// Chosen at this level.
-    pub value: Option<String>,
-    /// What this level starts from when it chooses none.
     pub inherited: ShaderInherited<String>,
     pub choices: Vec<OptionChoice>,
 }
@@ -593,19 +559,10 @@ impl Shaders {
             return Ok(ShaderPage {
                 available: false,
                 enabled: state.on_at(scope),
-                switch: switch_of(&state, scope),
                 shader: ShaderChoice {
                     value: None,
                     inherited: ShaderInherited {
                         value: "none".into(),
-                        from: "shader",
-                    },
-                    choices: Vec::new(),
-                },
-                preset: ShaderPreset {
-                    value: None,
-                    inherited: ShaderInherited {
-                        value: DEFAULT_PRESET.to_owned(),
                         from: "shader",
                     },
                     choices: Vec::new(),
@@ -616,30 +573,6 @@ impl Shaders {
             });
         };
         let here = own_level(&state, scope);
-        // What this level starts from: the chain as if it set no preset of its own.
-        let mut without = state.clone();
-        if let Some(level) = own_level_mut(&mut without, scope) {
-            level.preset = None;
-        }
-        let (start, _) = self.chain(&without, scope);
-        let from_preset = match scope {
-            Scope::Global => "shader",
-            Scope::System(s) if HANDHELDS.iter().any(|(h, _)| h == s) => "shader",
-            Scope::System(_) => "global",
-            Scope::Game { system, .. } => {
-                if state
-                    .systems
-                    .get(system)
-                    .is_some_and(|l| l.preset.is_some())
-                {
-                    "system"
-                } else if HANDHELDS.iter().any(|(h, _)| h == system) {
-                    "shader"
-                } else {
-                    "global"
-                }
-            }
-        };
         let (preset, levels) = self.chain(&state, scope);
         let preset_values = self.preset_values(catalog, &preset);
         let above: Vec<_> = levels
@@ -685,16 +618,7 @@ impl Shaders {
         Ok(ShaderPage {
             available: true,
             enabled: state.on_at(scope),
-            switch: switch_of(&state, scope),
             shader: self.shader_of(&state, scope, &presets),
-            preset: ShaderPreset {
-                value: here.and_then(|l| l.preset.clone()),
-                inherited: ShaderInherited {
-                    value: start,
-                    from: from_preset,
-                },
-                choices: presets,
-            },
             essentials: ESSENTIALS
                 .iter()
                 .filter(|k| catalog.param(k).is_some())
@@ -727,41 +651,6 @@ impl Shaders {
                 level.values.remove(key);
             }
         })
-    }
-
-    /// Picks the preset `scope` starts from, or `None` to start from the level above again.
-    pub fn set_preset(&self, scope: &Scope, preset: Option<&str>) -> Result<()> {
-        self.catalog().ok_or_else(not_installed)?;
-        if let Some(p) = preset
-            && !self.presets().iter().any(|c| c.value == p)
-        {
-            return Err(Error::Invalid(format!("no koko-aio preset `{p}`")));
-        }
-        self.change(scope, |level| level.preset = preset.map(str::to_owned))
-    }
-
-    /// Switches Forma's shader on for every game, or off (global's Batocera set, if it had
-    /// one, back).
-    pub fn set_enabled(&self, on: bool) -> Result<()> {
-        self.catalog().ok_or_else(not_installed)?;
-        let mut state = self.state();
-        state.enabled = on;
-        self.apply(state)
-    }
-
-    /// Switches Forma's shader on or off for a system or a game, over the level above, or back
-    /// to what it inherits with `None`. Globally, it is [`Self::set_enabled`].
-    pub fn set_enabled_at(&self, scope: &Scope, on: Option<bool>) -> Result<()> {
-        match (scope, on) {
-            (Scope::Global, Some(on)) => self.set_enabled(on),
-            (Scope::Global, None) => Err(Error::Invalid(
-                "the CRT shader is on or off for every game: it inherits from nothing".into(),
-            )),
-            _ => {
-                self.catalog().ok_or_else(not_installed)?;
-                self.change(scope, |level| level.enabled = on)
-            }
-        }
     }
 
     fn change(&self, scope: &Scope, edit: impl FnOnce(&mut Level)) -> Result<()> {
@@ -1144,17 +1033,6 @@ fn own_key(state: &State, conf: &HashMap<String, String>, key: &str) -> Option<S
     match state.switches.get(key) {
         Some(d) if d.wrote == now => d.before.clone(),
         _ => now,
-    }
-}
-
-fn switch_of(state: &State, scope: &Scope) -> ShaderSwitch {
-    let (value, from) = state.inherited_on(scope);
-    ShaderSwitch {
-        value: match scope {
-            Scope::Global => Some(state.enabled),
-            _ => own_level(state, scope).and_then(|l| l.enabled),
-        },
-        inherited: ShaderInherited { value, from },
     }
 }
 

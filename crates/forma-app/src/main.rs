@@ -112,8 +112,6 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         options::options_set,
         shaders::shaders_get,
         shaders::shaders_set,
-        shaders::shaders_set_preset,
-        shaders::shaders_set_enabled,
         shaders::shaders_choose,
         system_settings::system_info,
         system_settings::system_settings,
