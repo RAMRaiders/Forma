@@ -205,55 +205,6 @@ fn account(credentials: &Credentials) -> String {
     account
 }
 
-/// A company behind a game, and where its logo may be.
-pub(in super::super) struct CompanyArt {
-    pub publisher: bool,
-    pub name: String,
-    /// The best first.
-    pub urls: Vec<String>,
-}
-
-/// Who published and developed the game, by ScreenScraper's account.
-pub(in super::super) fn companies(
-    http: &dyn Http,
-    credentials: &Credentials,
-    query: &Query<'_>,
-) -> Result<Vec<CompanyArt>, LookupError> {
-    let Some(game) = ask(http, credentials, query)? else {
-        return Ok(Vec::new());
-    };
-    let of = |publisher: bool, key: &str| {
-        let company = &game[key];
-        let name = json_text(company.get("text"))?;
-        let medias = &game[format!("{key}medias")];
-        let mut urls: Vec<String> = ["pictocouleur", "pictomonochrome"]
-            .iter()
-            .filter_map(|kind| {
-                medias[format!("{key}media_{kind}")]
-                    .as_str()
-                    .map(str::to_owned)
-            })
-            .collect();
-        if let Some(id) = json_text(company.get("id")) {
-            urls.push(format!(
-                "https://api.screenscraper.fr/api2/mediaCompagnie.php?{}&companyid={}\
-                 &media=logo-monochrome",
-                account(credentials),
-                encode(&id)
-            ));
-        }
-        Some(CompanyArt {
-            publisher,
-            name,
-            urls,
-        })
-    };
-    Ok([of(true, "editeur"), of(false, "developpeur")]
-        .into_iter()
-        .flatten()
-        .collect())
-}
-
 /// ScreenScraper's entry for the game, if it knows it.
 fn ask(
     http: &dyn Http,

@@ -1111,9 +1111,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
           : sc.kind === 'system'
             ? (snapshot.systems.find((x) => x.name === sc.name)?.fullname ??
               fail('notFound', `no system \`${String(sc.name)}\``))
-            : sc.kind === 'companies'
-              ? 'Company logos'
-              : 'Everything';
+            : 'Everything';
       scraperStop = false;
       scraperStatus = {
         running: true,

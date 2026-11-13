@@ -37,11 +37,6 @@ pub trait Resolver {
     fn cover(&self) -> crate::shell::CoverInfo;
     /// A file of Forma's shell (`shell.js`), the menus drawn over every theme.
     fn shell_file(&self, name: &str) -> Option<PathBuf>;
-    /// The logo saved for a company, by its slug (`forma_core::scraper::companies`).
-    fn company_logo(&self, slug: &str) -> Option<PathBuf> {
-        let _ = slug;
-        None
-    }
     /// Page `page` (from 0) of a magazine, as a JPEG about `width` wide (see `magazines`).
     fn magazine_page(&self, id: &str, page: usize, width: u32) -> Option<PathBuf> {
         let _ = (id, page, width);
@@ -175,10 +170,6 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
                 _ => status(StatusCode::NOT_FOUND, "no such page"),
             }
         }
-        (Some("company"), Some(slug), None) => match resolver.company_logo(slug) {
-            Some(file) => serve(&file, None, None),
-            None => status(StatusCode::NOT_FOUND, "no such logo"),
-        },
         (Some("system"), Some("forma-logo.svg"), None) => Response::builder()
             .header(header::CONTENT_TYPE, "image/svg+xml")
             .header("X-Content-Type-Options", "nosniff")

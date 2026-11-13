@@ -87,13 +87,6 @@ export function scraperScreen(
           : 'Turn on a scraper that is set up first',
         run: usable ? () => page.push('Start scraping', scope) : undefined
       });
-      if (settings.sources.some((s) => s.id === 'screenscraper' && s.ready)) {
-        rows.push({
-          label: 'Look for company logos again',
-          detail: 'Forma gets them by itself. This retries the ones it could not find',
-          run: () => start({ kind: 'companies' }, 'company logos')
-        });
-      }
       if (status.scope) {
         rows.push({ label: `Last: ${status.scope}`, detail: summary(status) });
       }
