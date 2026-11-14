@@ -35,23 +35,14 @@ pub fn open_cache(paths: &Paths) -> Result<HashCache> {
     Ok(HashCache::open(&file)?)
 }
 
-/// Formats rcheevos cannot hash yet: reading them (whole disc images, gigabytes each) would
-/// find nothing. CHD comes with romdex R2.
-const NOT_HASHABLE: &[&str] = &[".chd"];
-
 /// The systems to hash: those RetroAchievements supports, and those a No-Intro or Redump DAT
-/// covers (#115), as romdex reads them from Batocera's systems, without the formats romdex
-/// cannot hash yet.
+/// covers (#115), as romdex reads them from Batocera's systems. CHD disc images included:
+/// romdex reads them for rcheevos, and hashes their first track as Redump lists it.
 pub fn targets(paths: &Paths) -> Vec<Target> {
     let (targets, _) = romdex::batocera::targets(&paths.userdata, &paths.systems_cfg);
     targets
         .into_iter()
         .filter(|t| has_console(&t.system) || crate::dumps::has_dats(&t.system))
-        .map(|mut t| {
-            t.extensions.retain(|e| !NOT_HASHABLE.contains(&e.as_str()));
-            t
-        })
-        .filter(|t| !t.extensions.is_empty())
         .collect()
 }
 
@@ -194,8 +185,10 @@ mod tests {
             .find(|t| t.system == "nes")
             .expect("nes has an RA console");
         assert!(
-            targets(&paths).iter().all(|t| !t.accepts("Disc.chd")),
-            "no CHD yet"
+            targets(&paths)
+                .iter()
+                .any(|t| t.system == "psx" && t.accepts("Disc.chd")),
+            "CHDs are hashed"
         );
         let mut cache = romdex::cache::Cache::in_memory().unwrap();
         let (found, report) = hash_system(&nes, &mut cache).unwrap();

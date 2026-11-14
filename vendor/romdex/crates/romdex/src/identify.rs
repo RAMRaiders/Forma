@@ -7,6 +7,7 @@ use std::path::Path;
 use crate::archive::{self, Contents};
 use crate::batocera::Target;
 use crate::cache::{Cache, Entry, Stamp};
+use crate::chd;
 use crate::error::{Error, Result};
 use crate::hash::{Hashes, hash_reader};
 use crate::ra::{self, Console};
@@ -18,7 +19,7 @@ pub struct Identified {
     /// Relative to the system folder, as the import format keys it.
     pub path: String,
     /// The file that was identified, when not `path` itself: the one inside a single-file
-    /// archive, or a CUE sheet's first track.
+    /// archive, a CUE sheet's first track, or a CHD's (`Track 01`).
     pub inner: Option<String>,
     /// Of the ROM: uncompressed, for an archive.
     pub size: u64,
@@ -38,7 +39,7 @@ pub struct Report {
     /// ROM bytes hashed (uncompressed, for archives).
     pub bytes_read: u64,
     /// Files on systems RetroAchievements supports that got an RA hash, and that did not
-    /// (rcheevos declined them: unrecognised data, or a format it cannot read yet, like CHD).
+    /// (rcheevos declined them: unrecognised data, or a disc it cannot find the boot files of).
     pub ra_hashed: usize,
     pub ra_unknown: usize,
     /// Passed over, with why (unreadable files, folder games…).
@@ -66,8 +67,10 @@ pub fn identify(targets: &[Target], cache: &mut Cache) -> Result<(Vec<Identified
                 let cached = cache
                     .get(&file.full, stamp)?
                     .filter(|e| e.ra_console == console.map(|c| c.0))
-                    // Cached before CUE sheets were followed to their first track.
-                    .filter(|e| !(is_cue(&file.full) && e.inner.is_none()));
+                    // Cached before CUE sheets and CHDs were read to their first track.
+                    .filter(|e| {
+                        !((is_cue(&file.full) || chd::is_chd(&file.full)) && e.inner.is_none())
+                    });
                 let entry = match cached {
                     Some(entry) => {
                         report.cached += 1;
@@ -152,6 +155,22 @@ fn learn(path: &Path, console: Option<Console>, skipped: &mut Vec<String>) -> Op
             return None;
         }
         None => {}
+    }
+    // A CHD is a compressed disc: its first track, uncompressed, is the `.bin` DATs list.
+    if chd::is_chd(path) {
+        return match chd::hash_first_track(path) {
+            Ok((hashes, size, name)) => Some(Entry {
+                hashes,
+                inner: Some(name),
+                size,
+                ra: ra_of_file(),
+                ra_console,
+            }),
+            Err(e) => {
+                skipped.push(format!("{}: {e}", path.display()));
+                None
+            }
+        };
     }
     // A CUE sheet is a few lines of text: the disc is its tracks, and DATs list the first.
     if let Some(track) = is_cue(path).then(|| first_track(path)).flatten() {
@@ -369,6 +388,47 @@ mod cue_tests {
             found[0].inner.as_deref(),
             Some("Game (Europe) (Track 1).bin")
         );
+    }
+
+    #[test]
+    fn a_chd_is_identified_by_its_first_track_with_the_ra_hash_of_its_cue_sheet() {
+        use crate::chd::tests::{TestTrack, mode1, write_disc};
+        let dir = tempfile::tempdir().unwrap();
+        let saturn = dir.path().join("roms/saturn");
+        std::fs::create_dir_all(&saturn).unwrap();
+        let sectors = (0..20u32)
+            .map(|lba| {
+                let mut data = vec![lba as u8; 2048];
+                data[..16].copy_from_slice(b"SEGA SEGASATURN ");
+                mode1(lba, &data)
+            })
+            .collect();
+        let track = TestTrack {
+            cue_mode: "MODE1/2352",
+            chd_type: "MODE1_RAW",
+            sectors,
+            pregap: 0,
+        };
+        let (cue, _) = write_disc(&saturn, "Game", &[track]);
+        let targets = |ext: &str| {
+            vec![Target {
+                system: "saturn".into(),
+                root: saturn.clone(),
+                extensions: vec![ext.into()],
+            }]
+        };
+        let mut cache = Cache::in_memory().unwrap();
+        let (chd, report) = identify(&targets(".chd"), &mut cache).unwrap();
+        let (from_cue, _) = identify(&targets(".cue"), &mut cache).unwrap();
+        assert_eq!((chd.len(), report.ra_hashed), (1, 1));
+        assert_eq!(chd[0].inner.as_deref(), Some("Track 01"));
+        assert_eq!(chd[0].size, 20 * 2352);
+        assert_eq!(
+            chd[0].hashes, from_cue[0].hashes,
+            "the first track, as its .bin"
+        );
+        assert_eq!(chd[0].ra, from_cue[0].ra);
+        assert!(cue.is_file());
     }
 
     #[test]

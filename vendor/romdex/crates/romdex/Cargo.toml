@@ -11,6 +11,7 @@ publish.workspace = true
 cc.workspace = true
 
 [dependencies]
+chd.workspace = true
 crc32fast.workspace = true
 md-5.workspace = true
 quick-xml.workspace = true
@@ -25,6 +26,8 @@ thiserror.workspace = true
 [dev-dependencies]
 # The shipped build only reads 7z; tests also write them.
 sevenz-rust2 = { workspace = true, features = ["compress"] }
+# Tests write CHDs to read back.
+chd = { workspace = true, features = ["encode"] }
 tempfile.workspace = true
 
 [lints]
