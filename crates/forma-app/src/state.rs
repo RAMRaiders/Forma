@@ -175,8 +175,7 @@ impl Resolver for AppState {
     }
 
     fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf> {
-        let game = self.library().game(game_id).ok()??;
-        let source = PathBuf::from(game.media.get(kind)?);
+        let source = PathBuf::from(self.library().media_file(game_id, kind).ok()??);
         // Video and manuals (PDF) are served as they are.
         let image = !matches!(kind, "video" | "manual");
         Some(match width {

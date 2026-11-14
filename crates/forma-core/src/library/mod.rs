@@ -188,6 +188,16 @@ impl Library {
         Ok(games.into_iter().next())
     }
 
+    /// The file of one kind of a game's media (`image`, `video`…), if it has one: one row by
+    /// its key, for the `forma://` protocol, which asks for every picture a theme shows.
+    pub fn media_file(&self, game_id: i64, kind: &str) -> Result<Option<String>> {
+        Ok(self
+            .conn
+            .prepare_cached("SELECT path FROM media WHERE game_id = ?1 AND kind = ?2")?
+            .query_row(params![game_id, kind], |r| r.get(0))
+            .optional()?)
+    }
+
     /// Full-text search over name, description, developer and publisher. Every word matches
     /// as a prefix, so `super mar` finds Super Mario Bros.; accents are ignored.
     pub fn search(&self, text: &str, limit: usize) -> Result<Vec<Game>> {

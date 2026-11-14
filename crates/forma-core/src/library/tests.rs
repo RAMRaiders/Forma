@@ -63,6 +63,17 @@ fn applies_gamelist_metadata_and_media() {
 }
 
 #[test]
+fn media_file_is_the_games_own_row() {
+    let (lib, _) = refreshed();
+    let mario = by_name(&lib.games("nes").unwrap(), "Super Mario Bros.").clone();
+    for (kind, path) in &mario.media {
+        assert_eq!(lib.media_file(mario.id, kind).unwrap().as_ref(), Some(path));
+    }
+    assert_eq!(lib.media_file(mario.id, "nonsense").unwrap(), None);
+    assert_eq!(lib.media_file(i64::MAX, "image").unwrap(), None);
+}
+
+#[test]
 fn a_game_without_metadata_is_named_after_its_file() {
     let (lib, _) = refreshed();
     let nes = lib.games("nes").unwrap();
