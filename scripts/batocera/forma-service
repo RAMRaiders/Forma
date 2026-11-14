@@ -34,6 +34,9 @@ case "$1" in
         # Its music and video players, which would otherwise play on: a video left running kept
         # decoding in the background for hours.
         pkill -f '(^|/)mpv .*forma/run/(mpv|video)\.sock'
+        # Stopped, whether or not a player was left to stop: pkill finding none (they usually
+        # went with Forma's children) is not a failure, and update.sh stops on one.
+        true
         ;;
     status)
         if [ -n "$(app_pids)" ]; then echo "Forma is running"; else echo "Forma is not running"; fi
