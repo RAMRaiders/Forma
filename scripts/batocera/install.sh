@@ -36,7 +36,9 @@ mv "$work/squashfs-root" "$dest/app"
 rm -rf "$dest/app.old"
 
 install -m 755 "$here/forma-standalone" "$dest/bin/forma-standalone"
+install -m 755 "$here/es-autostart.sh" "$dest/bin/es-autostart.sh"
 batocera-services enable forma
+"$dest/bin/es-autostart.sh" add
 
 echo "Installed. Forma replaces EmulationStation from the next boot."
 echo "Now: batocera-services start forma   Undo: ./uninstall.sh"

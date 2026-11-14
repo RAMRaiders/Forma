@@ -6,6 +6,8 @@ set -u
 batocera-services disable forma
 batocera-services stop forma
 rm -f /userdata/system/services/forma
+# labwc's autostart starts EmulationStation at boot again.
+[ -x /userdata/system/forma/bin/es-autostart.sh ] && /userdata/system/forma/bin/es-autostart.sh remove
 # Forma's boot picture: Batocera's own video comes back at boot.
 rm -f /userdata/splash/forma.png /userdata/system/forma/boot-picture.svg
 rm -rf /userdata/system/forma/app /userdata/system/forma/bin
