@@ -1,6 +1,6 @@
 //! romdex: identify ROMs.
 //!
-//! Hashes (CRC32, MD5, SHA1), the contents of archives, RetroAchievements hashes (from
+//! Hashes (CRC32, MD5, SHA1), the contents of archives and CHD disc images, RetroAchievements hashes (from
 //! rcheevos itself) and DAT matching, for every RAMRaiders tool. Forma links this library and
 //! hashes in its background sync; the `romdex` command writes the import format
 //! (`docs/import-format.md`) for anything else.
@@ -10,6 +10,7 @@
 pub mod archive;
 pub mod batocera;
 pub mod cache;
+pub mod chd;
 pub mod dat;
 mod error;
 pub mod format;

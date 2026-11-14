@@ -8,9 +8,12 @@
 //! This is the only module allowed `unsafe`: the calls into rcheevos' C.
 #![allow(unsafe_code)]
 
-use std::ffi::{CString, c_char, c_int};
+use std::ffi::{CStr, CString, c_char, c_int, c_void};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Mutex, Once, OnceLock};
+
+use crate::chd;
 
 unsafe extern "C" {
     fn rc_hash_generate_from_file(hash: *mut c_char, console_id: u32, path: *const c_char)
@@ -21,6 +24,146 @@ unsafe extern "C" {
         buffer: *const u8,
         buffer_size: usize,
     ) -> c_int;
+    fn rc_hash_get_default_cdreader(reader: *mut CdReader);
+    fn rc_hash_init_custom_cdreader(reader: *mut CdReader);
+}
+
+/// rcheevos' `rc_hash_cdreader_t`: how it opens and reads disc tracks.
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct CdReader {
+    open_track: Option<unsafe extern "C" fn(*const c_char, u32) -> *mut c_void>,
+    read_sector: Option<unsafe extern "C" fn(*mut c_void, u32, *mut c_void, usize) -> usize>,
+    close_track: Option<unsafe extern "C" fn(*mut c_void)>,
+    first_track_sector: Option<unsafe extern "C" fn(*mut c_void) -> u32>,
+    open_track_iterator:
+        Option<unsafe extern "C" fn(*const c_char, u32, *const c_void) -> *mut c_void>,
+}
+
+/// rcheevos' own reader, for CUE sheets, GDI and bare images.
+static DEFAULT_READER: OnceLock<CdReader> = OnceLock::new();
+
+/// A track handle given to rcheevos: a CHD's, or one from its own reader.
+enum Handle {
+    Chd(Box<chd::Track>),
+    Default(*mut c_void),
+}
+
+/// rcheevos has no CHD reader of its own (RetroArch gives it one): this reader reads CHDs
+/// with [`chd`] and passes everything else to rcheevos' reader. Installed once, before the
+/// first hash.
+fn install_disc_reader() {
+    static INSTALL: Once = Once::new();
+    INSTALL.call_once(|| {
+        let mut default = CdReader {
+            open_track: None,
+            read_sector: None,
+            close_track: None,
+            first_track_sector: None,
+            open_track_iterator: None,
+        };
+        // SAFETY: rcheevos fills the struct it is given, which has its layout.
+        unsafe { rc_hash_get_default_cdreader(&mut default) };
+        let _ = DEFAULT_READER.set(default);
+        let mut ours = CdReader {
+            open_track: None,
+            read_sector: Some(read_sector),
+            close_track: Some(close_track),
+            first_track_sector: Some(first_track_sector),
+            open_track_iterator: Some(open_track),
+        };
+        // SAFETY: rcheevos copies the struct; the functions live for the whole program.
+        unsafe { rc_hash_init_custom_cdreader(&mut ours) };
+    });
+}
+
+/// Opens track `track` of `path`. A panic must not cross into C: it opens nothing.
+unsafe extern "C" fn open_track(
+    path: *const c_char,
+    track: u32,
+    iterator: *const c_void,
+) -> *mut c_void {
+    if path.is_null() {
+        return std::ptr::null_mut();
+    }
+    // SAFETY: rcheevos passes a NUL-terminated path that lives across the call.
+    let name = unsafe { CStr::from_ptr(path) };
+    let Ok(name) = name.to_str() else {
+        return std::ptr::null_mut();
+    };
+    let handle = if chd::is_chd(Path::new(name)) {
+        let opened =
+            catch_unwind(|| chd::Track::open(Path::new(name), chd::Select::from_rcheevos(track)));
+        match opened {
+            Ok(Some(t)) => Handle::Chd(Box::new(t)),
+            _ => return std::ptr::null_mut(),
+        }
+    } else {
+        let Some(open) = DEFAULT_READER.get().and_then(|d| d.open_track_iterator) else {
+            return std::ptr::null_mut();
+        };
+        // SAFETY: rcheevos' own reader, called as rcheevos would with its own arguments.
+        let inner = unsafe { open(path, track, iterator) };
+        if inner.is_null() {
+            return std::ptr::null_mut();
+        }
+        Handle::Default(inner)
+    };
+    Box::into_raw(Box::new(handle)).cast()
+}
+
+unsafe extern "C" fn read_sector(
+    handle: *mut c_void,
+    sector: u32,
+    buffer: *mut c_void,
+    requested: usize,
+) -> usize {
+    if handle.is_null() || buffer.is_null() {
+        return 0;
+    }
+    // SAFETY: `handle` came from `open_track` and is not yet closed; rcheevos uses a handle
+    // from one thread at a time (under `RCHEEVOS`).
+    match unsafe { &mut *handle.cast::<Handle>() } {
+        Handle::Chd(track) => {
+            // SAFETY: rcheevos' buffer holds `requested` bytes.
+            let buf = unsafe { std::slice::from_raw_parts_mut(buffer.cast::<u8>(), requested) };
+            catch_unwind(AssertUnwindSafe(|| track.read_sector(sector, buf))).unwrap_or(0)
+        }
+        Handle::Default(inner) => match DEFAULT_READER.get().and_then(|d| d.read_sector) {
+            // SAFETY: the default reader's own handle and rcheevos' buffer.
+            Some(read) => unsafe { read(*inner, sector, buffer, requested) },
+            None => 0,
+        },
+    }
+}
+
+unsafe extern "C" fn close_track(handle: *mut c_void) {
+    if handle.is_null() {
+        return;
+    }
+    // SAFETY: `handle` came from `open_track` (a `Box<Handle>`) and is closed once.
+    let handle = unsafe { Box::from_raw(handle.cast::<Handle>()) };
+    if let Handle::Default(inner) = *handle
+        && let Some(close) = DEFAULT_READER.get().and_then(|d| d.close_track)
+    {
+        // SAFETY: the default reader's own handle, closed once.
+        unsafe { close(inner) };
+    }
+}
+
+unsafe extern "C" fn first_track_sector(handle: *mut c_void) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    // SAFETY: `handle` came from `open_track` and is not yet closed.
+    match unsafe { &*handle.cast::<Handle>() } {
+        Handle::Chd(track) => track.first_sector(),
+        Handle::Default(inner) => match DEFAULT_READER.get().and_then(|d| d.first_track_sector) {
+            // SAFETY: the default reader's own handle.
+            Some(first) => unsafe { first(*inner) },
+            None => 0,
+        },
+    }
 }
 
 /// rcheevos keeps some global state (its default readers and callbacks); one call at a time.
@@ -41,13 +184,14 @@ impl Console {
 }
 
 /// The RA hash of a file on disk. Disc images (cue/bin, iso, m3u) are read by rcheevos' own
-/// disc reader.
+/// disc reader, CHDs by [`chd`].
 pub fn hash_file(console: Console, path: &Path) -> Option<String> {
     let path = CString::new(path.to_str()?).ok()?;
     let mut hash = [0 as c_char; 33];
     let _guard = RCHEEVOS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+    install_disc_reader();
     // SAFETY: `hash` is the 33 bytes rcheevos writes into; `path` is NUL-terminated and lives
     // across the call; rcheevos does not keep either pointer.
     let ok = unsafe { rc_hash_generate_from_file(hash.as_mut_ptr(), console.0, path.as_ptr()) };
@@ -60,6 +204,7 @@ pub fn hash_buffer(console: Console, data: &[u8]) -> Option<String> {
     let _guard = RCHEEVOS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+    install_disc_reader();
     // SAFETY: `data` is valid for `data.len()` bytes for the duration of the call and is only
     // read; `hash` is the 33 bytes rcheevos writes into.
     let ok = unsafe {
@@ -222,6 +367,93 @@ mod tests {
         // MD5 of the name without its extension.
         assert_eq!(ha, "64d1f88b9b276aece4b0edcc25b7a434");
         assert!(Console::ARCADE.hashes_by_name());
+    }
+
+    use crate::chd::tests::{TestTrack, mode1, write_disc};
+
+    /// A CHD of a disc and the CUE sheet it was made from have one RA hash.
+    fn same_hash_both_ways(console: Console, tracks: &[TestTrack]) -> String {
+        let dir = tempfile::tempdir().unwrap();
+        let (cue, chd) = write_disc(dir.path(), "Game", tracks);
+        let from_cue = hash_file(console, &cue).expect("rcheevos hashes the CUE sheet");
+        assert_eq!(hash_file(console, &chd).as_deref(), Some(from_cue.as_str()));
+        from_cue
+    }
+
+    fn sega_disc(header: &[u8; 16]) -> Vec<Vec<u8>> {
+        (0..24u32)
+            .map(|lba| {
+                let mut data = vec![lba as u8; 2048];
+                if lba == 0 {
+                    data[..16].copy_from_slice(header);
+                }
+                mode1(lba, &data)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn saturn_and_sega_cd_chds_hash_as_their_cue_sheets() {
+        for (console, header) in [
+            (Console(39), b"SEGA SEGASATURN "),
+            (Console(9), b"SEGADISCSYSTEM  "),
+        ] {
+            same_hash_both_ways(
+                console,
+                &[TestTrack {
+                    cue_mode: "MODE1/2352",
+                    chd_type: "MODE1_RAW",
+                    sectors: sega_disc(header),
+                    pregap: 0,
+                }],
+            );
+        }
+    }
+
+    #[test]
+    fn a_data_track_after_audio_is_found_where_its_cue_sheet_puts_it() {
+        // PC Engine CD: audio first, then the data track (with a pregap) holding the boot
+        // header in its second sector and the program it points to.
+        let audio: Vec<Vec<u8>> = (0..30u32)
+            .map(|i| (0..2352).map(|b| (b as u32 ^ i) as u8).collect())
+            .collect();
+        let data: Vec<Vec<u8>> = (0..40u32)
+            .map(|i| {
+                let mut d = vec![(i * 3) as u8; 2048];
+                // Disc sectors 30, 31 are pregap; the track starts at 32.
+                if i == 3 {
+                    d[..4].copy_from_slice(&[0, 0, 4, 3]);
+                    d[32..55].copy_from_slice(b"PC Engine CD-ROM SYSTEM");
+                    d[106..128].copy_from_slice(b"A TEST TITLE FOR ROMDX");
+                }
+                mode1(30 + i, &d)
+            })
+            .collect();
+        let hash = same_hash_both_ways(
+            Console(76),
+            &[
+                TestTrack {
+                    cue_mode: "AUDIO",
+                    chd_type: "AUDIO",
+                    sectors: audio,
+                    pregap: 0,
+                },
+                TestTrack {
+                    cue_mode: "MODE1/2352",
+                    chd_type: "MODE1_RAW",
+                    sectors: data,
+                    pregap: 2,
+                },
+            ],
+        );
+        assert_eq!(hash.len(), 32);
+    }
+
+    #[test]
+    fn a_chd_that_is_not_a_disc_gets_no_hash() {
+        let file = tempfile::Builder::new().suffix(".chd").tempfile().unwrap();
+        std::fs::write(file.path(), [0u8; 4096]).unwrap();
+        assert_eq!(hash_file(Console(39), file.path()), None);
     }
 
     #[test]

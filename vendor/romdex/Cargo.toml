@@ -12,6 +12,7 @@ publish = false
 [workspace.dependencies]
 romdex = { path = "crates/romdex" }
 cc = "1.10.0"
+chd = "0.4.0"
 crc32fast = "1.5.3"
 md-5 = "0.11.0"
 quick-xml = "0.42.0"
