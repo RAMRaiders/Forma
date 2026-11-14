@@ -45,17 +45,6 @@ describe('the SDK surface', () => {
     expect(forma.library.mediaUrl(2, 'image', 320)).toBe('2/image/320/undefined');
   });
 
-  it("a company's logo: by a name safe in an address, only inside Forma", async () => {
-    const mock = await sdk();
-    expect(mock.library.companyLogoUrl('Namcot')).toBeNull();
-    const forma = await connect({
-      backend: { ...mockBackend({ playMs: 0 }), kind: 'tauri' },
-      keyboard: false
-    });
-    expect(forma.library.companyLogoUrl('A.I Co')).toBe('forma://localhost/company/a-i-co');
-    expect(forma.library.companyLogoUrl('ナムコ')).toBeNull();
-  });
-
   it('nav', async () => {
     const forma = await sdk();
     expect((await forma.nav.views()).map((v) => v.id)).toContain('home');
