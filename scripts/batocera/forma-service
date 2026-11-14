@@ -1,13 +1,17 @@
 #!/bin/bash
-# Batocera user service for Forma. Installed as /userdata/system/services/forma by install.sh;
-# `batocera-services enable forma` makes Batocera start it at every boot, and
-# `batocera-services disable forma` gives the box back to EmulationStation.
+# Batocera user service for Forma. Installed as /userdata/system/services/forma by install.sh,
+# which enables it and turns Batocera's own start of the screen session off
+# (system.es.atstartup=0): at boot this starts the session, with Forma in it in place of
+# EmulationStation. uninstall.sh gives the box back to EmulationStation; disabling the service
+# alone would leave no session at boot.
 
 # The app, by executable: this script is itself a process named "forma" while it runs, so
 # `pgrep -x forma` alone would find it. Any Forma binary under /userdata/system/forma counts,
 # including one install.sh has since moved to app.old and deleted ("… (deleted)"): matching
 # only the current one left a Forma running from before an update, holding the library open.
 DIR=/userdata/system/forma/
+STANDALONE="${DIR}bin/forma-standalone"
+AUTOSTART=/userdata/system/.config/labwc/autostart
 app_pids() {
     for pid in $(pgrep -x forma); do
         case "$(readlink "/proc/$pid/exe")" in
@@ -18,7 +22,22 @@ app_pids() {
 
 case "$1" in
     start)
-        nohup /userdata/system/forma/bin/forma-standalone > /dev/null 2>&1 &
+        if pgrep -x labwc > /dev/null; then
+            # The session is up (Forma started by hand): Forma joins it.
+            nohup "$STANDALONE" > /dev/null 2>&1 &
+        else
+            # Boot. Batocera writes labwc's autostart afresh at every boot (S14labwc), to start
+            # EmulationStation: it starts Forma instead, then the session starts as Batocera's
+            # S31emulationstation would.
+            if grep -q '^/usr/bin/emulationstation-standalone' "$AUTOSTART"; then
+                sed -i "s#^/usr/bin/emulationstation-standalone.*#$STANDALONE > /dev/null 2>\&1#" "$AUTOSTART"
+            elif ! grep -qF "$STANDALONE" "$AUTOSTART"; then
+                echo "$STANDALONE > /dev/null 2>&1" >> "$AUTOSTART"
+            fi
+            . /etc/profile.d/xdg.sh
+            . /etc/profile.d/dbus.sh
+            nohup labwc-launch > /dev/null 2>&1 &
+        fi
         ;;
     stop)
         # Anchored, so it does not match a shell whose command line merely mentions the script.

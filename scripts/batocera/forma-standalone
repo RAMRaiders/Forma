@@ -1,10 +1,11 @@
 #!/bin/bash
 # Runs Forma in Batocera's labwc session in place of EmulationStation.
 #
-# EmulationStation starts first, as Batocera always does; this takes over once it is up, so
-# anything going wrong before that point leaves EmulationStation on screen. The screen goes
-# back to EmulationStation when Forma quits (its "Switch to EmulationStation"), or when Forma
-# fails three times in two minutes, counting "never became ready" as a failure.
+# Forma's service starts the session itself (Batocera's own start of it is off, see install.sh),
+# with labwc's autostart running this, so EmulationStation is never part of a boot. It starts
+# only when Forma quits to it (its "Switch to EmulationStation"), and as the last resort: when
+# Forma cannot start, or fails three times in two minutes, counting "never became ready" as a
+# failure.
 
 APP=/userdata/system/forma/app/AppRun
 LOG=/userdata/system/logs/forma.log
@@ -76,32 +77,27 @@ keep_video_under() {
     log "labwc: games' videos kept under Forma"
 }
 
+backdrop=
+drop_backdrop() {
+    [ -n "$backdrop" ] && kill "$backdrop" 2> /dev/null
+    backdrop=
+}
+
 mkdir -p "$(dirname "$LOG")"
-[ -x "$APP" ] || { log "no Forma at $APP; EmulationStation stays"; exit 1; }
-wait_for 60 wlr-randr || { log "no Wayland compositor; EmulationStation stays"; exit 1; }
+# A Forma that cannot start hands the screen to EmulationStation rather than leaving it black.
+[ -x "$APP" ] || back_to_emulationstation "no Forma at $APP"
+wait_for 60 wlr-randr || back_to_emulationstation "no Wayland compositor"
 keep_video_under
 # Forma's boot picture (what Batocera showed while booting) under everything, from the moment
 # the compositor is up until Forma is ready: no black screen while Forma loads, and Forma's
 # window starts see-through over it.
 PICTURE=/userdata/splash/forma.png
-backdrop=
 if [ -s "$PICTURE" ] && command -v swaybg > /dev/null; then
     swaybg -i "$PICTURE" -m fill > /dev/null 2>&1 &
     backdrop=$!
 fi
-drop_backdrop() {
-    [ -n "$backdrop" ] && kill "$backdrop" 2> /dev/null
-    backdrop=
-}
-# At boot, EmulationStation's loop starts around the same time as this service: wait for it,
-# or it would start on top of Forma. Later (a restart from the menu or by hand) it is not
-# running because Forma replaced it, and waiting would only leave the screen black.
-uptime=$(cut -d. -f1 /proc/uptime)
-if [ "$uptime" -lt 180 ]; then
-    wait_for 60 pgrep -f "$ES" || log "EmulationStation never started; taking over anyway"
-fi
-
-# Stop EmulationStation's restart loop, then EmulationStation itself.
+# An EmulationStation already on screen (Forma started by hand, or just installed over a session
+# Batocera started): stop its restart loop, then it.
 emulationstation-standalone --stop-rebooting
 pkill -f "$ES"
 wait_for 20 sh -c "! pgrep -f '$ES'" || pkill -9 -f "$ES"
