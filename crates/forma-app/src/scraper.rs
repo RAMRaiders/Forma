@@ -644,13 +644,13 @@ fn games_in(state: &AppState, scope: &Scope) -> ApiResult<(String, Vec<i64>)> {
                 .into_iter()
                 .find(|s| s.name == *name)
                 .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no system `{name}`")))?;
-            let ids = library.games(name)?.iter().map(|g| g.id).collect();
+            let ids = library.game_files(name)?.iter().map(|g| g.id).collect();
             (system.fullname, ids)
         }
         Scope::All => {
             let mut ids = Vec::new();
             for system in library.systems_in_order()? {
-                ids.extend(library.games(&system.name)?.iter().map(|g| g.id));
+                ids.extend(library.game_files(&system.name)?.iter().map(|g| g.id));
             }
             ("Everything".to_owned(), ids)
         }
@@ -665,7 +665,7 @@ pub async fn library_duplicates<R: Runtime>(
     system: String,
 ) -> ApiResult<Option<Vec<scraper::duplicates::DuplicateGroup>>> {
     off_thread(app, move |state| {
-        let games = state.library().games(&system)?;
+        let games = state.library().game_files(&system)?;
         let Some(first) = games.first() else {
             return Ok(Some(Vec::new()));
         };
