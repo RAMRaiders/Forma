@@ -647,11 +647,17 @@ export function gamesScreen(
   close: () => void = () => page.close(),
   look?: GameLook
 ): () => Promise<Row[]> {
+  // Its siblings do not change while the page is open: asked once, not at every redraw.
+  let siblings: Promise<number[]> | undefined;
   return async () => {
     const rows: Row[] = game ? gameRows(forma, page, game) : [];
-    const [same, full] = game
-      ? await Promise.all([sameGame(forma, game.id), forma.library.game(game.id).catch(() => null)])
-      : [[], null];
+    // Everything the page reads, asked at once: it opens as soon as the slowest answers.
+    const [same, full, filter, own] = await Promise.all([
+      game ? (siblings ??= sameGame(forma, game.id)) : [],
+      game ? forma.library.game(game.id).catch(() => null) : null,
+      forma.nav.filterOptions().catch(() => null),
+      themeSelectRow(page, 'games', theme)
+    ]);
     // Its manual, read in Forma's reader; its pictures and video, one by one.
     if (full && look && full.media.manual) {
       rows.push({
@@ -681,7 +687,6 @@ export function gamesScreen(
         }
       });
     }
-    const filter = await forma.nav.filterOptions().catch(() => null);
     if (filter) {
       const active = filterSummary(filter);
       rows.push({
@@ -692,7 +697,6 @@ export function gamesScreen(
         run: () => page.push('Filter list', filterScreen(forma, page))
       });
     }
-    const own = await themeSelectRow(page, 'games', theme);
     if (own) rows.push({ ...own, icon: 'theme' });
     if (views) rows.push({ heading: 'Views', label: 'Change view', run: views });
     if (game) rows.push(deleteGameRow(forma, page, game));
