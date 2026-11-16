@@ -294,16 +294,75 @@ pub async fn library_delete_game<R: Runtime>(
     caller: Caller,
     id: i64,
 ) -> ApiResult<()> {
-    off_thread(app, move |state| {
+    let events = app.clone();
+    let beside = off_thread(app, move |state| {
         caller.shell_only()?;
         let (game, system) = state
             .library()
             .launch_target(id)?
             .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no game with id {id}")))?;
+        let beside = alone_in_filter(state, id)?;
         forma_core::delete::delete_game(&state.paths, &game, &system)
-            .map_err(|e| ApiError::new(ErrorCode::Internal, e))
+            .map_err(|e| ApiError::new(ErrorCode::Internal, e))?;
+        if beside.is_some() {
+            list_on_screen(state).filter = ListFilter::default();
+        }
+        Ok(beside)
     })
-    .await
+    .await?;
+    // The list on screen was filtered down to this game alone: every game again, the theme on
+    // the one that was beside it, as near as can be to where it was.
+    if let Some((game, system)) = beside {
+        let _ = events.emit(
+            EVENT_LIBRARY_CHANGED,
+            LibraryChanged {
+                systems: Vec::new(),
+            },
+        );
+        let _ = events.emit(
+            crate::shell::EVENT_NAV_GAME,
+            serde_json::json!({ "game": game, "system": system }),
+        );
+    }
+    Ok(())
+}
+
+/// When the filtered list on screen holds game `id` alone: the game beside it in the list
+/// unfiltered (the next, or the one before at the end), and its system.
+fn alone_in_filter(state: &AppState, id: i64) -> ApiResult<Option<(i64, String)>> {
+    let (list, filter) = {
+        let on_screen = list_on_screen(state);
+        (on_screen.list.clone(), on_screen.filter.clone())
+    };
+    let Some((view, path)) = list.filter(|_| !filter.is_empty()) else {
+        return Ok(None);
+    };
+    let Some(view) = state.views().get(&view).cloned() else {
+        return Ok(None);
+    };
+    let library = state.library();
+    let one = Page {
+        offset: 0,
+        limit: 2,
+    };
+    let kept = library.browse_filtered(&view, &path, one, &filter)?;
+    let Listing::Games { items, .. } = &kept.listing else {
+        return Ok(None);
+    };
+    if items.len() != 1 || items[0].id != id {
+        return Ok(None);
+    }
+    let ids = library.game_ids(&view, &path)?;
+    let Some(at) = ids.iter().position(|&g| g == id) else {
+        return Ok(None);
+    };
+    let beside = ids
+        .get(at + 1)
+        .or_else(|| at.checked_sub(1).and_then(|i| ids.get(i)));
+    let Some(&beside) = beside else {
+        return Ok(None);
+    };
+    Ok(library.game(beside)?.map(|g| (g.id, g.system)))
 }
 
 #[tauri::command]
@@ -394,6 +453,12 @@ pub async fn nav_browse<R: Runtime>(
         let mut browse = state
             .library()
             .browse_filtered(&view, &path, page, &filter)?;
+        // Its filter leaves nothing now (the last game it kept was deleted): every game again,
+        // as a filter that would leave none is never set.
+        if browse.filtered && matches!(browse.listing, Listing::Games { total: 0, .. }) {
+            list_on_screen(state).filter = ListFilter::default();
+            browse = state.library().browse(&view, &path, page)?;
+        }
         if let Listing::Games { items, .. } = &mut browse.listing {
             *items = std::mem::take(items).into_iter().map(expose).collect();
             // A list being opened. A theme counting another list's games asks for one.

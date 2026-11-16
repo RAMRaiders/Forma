@@ -237,33 +237,40 @@ impl Library {
         let total = self.count(conds)?.min(cap);
         let offset = i64::from(page.offset);
         let limit = i64::from(page.limit).min((total - offset).max(0));
-
-        let default_order = match spec.sort {
-            GameSort::Name | GameSort::ReleaseDate => Order::Asc,
-            GameSort::Rating | GameSort::LastPlayed | GameSort::PlayCount => Order::Desc,
-            GameSort::Recommended => unreachable!("handled above"),
-        };
-        let dir = match spec.order.unwrap_or(default_order) {
-            Order::Asc => "ASC",
-            Order::Desc => "DESC",
-        };
-        let sort = match spec.sort {
-            GameSort::Name => format!("g.name COLLATE NOCASE {dir}"),
-            GameSort::ReleaseDate => format!("g.release_date IS NULL, g.release_date {dir}"),
-            GameSort::Rating => format!("g.rating IS NULL, g.rating {dir}"),
-            GameSort::LastPlayed => format!("g.last_played IS NULL, g.last_played {dir}"),
-            GameSort::PlayCount => format!("g.play_count {dir}"),
-            GameSort::Recommended => unreachable!("handled above"),
-        };
         let items = self.query_games(
             &format!(
                 "SELECT {GAME_COLUMNS} FROM game g JOIN system s ON s.name = g.system
-                 WHERE {} ORDER BY {sort}, g.name COLLATE NOCASE, g.id LIMIT {limit} OFFSET {offset}",
-                conds.sql()
+                 WHERE {} ORDER BY {} LIMIT {limit} OFFSET {offset}",
+                conds.sql(),
+                order_by(spec)
             ),
             params_from_iter(&conds.params),
         )?;
         Ok(Listing::Games { items, total })
+    }
+
+    /// Every game of the game list at `path`, without the user's filter, in the list's order:
+    /// their ids alone. Empty where `path` is not a game list.
+    pub fn game_ids(&self, view: &View, path: &[String]) -> Result<Vec<i64>> {
+        let (node, conds, _) = self.node_at(view, path)?;
+        let NodeKind::Games(spec) = &node.kind else {
+            return Ok(Vec::new());
+        };
+        if spec.sort == GameSort::Recommended {
+            let cap = spec.limit.map_or(50, |l| l as usize);
+            return self.recommended(&conds.sql(), &conds.params, cap);
+        }
+        let cap = spec.limit.map_or(i64::MAX, i64::from);
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT g.id FROM game g JOIN system s ON s.name = g.system
+             WHERE {} ORDER BY {} LIMIT {cap}",
+            conds.sql(),
+            order_by(spec)
+        ))?;
+        let ids = stmt
+            .query_map(params_from_iter(&conds.params), |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(ids)
     }
 
     /// Recommended games: picked in Rust, then read in that order. Without a limit, 50.
@@ -468,4 +475,27 @@ fn label(key: GroupKey, value: &str) -> String {
         (GroupKey::Players, v) => format!("{v} players"),
         (_, v) => v.to_owned(),
     }
+}
+
+/// How a game list sorts, as SQL after `ORDER BY`: its sort, then by name, then by id, so
+/// a page and the next never share or skip a game.
+fn order_by(spec: &GamesSpec) -> String {
+    let default_order = match spec.sort {
+        GameSort::Name | GameSort::ReleaseDate => Order::Asc,
+        GameSort::Rating | GameSort::LastPlayed | GameSort::PlayCount => Order::Desc,
+        GameSort::Recommended => unreachable!("recommended lists are sorted in Rust"),
+    };
+    let dir = match spec.order.unwrap_or(default_order) {
+        Order::Asc => "ASC",
+        Order::Desc => "DESC",
+    };
+    let sort = match spec.sort {
+        GameSort::Name => format!("g.name COLLATE NOCASE {dir}"),
+        GameSort::ReleaseDate => format!("g.release_date IS NULL, g.release_date {dir}"),
+        GameSort::Rating => format!("g.rating IS NULL, g.rating {dir}"),
+        GameSort::LastPlayed => format!("g.last_played IS NULL, g.last_played {dir}"),
+        GameSort::PlayCount => format!("g.play_count {dir}"),
+        GameSort::Recommended => unreachable!("recommended lists are sorted in Rust"),
+    };
+    format!("{sort}, g.name COLLATE NOCASE, g.id")
 }
