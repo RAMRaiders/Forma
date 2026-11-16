@@ -663,6 +663,15 @@ fn launchbox_finds_one_game_under_different_names_in_a_library() {
     assert_eq!(groups[0].title, "Streets of Rage 2");
     let ids: Vec<i64> = groups[0].games.iter().map(|g| g.id).collect();
     assert_eq!(ids, [1, 2, 3]);
+    assert_eq!(find().unwrap(), groups, "asked again: the same answer");
+
+    // A game renamed (its file too) is asked about again; the others are as they were.
+    let mut renamed = games.clone();
+    renamed[0] = game(1, "Columns", "Columns (Japan).md");
+    let groups = super::super::duplicates::duplicates(&paths, &system, &renamed)
+        .unwrap()
+        .unwrap();
+    assert!(groups.is_empty(), "{groups:?}");
 }
 
 #[test]
