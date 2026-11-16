@@ -1433,6 +1433,92 @@ fn the_shell_opens_a_view_in_the_theme() {
 }
 
 #[test]
+fn deleting_the_one_game_a_filter_kept_shows_every_game_from_the_one_beside_it() {
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let list = |h: &Harness| {
+        h.call("nav_browse", json!({ "view": "systems", "path": ["nes"] }))
+            .unwrap()
+    };
+    let names = |page: &Value| -> Vec<String> {
+        page["listing"]["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|g| g["name"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let all = list(&h);
+    let id_of = |name: &str| {
+        all["listing"]["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|g| g["name"] == name)
+            .unwrap()["id"]
+            .as_i64()
+            .unwrap()
+    };
+    let (mario, zelda) = (id_of("Super Mario Bros."), id_of("The Legend of Zelda"));
+    let mario_only = json!({ "filter": { "name": "mario" } });
+    assert_eq!(h.call("nav_set_filter", mario_only).unwrap(), 1);
+
+    let opened = Arc::new(Mutex::new(None));
+    let seen = opened.clone();
+    h.window.listen_any(crate::shell::EVENT_NAV_GAME, move |e| {
+        *seen.lock().unwrap() = Some(e.payload().to_owned());
+    });
+    h.call_as_shell(token, "library_delete_game", json!({ "id": mario }))
+        .unwrap();
+    // Every game again, the theme sent to the one after it.
+    assert_eq!(
+        opened.lock().unwrap().as_deref(),
+        Some(format!(r#"{{"game":{zelda},"system":"nes"}}"#).as_str())
+    );
+    assert_eq!(list(&h)["filtered"], json!(false));
+
+    // Once the library has read the disk again: gone, and no filter brought back.
+    {
+        let state = h.state();
+        state.library().refresh(&state.paths).unwrap();
+    }
+    let after = list(&h);
+    assert!(!names(&after).contains(&"Super Mario Bros.".to_owned()));
+    assert_eq!(after["filtered"], json!(false));
+}
+
+#[test]
+fn a_filter_that_keeps_nothing_any_more_is_dropped() {
+    let h = Harness::new(&[]);
+    let browse = || {
+        h.call("nav_browse", json!({ "view": "systems", "path": ["nes"] }))
+            .unwrap()
+    };
+    let all = browse()["listing"]["total"].as_i64().unwrap();
+    let mario_only = json!({ "filter": { "name": "mario" } });
+    assert_eq!(h.call("nav_set_filter", mario_only).unwrap(), 1);
+    // Its game goes behind Forma's back.
+    {
+        let state = h.state();
+        std::fs::remove_file(
+            state
+                .paths
+                .userdata
+                .join("roms/nes/Super Mario Bros. (World).nes"),
+        )
+        .unwrap();
+        state.library().refresh(&state.paths).unwrap();
+    }
+    let page = browse();
+    assert_eq!(page["filtered"], json!(false));
+    assert_eq!(page["listing"]["total"].as_i64(), Some(all - 1));
+    let options = h.call("nav_filter_options", json!({})).unwrap();
+    assert_eq!(options["filter"]["name"], json!(null));
+}
+
+#[test]
 fn the_shell_opens_a_game_in_the_theme() {
     let h = Harness::new(&[]);
     h.state().shell.new_page();
