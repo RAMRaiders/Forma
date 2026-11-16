@@ -55,6 +55,8 @@ export class Page {
   /** A small line under the title, e.g. the game's file name. */
   #file: string | null = null;
   #parents: Level[] = [];
+  /** Asked to open, its rows not read yet: it is the shell's already, and shows once whole. */
+  #opening = false;
 
   constructor(
     readonly notify: (message: string) => void,
@@ -63,7 +65,7 @@ export class Page {
   ) {}
 
   get open(): boolean {
-    return !this.root.hidden;
+    return this.#opening || !this.root.hidden;
   }
 
   /** `file`: a small line under the title, e.g. the game's ROM file name. */
@@ -120,13 +122,23 @@ export class Page {
     this.#note = note ?? null;
     this.#selected = at;
     this.#rows = [];
+    if (!this.root.hidden) return this.refresh();
+    // Shut until now: it comes up with its rows, never empty or with what it showed last time.
+    this.#opening = true;
+    await this.#read();
+    // Closed while it read: it stays shut.
+    if (!this.#opening || this.#build !== build) return;
+    this.#opening = false;
     this.root.hidden = false;
-    await this.refresh();
+    this.#render();
   }
 
   close(): void {
     this.#parents = [];
+    this.#opening = false;
     this.root.hidden = true;
+    // Nothing of this page is there to flash by when the next one opens.
+    this.root.replaceChildren();
     this.changed();
   }
 
@@ -142,6 +154,12 @@ export class Page {
 
   /** Builds the rows again from what Forma says now. */
   async refresh(): Promise<void> {
+    await this.#read();
+    // Still coming up (`#open` shows it), or shut while it read: nothing to draw.
+    if (!this.root.hidden) this.#render();
+  }
+
+  async #read(): Promise<void> {
     // The selection follows its row: playing something adds rows above it, and A again must not
     // land on whatever moved into its place (Stop, say). Rows can share a label (two `Video
     // mode`s in different groups), so the one at the same place wins.
@@ -157,7 +175,6 @@ export class Page {
       this.#rows = [];
       this.#note = FormaError.from(error).message;
     }
-    this.#render();
   }
 
   /** Runs a change with the page showing `label`, then reads everything again. */
