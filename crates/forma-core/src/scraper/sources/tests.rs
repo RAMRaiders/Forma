@@ -626,9 +626,10 @@ fn launchbox_finds_one_game_under_different_names_in_a_library() {
     let file = paths.cache_dir().join("launchbox.db");
     let mut system = crate::scraper::tests::system(dir.path());
     system.platforms = vec!["megadrive".to_owned()];
-    let game = |id, name: &str, path: &str| crate::library::Game {
+    let game = |id, name: &str, path: &str| crate::library::GameFile {
         id,
-        ..crate::scraper::tests::game(path, name)
+        name: name.to_owned(),
+        path: path.to_owned(),
     };
     let games = [
         game(1, "Bare Knuckle II", "Bare Knuckle II (Japan).md"),

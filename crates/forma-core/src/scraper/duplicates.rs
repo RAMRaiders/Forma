@@ -11,24 +11,16 @@ use serde::Serialize;
 
 use super::sources::launchbox;
 use super::text::title_key;
-use crate::library::Game;
+use crate::library::GameFile;
 use crate::paths::Paths;
 use crate::systems::System;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DuplicateGame {
-    pub id: i64,
-    pub name: String,
-    pub path: String,
-}
 
 /// Games LaunchBox says are one, under its name for it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DuplicateGroup {
     pub title: String,
-    pub games: Vec<DuplicateGame>,
+    pub games: Vec<GameFile>,
 }
 
 /// The games of `system` that are another of its games under a different name; `None` without
@@ -37,13 +29,13 @@ pub struct DuplicateGroup {
 pub fn duplicates(
     paths: &Paths,
     system: &System,
-    games: &[Game],
+    games: &[GameFile],
 ) -> Result<Option<Vec<DuplicateGroup>>, String> {
     let file = paths.cache_dir().join("launchbox.db");
     let Some(found) = identified(&file, &system.platforms, games)? else {
         return Ok(None);
     };
-    let mut groups: BTreeMap<i64, (String, Vec<&Game>)> = BTreeMap::new();
+    let mut groups: BTreeMap<i64, (String, Vec<&GameFile>)> = BTreeMap::new();
     for game in games {
         if let Some((id, title)) = found.get(&game.id) {
             groups
@@ -53,7 +45,7 @@ pub fn duplicates(
                 .push(game);
         }
     }
-    let title_of = |game: &Game| {
+    let title_of = |game: &GameFile| {
         let stem = Path::new(&game.path)
             .file_stem()
             .map(|s| s.to_string_lossy().into_owned())
@@ -77,14 +69,7 @@ pub fn duplicates(
         })
         .map(|(title, games)| DuplicateGroup {
             title,
-            games: games
-                .into_iter()
-                .map(|g| DuplicateGame {
-                    id: g.id,
-                    name: g.name.clone(),
-                    path: g.path.clone(),
-                })
-                .collect(),
+            games: games.into_iter().cloned().collect(),
         })
         .collect();
     out.sort_by_key(|g| g.title.to_lowercase());
@@ -114,7 +99,7 @@ static KNOWN: Mutex<BTreeMap<PathBuf, Known>> = Mutex::new(BTreeMap::new());
 fn identified(
     file: &Path,
     platforms: &[String],
-    games: &[Game],
+    games: &[GameFile],
 ) -> Result<Option<launchbox::Identified>, String> {
     let Ok(meta) = std::fs::metadata(file) else {
         return Ok(None);
