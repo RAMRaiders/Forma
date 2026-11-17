@@ -333,7 +333,8 @@ export function themeUse(
 ): 'shown' | 'backup' | 'unused' {
   if (!theme || theme.shows.length === 0) return 'shown';
   if (theme.backups[kind]) return 'backup';
-  return theme.shows.includes(kind) ? 'shown' : 'unused';
+  // What it asks for (a view's own, say) it draws too, listed in `shows` or not.
+  return theme.shows.includes(kind) || theme.media.includes(kind) ? 'shown' : 'unused';
 }
 
 /** `Cyber uses this only when there is no Wheel`. */

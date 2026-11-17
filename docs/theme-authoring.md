@@ -98,10 +98,9 @@ when another is missing (since SDK 1.26.0, and a theme using them needs `"sdk": 
 ```
 
 A run then fetches every kind in `shows` (and `media` on top), and a backup only for a game
-where what it stands in for cannot be had. A game's Scrape screen on Select sets the other
-kinds apart under "Not used by <theme>" and does not pick those by default, nor a backup when
-what it replaces is on offer; they can still be chosen there by hand. A theme with no `shows`
-gets the usual kinds fetched, and nothing set apart.
+where what it stands in for cannot be had. A game's Scrape screen on Select offers those kinds
+alone, and does not pick a backup by default when what it replaces is on offer. A theme with
+no `shows` gets the usual kinds.
 
 Start → Interface lists the themes you can pick. Forma's plain **Default** theme is a safety net
 for when no other theme can start, so it is listed only while it is in use.
