@@ -3,7 +3,7 @@
 //! The engine is `forma_core::scraper`.
 
 use std::collections::{BTreeMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
 use std::time::{Duration, Instant};
 
@@ -46,6 +46,9 @@ pub struct Scraping {
     stop: Arc<AtomicBool>,
     /// The offers last asked for, for the user to pick from.
     picking: Mutex<Option<pick::Picking>>,
+    /// Counts the asks for offers: only the latest keeps its answer in `picking`, so one the
+    /// user cancelled, answering late, does not replace the offers of the game after it.
+    asks: AtomicU64,
 }
 
 impl Scraping {
@@ -59,6 +62,7 @@ impl Scraping {
             status: Mutex::new(RunStatus::default()),
             stop: Arc::new(AtomicBool::new(false)),
             picking: Mutex::new(None),
+            asks: AtomicU64::new(0),
         }
     }
 
@@ -534,6 +538,7 @@ pub async fn scraper_offers<R: Runtime>(
 ) -> ApiResult<pick::Offers> {
     off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
+        let ask = state.scraper.asks.fetch_add(1, Ordering::SeqCst) + 1;
         let (sources, config, credentials) = load(state)?;
         let (game, system) = target(state, id)?;
         let picking = pick::gather(
@@ -545,7 +550,10 @@ pub async fn scraper_offers<R: Runtime>(
             &system,
         );
         let offers = picking.offers.clone();
-        *state.scraper.picking() = Some(picking);
+        let mut last = state.scraper.picking();
+        if state.scraper.asks.load(Ordering::SeqCst) == ask {
+            *last = Some(picking);
+        }
         Ok(offers)
     })
     .await

@@ -70,6 +70,8 @@ export class Page {
   #rows: Row[] = [];
   #selected = 0;
   #busy: string | null = null;
+  /** While a `run` that may be cancelled works: B calls it. */
+  #cancel: (() => void) | null = null;
   #note: string | null = null;
   /** A small line under the title, e.g. the game's file name. */
   #file: string | null = null;
@@ -202,17 +204,38 @@ export class Page {
     }
   }
 
-  /** Runs a change with the page showing `label`, then reads everything again. */
-  async run(label: string, work: () => Promise<string | void>): Promise<void> {
+  /**
+   * Runs a change with the page showing `label`, then reads everything again. `cancellable`:
+   * B gives the page back at once, and `signal` says so to the work, which must then change
+   * nothing on screen (push no page); what it was waiting for is left to finish unheeded.
+   */
+  async run(
+    label: string,
+    work: (signal: AbortSignal) => Promise<string | void>,
+    { cancellable = false }: { cancellable?: boolean } = {}
+  ): Promise<void> {
+    const control = new AbortController();
+    const { signal } = control;
     this.#busy = label;
+    this.#cancel = cancellable ? () => control.abort() : null;
     this.#render();
+    const cancelled = new Promise<void>((resolve) =>
+      signal.addEventListener('abort', () => resolve())
+    );
+    const job = work(signal);
+    // Left to finish after a cancel: its failure is nobody's now.
+    job.catch(() => {});
     try {
-      const done = await work();
-      if (done) this.notify(done);
+      const done = await Promise.race([job, cancelled]);
+      if (signal.aborted) this.notify('Cancelled');
+      else if (done) this.notify(done);
     } catch (error) {
-      this.notify(FormaError.from(error).message);
+      if (!signal.aborted) this.notify(FormaError.from(error).message);
     } finally {
       this.#busy = null;
+      this.#cancel = null;
+      // Done or cancelled: either way the work hears it is over.
+      control.abort();
       await this.refresh();
     }
   }
@@ -236,7 +259,7 @@ export class Page {
 
   hints(): [string, string][] {
     if (this.keyboard.open) return this.keyboard.hints();
-    if (this.#busy) return [];
+    if (this.#busy) return this.#cancel ? [['B', 'Cancel']] : [];
     const row = this.#rows[this.#selected];
     return [
       ...(row?.run ? [['A', 'Choose'] as [string, string]] : []),
@@ -248,7 +271,11 @@ export class Page {
 
   input(e: InputEvent): void {
     if (this.keyboard.open) return this.keyboard.input(e);
-    if (!e.pressed || this.#busy) return;
+    if (this.#busy) {
+      if (e.pressed && !e.repeat && e.action === 'back') this.#cancel?.();
+      return;
+    }
+    if (!e.pressed) return;
     if (e.action === 'up' || e.action === 'down' || e.action === 'left' || e.action === 'right') {
       const slots = this.#rows.map((r) => ({ tile: !!r.tile, heading: !!r.heading }));
       const to = moveTiles(this.#selected, slots, e.action, TILES_ACROSS);
@@ -360,6 +387,22 @@ export class Page {
         )
       );
     });
+    // Pictures already on screen stay as they are: a new one is blank until decoded, so
+    // drawing the page again (a picture arriving, a choice made) made every picture blink.
+    const shown = new Map<string, HTMLImageElement[]>();
+    for (const img of this.root.querySelectorAll<HTMLImageElement>('.panel img')) {
+      const src = img.getAttribute('src');
+      if (src) shown.set(src, [...(shown.get(src) ?? []), img]);
+    }
+    for (const item of items) {
+      for (const img of item.querySelectorAll<HTMLImageElement>('img')) {
+        const old = shown.get(img.getAttribute('src') ?? '')?.shift();
+        if (old) {
+          old.className = img.className;
+          img.replaceWith(old);
+        }
+      }
+    }
     this.root.replaceChildren(
       el(
         'div',
