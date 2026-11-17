@@ -101,14 +101,14 @@ function start(
   };
   const text = (selector: string) =>
     [...root.querySelectorAll(selector)].map((n) => n.textContent?.trim() ?? '');
-  /** Start, down to the entry called `label`, A. */
+  /** Start, down to the row called `label`, A. */
   const openMenu = async (label: string) => {
     await press('start');
-    await vi.waitFor(() => expect(text('.menu li .name').length).toBeGreaterThan(0));
-    for (let i = 0; i < 20 && text('.menu li.selected .name')[0] !== label; i++) {
+    await vi.waitFor(() => expect(text('.page h2')[0]).toMatch(/^Forma/));
+    for (let i = 0; i < 30 && text('.page li.selected .name')[0] !== label; i++) {
       await press('down');
     }
-    expect(text('.menu li.selected .name')).toEqual([label]);
+    expect(text('.page li.selected .name')).toEqual([label]);
     await press('confirm');
   };
   return {
@@ -193,7 +193,7 @@ describe('Forma’s shell', () => {
     await openMenu('Audio');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Audio']));
     await press('back');
-    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Audio']));
+    await vi.waitFor(() => expect(text('.page li.selected .name')).toEqual(['Audio']));
     expect(shell.open).toBe(true);
     // B in the menu itself closes it.
     await press('back');
@@ -204,12 +204,12 @@ describe('Forma’s shell', () => {
     const { press, text, shell, openMenu } = start(['system.network']);
     await openMenu('Network');
     await press('back');
-    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Network']));
+    await vi.waitFor(() => expect(text('.page li.selected .name')).toEqual(['Network']));
     await press('back');
     await openMenu('Views');
     await vi.waitFor(() => expect(shell.open).toBe(true));
     await press('back');
-    await vi.waitFor(() => expect(text('.menu li.selected .name')).toEqual(['Views']));
+    await vi.waitFor(() => expect(text('.page li.selected .name')).toEqual(['Views']));
     // Start shuts everything, wherever it is.
     await press('start');
     expect(shell.open).toBe(false);
@@ -281,7 +281,8 @@ describe('Forma’s shell', () => {
   it('keeps to the views a theme says it shows: one, and there is nothing to pick', async () => {
     const { press, text, shell, openMenu } = start([], {}, ['systems']);
     await press('start');
-    expect(text('.menu li .name')).not.toContain('Views');
+    await vi.waitFor(() => expect(text('.page li .name')).toContain('Collections'));
+    expect(text('.page li .name')).not.toContain('Views');
     await press('back');
     await press('select');
     expect(text('.toast')).toEqual(['Neon shows the library one way']);
@@ -386,10 +387,7 @@ describe('Forma’s shell', () => {
     );
     const rows = () => text('.page > .panel li[role=option] .name');
     const details = () => text('.page > .panel li[role=option] .description');
-    await openMenu('Games');
-    await vi.waitFor(() => expect(rows()).toContain('Sibling games'));
-    for (let i = 0; i < 4; i++) await press('down');
-    await press('confirm');
+    await openMenu('Sibling games');
     await vi.waitFor(() => expect(rows()).toEqual(["Needs LaunchBox's data"]));
 
     answer = [
@@ -414,7 +412,7 @@ describe('Forma’s shell', () => {
 
   it('scraper: runs in the background, chooses what to fetch, sets up a source', async () => {
     const { press, text, openMenu } = start(['scraper.manage']);
-    await openMenu('Games');
+    await openMenu('Scrapers');
     const rows = () => text('.page > .panel li[role=option] .name');
     const details = () => text('.page > .panel li[role=option] .description');
     const selected = () => text('.page li.selected .name')[0];
@@ -422,16 +420,6 @@ describe('Forma’s shell', () => {
       for (let i = 0; i < 40 && selected() !== label; i++) await press('down');
       expect(selected()).toBe(label);
     };
-    await vi.waitFor(() =>
-      expect(rows()).toEqual([
-        'Scrapers',
-        'Emulator options',
-        'ROM check',
-        'Game versions',
-        'Sibling games'
-      ])
-    );
-    await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
     expect(text('.page li.heading')).toEqual([
       'Scrape',
@@ -491,7 +479,7 @@ describe('Forma’s shell', () => {
 
   it('emulator options: the shader, picture and decorations among them, which give way to it', async () => {
     const { press, text, openMenu } = start(['settings.emulators']);
-    await openMenu('Games');
+    await openMenu('Emulator options');
     const rows = () => text('.page > .panel li[role=option] .name');
     const details = () => text('.page > .panel li[role=option] .description');
     const at = (label: string) => details()[rows().indexOf(label)];
@@ -500,9 +488,6 @@ describe('Forma’s shell', () => {
       for (let i = 0; i < 60 && selected() !== label; i++) await press('down');
       expect(selected()).toBe(label);
     };
-    await vi.waitFor(() => expect(rows()).toContain('Emulator options'));
-    await goTo('Emulator options');
-    await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Shader'));
     // One place to choose it: Batocera's shader set is not among the picture options.
     expect(at('Shader')).toBe('None');
@@ -552,6 +537,8 @@ describe('Forma’s shell', () => {
         'Scrape',
         'Edit details',
         'Emulator settings',
+        'Collections',
+        'Netplay',
         'Filter list',
         'Delete'
       ])
@@ -1197,14 +1184,18 @@ describe('Forma’s shell', () => {
     await press('confirm');
     expect(shell.open).toBe(false);
     await press('start');
-    expect(text('.menu h2')).toEqual(['Forma 0.0.0']);
-    expect(text('.menu .note')).toEqual(['Neon 2.0.0']);
-    expect(text('.menu li .name')).toEqual([
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Forma 0.0.0']));
+    expect(text('.page .note')).toEqual(['Neon 2.0.0']);
+    expect(text('.page li[role=option] .name')).toEqual([
       'Collections',
       'Views',
-      'Downloads',
       'Magazines',
-      'Games',
+      'Downloads',
+      'Scrapers',
+      'Emulator options',
+      'ROM check',
+      'Game versions',
+      'Sibling games',
       'Achievements',
       'Netplay',
       'Interface',
@@ -1218,36 +1209,51 @@ describe('Forma’s shell', () => {
       'Restart',
       'Shut down'
     ]);
-    expect(text('.menu h3')).toEqual(['Library', 'Play', 'Settings', 'Devices', 'Power']);
-    expect(text('.menu .about')).toEqual(['Your own lists of games']);
-    expect(text('.hints .hint')).toEqual(['AChoose', 'BClose']);
+    expect(text('.page li.heading')).toEqual([
+      'Library',
+      'Games',
+      'Play',
+      'Settings',
+      'Devices',
+      'Power'
+    ]);
+    expect(text('.page li.selected .description')).toEqual(['Your own lists of games']);
+    expect(text('.hints .hint')).toEqual(['AChoose', 'BBack']);
     expect(open).toEqual([true]);
     await press('back');
     expect(shell.open).toBe(false);
     expect(open).toEqual([true, false]);
   });
 
-  it('offers options for the game and system the theme says are selected', async () => {
+  it('keeps Start the same whatever is selected: the game’s own things are on Select', async () => {
     const { press, text } = start([], {
       view: 'systems',
+      list: 'games',
       system: { name: 'snes', fullname: 'Super Nintendo' },
       game: { id: 3, name: 'Super Metroid' }
     });
     await press('start');
-    expect(text('.menu li .name').slice(0, 2)).toEqual(['Game options', 'System options']);
-    expect(text('.menu h3')[0]).toBe('Selected');
-    expect(text('.menu .about')).toEqual([
-      'Emulator, CRT shader, decorations and options for Super Metroid only'
-    ]);
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Forma 0.0.0']));
+    const start_ = text('.page li[role=option] .name');
+    expect(start_[0]).toBe('Collections');
+    expect(text('.page li[role=option] .description').join(' ')).not.toContain('Super Metroid');
+    await press('start');
+    await press('select');
+    await vi.waitFor(() => expect(text('.page h2')[0]).toMatch(/^Super Metroid/));
+    const rows = text('.page li[role=option] .name');
+    expect(rows).toEqual(expect.arrayContaining(['Emulator settings', 'Collections', 'Netplay']));
   });
 
   it('a system’s emulator options choose its shader alone, over global', async () => {
     const { press, text } = start(['settings.emulators'], {
       view: 'systems',
+      list: 'systems',
       system: { name: 'snes', fullname: 'Super Nintendo' }
     });
-    await press('start');
-    expect(text('.menu li.selected .name')).toEqual(['System options']);
+    await press('select');
+    await vi.waitFor(() => expect(text('.page li.selected .name')).toEqual(['Emulator settings']));
+    // Scraping the whole system is here too, not on Start.
+    expect(text('.page li[role=option] .name')).toContain('Scrape every Super Nintendo game');
     await press('confirm');
     const rows = () => text('.page > .panel li[role=option] .name');
     const details = () => text('.page > .panel li[role=option] .description');
@@ -1274,74 +1280,25 @@ describe('Forma’s shell', () => {
     expect(rows()).not.toContain('All settings…');
   });
 
-  it('moves across the menu as it looks: rows of tiles, left and right too', async () => {
-    const { press, text, root } = start();
+  it('moves down Start as down any page, from section to section', async () => {
+    const { press, text } = start();
     await press('start');
-    // Lay the tiles out as on screen: four across in each row's own band.
-    const tiles = [...root.querySelectorAll<HTMLElement>('.menu li')];
-    const sections = [...root.querySelectorAll('.menu section')];
-    let top = 0;
-    for (const section of sections) {
-      const own = [...section.querySelectorAll<HTMLElement>('li')];
-      own.forEach((tile, n) => {
-        const box = {
-          left: (n % 4) * 100,
-          top: top + Math.floor(n / 4) * 50,
-          width: 90,
-          height: 40
-        };
-        tile.getBoundingClientRect = () =>
-          ({
-            ...box,
-            right: box.left + 90,
-            bottom: box.top + 40,
-            x: box.left,
-            y: box.top
-          }) as DOMRect;
-      });
-      top += Math.ceil(own.length / 4) * 50 + 20;
-    }
-    expect(tiles.length).toBe(17);
-    const at = () => text('.menu li.selected .name')[0];
-    expect(at()).toBe('Collections');
-    await press('right');
+    const at = () => text('.page li.selected .name')[0];
+    await vi.waitFor(() => expect(at()).toBe('Collections'));
+    await press('down');
     expect(at()).toBe('Views');
-    await press('down');
-    // the next row has one tile: the nearest across
-    expect(at()).toBe('Games');
-    await press('down');
-    // the tile below, in the next row
-    expect(at()).toBe('Achievements');
-    await press('right');
-    await press('down');
-    expect(at()).toBe('Screensaver');
-    await press('right');
-    expect(at()).toBe('Audio');
-    await press('right');
-    expect(at()).toBe('System');
-    await press('down');
-    // the row's second line has one tile: the nearest across
-    expect(at()).toBe('Add-ons');
-    await press('down');
-    expect(at()).toBe('Controllers');
-    await press('right');
-    expect(at()).toBe('Network');
-    await press('down');
-    expect(at()).toBe('Restart');
-    await press('down');
-    // down from the bottom wraps to the top, in the same column
-    expect(at()).toBe('Views');
-    await press('left');
-    await press('left');
-    // left stops at the edge
-    expect(at()).toBe('Collections');
+    for (let i = 0; i < 3; i++) await press('down');
+    // Into the next section.
+    expect(at()).toBe('Scrapers');
+    await press('up');
+    expect(at()).toBe('Downloads');
   });
 
   it('power actions need a second press', async () => {
     const { press, text } = start();
     await press('start');
-    for (let i = 0; i < 15; i++) await press('down');
-    expect(text('.menu li.selected .name')).toEqual(['Restart']);
+    await vi.waitFor(() => expect(text('.page li.selected .name')).toEqual(['Collections']));
+    while (text('.page li.selected .name')[0] !== 'Restart') await press('down');
     await press('confirm');
     expect(text('.toast')).toEqual(['Press A again to restart']);
     await press('confirm');
@@ -1364,10 +1321,8 @@ describe('Forma’s shell', () => {
   });
 
   it('switches theme, and sets the theme’s own settings, from Interface', async () => {
-    const { press, text, settings, forma } = start(['settings.system']);
-    await press('start');
-    for (let i = 0; i < 7; i++) await press('down');
-    await press('confirm');
+    const { text, settings, forma, openMenu, press } = start(['settings.system']);
+    await openMenu('Interface');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Interface']));
     expect(text('.page li.heading')).toEqual(['Theme', 'Screen', 'Look', 'This theme']);
     const names = text('.page li[role=option] .name');
@@ -1389,7 +1344,7 @@ describe('Forma’s shell', () => {
   });
 
   it('shows a theme’s logo in place of its name in Interface', async () => {
-    const { press, root, forma } = start(['settings.system']);
+    const { root, forma, openMenu } = start(['settings.system']);
     vi.spyOn(forma.themes, 'list').mockResolvedValue([
       {
         id: 'cyber',
@@ -1407,9 +1362,7 @@ describe('Forma’s shell', () => {
         logo: 'forma://localhost/theme/cyber/logo.svg'
       }
     ]);
-    await press('start');
-    for (let i = 0; i < 7; i++) await press('down');
-    await press('confirm');
+    await openMenu('Interface');
     await vi.waitFor(() => expect(root.querySelector('.page .theme-logo')).not.toBeNull());
     const logo = root.querySelector<HTMLImageElement>('.page .theme-logo')!;
     expect(logo.getAttribute('src')).toBe('forma://localhost/theme/cyber/logo.svg');
@@ -1435,11 +1388,9 @@ describe('Forma’s shell', () => {
   });
 
   it('joins a Wi-Fi network with a password typed on the on-screen keyboard', async () => {
-    const { press, text } = start(['system.network']);
-    await press('start');
-    for (let i = 0; i < 13; i++) await press('down');
-    expect(text('.menu li.selected .name')).toEqual(['Network']);
-    await press('confirm');
+    const network = start(['system.network']);
+    const { press, text, openMenu } = network;
+    await openMenu('Network');
     const rows = () => text('.network > .panel li .name');
     await vi.waitFor(() => expect(rows()).toContain('▮▮▯▯  Office 5G'));
     expect(rows()[0]).toBe('Ethernet');
@@ -1540,7 +1491,8 @@ describe('Forma’s settings pages', () => {
   });
 
   it('netplay on: hosts the selected game, lists rooms for your games, joins one', async () => {
-    const { shell, press, text, openMenu, forma, backend } = start(['settings.batocera'], {
+    const { shell, press, text, forma, backend } = start(['settings.batocera'], {
+      list: 'games',
       game: { id: 2, name: 'Super Mario Bros.' }
     });
     await forma.batocera.set('global.netplay', '1');
@@ -1550,9 +1502,13 @@ describe('Forma’s settings pages', () => {
       if (cmd === 'launch_game') launches.push(args);
       return invoke<T>(cmd, args);
     };
-    await openMenu('Netplay');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
+    // Hosting a game is on its Select page, with the rest of netplay.
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Netplay'));
+    while (selected() !== 'Netplay') await press('down');
+    await press('confirm');
     await vi.waitFor(() => expect(rows()[0]).toBe('Host Super Mario Bros.'));
     expect(rows().slice(1, 3)).toEqual(['Rooms online…', 'On this network…']);
     expect(text('.page li.heading')).toEqual(['Play', 'Settings']);
@@ -1602,11 +1558,16 @@ describe('Forma’s settings pages', () => {
   });
 
   it('collections: puts the selected game in one, makes one with it, deletes on a second Y', async () => {
-    const { press, text, openMenu, forma } = start([], {
+    const { press, text, forma } = start([], {
+      list: 'games',
       game: { id: 2, name: 'Super Mario Bros.' }
     });
-    await openMenu('Collections');
     const rows = () => text('.page > .panel li[role=option] .name');
+    // A game's collections are on its Select page.
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Collections'));
+    while (text('.page li.selected .name')[0] !== 'Collections') await press('down');
+    await press('confirm');
     await vi.waitFor(() => expect(rows()[0]).toMatch(/^Couch co-op: /));
     const was = rows()[0]!;
     await press('confirm');
@@ -1636,12 +1597,9 @@ describe('Forma’s settings pages', () => {
 
   it('game settings: global options, a choice cycled, a page of its own and back', async () => {
     const { press, text, openMenu } = start(['settings.emulators']);
-    await openMenu('Games');
+    await openMenu('Emulator options');
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
-    await vi.waitFor(() => expect(rows()).toContain('Emulator options'));
-    await press('down');
-    await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Game aspect ratio'));
     expect(text('.page h2')).toEqual(['Emulator options']);
     // How the game looks is on Screen, not here.
@@ -1668,11 +1626,19 @@ describe('Forma’s settings pages', () => {
   it("a system's options follow its core, and a game inherits them", async () => {
     const context: ShellContext = {
       view: 'systems',
+      list: 'systems',
       system: { name: 'nes', fullname: 'Nintendo Entertainment System' }
     };
-    const { press, text, openMenu } = start(['settings.emulators'], context);
+    const { press, text } = start(['settings.emulators'], context);
     const rows = () => text('.page > .panel li[role=option] .name');
-    await openMenu('System options');
+    // Select, down to the row called `label`, A.
+    const openSelect = async (label: string) => {
+      await press('select');
+      await vi.waitFor(() => expect(rows()).toContain(label));
+      while (text('.page li.selected .name')[0] !== label) await press('down');
+      await press('confirm');
+    };
+    await openSelect('Emulator settings');
     // The emulator and its core as one row.
     await vi.waitFor(() => expect(rows()[0]).toBe('Core'));
     expect(rows()).not.toContain('Emulator');
@@ -1688,13 +1654,14 @@ describe('Forma’s settings pages', () => {
     await press('confirm');
     await vi.waitFor(() => expect(text('.page li.selected .description')).toEqual(['nestopia']));
     expect(rows()).not.toContain('Palette');
-    // B back to the menu, B again to close it.
+    // B back to Select's page, B again to close it.
     await press('back');
     await press('back');
 
     // A game of the NES selected in the theme: its core is the system's.
     context.game = { id: 2, name: 'Super Mario Bros.' };
-    await openMenu('Game options');
+    context.list = 'games';
+    await openSelect('Emulator settings');
     await vi.waitFor(() => expect(rows()).toContain('Core'));
     const core = rows().indexOf('Core');
     expect(text('.page > .panel li[role=option] .description')[core]).toBe(
@@ -1944,7 +1911,7 @@ describe('Forma’s screensaver', () => {
       expect(root.querySelector('.screensaver')!.hasAttribute('hidden')).toBe(true);
       expect(saver).toEqual([true, false]);
       // Start woke it and did not open the menu.
-      expect(root.querySelector('.menu')!.hasAttribute('hidden')).toBe(true);
+      expect(root.querySelector('.page')!.hasAttribute('hidden')).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -1990,14 +1957,11 @@ describe('Forma’s screensaver', () => {
 });
 
 describe('ROM check', () => {
-  it('shows each system’s dump check under Start → Games, and turns it off', async () => {
+  it('shows each system’s dump check under Start → ROM check, and turns it off', async () => {
     const { press, text, openMenu, forma } = start(['settings.system']);
-    await openMenu('Games');
+    await openMenu('ROM check');
     const rows = () => text('.page > .panel li[role=option] .name');
     const details = () => text('.page > .panel li[role=option] .description');
-    await vi.waitFor(() => expect(rows()).toContain('ROM check'));
-    for (let i = 0; i < 2; i++) await press('down');
-    await press('confirm');
     await vi.waitFor(() => expect(rows()[0]).toBe('Check ROMs: On'));
     const nes = rows().findIndex(
       (r) => r.startsWith('Nintendo Entertainment System') || r === 'nes'

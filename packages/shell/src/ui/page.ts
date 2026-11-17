@@ -23,7 +23,17 @@ export interface Row {
   /** A small tag beside the label: about the row, apart from its value. `kept`: nothing new. */
   badge?: { text: string; kept?: boolean };
   /** A small picture before the label (see `.icon-*` in style.css). */
-  icon?: 'scrape' | 'edit' | 'emulator' | 'manual' | 'media' | 'filter' | 'theme' | 'delete';
+  icon?:
+    | 'scrape'
+    | 'edit'
+    | 'emulator'
+    | 'manual'
+    | 'media'
+    | 'filter'
+    | 'theme'
+    | 'delete'
+    | 'collections'
+    | 'netplay';
   /** It destroys something: shown apart, in red. */
   danger?: boolean;
 }
@@ -68,15 +78,21 @@ export class Page {
     return this.#opening || !this.root.hidden;
   }
 
-  /** `file`: a small line under the title, e.g. the game's ROM file name. */
+  /** The row chosen on the page on screen. */
+  get selected(): number {
+    return this.#selected;
+  }
+
+  /** `file`: a small line under the title, e.g. the game's ROM file name. `at`: the row chosen. */
   async show(
     title: string,
     build: () => Row[] | Promise<Row[]>,
     note?: string,
-    file?: string
+    file?: string,
+    at = 0
   ): Promise<void> {
     this.#parents = [];
-    await this.#open(title, build, note, 0, file);
+    await this.#open(title, build, note, at, file);
   }
 
   /** A deeper page, starting on row `at`; B comes back here. */
