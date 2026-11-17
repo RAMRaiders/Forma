@@ -651,9 +651,9 @@ describe('Forma’s shell', () => {
         media: [0]
       })
     );
-    await vi.waitFor(() => expect(text('.toast')).toContain('Saved'));
-    // The whole menu closes, not just the scrape page.
-    expect(root.querySelector('.page')?.hasAttribute('hidden')).toBe(true);
+    // The whole menu closes, not just the scrape page: that says it saved, no notice.
+    await vi.waitFor(() => expect(root.querySelector('.page')?.hasAttribute('hidden')).toBe(true));
+    expect(text('.toast').join('')).not.toContain('Saved');
   });
 
   it('the game list is filtered from Select: by first letter, and cleared again', async () => {
@@ -779,7 +779,12 @@ describe('Forma’s shell', () => {
     expect(text('.page > .panel .note')).toEqual([note]);
     expect(rows()).not.toContain(note);
 
+    // Back with the first scrape's picks unsaved: asked first, then left without saving.
     await press('back');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Save changes?']));
+    expect(rows()).toEqual(['Save', 'Leave without saving', 'Keep choosing']);
+    await press('down');
+    await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Edit details'));
     await press('down');
     await press('confirm');

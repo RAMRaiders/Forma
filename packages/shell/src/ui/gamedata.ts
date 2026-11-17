@@ -6,7 +6,7 @@ import type {
   VersionGroup
 } from '@ramraiders/forma-sdk';
 
-import type { Page, Row } from './page.js';
+import type { Leave, Page, Row } from './page.js';
 import { backupNote, themeUse } from './scraper.js';
 import { emulatorScreen } from './shader.js';
 
@@ -288,11 +288,8 @@ function pick(forma: Forma, page: Page, game: { id: number; name: string }): Pro
       if (!offered && !removable) {
         return offers.problems[0] ?? 'No scraper knows this game';
       }
-      await page.push(
-        `Scrape ${game.name}`,
-        pickScreen(forma, page, game.id, offers, settings),
-        note
-      );
+      const { build, leave } = pickScreen(forma, page, game.id, offers, settings);
+      await page.push(`Scrape ${game.name}`, build, note, 0, leave);
     },
     { cancellable: true }
   );
@@ -304,7 +301,7 @@ function pickScreen(
   id: number,
   offers: ScraperOffers,
   { theme, mediaKinds, manuals }: ScraperSettings
-): () => Row[] {
+): { build: () => Row[]; leave: Leave } {
   // Picked by default: the first scraper's, only for a game scraped for the first time (a name
   // alone is not a scrape). Any other stays as it is, gaps too, until the user says otherwise.
   const firstTime =
@@ -498,9 +495,53 @@ function pickScreen(
     loading = false;
   };
 
+  const changeCount = () => text.size + media.size + cleared.size + removed.size;
+
+  // Saved, back to the list, which keeps to the game if it was renamed. Only a problem is said:
+  // the page closing says it saved.
+  const save = () =>
+    page.run('Saving…', async () => {
+      const problems = await forma.scraper.apply(id, Object.fromEntries(text), [...media.values()]);
+      if (cleared.size > 0) {
+        await forma.scraper.edit(id, Object.fromEntries([...cleared].map((field) => [field, ''])));
+      }
+      if (removed.size > 0) {
+        problems.push(...(await forma.scraper.removeMedia(id, [...removed])));
+      }
+      page.close();
+      return problems[0];
+    });
+
+  // B with changes chosen: asked whether to save them, never dropped unasked.
+  const leave: Leave = async () => {
+    const changes = changeCount();
+    if (changes === 0) return true;
+    await page.push(
+      'Save changes?',
+      () => [
+        {
+          label: 'Save',
+          detail: changes === 1 ? '1 change' : `${changes} changes`,
+          run: save
+        },
+        {
+          label: 'Leave without saving',
+          run: async () => {
+            // This page, then the scrape page under it: B left that one.
+            await page.pop();
+            await page.pop();
+          }
+        },
+        { label: 'Keep choosing', run: () => page.pop() }
+      ],
+      'What was chosen for this game is not saved yet.'
+    );
+    return false;
+  };
+
   const build = (): Row[] => {
     void Promise.resolve().then(loadChosen);
-    const changes = text.size + media.size + cleared.size + removed.size;
+    const changes = changeCount();
     // Only what the theme uses is on offer: Forma asks for nothing else.
     const sections: Row[] = [...offers.text.map(textRow), ...offers.media.map(mediaRow)];
     sections[0]!.heading ??= 'What will be saved · A to change';
@@ -516,29 +557,9 @@ function pickScreen(
         heading: problems.length > 0 ? 'Ready' : undefined,
         label: 'Save',
         detail: changes === 1 ? '1 change' : `${changes} changes`,
-        run:
-          changes === 0
-            ? undefined
-            : () =>
-                page.run('Saving…', async () => {
-                  const problems = await forma.scraper.apply(id, Object.fromEntries(text), [
-                    ...media.values()
-                  ]);
-                  if (cleared.size > 0) {
-                    await forma.scraper.edit(
-                      id,
-                      Object.fromEntries([...cleared].map((field) => [field, '']))
-                    );
-                  }
-                  if (removed.size > 0) {
-                    problems.push(...(await forma.scraper.removeMedia(id, [...removed])));
-                  }
-                  // Done with this game: back to the list, which keeps to it if it was renamed.
-                  page.close();
-                  return problems[0] ?? 'Saved';
-                })
+        run: changes === 0 ? undefined : save
       }
     ];
   };
-  return build;
+  return { build, leave };
 }
