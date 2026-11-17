@@ -10,6 +10,7 @@ import type {
 
 import { filterScreen, filterSummary } from './filter.js';
 import { mediaToShow } from './reader.js';
+import { collectionsScreen } from './collections.js';
 import { deleteGameRow, gameRows } from './gamedata.js';
 import { emulatorScreen } from './shader.js';
 import { playRows } from './netplay.js';
@@ -609,6 +610,16 @@ export function systemsScreen(
                   `${title} emulator`,
                   emulatorScreen(forma, page, { level: 'system', system: system.name })
                 )
+            },
+            {
+              icon: 'scrape' as const,
+              label: `Scrape every ${title} game`,
+              detail: 'Details and pictures for each, from the scrapers turned on',
+              run: () =>
+                page.run('Starting…', async () => {
+                  await forma.scraper.start({ kind: 'system', name: system.name });
+                  return 'Scraping in the background: Start → Scrapers shows how far it is';
+                })
             }
           ]
         : []),
@@ -675,6 +686,22 @@ export function gamesScreen(
         detail: pictures.map(([, label]) => label).join(' · '),
         run: () => look.media(full)
       });
+    }
+    if (game) {
+      rows.push(
+        {
+          icon: 'collections',
+          label: 'Collections',
+          detail: `Put ${game.name} in your own lists, or take it out`,
+          run: () => page.push('Collections', collectionsScreen(forma, page, page.notify, game))
+        },
+        {
+          icon: 'netplay',
+          label: 'Netplay',
+          detail: `Host ${game.name} for others to join, or join a room`,
+          run: () => page.push('Netplay', netplayScreen(forma, page, game))
+        }
+      );
     }
     if (same.length > 1) {
       rows.push({

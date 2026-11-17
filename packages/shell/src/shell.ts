@@ -11,9 +11,8 @@ import { FormaError } from '@ramraiders/forma-sdk';
 
 import { moveList } from './logic/nav.js';
 import { el } from './ui/dom.js';
-import { Menu, type MenuItem } from './ui/menu.js';
 import { NetworkScreen } from './ui/network.js';
-import { Page } from './ui/page.js';
+import { Page, type Row } from './ui/page.js';
 import {
   type ThemeOnSelect,
   type ThemeSettingValue,
@@ -83,7 +82,6 @@ export const HOLD_MS = 600;
  */
 export class Shell {
   readonly root = el('div', { class: 'shell' });
-  readonly #menu = new Menu();
   readonly #switcher = new Switcher();
   readonly #page: Page;
   readonly #network: NetworkScreen;
@@ -106,15 +104,17 @@ export class Shell {
   /** After the minutes the user chose with no press: over everything. */
   readonly #saver: Screensaver;
   #playing = false;
-  /** The menu entry the open page, network screen or views list came from: B goes back to it. */
+  /** The Start row the network screen, views list or magazines came from: B goes back to it. */
   #returnTo: number | null = null;
   #info: ShellInfo | null = null;
   #views: ViewInfo[] = [];
   #home: string | null = null;
   #confirming: { id: string; until: number } | null = null;
   #wasOpen = false;
-  /** Which settings page is open, for the events that redraw it. */
+  /** Which page is open at the bottom: `start`, `context` (Select's) or `magazines`. */
   #pageKind: string | null = null;
+  /** The Audio page, while open somewhere: it follows what plays. */
+  #music: (() => Promise<Row[]>) | null = null;
   /** A game is running: the shell stays shut. */
   /** A game runs: nothing of Forma's shows over it. */
   get playing(): boolean {
@@ -165,7 +165,7 @@ export class Shell {
     forma.events.on('manual:open', ({ gameId }) => void this.openManual(gameId));
     // What plays moves on by itself: the music page follows.
     forma.events.on('music:changed', () => {
-      if (this.#page.open && this.#pageKind === 'music') void this.#page.refresh();
+      if (this.#music && this.#page.showing(this.#music)) void this.#page.refresh();
     });
     forma.events.on('music:song', (song) => void this.announce(song));
     forma.events.on('ra:unlocked', (session) => void this.showUnlocks(session));
@@ -196,7 +196,6 @@ export class Shell {
       if (scope === 'system' && key === 'display.margins') margins(value);
     });
     this.root.append(
-      this.#menu.root,
       this.#switcher.root,
       this.#network.root,
       this.#page.root,
@@ -248,13 +247,7 @@ export class Shell {
   }
 
   get open(): boolean {
-    return (
-      this.#menu.open ||
-      this.#switcher.open ||
-      this.#network.open ||
-      this.#page.open ||
-      this.#reader.open
-    );
+    return this.#switcher.open || this.#network.open || this.#page.open || this.#reader.open;
   }
 
   /** Forma's magazines page; with `id`, straight into that magazine (B then shows the list). */
@@ -355,7 +348,6 @@ export class Shell {
       return this.#changed();
     }
     if (!e.pressed) return;
-    if (this.#menu.open) return this.#menuInput(e);
     if (this.#switcher.open) return this.#viewsInput(e);
   }
 
@@ -372,7 +364,6 @@ export class Shell {
 
   #closeAll(): void {
     if (this.#reader.open) this.#reader.close();
-    this.#menu.close();
     this.#switcher.close();
     if (this.#network.open) this.#network.close();
     if (this.#page.open) this.#page.close();
@@ -389,160 +380,214 @@ export class Shell {
   }
 
   /**
-   * A page opened from the menu just closed: B (back) brings the menu back, on the entry it was
-   * opened from, rather than shutting everything.
+   * The views list, the network screen or the magazines, opened from Start, just closed: B
+   * (back) brings Start back, on the row it was opened from, rather than shutting everything.
    */
   #backToMenu(e: InputEvent): void {
+    // Not B: Start itself closed, leaving for the screen this row opens (which B comes back from).
+    if (e.action !== 'back') return this.#changed();
     const at = this.#returnTo;
     this.#returnTo = null;
-    if (e.action === 'back' && at !== null) return void this.#openMenu(at);
+    if (at !== null) return void this.#openMenu(at);
     this.#changed();
   }
 
+  /** Start: Forma's own settings and tools, the same whatever is selected, as one list. */
   async #openMenu(at = 0): Promise<void> {
     this.#confirming = null;
     const info = await this.#loadInfo();
-    const context = info?.context ?? {};
-    const { game, system } = context;
+    this.#pageKind = 'start';
+    await this.#page.show(
+      info ? `Forma ${info.formaVersion}`.trim() : 'Forma',
+      () => this.#startRows(),
+      info ? `${info.theme.name} ${info.theme.version}`.trim() : undefined,
+      undefined,
+      at
+    );
+    this.#changed();
+  }
+
+  /**
+   * Start's rows, by section. Each builds its page when chosen, not before: some pages listen
+   * to Forma from the moment they are made. Nothing here is about the game or system selected:
+   * that is Select's.
+   */
+  #startRows(): Row[] {
+    const { forma } = this;
+    const page = this.#page;
+    const info = this.#info;
+    const notify = (message: string) => this.notify(message);
     const views = !(info?.theme.views && info.theme.views.length <= 1);
-    const items: MenuItem[] = [
-      ...(game
-        ? [
-            {
-              id: 'game-options',
-              label: 'Game options',
-              description: `Emulator, CRT shader, decorations and options for ${game.name} only`,
-              section: 'Selected'
-            }
-          ]
-        : []),
-      ...(system
-        ? [
-            {
-              id: 'system-options',
-              label: 'System options',
-              description: `Emulator, CRT shader, decorations and options for every ${system.fullname || system.name} game`,
-              section: 'Selected'
-            }
-          ]
-        : []),
+    const push = (title: string, build: () => () => Row[] | Promise<Row[]>) => () =>
+      page.push(title, build());
+    // Off the page to a screen of its own: B there comes back to this row.
+    const away = (go: () => unknown) => () => {
+      this.#returnTo = page.selected;
+      page.close();
+      void go();
+    };
+    // A game chosen in a list of games: Start shuts and the theme shows it.
+    const openGame = (id: number) => {
+      this.#returnTo = null;
+      this.#closeAll();
+      this.calls.openGame(id).catch((error: unknown) => {
+        this.notify(FormaError.from(error).message);
+      });
+    };
+    return [
       {
-        id: 'collections',
+        heading: 'Library',
         label: 'Collections',
-        description: game ? `Put ${game.name} in your own lists` : 'Your own lists of games',
-        section: 'Library'
+        detail: 'Your own lists of games',
+        run: push('Collections', () => collectionsScreen(forma, page, notify, null))
       },
       ...(views
         ? [
             {
-              id: 'views',
               label: 'Views',
-              description: 'Organise the library another way',
-              section: 'Library'
+              detail: 'Organise the library another way',
+              run: away(() => this.#openViews())
             }
           ]
         : []),
       {
-        id: 'store',
-        label: 'Downloads',
-        description: 'Free games, ports, decorations and music from Batocera',
-        section: 'Library'
-      },
-      {
-        id: 'magazines',
         label: 'Magazines',
-        description: 'Read scanned magazines from /userdata/magazines',
-        section: 'Library'
+        detail: 'Read scanned magazines from /userdata/magazines',
+        run: away(() => this.openMagazines())
       },
       {
-        id: 'games',
-        label: 'Games',
-        description: 'Scrapers, emulator options and CRT shader',
-        section: 'Library'
+        label: 'Downloads',
+        detail: 'Free games, ports, decorations and music from Batocera',
+        run: push('Content downloader', () => storeScreen(forma, page))
       },
       {
-        id: 'ra',
+        heading: 'Games',
+        label: 'Scrapers',
+        detail: 'Choose scrapers, add accounts, and scrape systems or everything',
+        run: push('Scrapers', () => scraperScreen(forma, page, {}))
+      },
+      {
+        label: 'Emulator options',
+        detail: 'For every game: emulator, CRT shader, picture, decorations, rewind, saves…',
+        run: push('Emulator options', () => emulatorScreen(forma, page, { level: 'global' }))
+      },
+      {
+        label: 'ROM check',
+        detail: 'Which files are the dumps No-Intro and Redump list',
+        run: push('ROM check', () => dumpsScreen(forma, page))
+      },
+      {
+        label: 'Game versions',
+        detail: 'Which games have several versions, per system',
+        run: push('Game versions', () => versionsScreen(forma, page, openGame))
+      },
+      {
+        label: 'Sibling games',
+        detail: 'One game under different names, by LaunchBox',
+        run: push('Sibling games', () => duplicatesScreen(forma, page, openGame))
+      },
+      {
+        heading: 'Play',
         label: 'Achievements',
-        description: 'Your RetroAchievements account and how achievements work',
-        section: 'Play'
+        detail: 'Your RetroAchievements account and how achievements work',
+        run: push('RetroAchievements', () => retroAchievementsScreen(forma, page))
       },
       {
-        id: 'netplay',
         label: 'Netplay',
-        description: game ? `Host ${game.name}, or join a room` : 'Play online with others',
-        section: 'Play'
+        detail: 'Join a room online or on your network, and how others reach you',
+        run: push('Netplay', () => netplayScreen(forma, page))
       },
       {
-        id: 'interface',
+        heading: 'Settings',
         label: 'Interface',
-        description: info?.theme.settings.length
+        detail: info?.theme.settings.length
           ? `Theme, where Forma opens, screen margins, ${info.theme.name}’s own settings`
           : 'Theme, where Forma opens, screen margins',
-        section: 'Settings'
+        run: push('Interface', () =>
+          interfaceScreen(forma, page, {
+            theme: async () => {
+              const now = await this.#loadInfo();
+              return { settings: now?.theme.settings ?? [], views: now?.theme.views ?? null };
+            },
+            setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value),
+            notify
+          })
+        )
       },
       {
-        id: 'screensaver',
         label: 'Screensaver',
-        description: 'When it starts, and what it shows: dim, black, pictures or videos',
-        section: 'Settings'
+        detail: 'When it starts, and what it shows: dim, black, pictures or videos',
+        run: push('Screensaver', () =>
+          screensaverScreen(forma, page, () => {
+            this.#returnTo = null;
+            this.#closeAll();
+            void this.#saver.start();
+          })
+        )
       },
       {
-        id: 'music',
         label: 'Audio',
-        description: 'Video sound, music folders, playlists and web radios',
-        section: 'Settings'
+        detail: 'Video sound, music folders, playlists and web radios',
+        run: push('Audio', () => (this.#music = musicScreen(forma, page)))
       },
       {
-        id: 'system-settings',
         label: 'System',
-        description: 'Display, audio, language, region, storage and updates',
-        section: 'Settings'
+        detail: 'Display, audio, language, region, storage and updates',
+        run: push('System settings', () => systemSettingsScreen(forma, page))
       },
       {
-        id: 'addons',
         label: 'Add-ons',
-        description: 'Extend Forma: more scraper sources and more, from the catalogue',
-        section: 'Settings'
+        detail: 'Extend Forma: more scraper sources and more, from the catalogue',
+        run: push('Add-ons', () => addonsScreen(forma, page, notify))
       },
       {
-        id: 'controllers',
+        heading: 'Devices',
         label: 'Controllers',
-        description: 'Pads in use, Bluetooth pairing',
-        section: 'Devices'
+        detail: 'Pads in use, Bluetooth pairing',
+        run: push('Controllers', () => controllersScreen(forma, page))
       },
       {
-        id: 'network',
         label: 'Network',
-        description: 'Wi-Fi and Ethernet',
-        section: 'Devices'
+        detail: 'Wi-Fi and Ethernet',
+        run: away(() => this.#network.show())
       },
       {
-        id: 'emulationstation',
+        heading: 'Power',
         label: 'Switch to ES',
-        description: 'EmulationStation; Forma returns at the next boot',
-        section: 'Power'
+        detail: 'EmulationStation; Forma returns at the next boot',
+        run: () => this.#power('emulationstation')
       },
       {
-        id: 'restart',
         label: 'Restart',
-        description: 'Restart the console. Press A twice',
-        section: 'Power'
+        detail: 'Restart the console. Press A twice',
+        run: () => this.#power('restart')
       },
       {
-        id: 'shutdown',
         label: 'Shut down',
-        description: 'Turn the console off. Press A twice',
-        section: 'Power'
+        detail: 'Turn the console off. Press A twice',
+        danger: true,
+        run: () => this.#power('shutdown')
       }
     ];
-    this.#menu.show(
-      info ? `Forma ${info.formaVersion}`.trim() : 'Forma',
-      items,
-      info ? `${info.theme.name} ${info.theme.version}`.trim() : undefined,
-      info?.theme.logo ? { src: info.theme.logo, name: info.theme.name } : undefined
-    );
-    this.#menu.select(Math.min(at, items.length - 1));
-    this.#changed();
+  }
+
+  /** Restart and shut down need a second press soon after: a stray A must not shut down. */
+  #power(id: 'restart' | 'shutdown' | 'emulationstation'): void {
+    const powerful = id !== 'emulationstation';
+    const now = Date.now();
+    if (powerful && (this.#confirming?.id !== id || now > this.#confirming.until)) {
+      this.#confirming = { id, until: now + CONFIRM_MS };
+      this.notify(`Press A again to ${id === 'restart' ? 'restart' : 'shut down'}`);
+      return;
+    }
+    this.#confirming = null;
+    const action =
+      id === 'restart'
+        ? this.forma.system.restart()
+        : id === 'shutdown'
+          ? this.forma.system.shutdown()
+          : this.forma.system.quit();
+    action.catch((error: unknown) => this.notify(FormaError.from(error).message));
   }
 
   /**
@@ -676,150 +721,6 @@ export class Shell {
     }
   }
 
-  #menuInput(e: InputEvent): void {
-    const m = this.#menu;
-    if (e.action === 'up' || e.action === 'down' || e.action === 'left' || e.action === 'right') {
-      this.#confirming = null;
-      return m.move(e.action, e.repeat);
-    }
-    if (e.repeat) return;
-    if (e.action === 'back') {
-      m.close();
-      return this.#changed();
-    }
-    if (e.action !== 'confirm' || !m.item) return;
-    const id = m.item.id;
-    this.#returnTo = m.selected;
-    const context = this.#info?.context ?? {};
-    const page = this.#page;
-    // A game chosen in a list of games: the menu shuts and the theme shows it.
-    const openGame = (id: number) => {
-      this.#closeAll();
-      this.calls.openGame(id).catch((error: unknown) => {
-        this.notify(FormaError.from(error).message);
-      });
-    };
-    const show = (title: string, build: Parameters<Page['show']>[1]) => {
-      m.close();
-      this.#pageKind = id;
-      void page.show(title, build);
-      this.#changed();
-    };
-    switch (id) {
-      case 'views':
-        m.close();
-        return void this.#openViews();
-      case 'network':
-        m.close();
-        this.#network.show();
-        return this.#changed();
-      case 'controllers':
-        return show('Controllers', controllersScreen(this.forma, page));
-      case 'store':
-        return show('Content downloader', storeScreen(this.forma, page));
-      case 'system-settings':
-        return show('System settings', systemSettingsScreen(this.forma, page));
-      case 'games':
-        return show('Games', () => [
-          {
-            label: 'Scrapers',
-            detail: 'Choose scrapers, add accounts, and scrape boxes, videos and details',
-            run: () => page.push('Scrapers', scraperScreen(this.forma, page, context))
-          },
-          {
-            label: 'Emulator options',
-            detail: 'For every game: emulator, CRT shader, picture, decorations, rewind, saves…',
-            run: () =>
-              page.push('Emulator options', emulatorScreen(this.forma, page, { level: 'global' }))
-          },
-          {
-            label: 'ROM check',
-            detail: 'Which files are the dumps No-Intro and Redump list',
-            run: () => page.push('ROM check', dumpsScreen(this.forma, page))
-          },
-          {
-            label: 'Game versions',
-            detail: 'Which games have several versions, per system',
-            run: () => page.push('Game versions', versionsScreen(this.forma, page, openGame))
-          },
-          {
-            label: 'Sibling games',
-            detail: 'One game under different names, by LaunchBox',
-            run: () => page.push('Sibling games', duplicatesScreen(this.forma, page, openGame))
-          }
-        ]);
-      case 'system-options':
-        if (!context.system) return;
-        return show(
-          `${context.system.fullname || context.system.name} options`,
-          emulatorScreen(this.forma, page, { level: 'system', system: context.system.name })
-        );
-      case 'game-options':
-        if (!context.game) return;
-        return show(
-          `${context.game.name} options`,
-          emulatorScreen(this.forma, page, { level: 'game', game: context.game.id })
-        );
-      case 'interface':
-        return show(
-          'Interface',
-          interfaceScreen(this.forma, page, {
-            theme: async () => {
-              const info = await this.#loadInfo();
-              return { settings: info?.theme.settings ?? [], views: info?.theme.views ?? null };
-            },
-            setThemeSetting: (key, value) => this.calls.setThemeSetting(key, value),
-            notify: (message) => this.notify(message)
-          })
-        );
-      case 'music':
-        return show('Audio', musicScreen(this.forma, page));
-      case 'screensaver':
-        return show(
-          'Screensaver',
-          screensaverScreen(this.forma, page, () => {
-            this.#returnTo = null;
-            this.#closeAll();
-            void this.#saver.start();
-          })
-        );
-      case 'ra':
-        return show('RetroAchievements', retroAchievementsScreen(this.forma, page));
-      case 'netplay':
-        return show('Netplay', netplayScreen(this.forma, page, context.game ?? null));
-      case 'magazines':
-        m.close();
-        return void this.openMagazines();
-      case 'addons':
-        return show(
-          'Add-ons',
-          addonsScreen(this.forma, page, (m) => this.notify(m))
-        );
-      case 'collections':
-        return show(
-          'Collections',
-          collectionsScreen(this.forma, page, (m) => this.notify(m), context.game ?? null)
-        );
-      default:
-    }
-    // Power actions need a second press soon after: a stray A must not shut down.
-    const powerful = id === 'restart' || id === 'shutdown';
-    const now = Date.now();
-    if (powerful && (this.#confirming?.id !== id || now > this.#confirming.until)) {
-      this.#confirming = { id, until: now + CONFIRM_MS };
-      this.notify(`Press A again to ${id === 'restart' ? 'restart' : 'shut down'}`);
-      return;
-    }
-    this.#confirming = null;
-    const action =
-      id === 'restart'
-        ? this.forma.system.restart()
-        : id === 'shutdown'
-          ? this.forma.system.shutdown()
-          : this.forma.system.quit();
-    action.catch((error: unknown) => this.notify(FormaError.from(error).message));
-  }
-
   /** After anything opens, closes or moves: the hints follow, and Forma learns if input is ours. */
   #changed(): void {
     const open = this.open;
@@ -834,16 +735,11 @@ export class Shell {
         ? this.#page.hints()
         : this.#network.open
           ? this.#network.hints()
-          : this.#switcher.open
-            ? [
-                ['A', 'Show'],
-                ['Y', 'Make home view'],
-                ['B', 'Close']
-              ]
-            : [
-                ['A', 'Choose'],
-                ['B', 'Close']
-              ];
+          : [
+              ['A', 'Show'],
+              ['Y', 'Make home view'],
+              ['B', 'Close']
+            ];
     this.#hints.hidden = hints.length === 0;
     this.#hints.replaceChildren(
       ...hints.map(([button, label]) => el('span', { class: 'hint' }, el('kbd', {}, button), label))
