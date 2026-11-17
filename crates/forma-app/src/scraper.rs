@@ -132,6 +132,8 @@ pub struct RunStatus {
     pub running: bool,
     /// What it is over: a game's name, a system's, or "Everything".
     pub scope: Option<String>,
+    /// One game's run (from its own page), not systems' or everything's.
+    pub single: bool,
     pub total: usize,
     pub done: usize,
     /// Games something was found for.
@@ -487,6 +489,7 @@ pub async fn scraper_start<R: Runtime>(
             *status = RunStatus {
                 running: true,
                 scope: Some(label),
+                single: matches!(scope, Scope::Game { .. }),
                 total: ids.len(),
                 ..RunStatus::default()
             };

@@ -1042,7 +1042,9 @@ kbd {
 }
 
 .shell.saving .status,
-.shell.saving .song {
+.shell.saving .song,
+.shell.saving .scrape-progress,
+.shell.open .scrape-progress {
   visibility: hidden;
 }
 
@@ -1188,4 +1190,70 @@ kbd {
   color: #fff;
   font-size: 0.95rem;
   white-space: nowrap;
+}
+
+/* A background scrape: one slim line bottom left, in the hints' row (a theme's hints are on the
+   right), clear of the music card at the top right; its bar along its bottom edge. Hidden while
+   Forma's own pages show (Media has its own). */
+.scrape-progress {
+  position: fixed;
+  bottom: calc(1em + var(--margin, 0vh));
+  left: calc(2.4em + var(--margin, 0vh));
+  display: flex;
+  align-items: baseline;
+  gap: 0.7em;
+  max-width: min(30em, 42vw);
+  overflow: hidden;
+  padding: 0.4em 0.9em 0.5em;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 1.5);
+  background: var(--panel);
+  box-shadow: 0 0.4em 1.2em rgb(0 0 0 / 50%);
+  color: var(--fg);
+  font-size: 0.75em;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.scrape-progress[hidden] {
+  display: none;
+}
+
+.scrape-progress .title {
+  flex: none;
+  font-weight: 600;
+}
+
+.scrape-progress .count {
+  flex: none;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.scrape-progress .rom {
+  min-width: 0;
+  overflow: hidden;
+  opacity: 0.75;
+  text-overflow: ellipsis;
+}
+
+.scrape-progress .bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 0.2em;
+  background: var(--line);
+}
+
+/* A transform, the compositor's: no layout as it fills. */
+.scrape-progress .bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 300ms ease-out;
 }

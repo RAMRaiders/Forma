@@ -508,6 +508,8 @@ export interface ScraperStatus {
   running: boolean;
   /** A game's name, a system's, or `Everything`. */
   scope: string | null;
+  /** One game's run (from its own page), not systems' or everything's. */
+  single: boolean;
   total: number;
   done: number;
   found: number;
