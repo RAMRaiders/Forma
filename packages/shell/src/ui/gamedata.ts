@@ -50,11 +50,11 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
     },
     {
       icon: 'emulator',
-      label: 'Emulator settings',
+      label: 'Game settings',
       detail: 'Emulator, CRT shader, picture, decorations and gameplay, for this game only',
       run: () =>
         page.push(
-          `${game.name} emulator`,
+          `${game.name} settings`,
           emulatorScreen(forma, page, { level: 'game', game: game.id })
         )
     }

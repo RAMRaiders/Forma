@@ -536,9 +536,9 @@ describe('Forma’s shell', () => {
       expect(rows()).toEqual([
         'Scrape',
         'Edit details',
-        'Emulator settings',
+        'Game settings',
+        'Start game',
         'Collections',
-        'Netplay',
         'Filter list',
         'Delete'
       ])
@@ -1241,7 +1241,8 @@ describe('Forma’s shell', () => {
     await press('select');
     await vi.waitFor(() => expect(text('.page h2')[0]).toMatch(/^Super Metroid/));
     const rows = text('.page li[role=option] .name');
-    expect(rows).toEqual(expect.arrayContaining(['Emulator settings', 'Collections', 'Netplay']));
+    expect(rows).toEqual(expect.arrayContaining(['Game settings', 'Start game', 'Collections']));
+    expect(rows).not.toContain('Netplay');
   });
 
   it('a system’s emulator options choose its shader alone, over global', async () => {
@@ -1490,8 +1491,43 @@ describe('Forma’s settings pages', () => {
     expect(text('.page li.selected .description')).toEqual(['Custom server']);
   });
 
-  it('netplay on: hosts the selected game, lists rooms for your games, joins one', async () => {
+  it('start game: plays it at once, or with netplay on, offers to host it', async () => {
     const { shell, press, text, forma, backend } = start(['settings.batocera'], {
+      list: 'games',
+      game: { id: 2, name: 'Super Mario Bros.' }
+    });
+    const calls: [string, unknown][] = [];
+    const invoke = backend.invoke.bind(backend);
+    backend.invoke = <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+      if (cmd === 'launch_game' || cmd.startsWith('netplay_host')) calls.push([cmd, args]);
+      return invoke<T>(cmd, args);
+    };
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const selected = () => text('.page li.selected .name')[0];
+    const startGame = async () => {
+      await press('select');
+      await vi.waitFor(() => expect(rows()).toContain('Start game'));
+      while (selected() !== 'Start game') await press('down');
+      await press('confirm');
+    };
+    // Netplay off: A starts it, and the page goes.
+    await startGame();
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual(['launch_game', { id: 2 }]);
+    expect(shell.open).toBe(false);
+    // Netplay on: a page to start it alone or hosting.
+    await forma.batocera.set('global.netplay', '1');
+    await startGame();
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['Start Super Mario Bros.']));
+    expect(rows()).toEqual(['Start', 'Start hosting netplay']);
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1]![1]).toMatchObject({ id: 2 });
+  });
+
+  it('netplay on: lists rooms for your games, joins one', async () => {
+    const { shell, press, text, openMenu, forma, backend } = start(['settings.batocera'], {
       list: 'games',
       game: { id: 2, name: 'Super Mario Bros.' }
     });
@@ -1504,16 +1540,12 @@ describe('Forma’s settings pages', () => {
     };
     const rows = () => text('.page > .panel li[role=option] .name');
     const selected = () => text('.page li.selected .name')[0];
-    // Hosting a game is on its Select page, with the rest of netplay.
-    await press('select');
-    await vi.waitFor(() => expect(rows()).toContain('Netplay'));
-    while (selected() !== 'Netplay') await press('down');
-    await press('confirm');
-    await vi.waitFor(() => expect(rows()[0]).toBe('Host Super Mario Bros.'));
-    expect(rows().slice(1, 3)).toEqual(['Rooms online…', 'On this network…']);
+    // Start's netplay is the same for every game: no hosting here, that is Select → Start game.
+    await openMenu('Netplay');
+    await vi.waitFor(() => expect(rows()[0]).toBe('Rooms online…'));
+    expect(rows()[1]).toBe('On this network…');
     expect(text('.page li.heading')).toEqual(['Play', 'Settings']);
 
-    await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Rooms online']));
     await vi.waitFor(() => expect(rows()).toContain('Super Mario Bros. (World)'));
@@ -1661,7 +1693,7 @@ describe('Forma’s settings pages', () => {
     // A game of the NES selected in the theme: its core is the system's.
     context.game = { id: 2, name: 'Super Mario Bros.' };
     context.list = 'games';
-    await openSelect('Emulator settings');
+    await openSelect('Game settings');
     await vi.waitFor(() => expect(rows()).toContain('Core'));
     const core = rows().indexOf('Core');
     expect(text('.page > .panel li[role=option] .description')[core]).toBe(

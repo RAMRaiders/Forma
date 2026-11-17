@@ -33,7 +33,8 @@ export interface Row {
     | 'theme'
     | 'delete'
     | 'collections'
-    | 'netplay';
+    | 'netplay'
+    | 'play';
   /** It destroys something: shown apart, in red. */
   danger?: boolean;
 }

@@ -7,13 +7,14 @@ import type {
   SystemsOrder,
   ThemeInfo
 } from '@ramraiders/forma-sdk';
+import { FormaError } from '@ramraiders/forma-sdk';
 
 import { filterScreen, filterSummary } from './filter.js';
 import { mediaToShow } from './reader.js';
 import { collectionsScreen } from './collections.js';
 import { deleteGameRow, gameRows } from './gamedata.js';
 import { emulatorScreen } from './shader.js';
-import { playRows } from './netplay.js';
+import { hostRow, playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
 import { catalogueScreen, themeScreen } from './themes.js';
 
@@ -303,11 +304,7 @@ const RELAYS: Record<string, string> = {
 const NP = 'global.netplay';
 
 /** Netplay: hosting and joining, then on or off and how others see and reach this box. */
-export function netplayScreen(
-  forma: Forma,
-  page: Page,
-  game: { id: number; name: string } | null = null
-): () => Promise<Row[]> {
+export function netplayScreen(forma: Forma, page: Page): () => Promise<Row[]> {
   return async () => {
     const all = await forma.batocera.settings(NP);
     const get = (key: string) => all.find((s) => s.key === key);
@@ -334,7 +331,7 @@ export function netplayScreen(
         : [];
     const relay = get(`${NP}.relay`);
     return [
-      ...(get(NP)?.value === '1' ? playRows(forma, page, game) : []),
+      ...(get(NP)?.value === '1' ? playRows(forma, page) : []),
       {
         ...switchRow(forma, page, get(NP), 'Netplay', 'Play online with others, through RetroArch'),
         heading: 'Settings'
@@ -638,6 +635,43 @@ export function systemsScreen(
   };
 }
 
+/** Whether netplay is turned on, under Start → Netplay. */
+async function netplayOn(forma: Forma): Promise<boolean> {
+  const all = await forma.batocera.settings(NP).catch(() => []);
+  return all.find((s) => s.key === NP)?.value === '1';
+}
+
+/**
+ * Starts the game. With netplay on, a page of its own: start it, or start it hosting a room
+ * set up as Start → Netplay says.
+ */
+function startGameRow(
+  forma: Forma,
+  page: Page,
+  game: { id: number; name: string },
+  netplay: boolean,
+  close: () => void
+): Row {
+  const play = () => {
+    close();
+    forma.launch.game(game.id).catch((error: unknown) => {
+      page.notify(FormaError.from(error).message);
+    });
+  };
+  return {
+    icon: 'play',
+    label: 'Start game',
+    detail: netplay ? 'Play it, or host it for others to join' : `Play ${game.name}`,
+    run: netplay
+      ? () =>
+          page.push(`Start ${game.name}`, () => [
+            { icon: 'play', label: 'Start', detail: 'Play it here, alone', run: play },
+            { ...hostRow(forma, page, game), icon: 'netplay' }
+          ])
+      : play
+  };
+}
+
 /** Opens what a game has to look at: its manual, its media (Forma's reader). */
 export interface GameLook {
   manual(game: Game): void;
@@ -663,12 +697,14 @@ export function gamesScreen(
   return async () => {
     const rows: Row[] = game ? gameRows(forma, page, game) : [];
     // Everything the page reads, asked at once: it opens as soon as the slowest answers.
-    const [same, full, filter, own] = await Promise.all([
+    const [same, full, filter, own, netplay] = await Promise.all([
       game ? (siblings ??= sameGame(forma, game.id)) : [],
       game ? forma.library.game(game.id).catch(() => null) : null,
       forma.nav.filterOptions().catch(() => null),
-      themeSelectRow(page, 'games', theme)
+      themeSelectRow(page, 'games', theme),
+      game ? netplayOn(forma) : false
     ]);
+    if (game) rows.push(startGameRow(forma, page, game, netplay, close));
     // Its manual, read in Forma's reader; its pictures and video, one by one.
     if (full && look && full.media.manual) {
       rows.push({
@@ -688,20 +724,12 @@ export function gamesScreen(
       });
     }
     if (game) {
-      rows.push(
-        {
-          icon: 'collections',
-          label: 'Collections',
-          detail: `Put ${game.name} in your own lists, or take it out`,
-          run: () => page.push('Collections', collectionsScreen(forma, page, page.notify, game))
-        },
-        {
-          icon: 'netplay',
-          label: 'Netplay',
-          detail: `Host ${game.name} for others to join, or join a room`,
-          run: () => page.push('Netplay', netplayScreen(forma, page, game))
-        }
-      );
+      rows.push({
+        icon: 'collections',
+        label: 'Collections',
+        detail: `Put ${game.name} in your own lists, or take it out`,
+        run: () => page.push('Collections', collectionsScreen(forma, page, page.notify, game))
+      });
     }
     if (same.length > 1) {
       rows.push({

@@ -7,16 +7,11 @@ import type { Page, Row } from './page.js';
 const MAX_PING_MS = 1000;
 
 /**
- * Playing: host the selected game, or join a room, online or on the local network. Joining
- * starts the local copy of the room's game with the room's core, as RetroArch needs.
+ * Playing: join a room, online or on the local network. Joining starts the local copy of the
+ * room's game with the room's core, as RetroArch needs. Hosting is a game's: Select → Start game.
  */
-export function playRows(
-  forma: Forma,
-  page: Page,
-  game: { id: number; name: string } | null
-): Row[] {
+export function playRows(forma: Forma, page: Page): Row[] {
   const rows: Row[] = [
-    ...(game ? [hostRow(forma, page, game)] : []),
     {
       label: 'Rooms online…',
       detail: 'Games others are hosting in the libretro lobby',
@@ -32,10 +27,12 @@ export function playRows(
   return rows;
 }
 
-function hostRow(forma: Forma, page: Page, game: { id: number; name: string }): Row {
+/** Starts `game` hosting a netplay room, as Start → Netplay sets it up. */
+export function hostRow(forma: Forma, page: Page, game: { id: number; name: string }): Row {
   return {
-    label: `Host ${game.name}`,
-    detail: 'Others join from the lobby or this network. Y: with a password',
+    label: 'Start hosting netplay',
+    detail:
+      'Others join from the lobby or this network, as Start → Netplay sets it. Y: with a password',
     run: () =>
       page.run('Starting…', async () => {
         await forma.netplay.host(game.id);
