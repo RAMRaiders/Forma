@@ -34,7 +34,10 @@ import type {
   EthernetConfig,
   Game,
   GameEnd,
+  BiosMissing,
   GameStart,
+  LaunchRequest,
+  SystemBios,
   LibraryChanged,
   MusicSource,
   MusicStatus,
@@ -63,6 +66,8 @@ export interface MockOptions {
   permissions?: string[];
   /** Pretend RetroAchievements is set up (default) or not. */
   ra?: boolean;
+  /** Systems whose BIOS the mock pretends is missing: their games ask before starting. */
+  biosMissing?: string[];
 }
 
 interface Snapshot {
@@ -87,6 +92,20 @@ const snapshot = data as unknown as Snapshot;
 const MAGAZINE_PAGES = 8;
 
 type Handler = (payload: unknown) => void;
+
+/** A system's BIOS in the mock: its one file, not there. */
+function mockBios(system: string): SystemBios {
+  const fullname = snapshot.systems.find((s) => s.name === system)?.fullname ?? system;
+  return {
+    system,
+    fullname,
+    needed: true,
+    missing: true,
+    files: [
+      { file: `bios/${system}_bios.bin`, md5: '0123456789abcdef0123456789abcdef', state: 'missing' }
+    ]
+  };
+}
 
 function fail(code: ErrorCode, message: string): never {
   throw new FormaError(code, message);
@@ -1954,9 +1973,23 @@ export function mockBackend(options: MockOptions = {}): Backend {
     video_stop: () => null,
     system_quit: () => power(),
     system_power: () => power(),
-    launch_game: ({ id }) => {
+    bios_status: () => (options.biosMissing ?? []).map((system) => mockBios(system)),
+    launch_game: ({ id, request }) => {
       if (playing) fail('busy', 'a game is already running');
       const game = games.get(id as number) ?? fail('launch', `no game with id ${String(id)}`);
+      const launch = (request ?? {}) as LaunchRequest;
+      if (options.biosMissing?.includes(game.system) && !launch.ignoreBios) {
+        const bios = mockBios(game.system);
+        emit('bios:missing', {
+          gameId: game.id,
+          name: game.name,
+          system: game.system,
+          fullname: bios.fullname,
+          files: bios.files,
+          request: launch
+        } satisfies BiosMissing);
+        fail('biosMissing', `${bios.fullname} needs a BIOS that is missing`);
+      }
       playing = true;
       emit('game:start', {
         type: 'game:start',

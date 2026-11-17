@@ -369,6 +369,42 @@ export interface LaunchRequest {
   emulator?: string;
   core?: string;
   netplay?: Netplay;
+  /**
+   * Start it though its system's BIOS is missing: the user said so. Without it, such a launch
+   * fails with `biosMissing` and Forma's shell asks. Since 1.39.0.
+   */
+  ignoreBios?: boolean;
+}
+
+/** One BIOS file a system lists: its path under userdata, the MD5 it should have (empty: any). */
+export interface BiosFile {
+  /** `bios/scph5501.bin`; one inside a zip as `bios/x.zip (inner.rom)`. */
+  file: string;
+  md5: string;
+  /** `wrong`: there, but another version or damaged. */
+  state: 'ok' | 'missing' | 'wrong';
+}
+
+/** A system with games and its BIOS files (`bios.status`). Since 1.39.0. */
+export interface SystemBios {
+  system: string;
+  fullname: string;
+  /** Its games do not start without one. */
+  needed: boolean;
+  /** Needed and not there: none of its alternatives right, or one of those it needs all of. */
+  missing: boolean;
+  files: BiosFile[];
+}
+
+/** `bios:missing`: a launch stopped for a BIOS; starting it anyway is `request` with `ignoreBios`. */
+export interface BiosMissing {
+  gameId: number;
+  name: string;
+  system: string;
+  fullname: string;
+  /** Its files not there and right. */
+  files: BiosFile[];
+  request: LaunchRequest;
 }
 
 export interface ThemeInfo {
@@ -659,6 +695,8 @@ export interface EventMap {
   'magazines:open': { id: string | null };
   /** Forma's reader is asked to open a game's manual (`library.openManual`). Since 1.33.0. */
   'manual:open': { gameId: number };
+  /** A launch stopped: the game's system needs a BIOS that is missing. Since 1.39.0. */
+  'bios:missing': BiosMissing;
   /** After each game of a scraper run, and when it ends. */
   'scraper:progress': ScraperStatus;
   /** A setting changed in Forma's menu: one of the theme's own, or Forma's (`display.margins`). */

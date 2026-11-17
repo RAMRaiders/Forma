@@ -115,6 +115,7 @@ impl Harness {
             shell: crate::shell::ShellState::default(),
             shell_dir: None,
             sync: Mutex::new(None),
+            bios: std::sync::OnceLock::new(),
             paths,
         };
 

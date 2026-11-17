@@ -27,9 +27,10 @@ function start(
   permissions: string[] = [],
   context: ShellContext = {},
   views: string[] | null = null,
-  draws: string[] = []
+  draws: string[] = [],
+  mock: { biosMissing?: string[] } = {}
 ) {
-  const backend = mockBackend({ playMs: 50, permissions });
+  const backend = mockBackend({ playMs: 50, permissions, ...mock });
   const forma = new Forma(backend, '1.24.0', false);
   const open: boolean[] = [];
   const opened: string[] = [];
@@ -127,6 +128,37 @@ function start(
     theme
   };
 }
+
+describe('a game whose system lacks its BIOS', () => {
+  it('asks before starting: A starts it anyway, B leaves it', async () => {
+    const { forma, press, text, root } = start([], {}, null, [], { biosMissing: ['nes'] });
+    const nes = (await forma.library.game(1))!;
+    expect(nes.system).toBe('nes');
+    const started = vi.fn();
+    forma.events.on('game:start', started);
+
+    await expect(forma.launch.game(nes.id)).rejects.toMatchObject({ code: 'biosMissing' });
+    await vi.waitFor(() => expect(text('.page h2')[0]).toMatch(/BIOS missing$/));
+    expect(text('.page > .panel li[role=option] .name').slice(0, 2)).toEqual([
+      'Start anyway',
+      'Cancel'
+    ]);
+    await press('back');
+    await vi.waitFor(() => expect(root.querySelector('.page')?.hasAttribute('hidden')).toBe(true));
+    expect(started).not.toHaveBeenCalled();
+
+    await expect(forma.launch.game(nes.id)).rejects.toMatchObject({ code: 'biosMissing' });
+    await vi.waitFor(() => expect(text('.page h2')[0]).toMatch(/BIOS missing$/));
+    await press('confirm');
+    await vi.waitFor(() => expect(started).toHaveBeenCalledOnce());
+  });
+
+  it('lists the BIOS files of each system in System settings', async () => {
+    const { forma } = start([], {}, null, [], { biosMissing: ['nes'] });
+    const [nes] = await forma.bios.status();
+    expect(nes).toMatchObject({ system: 'nes', needed: true, missing: true });
+  });
+});
 
 describe('how the theme in use treats a kind of media', () => {
   const theme = {

@@ -827,13 +827,8 @@ pub fn launch_game<R: Runtime>(
         return Err(ApiError::new(ErrorCode::Busy, "a game is already running"));
     }
     let controllers = input_controllers(state.clone());
-    let prepared = launch::prepare(
-        &state.library(),
-        &state.paths,
-        id,
-        &request.unwrap_or_default(),
-        &controllers,
-    );
+    let request = request.unwrap_or_default();
+    let prepared = launch::prepare(&state.library(), &state.paths, id, &request, &controllers);
     let prepared = match prepared {
         Ok(p) => p,
         Err(e) => {
@@ -841,6 +836,16 @@ pub fn launch_game<R: Runtime>(
             return Err(e.into());
         }
     };
+    let fullname = state
+        .library()
+        .systems()
+        .ok()
+        .and_then(|s| s.into_iter().find(|s| s.name == prepared.game.system))
+        .map_or_else(|| prepared.game.system.clone(), |s| s.fullname);
+    if let Err(e) = crate::bios::before_launch(&app, &state, &prepared.game, &fullname, &request) {
+        state.playing.store(false, Ordering::SeqCst);
+        return Err(e);
+    }
     // Never in the way of the game: at worst the emulator asks RetroAchievements as before.
     if let Err(e) = forma_core::ra_match::before_launch(
         &state.library(),

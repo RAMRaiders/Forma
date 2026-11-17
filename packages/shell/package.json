@@ -9,7 +9,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@ramraiders/forma-sdk": "1.38.0",
+    "@ramraiders/forma-sdk": "1.39.0",
     "@tauri-apps/api": "2.12.4"
   }
 }

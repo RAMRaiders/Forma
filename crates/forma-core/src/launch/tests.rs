@@ -148,6 +148,7 @@ fn appends_overrides_and_netplay() {
             port: Some(55435),
             password: None,
         }),
+        ignore_bios: false,
     };
     let args = prepare(&lib, &paths, zelda, &host, &[])
         .unwrap()

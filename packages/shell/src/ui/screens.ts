@@ -655,7 +655,9 @@ function startGameRow(
   const play = () => {
     close();
     forma.launch.game(game.id).catch((error: unknown) => {
-      page.notify(FormaError.from(error).message);
+      const e = FormaError.from(error);
+      // Asked about on a page of its own (bios:missing).
+      if (e.code !== 'biosMissing') page.notify(e.message);
     });
   };
   return {

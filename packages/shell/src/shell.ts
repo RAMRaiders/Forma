@@ -1,4 +1,5 @@
 import type {
+  BiosMissing,
   Forma,
   InputEvent,
   MusicSong,
@@ -30,6 +31,7 @@ import { dumpsScreen } from './ui/dumps.js';
 import { addonsScreen } from './ui/addons.js';
 import { mediaScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
+import { biosAskScreen } from './ui/bios.js';
 import { systemSettingsScreen } from './ui/settings.js';
 import { emulatorScreen } from './ui/shader.js';
 import { ScrapeProgress } from './ui/scrapeprogress.js';
@@ -164,6 +166,8 @@ export class Shell {
     // A theme's shortcut asks for Forma's magazines, or one of them.
     forma.events.on('magazines:open', ({ id }) => void this.openMagazines(id));
     forma.events.on('manual:open', ({ gameId }) => void this.openManual(gameId));
+    // A game stopped before starting for a missing BIOS: asked whether to start it anyway.
+    forma.events.on('bios:missing', (missing) => void this.askBios(missing));
     // What plays moves on by itself: the music page follows.
     forma.events.on('music:changed', () => {
       if (this.#music && this.#page.showing(this.#music)) void this.#page.refresh();
@@ -282,6 +286,29 @@ export class Shell {
     if (!game?.media.manual) return this.notify('This game has no manual');
     this.#closeAll();
     await this.#reader.showManual(game);
+    this.#changed();
+  }
+
+  /** A launch stopped for a missing BIOS: A starts it anyway, B or Cancel leaves it. */
+  async askBios(missing: BiosMissing): Promise<void> {
+    if (this.playing) return;
+    this.#closeAll();
+    this.#pageKind = 'bios';
+    const close = () => {
+      this.#page.close();
+      this.#changed();
+    };
+    const start = () => {
+      close();
+      this.forma.launch
+        .game(missing.gameId, { ...missing.request, ignoreBios: true })
+        .catch((error: unknown) => this.notify(FormaError.from(error).message));
+    };
+    await this.#page.show(
+      `${missing.fullname}: BIOS missing`,
+      biosAskScreen(missing, start, close),
+      `${missing.name} may not start without it. Put the BIOS in /userdata/bios.`
+    );
     this.#changed();
   }
 

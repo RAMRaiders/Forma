@@ -35,19 +35,22 @@ pub struct Controller {
     pub device: Option<crate::input::Device>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchRequest {
     /// Overrides Batocera's configured emulator/core for this launch only.
     pub emulator: Option<String>,
     pub core: Option<String>,
     pub netplay: Option<Netplay>,
+    /// Start it though its system's BIOS is missing (the user said so).
+    #[serde(default)]
+    pub ignore_bios: bool,
 }
 
 /// Netplay through Batocera's launcher (`-netplaymode`, `-netplayip`, `-netplayport`,
 /// `-netplaypass`, `-netplaysession`), which sets RetroArch up as EmulationStation does. The
 /// rest (nickname, relay, the host's own port) comes from Batocera's `global.netplay.*`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "mode", rename_all = "camelCase")]
 pub enum Netplay {
     #[serde(rename_all = "camelCase")]

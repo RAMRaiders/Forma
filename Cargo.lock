@@ -993,6 +993,7 @@ version = "0.0.0"
 dependencies = [
  "gilrs",
  "image",
+ "md-5",
  "notify",
  "quick-xml",
  "romdex",

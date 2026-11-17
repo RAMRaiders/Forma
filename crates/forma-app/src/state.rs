@@ -2,9 +2,10 @@
 
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard};
+use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockReadGuard};
 
 use forma_core::batocera::BatoceraSettings;
+use forma_core::bios::{BATOCERA_SYSTEMS, Table};
 use forma_core::bluetooth::Bluetooth;
 use forma_core::hierarchy::ViewCatalog;
 use forma_core::input::InputHandle;
@@ -88,11 +89,20 @@ pub struct AppState {
     /// Where the shell's files are (`shell.js`).
     pub shell_dir: Option<PathBuf>,
     pub sync: Mutex<Option<SyncHandle>>,
+    /// Batocera's list of BIOS files, read once when first needed (`None` off Batocera).
+    pub bios: OnceLock<Option<Table>>,
 }
 
 impl AppState {
     pub fn library(&self) -> MutexGuard<'_, Library> {
         self.library.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Batocera's list of BIOS files, read from its script the first time.
+    pub fn bios_table(&self) -> Option<&Table> {
+        self.bios
+            .get_or_init(|| Table::load(std::path::Path::new(BATOCERA_SYSTEMS)))
+            .as_ref()
     }
 
     pub fn http_cache(&self) -> Cache {

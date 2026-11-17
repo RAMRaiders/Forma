@@ -9,6 +9,7 @@ import type {
 } from '@ramraiders/forma-sdk';
 import { FormaError } from '@ramraiders/forma-sdk';
 
+import { biosScreen } from './bios.js';
 import { updatesScreen } from './updates.js';
 
 import type { Page, Row } from './page.js';
@@ -289,6 +290,11 @@ export function systemSettingsScreen(forma: Forma, page: Page): () => Promise<Ro
         label: 'Batocera updates…',
         detail: 'See if there is a newer Batocera, and install it',
         run: () => page.push('Batocera updates', updatesScreen(forma, page))
+      },
+      {
+        label: 'BIOS files…',
+        detail: 'What each system needs, and which are there',
+        run: () => page.push('BIOS files', biosScreen(forma, page))
       }
     ];
     const writeBack =

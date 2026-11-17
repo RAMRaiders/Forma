@@ -9,6 +9,8 @@ const CODES = [
   'network',
   /** A feature needs setting up first; the message says how. */
   'notConfigured',
+  /** A game's system needs a BIOS that is missing; `bios:missing` says which. Since 1.39.0. */
+  'biosMissing',
   'internal',
   /** The host speaks an SDK version this theme was not built for. */
   'incompatible'

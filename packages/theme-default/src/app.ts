@@ -235,7 +235,9 @@ export class App {
       try {
         await this.forma.launch.game(game.id);
       } catch (error) {
-        this.#notify(FormaError.from(error).message);
+        const e = FormaError.from(error);
+        // Forma's shell asks about a missing BIOS itself.
+        if (e.code !== 'biosMissing') this.#notify(e.message);
       }
       return;
     }
