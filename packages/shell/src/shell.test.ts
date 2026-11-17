@@ -977,6 +977,8 @@ describe('Forma’s shell', () => {
     await press('confirm'); // The first A only asks, on a page of its own, keeping it chosen.
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Delete Sonic?']));
     expect(rows()).toEqual(['Keep it', 'Delete for good']);
+    // No box or screenshot on it: just the words.
+    expect(document.querySelectorAll('.page > .panel li img')).toHaveLength(0);
     expect(text('.page li.selected .name')).toEqual(['Keep it']);
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Delete'));
