@@ -8,6 +8,7 @@
 //! and is driven by plain values and timestamps, so it is tested without a controller.
 
 mod device;
+pub mod es_input;
 mod gamepad;
 
 use std::time::{Duration, Instant};
