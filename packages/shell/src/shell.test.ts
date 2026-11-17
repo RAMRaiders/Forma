@@ -504,6 +504,26 @@ describe('Forma’s shell', () => {
     );
   });
 
+  it('a background scrape shows in a corner, how far and which ROM; one game alone does not', async () => {
+    const { root, forma } = start(['scraper.manage']);
+    const corner = () => root.querySelector<HTMLElement>('.scrape-progress')!;
+    expect(corner().hidden).toBe(true);
+    const [game] = await forma.library.random({ limit: 1 });
+    const nes = (await forma.library.systems()).find((s) => s.name === game!.system)!;
+    await forma.scraper.start({ kind: 'game', id: game!.id });
+    await vi.waitFor(async () => expect((await forma.scraper.status()).running).toBe(false));
+    expect(corner().hidden).toBe(true);
+    await forma.scraper.start({ kind: 'systems', names: [nes.name] });
+    await vi.waitFor(() => expect(corner().hidden).toBe(false));
+    await vi.waitFor(() =>
+      expect(corner().querySelector('.title')?.textContent).toBe('Scraping done')
+    );
+    expect(corner().querySelector('.count')?.textContent).toBe(
+      `${nes.gameCount} / ${nes.gameCount}`
+    );
+    expect(corner().querySelector('.rom')?.textContent).toMatch(/^\d+ found · \d+ not found$/);
+  });
+
   it('emulator options: the shader, picture and decorations among them, which give way to it', async () => {
     const { press, text, openMenu } = start(['settings.emulators']);
     await openMenu('Emulator options');

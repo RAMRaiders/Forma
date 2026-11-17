@@ -450,6 +450,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
   let scraperStatus: ScraperStatus = {
     running: false,
     scope: null,
+    single: false,
     total: 0,
     done: 0,
     found: 0,
@@ -1150,6 +1151,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperStatus = {
         running: true,
         scope: label,
+        single: sc.kind === 'game',
         total: list.length,
         done: 0,
         found: 0,
