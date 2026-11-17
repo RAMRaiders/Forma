@@ -316,7 +316,7 @@ fn a_level_with_its_own_preset_starts_over_from_it() {
         .unwrap();
     let page = f.shaders.page(&snes).unwrap();
     assert_eq!(page.shader.value.as_deref(), Some("crt:Presets-ng/Base"));
-    assert_eq!(page.shader.inherited.value, "none");
+    assert_eq!(page.shader.inherited.value, "default");
     // Global's change is not carried over to it: Base's own value.
     assert_eq!(param(&page, "BLOOM_MIX").inherited.value, 0.3);
     assert_eq!(param(&page, "BLOOM_MIX").inherited.from, "preset");
@@ -429,19 +429,23 @@ fn one_choice_per_level_owns_batocera_s_shader_keys() {
         .iter()
         .map(|c| c.value.as_str())
         .collect();
-    // None, Forma's from each preset, Batocera's but its stock koko-aio (Forma's is it).
+    // Batocera's default, none, Forma's from each preset, Batocera's own sets but its stock
+    // koko-aio (Forma's is it); not the user's folder's.
     assert_eq!(
         values,
         [
+            "default",
             "none",
             "crt:Presets-ng/Base",
             "crt:Presets-ng/Monitor-Balanced",
             "crt:Presets_Handhelds-ng/GameboyAdvance",
-            "set:mine",
             "set:retro"
         ]
     );
-    assert_eq!(page.shader.value.as_deref(), Some("none"));
+    // Nothing chosen: Batocera's default, no key of Forma's.
+    assert_eq!(page.shader.value.as_deref(), Some("default"));
+    assert!(f.shaders.choose(&snes, Some("set:mine")).is_err());
+    assert!(f.shaders.choose(&snes, Some("default")).is_err());
     assert!(f.shaders.choose(&Scope::Global, None).is_err());
     assert!(f.shaders.choose(&snes, Some("set:koko-aio")).is_err());
 
@@ -497,6 +501,12 @@ fn one_choice_per_level_owns_batocera_s_shader_keys() {
     let conf = conf::read(&f.conf);
     assert_eq!(conf["global.shaderset"], "none");
     assert!(!conf.contains_key("global.gfxbackend"));
+
+    // Batocera's default globally: no key, Batocera's own applies.
+    f.shaders.choose(&Scope::Global, Some("default")).unwrap();
+    assert!(!conf::read(&f.conf).contains_key("global.shaderset"));
+    let page = f.shaders.page(&Scope::Global).unwrap();
+    assert_eq!(page.shader.value.as_deref(), Some("default"));
 }
 
 #[test]

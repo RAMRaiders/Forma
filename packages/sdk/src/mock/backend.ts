@@ -741,9 +741,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
         .slice(at)
         .map((l) => shaderLevels.get(l.key)?.preset)
         .find(Boolean) ?? 'Presets-ng/Monitor-Balanced';
+    // Globally, no set is Batocera's default (none said is `none`).
     const off = (key: string) => {
       const set = shaderSets.get(key);
-      return set ? `set:${set}` : 'none';
+      if (key === 'global' && set === 'none') return 'none';
+      return set ? `set:${set}` : key === 'global' ? 'default' : 'none';
     };
     for (const l of chain.slice(at)) {
       if (l.key === 'global') break;
@@ -777,6 +779,9 @@ export function mockBackend(options: MockOptions = {}): Backend {
           value: own ? shaderAt(chain, 0).value : null,
           inherited,
           choices: [
+            ...(global
+              ? [{ value: 'default', label: 'Batocera default · sharp bilinear simple' }]
+              : []),
             { value: 'none', label: 'None' },
             ...shaderPresets.map((p) => ({ value: `crt:${p.value}`, label: `CRT · ${p.label}` })),
             ...batoceraSets.map((n) => ({ value: `set:${n}`, label: `Batocera · ${n}` }))
@@ -1804,6 +1809,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
         shaderLevel(own).preset = null;
         return null;
       }
+      if (c === 'default' && own === 'global') {
+        shaderOn = false;
+        shaderSets.delete(own);
+        return null;
+      }
       const preset = c.startsWith('crt:') ? c.slice(4) : null;
       const set = c.startsWith('set:') ? c.slice(4) : null;
       if (
@@ -1817,6 +1827,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (own === 'global') shaderOn = on;
       else shaderSwitches.set(own, on);
       if (set) shaderSets.set(own, set);
+      else if (!on && own === 'global') shaderSets.set(own, 'none');
       else if (!on) shaderSets.delete(own);
       if (preset) {
         // The preset it would start from anyway: none of its own.

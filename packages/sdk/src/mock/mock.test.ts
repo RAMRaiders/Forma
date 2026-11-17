@@ -319,11 +319,15 @@ describe('mock backend', () => {
     const get = (scope: unknown) => b.invoke<Page>('shaders_get', { scope });
     const global = { level: 'global' };
     const snes = { level: 'system', system: 'snes' };
-    expect((await get(global)).shader.value).toBe('none');
+    expect((await get(global)).shader.value).toBe('default');
     expect((await get(snes)).shader).toMatchObject({
       value: null,
-      inherited: { value: 'none', from: 'global' }
+      inherited: { value: 'default', from: 'global' }
     });
+    await b.invoke('shaders_choose', { scope: global, choice: 'none' });
+    expect((await get(global)).shader.value).toBe('none');
+    await b.invoke('shaders_choose', { scope: global, choice: 'default' });
+    expect((await get(global)).shader.value).toBe('default');
     await b.invoke('shaders_choose', { scope: snes, choice: 'crt:Presets-ng/Base' });
     expect(await get(snes)).toMatchObject({
       enabled: true,
