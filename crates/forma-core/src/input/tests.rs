@@ -112,7 +112,7 @@ fn reset_forgets_held_directions() {
 
 #[test]
 fn the_gamepad_thread_starts_pauses_and_stops_without_a_controller() {
-    let handle = match spawn(InputOptions::default(), |_| {}) {
+    let handle = match spawn(InputOptions::default(), String::new(), |_| {}) {
         Ok(handle) => handle,
         // Some CI sandboxes have no HID access at all; that is the backend, not this code.
         Err(e) => return eprintln!("skipped: gamepad backend unavailable: {e}"),

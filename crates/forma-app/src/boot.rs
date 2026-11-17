@@ -153,7 +153,12 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     crate::scraper::upgrade_launchbox(app.handle().clone());
 
     let handle = app.handle().clone();
-    match input::spawn(InputOptions::default(), move |event| {
+    // Pads SDL's database does not list, as ES knows them: Batocera's file, then the user's.
+    let es_input = input::es_input::mappings_from(
+        &state.paths.systems_cfg.with_file_name("es_input.cfg"),
+        &state.paths.systems_overlay_dir().join("es_input.cfg"),
+    );
+    match input::spawn(InputOptions::default(), es_input, move |event| {
         crate::shell::deliver(&handle, &event);
     }) {
         Ok(input) => *state.input.lock().unwrap_or_else(PoisonError::into_inner) = Some(input),

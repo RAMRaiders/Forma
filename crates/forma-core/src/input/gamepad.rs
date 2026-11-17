@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use gilrs::{Axis, EventType, Gilrs};
+use gilrs::{Axis, EventType, Gilrs, GilrsBuilder};
 
 use super::{Button, InputEvent, InputOptions, Mapper, StickAxis};
 use crate::launch::Controller;
@@ -46,9 +46,11 @@ impl Drop for InputHandle {
     }
 }
 
-/// Starts reading gamepads. Fails only if the platform's gamepad backend cannot start.
+/// Starts reading gamepads, `mappings` (SDL mapping lines, [`super::es_input`]) for pads SDL's
+/// database does not list. Fails only if the platform's gamepad backend cannot start.
 pub fn spawn(
     options: InputOptions,
+    mappings: String,
     mut on_event: impl FnMut(InputEvent) + Send + 'static,
 ) -> Result<InputHandle, String> {
     let paused = Arc::new(AtomicBool::new(false));
@@ -62,7 +64,7 @@ pub fn spawn(
             .name("forma-input".into())
             .spawn(move || {
                 // Gilrs is not Send: it is created on the thread that uses it.
-                let mut gilrs = match Gilrs::new() {
+                let mut gilrs = match GilrsBuilder::new().add_mappings(&mappings).build() {
                     Ok(g) => {
                         let _ = ready_tx.send(Ok(()));
                         g
