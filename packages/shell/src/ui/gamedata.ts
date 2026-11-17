@@ -268,26 +268,34 @@ const keptBadge = (current: unknown): NonNullable<Row['badge']> => ({
   kept: true
 });
 
-/** Asks every scraper about the game, then opens the page to choose from. */
+/**
+ * Asks every scraper about the game, then opens the page to choose from. B cancels while it
+ * asks: a slow scraper never holds the menu.
+ */
 function pick(forma: Forma, page: Page, game: { id: number; name: string }): Promise<void> {
-  return page.run('Asking every scraper…', async () => {
-    const [offers, settings, note] = await Promise.all([
-      forma.scraper.offers(game.id),
-      forma.scraper.settings(),
-      fileNote(forma, game.id)
-    ]);
-    // Nothing offered and nothing to remove (a name stays).
-    const offered = [...offers.text, ...offers.media].some((s) => s.offers.length > 0);
-    const removable = offers.media.length > 0 || offers.text.some((s) => s.field !== 'name');
-    if (!offered && !removable) {
-      return offers.problems[0] ?? 'No scraper knows this game';
-    }
-    await page.push(
-      `Scrape ${game.name}`,
-      pickScreen(forma, page, game.id, offers, settings),
-      note
-    );
-  });
+  return page.run(
+    'Asking every scraper…',
+    async (signal) => {
+      const [offers, settings, note] = await Promise.all([
+        forma.scraper.offers(game.id),
+        forma.scraper.settings(),
+        fileNote(forma, game.id)
+      ]);
+      if (signal.aborted) return;
+      // Nothing offered and nothing to remove (a name stays).
+      const offered = [...offers.text, ...offers.media].some((s) => s.offers.length > 0);
+      const removable = offers.media.length > 0 || offers.text.some((s) => s.field !== 'name');
+      if (!offered && !removable) {
+        return offers.problems[0] ?? 'No scraper knows this game';
+      }
+      await page.push(
+        `Scrape ${game.name}`,
+        pickScreen(forma, page, game.id, offers, settings),
+        note
+      );
+    },
+    { cancellable: true }
+  );
 }
 
 function pickScreen(
@@ -413,56 +421,62 @@ function pickScreen(
           : keptBadge(section.current),
       image: offer ? previews.get(offer.id) : removed.has(section.kind) ? null : current(section),
       run: () =>
-        page.run(`Loading ${section.label}…`, async () => {
-          for (const [n, o] of section.offers.entries()) {
-            if (previews.has(o.id)) continue;
-            page.progress(`Loading ${section.label}: ${n + 1} of ${section.offers.length}…`);
-            previews.set(o.id, await forma.scraper.preview(o.id));
-          }
-          const chosen = media.get(section.kind);
-          await page.push(
-            section.label,
-            () => [
-              {
-                tile: true,
-                label: section.current ? 'Keep what it has' : 'Leave empty',
-                image: current(section),
-                badge: chosen === undefined ? { text: 'Chosen', kept: true } : undefined,
-                run: choose(() => {
-                  media.delete(section.kind);
-                  removed.delete(section.kind);
-                })
-              },
-              ...section.offers.map((o): Row => ({
-                tile: true,
-                label: o.source,
-                detail: offerNote(o) || (previews.get(o.id) ? '' : 'No details from this source'),
-                image: previews.get(o.id),
-                badge: chosen === o.id ? { text: 'Chosen' } : undefined,
-                run: choose(() => {
-                  removed.delete(section.kind);
-                  media.set(section.kind, o.id);
-                })
-              })),
-              ...(section.current
-                ? [
-                    {
-                      danger: true,
-                      label: 'Remove and delete',
-                      detail: 'Deletes its file, and takes nothing in its place',
-                      run: choose(() => {
-                        media.delete(section.kind);
-                        removed.add(section.kind);
-                      })
-                    }
-                  ]
-                : [])
-            ],
-            undefined,
-            // On what is chosen now.
-            chosen === undefined ? 0 : 1 + section.offers.findIndex((o) => o.id === chosen)
-          );
-        })
+        page.run(
+          `Loading ${section.label}…`,
+          async (signal) => {
+            for (const [n, o] of section.offers.entries()) {
+              if (signal.aborted) return;
+              if (previews.has(o.id)) continue;
+              page.progress(`Loading ${section.label}: ${n + 1} of ${section.offers.length}…`);
+              previews.set(o.id, await forma.scraper.preview(o.id));
+            }
+            if (signal.aborted) return;
+            const chosen = media.get(section.kind);
+            await page.push(
+              section.label,
+              () => [
+                {
+                  tile: true,
+                  label: section.current ? 'Keep what it has' : 'Leave empty',
+                  image: current(section),
+                  badge: chosen === undefined ? { text: 'Chosen', kept: true } : undefined,
+                  run: choose(() => {
+                    media.delete(section.kind);
+                    removed.delete(section.kind);
+                  })
+                },
+                ...section.offers.map((o): Row => ({
+                  tile: true,
+                  label: o.source,
+                  detail: offerNote(o) || (previews.get(o.id) ? '' : 'No details from this source'),
+                  image: previews.get(o.id),
+                  badge: chosen === o.id ? { text: 'Chosen' } : undefined,
+                  run: choose(() => {
+                    removed.delete(section.kind);
+                    media.set(section.kind, o.id);
+                  })
+                })),
+                ...(section.current
+                  ? [
+                      {
+                        danger: true,
+                        label: 'Remove and delete',
+                        detail: 'Deletes its file, and takes nothing in its place',
+                        run: choose(() => {
+                          media.delete(section.kind);
+                          removed.add(section.kind);
+                        })
+                      }
+                    ]
+                  : [])
+              ],
+              undefined,
+              // On what is chosen now.
+              chosen === undefined ? 0 : 1 + section.offers.findIndex((o) => o.id === chosen)
+            );
+          },
+          { cancellable: true }
+        )
     };
   };
 
@@ -473,6 +487,8 @@ function pickScreen(
     if (loading) return;
     loading = true;
     for (const offer of [...media.values()]) {
+      // Left (saved, cancelled, closed): nothing more to fetch for it.
+      if (!page.has(build)) break;
       if (previews.has(offer)) continue;
       previews.set(offer, await forma.scraper.preview(offer).catch(() => null));
       if (page.showing(build)) await page.refresh();

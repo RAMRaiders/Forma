@@ -88,4 +88,60 @@ describe('a page', () => {
     press('up');
     expect(chosen()).toBe('Name');
   });
+
+  it('gives itself back on B while it works, if the work may be cancelled', async () => {
+    const notify = vi.fn();
+    const page = new Page(notify, vi.fn());
+    const back = () =>
+      page.input({ action: 'back', button: null, gamepad: 0, pressed: true, repeat: false });
+    await page.show('Sonic', () => [{ label: 'Scrape' }]);
+    let answer: () => void = () => {};
+    const slow = new Promise<void>((resolve) => (answer = resolve));
+    const pushed = vi.fn();
+    const running = page.run(
+      'Asking every scraper…',
+      async (signal) => {
+        await slow;
+        if (!signal.aborted) pushed();
+      },
+      { cancellable: true }
+    );
+    expect(page.root.querySelector('.busy')).not.toBeNull();
+    expect(page.hints()).toEqual([['B', 'Cancel']]);
+    back();
+    await running;
+    expect(notify).toHaveBeenCalledWith('Cancelled');
+    expect(page.root.querySelector('.busy')).toBeNull();
+    expect(names(page)).toEqual(['Scrape']);
+    // Still open: B cancelled the work, not the page.
+    expect(page.open).toBe(true);
+    answer();
+    await slow;
+    expect(pushed).not.toHaveBeenCalled();
+
+    // Work that may not be cancelled holds B.
+    let finish: () => void = () => {};
+    const save = page.run('Saving…', () => new Promise<void>((r) => (finish = r)));
+    expect(page.hints()).toEqual([]);
+    back();
+    expect(page.root.querySelector('.busy')).not.toBeNull();
+    finish();
+    await save;
+    expect(page.open).toBe(true);
+  });
+
+  it('keeps the pictures on screen when it draws itself again', async () => {
+    const page = new Page(vi.fn(), vi.fn());
+    let second: string | null = null;
+    await page.show('Box', () => [
+      { label: 'One', tile: true, image: 'one.png' },
+      { label: 'Two', tile: true, image: second }
+    ]);
+    const before = page.root.querySelector('img[src="one.png"]');
+    second = 'two.png';
+    await page.refresh();
+    // The same element: it does not go blank while a copy decodes.
+    expect(page.root.querySelector('img[src="one.png"]')).toBe(before);
+    expect(page.root.querySelector('img[src="two.png"]')).not.toBeNull();
+  });
 });
