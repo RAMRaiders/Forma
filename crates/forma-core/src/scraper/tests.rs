@@ -552,6 +552,8 @@ fn a_theme_adds_what_it_needs_unless_turned_off() {
     assert!(cfg.all_media().contains(&MediaKind::Manual));
     cfg.manuals = false;
     assert!(!cfg.all_media().contains(&MediaKind::Manual));
+    // Still on offer for one game, to choose by hand.
+    assert!(cfg.theme_media().contains(&MediaKind::Manual));
 }
 
 #[test]

@@ -53,7 +53,8 @@ Start → ROMs → Media has three pages:
   wins; then the preferred regions, in order (World, USA, Europe to start with). Turned off,
   only the list counts: a French profile gets French boxes and text whatever the ROM says.
   _Download manuals_ (on by default) turns manuals off for every run, even for a theme that
-  draws them: they are large.
+  draws them: they are large. A game's own Scrape on Select still offers its manual, unchosen,
+  to add by hand.
 - **Scrape**: the systems to scrape (every one to start with), and what to do with games
   already scraped (a description or any media): skip them, fill in what is missing (the
   default), or replace what they have. Then Start; the run goes on in the background, and
