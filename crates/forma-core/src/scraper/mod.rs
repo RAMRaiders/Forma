@@ -478,9 +478,19 @@ pub fn known_kinds<'a>(names: impl IntoIterator<Item = &'a String>) -> Vec<Media
 }
 
 impl Config {
-    /// The media kinds to fetch: what the theme draws (else [`DEFAULT_MEDIA`]), but not its
-    /// backups, which come only when what they stand in for cannot be had; then what it asks for.
+    /// The media kinds a run fetches: [`Self::theme_media`], less manuals when they are off.
     pub fn all_media(&self) -> Vec<MediaKind> {
+        let mut all = self.theme_media();
+        if !self.manuals {
+            all.retain(|k| *k != MediaKind::Manual);
+        }
+        all
+    }
+
+    /// What the theme draws (else [`DEFAULT_MEDIA`]), but not its backups, which come only when
+    /// what they stand in for cannot be had; then what it asks for. A game's own scrape offers
+    /// all of it, manuals too, for the user to choose.
+    pub fn theme_media(&self) -> Vec<MediaKind> {
         let needs = &self.needs;
         let mut all: Vec<MediaKind> = if needs.shows.is_empty() {
             DEFAULT_MEDIA.to_vec()
@@ -496,9 +506,6 @@ impl Config {
             if !all.contains(kind) && !needs.backups.iter().any(|(b, _)| b == kind) {
                 all.push(*kind);
             }
-        }
-        if !self.manuals {
-            all.retain(|k| *k != MediaKind::Manual);
         }
         all
     }

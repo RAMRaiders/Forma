@@ -303,7 +303,7 @@ function pickScreen(
   page: Page,
   id: number,
   offers: ScraperOffers,
-  { theme, mediaKinds }: ScraperSettings
+  { theme, mediaKinds, manuals }: ScraperSettings
 ): () => Row[] {
   // Picked by default: the first scraper's, only for a game scraped for the first time (a name
   // alone is not a scrape). Any other stays as it is, gaps too, until the user says otherwise.
@@ -324,7 +324,9 @@ function pickScreen(
     const use = themeUse(theme, s.kind);
     const replaced = offers.media.some((m) => m.kind === theme?.backups[s.kind]);
     const first = s.offers[0];
-    if (first && use !== 'unused' && !(use === 'backup' && replaced)) {
+    // Manuals turned off in the profile: on offer, but only taken when chosen.
+    const off = s.kind === 'manual' && !manuals;
+    if (first && !off && use !== 'unused' && !(use === 'backup' && replaced)) {
       media.set(s.kind, first.id);
     }
   }

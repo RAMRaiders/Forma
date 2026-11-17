@@ -180,8 +180,8 @@ pub fn gather(
         .filter(std::fs::Metadata::is_file)
         .map_or(0, |m| m.len());
     let name = super::text::search_name(&game.name);
-    // Backups too: here the user sees what each is and chooses.
-    let mut kinds = config.all_media();
+    // Backups and manuals too (even with manuals off): here the user sees each and chooses.
+    let mut kinds = config.theme_media();
     kinds.extend(config.needs.backups.iter().map(|(b, _)| *b));
     let regions = config.regions_for(&stem);
     let empty = Credentials::new();
