@@ -568,7 +568,7 @@ fn answer(db: &Connection, on: &[&str], query: &Query<'_>) -> rusqlite::Result<O
     let Some(id) = matched(db, on, query)? else {
         return Ok(None);
     };
-    let metadata = db.query_row(
+    let mut metadata = db.query_row(
         "SELECT name, overview, developer, publisher, genres, players, released, rating, esrb
          FROM game WHERE id = ?",
         [id],
@@ -610,10 +610,35 @@ fn answer(db: &Connection, on: &[&str], query: &Query<'_>) -> rusqlite::Result<O
             media.push((*kind, url));
         }
     }
+    // LaunchBox's own name is North America's: a name for a region the profile puts first
+    // takes its place, and it joins the other names.
+    let mut names = aliases(db, id);
+    let main_rank = ["North America", "United States"]
+        .iter()
+        .map(|r| region_rank(&wanted, Some(r)))
+        .min()
+        .unwrap_or(usize::MAX);
+    let best = names
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, region))| region.as_deref().is_some_and(|r| !r.is_empty()))
+        .min_by_key(|(_, (_, region))| region_rank(&wanted, region.as_deref()))
+        .filter(|(_, (_, region))| region_rank(&wanted, region.as_deref()) < main_rank)
+        .map(|(i, _)| i);
+    if let Some(i) = best {
+        let (name, region) = names.remove(i);
+        if let Some(main) = metadata.name.replace(name) {
+            names.insert(0, (main, Some("North America".to_owned())));
+        }
+        if let Some(region) = region {
+            notes.text.insert("name", region);
+        }
+    }
     let own = metadata.name.clone();
-    notes.names = aliases(db, id)
+    let mut seen = std::collections::HashSet::new();
+    notes.names = names
         .into_iter()
-        .filter(|(name, _)| Some(name) != own.as_ref())
+        .filter(|(name, _)| Some(name) != own.as_ref() && seen.insert(name.clone()))
         .collect();
     Ok(Some(Found {
         metadata,

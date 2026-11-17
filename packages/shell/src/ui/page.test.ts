@@ -142,6 +142,10 @@ describe('a page', () => {
     await page.refresh();
     // The same element: it does not go blank while a copy decodes.
     expect(page.root.querySelector('img[src="one.png"]')).toBe(before);
+    // And the same panel, its entrance not played again.
+    const panel = page.root.querySelector('.panel');
+    await page.refresh();
+    expect(page.root.querySelector('.panel')).toBe(panel);
     expect(page.root.querySelector('img[src="two.png"]')).not.toBeNull();
   });
 });
