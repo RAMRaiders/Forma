@@ -431,6 +431,8 @@ export class Forma {
         skipScraped?: boolean;
         ownRegion?: boolean;
         regions?: string[];
+        /** Since 1.37.0. */
+        manuals?: boolean;
       }) => invoke<ScraperSettings>('scraper_configure', changes),
       /** Sets one of a source's credentials; `null` clears it. */
       setCredential: (source: string, key: string, value: string | null) =>

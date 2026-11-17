@@ -195,6 +195,8 @@ pub struct ScraperSettings {
     pub regions: Vec<String>,
     /// Every region there is to prefer.
     pub all_regions: Vec<String>,
+    /// Manuals are downloaded, when the theme draws them.
+    pub manuals: bool,
     /// What the theme in use asks for, if anything.
     pub theme: Option<ThemeNeedsInfo>,
 }
@@ -306,6 +308,7 @@ fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
         own_region: config.own_region,
         regions: config.regions,
         all_regions: scraper::regions::REGIONS.map(str::to_owned).to_vec(),
+        manuals: config.manuals,
         theme: state
             .current_theme()
             .and_then(|t| t.manifest)
@@ -351,6 +354,8 @@ pub async fn scraper_settings<R: Runtime>(
 }
 
 /// Changes what is given; the rest stays. `sources` is the whole list, in order.
+// One argument per setting: the SDK's `configure` names them.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn scraper_configure<R: Runtime>(
     app: AppHandle<R>,
@@ -360,6 +365,7 @@ pub async fn scraper_configure<R: Runtime>(
     skip_scraped: Option<bool>,
     own_region: Option<bool>,
     regions: Option<Vec<String>>,
+    manuals: Option<bool>,
 ) -> ApiResult<ScraperSettings> {
     off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
@@ -378,6 +384,9 @@ pub async fn scraper_configure<R: Runtime>(
         }
         if let Some(regions) = regions {
             config.regions = regions;
+        }
+        if let Some(manuals) = manuals {
+            config.manuals = manuals;
         }
         // Through `load` again: unknown sources dropped, missing ones added.
         let config = Config::load(

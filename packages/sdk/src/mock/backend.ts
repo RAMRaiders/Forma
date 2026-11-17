@@ -445,6 +445,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     'Asia'
   ];
   let scraperRegions = ['World', 'USA', 'Europe'];
+  let scraperManuals = true;
   const scraperCredentials = new Map<string, Map<string, string>>();
   let scraperStatus: ScraperStatus = {
     running: false,
@@ -502,6 +503,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
     }),
     // The usual kinds, the theme saying nothing of what it draws, then what it asks for.
     media: ['thumbnail', 'image', 'marquee', 'wheel', 'video', 'boxside'],
+    manuals: scraperManuals,
     mediaKinds: kindLabels.map(([kind, label]) => ({ kind, label })),
     replace: scraperReplace,
     skipScraped: scraperSkip,
@@ -1086,7 +1088,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperAllowed();
       return scraperSettings();
     },
-    scraper_configure: ({ sources, replace, skipScraped, ownRegion, regions }) => {
+    scraper_configure: ({ sources, replace, skipScraped, ownRegion, regions, manuals }) => {
       scraperAllowed();
       if (Array.isArray(sources)) {
         const given = (sources as { id: string; enabled: boolean }[]).filter((c) =>
@@ -1100,6 +1102,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (typeof replace === 'boolean') scraperReplace = replace;
       if (typeof skipScraped === 'boolean') scraperSkip = skipScraped;
       if (typeof ownRegion === 'boolean') scraperOwnRegion = ownRegion;
+      if (typeof manuals === 'boolean') scraperManuals = manuals;
       if (Array.isArray(regions)) {
         scraperRegions = (regions as string[]).filter((r) => allRegions.includes(r));
       }

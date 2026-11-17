@@ -444,6 +444,8 @@ export interface ScraperSettings {
   regions: string[];
   /** Every region there is to prefer, as No-Intro names them. Since 1.36.0. */
   allRegions: string[];
+  /** Download manuals, when the theme draws them (they are large). Since 1.37.0. */
+  manuals: boolean;
   /**
    * What the theme in use asks for in its `theme.json` (`scraper`), or null: media kinds, and
    * details beyond the usual ones (`ageRating`). Since 1.24.0. `shows` is every kind it draws

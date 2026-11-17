@@ -998,6 +998,7 @@ fn scraper_settings_accounts_and_a_run_over_a_system() {
         "unknown regions left out"
     );
     assert_eq!(configured["allRegions"][1], "USA");
+    assert_eq!(configured["manuals"], true);
 
     let events = Arc::new(Mutex::new(0));
     let seen = events.clone();
