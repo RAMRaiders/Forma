@@ -64,18 +64,34 @@ pub fn scrape_game(
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
     let mut outcome = Outcome::default();
+    if config.skip_scraped && scraped(game) {
+        outcome.skipped = true;
+        return Ok(outcome);
+    }
 
     let mut want: Vec<MediaKind> = config
         .all_media()
         .into_iter()
         .filter(|k| config.replace || !has_media(game, *k))
         .collect();
+    // A theme's backups: asked for along with the rest, saved only if what each stands in for
+    // cannot be had.
+    let backups: Vec<(MediaKind, MediaKind)> = config
+        .needs
+        .backups
+        .iter()
+        .copied()
+        .filter(|(backup, _)| config.replace || !has_media(game, *backup))
+        .collect();
     let age = config.wants_age_rating();
-    let mut want_metadata = config.metadata && (config.replace || lacks_metadata(game, &stem, age));
+    let mut want_metadata = config.replace || lacks_metadata(game, &stem, age);
     if want.is_empty() && !want_metadata {
         outcome.skipped = true;
         return Ok(outcome);
     }
+    let regions = config.regions_for(&stem);
+    // Each source's media that was not saved, in the order asked, for the backups.
+    let mut spare: Vec<(MediaKind, String)> = Vec::new();
 
     let full = system.rom_path.join(rom);
     let size = std::fs::metadata(&full)
@@ -109,6 +125,11 @@ pub fn scrape_game(
                     .flatten(),
             );
         }
+        let asked: Vec<MediaKind> = want
+            .iter()
+            .copied()
+            .chain(backups.iter().map(|(b, _)| *b))
+            .collect();
         let query = Query {
             system: &system.name,
             platforms: &system.platforms,
@@ -117,8 +138,9 @@ pub fn scrape_game(
             name: &name,
             size,
             hashes: hashes.as_ref().and_then(Option::as_ref),
-            wanted: &want,
+            wanted: &asked,
             wants_metadata: want_metadata,
+            regions: &regions,
         };
         if !source.covers(&query) {
             continue;
@@ -159,8 +181,27 @@ pub fn scrape_game(
                 }
             }
         }
+        spare.extend(
+            found
+                .media
+                .into_iter()
+                .filter(|(k, _)| backups.iter().any(|(b, _)| b == k)),
+        );
         if gave {
             outcome.sources.push(source.id().to_owned());
+        }
+    }
+
+    for (backup, main) in &backups {
+        if saved.contains_key(main) || has_media(game, *main) {
+            continue;
+        }
+        for (_, url) in spare.iter().filter(|(k, _)| k == backup) {
+            if let Ok(path) = save(http, &system.rom_path, &stem, *backup, url) {
+                outcome.media.push(*backup);
+                saved.insert(*backup, path);
+                break;
+            }
         }
     }
 
@@ -175,6 +216,11 @@ pub fn scrape_game(
         set_tags(&system.rom_path, paths, rom, &game.name, &tags)?;
     }
     Ok(outcome)
+}
+
+/// Whether the game has been scraped: a description, or any media.
+fn scraped(game: &Game) -> bool {
+    game.description.is_some() || MediaKind::ALL.iter().any(|k| has_media(game, *k))
 }
 
 pub(super) fn has_media(game: &Game, kind: MediaKind) -> bool {

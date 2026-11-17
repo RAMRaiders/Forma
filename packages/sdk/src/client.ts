@@ -421,13 +421,16 @@ export class Forma {
      */
     this.scraper = {
       settings: () => invoke<ScraperSettings>('scraper_settings'),
-      /** Changes what is given and keeps the rest. `sources` is the whole list, in order. */
+      /**
+       * Changes what is given and keeps the rest. `sources` is the whole list, in order. What
+       * to fetch is the theme's, not set here (since 1.36.0).
+       */
       configure: (changes: {
         sources?: { id: string; enabled: boolean }[];
-        media?: MediaKind[];
-        metadata?: boolean;
         replace?: boolean;
-        themeNeeds?: boolean;
+        skipScraped?: boolean;
+        ownRegion?: boolean;
+        regions?: string[];
       }) => invoke<ScraperSettings>('scraper_configure', changes),
       /** Sets one of a source's credentials; `null` clears it. */
       setCredential: (source: string, key: string, value: string | null) =>

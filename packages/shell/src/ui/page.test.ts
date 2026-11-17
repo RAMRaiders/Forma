@@ -48,4 +48,44 @@ describe('a page', () => {
     expect(page.open).toBe(false);
     expect(page.root.textContent).toBe('');
   });
+
+  it('lays tiles out in a grid, moved through in every direction, among its other rows', async () => {
+    const page = new Page(vi.fn(), vi.fn());
+    const press = (action: 'up' | 'down' | 'left' | 'right') =>
+      page.input({ action, button: null, gamepad: 0, pressed: true, repeat: false });
+    const chosen = () => page.root.querySelector('li.selected .name')?.textContent;
+    await page.show('Box', () => [
+      { label: 'Name' },
+      ...['Keep', 'One', 'Two', 'Three', 'Four', 'Five'].map((label) => ({
+        label,
+        tile: true,
+        image: label === 'One' ? 'one.png' : null,
+        run: vi.fn()
+      })),
+      { label: 'Save', run: vi.fn() }
+    ]);
+    // One grid, its tiles four across.
+    expect(page.root.querySelectorAll('ul.tiles li.tile')).toHaveLength(6);
+    expect(page.root.querySelector('li.tile img.picture')?.getAttribute('src')).toBe('one.png');
+    expect(page.root.querySelectorAll('li.tile .picture.none')).toHaveLength(5);
+    press('down');
+    expect(chosen()).toBe('Keep');
+    press('right');
+    press('right');
+    expect(chosen()).toBe('Two');
+    press('down');
+    // The line below has two: the last of them.
+    expect(chosen()).toBe('Five');
+    press('right');
+    expect(chosen()).toBe('Five');
+    press('down');
+    expect(chosen()).toBe('Save');
+    press('up');
+    expect(chosen()).toBe('Five');
+    // Five sits under One.
+    press('up');
+    expect(chosen()).toBe('One');
+    press('up');
+    expect(chosen()).toBe('Name');
+  });
 });

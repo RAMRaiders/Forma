@@ -424,16 +424,26 @@ export interface ScraperSource {
 export interface ScraperSettings {
   /** In the order they are asked: the first with an answer wins, per field and per kind. */
   sources: ScraperSource[];
-  /** The kinds to fetch. */
+  /**
+   * The kinds a run fetches, as the theme in use says: what it draws (its backups only where
+   * what they stand in for cannot be had), else the usual kinds; then what it asks for.
+   */
   media: MediaKind[];
   /** Every kind there is, with its name. */
   mediaKinds: { kind: MediaKind; label: string }[];
-  /** Fetch text: name, description, developer, publisher, genre, players, date, rating. */
-  metadata: boolean;
   /** Replace what games have; otherwise only fill what is missing. */
   replace: boolean;
-  /** Fetch what the theme in use asks for too, on top of `media`. Since 1.24.0. */
-  themeNeeds: boolean;
+  /** Leave games already scraped (a description or any media) as they are. Since 1.36.0. */
+  skipScraped: boolean;
+  /**
+   * The region profile. With `ownRegion`, a ROM's own regions (`Sonic (USA, Europe)`) come
+   * first, the one `regions` puts first winning of several; then `regions`, best first. Names,
+   * boxes, dates and description languages follow it. Since 1.36.0.
+   */
+  ownRegion: boolean;
+  regions: string[];
+  /** Every region there is to prefer, as No-Intro names them. Since 1.36.0. */
+  allRegions: string[];
   /**
    * What the theme in use asks for in its `theme.json` (`scraper`), or null: media kinds, and
    * details beyond the usual ones (`ageRating`). Since 1.24.0. `shows` is every kind it draws
@@ -485,7 +495,11 @@ export interface ScraperOffers {
 
 /** What to scrape. */
 export type ScrapeScope =
-  { kind: 'game'; id: number } | { kind: 'system'; name: string } | { kind: 'all' };
+  | { kind: 'game'; id: number }
+  | { kind: 'system'; name: string }
+  /** Several systems, in the library's order. Since 1.36.0. */
+  | { kind: 'systems'; names: string[] }
+  | { kind: 'all' };
 
 /** A scraper run, going on or the last one. */
 export interface ScraperStatus {

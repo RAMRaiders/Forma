@@ -979,7 +979,7 @@ fn scraper_settings_accounts_and_a_run_over_a_system() {
         .unwrap_err();
     assert_eq!(code(&err), "invalid");
 
-    // Only libretro, only boxes, replacing what is there.
+    // Only libretro, replacing what is there, Europe's names first whatever the ROM says.
     let only_libretro: Vec<Value> = sources
         .iter()
         .map(|s| json!({ "id": s["id"], "enabled": s["id"] == "libretro" }))
@@ -987,11 +987,17 @@ fn scraper_settings_accounts_and_a_run_over_a_system() {
     let configured = h
         .call(
             "scraper_configure",
-            json!({ "sources": only_libretro, "media": ["thumbnail"], "metadata": false, "replace": true }),
+            json!({ "sources": only_libretro, "replace": true, "ownRegion": false, "regions": ["Europe", "Mars"] }),
         )
         .unwrap();
-    assert_eq!(configured["media"], json!(["thumbnail"]));
     assert_eq!(configured["replace"], true);
+    assert_eq!(configured["ownRegion"], false);
+    assert_eq!(
+        configured["regions"],
+        json!(["Europe"]),
+        "unknown regions left out"
+    );
+    assert_eq!(configured["allRegions"][1], "USA");
 
     let events = Arc::new(Mutex::new(0));
     let seen = events.clone();
@@ -1000,7 +1006,7 @@ fn scraper_settings_accounts_and_a_run_over_a_system() {
     let started = h
         .call(
             "scraper_start",
-            json!({ "scope": { "kind": "system", "name": "nes" } }),
+            json!({ "scope": { "kind": "systems", "names": ["nes"] } }),
         )
         .unwrap();
     assert_eq!(started["running"], true);
@@ -1071,7 +1077,7 @@ fn an_addon_installs_from_the_catalogue_joins_the_scraper_and_goes() {
         .collect();
     h.call(
         "scraper_configure",
-        json!({ "sources": only, "media": ["thumbnail"], "metadata": false, "replace": true }),
+        json!({ "sources": only, "replace": true }),
     )
     .unwrap();
     let started = h

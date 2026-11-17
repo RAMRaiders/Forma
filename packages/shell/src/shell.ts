@@ -28,7 +28,7 @@ import { magazinesScreen } from './ui/magazines.js';
 import { duplicatesScreen, versionsScreen } from './ui/gamedata.js';
 import { dumpsScreen } from './ui/dumps.js';
 import { addonsScreen } from './ui/addons.js';
-import { scraperScreen } from './ui/scraper.js';
+import { mediaScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
 import { systemSettingsScreen } from './ui/settings.js';
 import { emulatorScreen } from './ui/shader.js';
@@ -461,10 +461,11 @@ export class Shell {
         run: push('Content downloader', () => storeScreen(forma, page))
       },
       {
-        heading: 'Games',
-        label: 'Scrapers',
-        detail: 'Choose scrapers, add accounts, and scrape systems or everything',
-        run: push('Scrapers', () => scraperScreen(forma, page, {}))
+        heading: 'ROMs',
+        label: 'Media',
+        detail:
+          'Scraping: the services and their accounts, your regions, and the systems to scrape',
+        run: push('Media', () => mediaScreen(forma, page))
       },
       {
         label: 'Emulator options',

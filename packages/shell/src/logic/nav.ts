@@ -31,3 +31,44 @@ export function moveList(
       return Math.min(last, index + pageSize);
   }
 }
+
+/** What `moveTiles` needs to know of a row: whether it is a tile, and starts a group. */
+export interface Slot {
+  tile: boolean;
+  heading: boolean;
+}
+
+/**
+ * Moving among tiles: rows of `cols` pictures, among the page's other rows. A run of tiles
+ * (one group, no heading inside) is laid out `cols` across. Left and right move along it; up
+ * and down move by a line, and off its top or bottom to the row before or after it. Returns
+ * null when `index` is not a tile, or the move leaves it to the list's own rules.
+ */
+export function moveTiles(
+  index: number,
+  slots: Slot[],
+  move: 'up' | 'down' | 'left' | 'right',
+  cols: number
+): number | null {
+  if (!slots[index]?.tile) return null;
+  let start = index;
+  while (start > 0 && slots[start - 1]!.tile && !slots[start]!.heading) start--;
+  let end = index;
+  while (end + 1 < slots.length && slots[end + 1]!.tile && !slots[end + 1]!.heading) end++;
+  const at = index - start;
+  const line = Math.floor(at / cols);
+  const lastLine = Math.floor((end - start) / cols);
+  switch (move) {
+    case 'left':
+      return at % cols > 0 ? index - 1 : index;
+    case 'right':
+      return at % cols < cols - 1 && index < end ? index + 1 : index;
+    // Off the grid: the row just before or after it, else the list's own wrapping.
+    case 'up':
+      if (line > 0) return index - cols;
+      return start > 0 ? start - 1 : null;
+    case 'down':
+      if (line < lastLine) return Math.min(index + cols, end);
+      return end + 1 < slots.length ? end + 1 : null;
+  }
+}

@@ -457,12 +457,13 @@ describe('mock backend', () => {
     expect(tgdb.needs[0]).toMatchObject({ set: true, value: null });
     const moved = await b.invoke<ScraperSettings>('scraper_configure', {
       sources: [{ id: 'libretro', enabled: true }],
-      media: ['video', 'thumbnail'],
-      replace: true
+      replace: true,
+      regions: ['Europe', 'Mars']
     });
     expect(moved.sources[0]!.id).toBe('libretro');
     expect(moved.sources).toHaveLength(8);
-    expect(moved.media).toEqual(['thumbnail', 'video']);
+    expect(moved.regions).toEqual(['Europe']);
+    expect(moved.media).toContain('boxside');
     expect(moved.theme).toEqual({
       name: 'Neon',
       view: null,
@@ -471,8 +472,8 @@ describe('mock backend', () => {
       shows: [],
       backups: {}
     });
-    const off = await b.invoke<ScraperSettings>('scraper_configure', { themeNeeds: false });
-    expect(off.themeNeeds).toBe(false);
+    const skip = await b.invoke<ScraperSettings>('scraper_configure', { skipScraped: true });
+    expect(skip.skipScraped).toBe(true);
 
     const seen: ScraperStatus[] = [];
     b.listen('scraper:progress', (s) => seen.push(s as ScraperStatus));

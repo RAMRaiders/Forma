@@ -3,7 +3,7 @@
 Forma's scraper finds metadata and media for games and writes them where EmulationStation
 does: media into `/userdata/roms/<system>/images|videos|manuals/`, metadata into the system's
 `gamelist.xml` (edited in place, as the [write-back](batocera-integration.md) does). Both
-frontends see the result. It runs from Forma's menu: Start → Games → Scrapers. On a game, Select
+frontends see the result. It runs from Forma's menu: Start → ROMs → Media. On a game, Select
 offers **Edit details…** and **Scrape…** (see [One game, by hand](#one-game-by-hand)).
 
 ## Sources
@@ -43,14 +43,26 @@ downloads.
 
 ## What the user decides
 
-- Which sources, in which order, and their credentials.
-- Which media kinds to fetch: any of image (screenshot), thumbnail (box front), boxback,
-  box 3D, marquee, wheel (logo), fan art, title screen, cartridge, map, bezel, video, manual,
-  mix; and Forma's own: box spine, full box cover, banner, flyer and cabinet (arcade).
-- Whether to fetch what the theme in use asks for too (its `scraper` block in `theme.json`:
-  more media kinds, and age ratings); on by default. See theme-authoring.md.
-- Missing only (the default) or replace what is there.
-- What to scrape: the selected game, a system, or every system.
+Start → ROMs → Media has three pages:
+
+- **Accounts**: which sources, in which order, and their credentials. A on a source sets it up;
+  Y turns it on or off.
+- **Profile**: the regions whose names, boxes, dates and description languages a game gets.
+  With _the game's own region first_ (on by default) a ROM's regions in its file name
+  (`Sonic (USA, Europe)`) come first, and of several, the one higher in the preferred list
+  wins; then the preferred regions, in order (World, USA, Europe to start with). Turned off,
+  only the list counts: a French profile gets French boxes and text whatever the ROM says.
+- **Scrape**: the systems to scrape (every one to start with), and what to do with games
+  already scraped (a description or any media): skip them, fill in what is missing (the
+  default), or replace what they have. Then Start; the run goes on in the background, and
+  the Media page follows it.
+
+What is fetched is not the user's to choose: it is the theme's (its `scraper` block in
+`theme.json`, see theme-authoring.md). Every kind it says it draws (`shows`) is fetched, then
+what it asks for on top (`media`, per view too) and its extra fields (`ageRating`). A backup
+(`backups`, drawn only when another kind is missing) is saved only when the kind it stands in
+for cannot be had. A theme that does not say what it draws gets the usual kinds: box front,
+screenshot, marquee, wheel and video. Text details are always fetched.
 
 ## One game, by hand
 

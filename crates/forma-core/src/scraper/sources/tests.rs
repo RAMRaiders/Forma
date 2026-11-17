@@ -58,6 +58,19 @@ impl Http for Api {
 
 const ALL: [MediaKind; 19] = MediaKind::ALL;
 
+/// The regions a ROM called `stem` is looked for in, by the default profile.
+fn regions(stem: &str) -> &'static [String] {
+    Box::leak(
+        crate::scraper::regions::order(stem, true, &crate::scraper::regions::default_order())
+            .into_boxed_slice(),
+    )
+}
+
+/// ScreenScraper's answer read for the ROM `stem`, by the default profile.
+fn ss_parse(game: &serde_json::Value, stem: &str) -> Option<crate::scraper::Found> {
+    super::screenscraper::parse(game, regions(stem))
+}
+
 fn query<'a>(system: &'a str, platforms: &'a [String], hashes: Option<&'a Hashes>) -> Query<'a> {
     Query {
         system,
@@ -69,6 +82,7 @@ fn query<'a>(system: &'a str, platforms: &'a [String], hashes: Option<&'a Hashes
         hashes,
         wanted: &ALL,
         wants_metadata: true,
+        regions: regions("Super Metroid (USA)"),
     }
 }
 
@@ -547,6 +561,7 @@ fn launchbox_query<'a>(name: &'a str, stem: &'a str, on: &'a [String]) -> Query<
     Query {
         name,
         stem,
+        regions: regions(stem),
         ..query("megadrive", on, None)
     }
 }
@@ -745,7 +760,7 @@ fn launchbox_without_its_data_stops_asking_and_keeps_nothing_half_built() {
 
 #[test]
 fn screenscraper_says_what_tells_its_media_and_text_apart() {
-    let found = super::screenscraper::parse(&serde_json::json!({
+    let found = ss_parse(&serde_json::json!({
         "noms": [{ "region": "jp", "text": "Sonikku" }],
         "synopsis": [{ "langue": "fr", "text": "Un jeu." }],
         "dates": [{ "region": "ss", "text": "1991-06-23" }],
@@ -773,7 +788,7 @@ fn screenscraper_says_what_tells_its_media_and_text_apart() {
 
 #[test]
 fn screenscraper_offers_every_name_with_the_regions_using_it() {
-    let found = super::screenscraper::parse(
+    let found = ss_parse(
         &serde_json::json!({
             "noms": [
                 { "region": "jp", "text": "Sonikku" },
@@ -816,7 +831,7 @@ fn screenscraper_puts_the_roms_own_region_first() {
             { "type": "box-2D", "url": "https://s/eu", "region": "eu" }
         ]
     });
-    let europe = super::screenscraper::parse(&game, "Sonic the Hedgehog (Europe)").unwrap();
+    let europe = ss_parse(&game, "Sonic the Hedgehog (Europe)").unwrap();
     assert_eq!(europe.metadata.name.as_deref(), Some("Sonic the Hedgehog"));
     assert_eq!(europe.notes.text["releaseDate"], "Europe");
     assert_eq!(
@@ -824,20 +839,20 @@ fn screenscraper_puts_the_roms_own_region_first() {
         Some("https://s/eu")
     );
     // A country of Europe: its own, else Europe's.
-    let france = super::screenscraper::parse(&game, "Sonic (France)").unwrap();
+    let france = ss_parse(&game, "Sonic (France)").unwrap();
     assert_eq!(france.metadata.name.as_deref(), Some("Sonic the Hedgehog"));
     // Japan's own name for a Japanese copy.
-    let japan = super::screenscraper::parse(&game, "Sonic the Hedgehog (Japan)").unwrap();
+    let japan = ss_parse(&game, "Sonic the Hedgehog (Japan)").unwrap();
     assert_eq!(japan.metadata.name.as_deref(), Some("Sonikku"));
     // No region in the name: as before, World, then USA.
-    let plain = super::screenscraper::parse(&game, "Sonic").unwrap();
+    let plain = ss_parse(&game, "Sonic").unwrap();
     assert_eq!(plain.metadata.name.as_deref(), Some("Sonic"));
     assert_eq!(
         plain.media.first().map(|(_, url)| url.as_str()),
         Some("https://s/us")
     );
     assert_eq!(
-        super::screenscraper::regions_for("Sonic (USA, Europe) (Rev 1)")[..3],
+        super::screenscraper::regions_for(regions("Sonic (USA, Europe) (Rev 1)"))[..3],
         ["us", "eu", "wor"]
     );
 }

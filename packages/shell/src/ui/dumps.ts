@@ -20,7 +20,7 @@ function dumpSummary(r: DumpReport): string {
 }
 
 /**
- * Start → Games → ROM check: whether games' files are the dumps No-Intro and Redump list, per
+ * Start → ROMs → ROM check: whether games' files are the dumps No-Intro and Redump list, per
  * system, and the switch for it. Forma does the work in the background.
  */
 export function dumpsScreen(forma: Forma, page: Page): () => Promise<Row[]> {

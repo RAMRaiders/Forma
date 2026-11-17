@@ -391,6 +391,7 @@ pub(in crate::scraper) fn identify(
             hashes: None,
             wanted: &[],
             wants_metadata: false,
+            regions: &[],
         };
         let Some(game) = matched(&db, &on, &query).map_err(fail)? else {
             continue;
@@ -531,8 +532,8 @@ fn matched(db: &Connection, on: &[&str], query: &Query<'_>) -> rusqlite::Result<
     Ok(None)
 }
 
-/// LaunchBox's regions in the ROM's name, `(USA, Europe)`, in the order they come.
-fn regions_of(stem: &str) -> Vec<&'static str> {
+/// LaunchBox's regions for `regions`, the profile's order.
+fn regions_of(regions: &[String]) -> Vec<&'static str> {
     const NAMES: [(&str, &[&str]); 10] = [
         ("USA", &["North America", "United States"]),
         ("Europe", &["Europe"]),
@@ -545,10 +546,10 @@ fn regions_of(stem: &str) -> Vec<&'static str> {
         ("Italy", &["Italy"]),
         ("Australia", &["Australia"]),
     ];
-    stem.split(['(', ')', ','])
-        .map(str::trim)
-        .filter_map(|word| NAMES.iter().find(|(n, _)| *n == word))
-        .flat_map(|(_, regions)| regions.iter().copied())
+    regions
+        .iter()
+        .filter_map(|r| NAMES.iter().find(|(n, _)| n == r))
+        .flat_map(|(_, names)| names.iter().copied())
         .collect()
 }
 
@@ -589,7 +590,7 @@ fn answer(db: &Connection, on: &[&str], query: &Query<'_>) -> rusqlite::Result<O
     let mut images: Vec<(i64, Option<String>, String)> = stmt
         .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<rusqlite::Result<_>>()?;
-    let wanted = regions_of(query.stem);
+    let wanted = regions_of(query.regions);
     images.sort_by_key(|(kind, region, _)| (*kind, region_rank(&wanted, region.as_deref())));
     let mut media: Vec<(MediaKind, String)> = Vec::new();
     let mut notes = Notes::default();
