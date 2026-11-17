@@ -67,6 +67,10 @@ pub fn start<R: Runtime>(app: AppHandle<R>) {
 }
 
 const UI_WAIT: Duration = Duration::from_secs(60);
+/// Work waits for this long without more before it runs…
+const SETTLE: Duration = Duration::from_secs(5);
+/// …but no longer than this after the first, however busy the files.
+const SETTLE_MAX: Duration = Duration::from_secs(60);
 
 fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
     let mut cache = match ra_match::open_cache(&state.paths) {
@@ -77,11 +81,21 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
         }
     };
     while let Ok(first) = rx.recv() {
-        // Merge what queued up meanwhile.
+        // Merge what queued up meanwhile, and what comes while files keep changing: games
+        // deleted or scraped one after another are one pass over their system, not one each
+        // (each a whole system read, checked and redrawn).
+        let mut queued = vec![first];
+        let started = Instant::now();
+        while let Some(left) = SETTLE_MAX.checked_sub(started.elapsed()) {
+            match rx.recv_timeout(SETTLE.min(left)) {
+                Ok(work) => queued.push(work),
+                Err(_) => break,
+            }
+        }
         let mut all = false;
         let mut systems: Vec<String> = Vec::new();
         let mut hash = false;
-        for work in std::iter::once(first).chain(rx.try_iter()) {
+        for work in queued {
             match work {
                 Work::Hash(s) if s.is_empty() => (all, hash) = (true, true),
                 Work::Hash(s) => {

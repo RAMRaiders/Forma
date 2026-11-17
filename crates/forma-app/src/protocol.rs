@@ -26,8 +26,9 @@ use tauri::http::{Request, Response, StatusCode, header};
 pub trait Resolver {
     /// The folder of an available theme, and the remote origins it may use.
     fn theme(&self, id: &str) -> Option<(PathBuf, Vec<String>)>;
-    /// The file for one kind of a game's media, at about `width` px if asked and it is an image.
-    fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf>;
+    /// The file for one kind of a game's media, at about `width` px if asked and it is an image,
+    /// and whether it is final: not the original standing in until the resized copy is made.
+    fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<(PathBuf, bool)>;
     /// A RetroAchievements media file, fetched and cached if need be.
     fn ra_media(&self, path: &str) -> Option<PathBuf>;
     /// One of Batocera's files for Forma's cover: `boot-logo.png`, `boot-logo-4x3.png`,
@@ -133,7 +134,11 @@ pub fn respond(resolver: &impl Resolver, request: &Request<Vec<u8>>) -> Response
                 .ok()
                 .and_then(|id| resolver.media(id, kind, width))
             {
-                Some(file) => serve(&file, range, None),
+                // Final, it is kept: a theme drawing it again (a row scrolled back into sight)
+                // neither reads nor decodes it again. A scrape that replaces it changes its
+                // URL (the SDK's version), so nothing stale is kept.
+                Some((file, true)) => with_cache(serve(&file, range, None), KEEP_MEDIA),
+                Some((file, false)) => serve(&file, range, None),
                 None => status(StatusCode::NOT_FOUND, "no such media"),
             }
         }
@@ -309,6 +314,19 @@ fn parse_range(header: &str, len: u64) -> Option<(u64, u64)> {
     (start <= end && start <= last).then_some((start, end))
 }
 
+/// How long a game's final media file may be kept unasked.
+const KEEP_MEDIA: &str = "max-age=86400";
+
+fn with_cache(mut response: Response<Vec<u8>>, policy: &'static str) -> Response<Vec<u8>> {
+    if response.status().is_success() {
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static(policy),
+        );
+    }
+    response
+}
+
 fn status(code: StatusCode, message: &str) -> Response<Vec<u8>> {
     Response::builder()
         .status(code)
@@ -386,9 +404,9 @@ mod tests {
         fn theme(&self, id: &str) -> Option<(PathBuf, Vec<String>)> {
             (id == "neon").then(|| (self.theme.clone(), vec!["https://cdn.example.com".into()]))
         }
-        fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf> {
+        fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<(PathBuf, bool)> {
             *self.asked_width.lock().unwrap() = width;
-            (game_id == 7 && kind == "video").then(|| self.media.clone())
+            (game_id == 7 && kind == "video").then(|| (self.media.clone(), width.is_none()))
         }
         fn ra_media(&self, path: &str) -> Option<PathBuf> {
             (path == "Badge/1.png").then(|| self.media.clone())
@@ -597,8 +615,16 @@ mod tests {
         assert_eq!(width("forma://localhost/media/7/video?w=99999"), None);
         assert_eq!(width("forma://localhost/media/7/video?w=big"), None);
         assert_eq!(width("forma://localhost/media/7/video"), None);
-        let res = get(&fake, "forma://localhost/media/7/video", None);
-        assert_eq!(res.headers()[header::CACHE_CONTROL], "no-cache");
+    }
+
+    #[test]
+    fn keeps_final_media_and_asks_again_for_a_stand_in() {
+        let (_dir, fake) = setup();
+        let cache = |uri: &str| get(&fake, uri, None).headers()[header::CACHE_CONTROL].clone();
+        // The file as it will stay: kept.
+        assert_eq!(cache("forma://localhost/media/7/video"), KEEP_MEDIA);
+        // The original standing in until its resized copy is made: asked again.
+        assert_eq!(cache("forma://localhost/media/7/video?w=480"), "no-cache");
     }
 
     #[test]

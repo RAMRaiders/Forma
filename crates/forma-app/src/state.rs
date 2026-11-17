@@ -184,13 +184,13 @@ impl Resolver for AppState {
         Some((theme.dir, remote))
     }
 
-    fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<PathBuf> {
+    fn media(&self, game_id: i64, kind: &str, width: Option<u32>) -> Option<(PathBuf, bool)> {
         let source = PathBuf::from(self.library().media_file(game_id, kind).ok()??);
         // Video and manuals (PDF) are served as they are.
         let image = !matches!(kind, "video" | "manual");
         Some(match width {
-            Some(w) if image => self.thumbnails.file_for(&source, w),
-            _ => source,
+            Some(w) if image => self.thumbnails.served(&source, w),
+            _ => (source, true),
         })
     }
 
