@@ -325,13 +325,19 @@ impl Thumbnailer {
     /// The file to serve for `source` at `width`: the thumbnail when it is ready, else the
     /// original, with the thumbnail made next.
     pub fn file_for(&self, source: &Path, width: u32) -> PathBuf {
+        self.served(source, width).0
+    }
+
+    /// [`Self::file_for`], and whether it is the one that will be served from now on (the
+    /// thumbnail, or the original where none is made): what may be kept and not asked again.
+    pub fn served(&self, source: &Path, width: u32) -> (PathBuf, bool) {
         let width = bucket(width);
         match self.thumbs.cached(source, width) {
-            Some(Cached::Thumbnail(file)) => file,
-            Some(Cached::UseOriginal) => source.to_path_buf(),
+            Some(Cached::Thumbnail(file)) => (file, true),
+            Some(Cached::UseOriginal) => (source.to_path_buf(), true),
             None => {
                 self.work.push((source.to_path_buf(), width), true);
-                source.to_path_buf()
+                (source.to_path_buf(), false)
             }
         }
     }
