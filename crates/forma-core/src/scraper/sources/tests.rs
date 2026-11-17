@@ -998,3 +998,19 @@ fn hfsdb_says_when_the_account_is_refused() {
         .unwrap_err();
     assert!(matches!(e, LookupError::Credentials(_)), "{e:?}");
 }
+
+#[test]
+fn screenscraper_takes_a_whole_date_over_its_regions_year() {
+    let found = ss_parse(
+        &serde_json::json!({
+            "noms": [{ "region": "us", "text": "Sonic" }],
+            "dates": [
+                { "region": "us", "text": "1991" },
+                { "region": "jp", "text": "1991-07-26" }
+            ]
+        }),
+        "Sonic (USA)",
+    )
+    .unwrap();
+    assert_eq!(found.metadata.release_date.as_deref(), Some("1991-07-26"));
+}

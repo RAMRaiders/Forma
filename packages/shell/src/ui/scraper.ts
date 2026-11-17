@@ -45,7 +45,7 @@ function moved(settings: ScraperSettings, id: string, step: -1 | 1) {
  * chosen, in the background. What is fetched is the theme's to say. The page follows a run.
  */
 export function mediaScreen(forma: Forma, page: Page): () => Promise<Row[]> {
-  // The systems to scrape, chosen on this page: every one until the user says otherwise.
+  // The systems to scrape, chosen on this page: none until the user picks them.
   let chosen: Set<string> | null = null;
 
   const build = async (): Promise<Row[]> => {
@@ -232,7 +232,7 @@ function scrapeScreen(
       forma.library.systems()
     ]);
     const withGames = systems.filter((s) => s.gameCount > 0);
-    const picked = chosen() ?? new Set(withGames.map((s) => s.name));
+    const picked = chosen() ?? new Set<string>();
     const names = withGames.filter((s) => picked.has(s.name));
     const games = names.reduce((n, s) => n + s.gameCount, 0);
     const at = EXISTING.findIndex(
@@ -252,9 +252,11 @@ function scrapeScreen(
       {
         label: 'Systems',
         detail:
-          names.length === withGames.length
-            ? `Every system · ${games} games`
-            : `${names.length} of ${withGames.length} · ${games} games`,
+          names.length === 0
+            ? 'None chosen yet'
+            : names.length === withGames.length
+              ? `Every system · ${games} games`
+              : `${names.length} of ${withGames.length} · ${games} games`,
         run: () => page.push('Systems', systemsScreen(page, withGames, picked, choose))
       },
       {
@@ -289,7 +291,7 @@ function scrapeScreen(
   };
 }
 
-/** Every system with games, each one on or off for the run; A flips one. */
+/** Every system with games, each one on or off for the run; A flips one, or all at once. */
 function systemsScreen(
   page: Page,
   systems: { name: string; fullname: string; gameCount: number }[],
@@ -304,14 +306,16 @@ function systemsScreen(
     await page.refresh();
   };
   return () => {
-    const all = systems.every((s) => picked.has(s.name));
+    const on = systems.filter((s) => picked.has(s.name)).length;
     return [
       {
-        label: all ? 'Choose none' : 'Choose every system',
-        run: flip((next) => {
-          next.clear();
-          if (!all) for (const s of systems) next.add(s.name);
-        })
+        label: 'Select all',
+        detail: `${on} of ${systems.length} on`,
+        run: flip((next) => systems.forEach((s) => next.add(s.name)))
+      },
+      {
+        label: 'Unselect all',
+        run: flip((next) => next.clear())
       },
       ...systems.map((s, i): Row => ({
         heading: i === 0 ? 'Systems' : undefined,

@@ -225,7 +225,12 @@ impl Metadata {
         take(&mut self.publisher, other.publisher);
         take(&mut self.genre, other.genre);
         take(&mut self.players, other.players);
-        take(&mut self.release_date, other.release_date);
+        // A date with its month and day over one without: from whichever source has it.
+        if date_precision(other.release_date.as_deref())
+            > date_precision(self.release_date.as_deref())
+        {
+            self.release_date = other.release_date;
+        }
         take(&mut self.rating, other.rating);
         take(&mut self.age_rating, other.age_rating);
     }
@@ -237,9 +242,29 @@ impl Metadata {
             && self.publisher.is_some()
             && self.genre.is_some()
             && self.players.is_some()
-            && self.release_date.is_some()
+            // A year alone: another source may have the day.
+            && date_precision(self.release_date.as_deref()) == 3
             && self.rating.is_some()
             && (!age_rating || self.age_rating.is_some())
+    }
+}
+
+/// How much of a date there is: 0 none, 1 the year, 2 its month too, 3 its day too. Dates are
+/// written `1994`, `1994-03`, `1994-03-19` (or `19940319`).
+pub(crate) fn date_precision(date: Option<&str>) -> u8 {
+    let digits = date
+        .map(|d| {
+            d.chars()
+                .take_while(|c| *c != 'T')
+                .filter(char::is_ascii_digit)
+                .count()
+        })
+        .unwrap_or(0);
+    match digits {
+        0..4 => 0,
+        4 | 5 => 1,
+        6 | 7 => 2,
+        _ => 3,
     }
 }
 

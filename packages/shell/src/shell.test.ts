@@ -476,7 +476,7 @@ describe('Forma’s shell', () => {
     await goTo('Scrape');
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
-    expect(at('Systems')).toMatch(/^Every system · \d+ games$/);
+    expect(at('Systems')).toBe('None chosen yet');
     expect(at('What is fetched')).toContain('Box spine');
     await goTo('Games already scraped');
     expect(at('Games already scraped')).toBe('Fill in what is missing');
@@ -485,9 +485,12 @@ describe('Forma’s shell', () => {
     expect((await forma.scraper.settings()).skipScraped).toBe(true);
     for (let i = 0; i < 40 && selected() !== 'Systems'; i++) await press('up');
     await press('confirm');
-    await vi.waitFor(() => expect(rows()[0]).toBe('Choose none'));
+    await vi.waitFor(() => expect(rows().slice(0, 2)).toEqual(['Select all', 'Unselect all']));
     await press('confirm');
-    await vi.waitFor(() => expect(rows()[0]).toBe('Choose every system'));
+    await vi.waitFor(() => expect(at('Select all')).toMatch(/^(\d+) of \1 on$/));
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Select all')).toMatch(/^0 of \d+ on$/));
     await goTo('Nintendo Entertainment System');
     await press('confirm');
     await vi.waitFor(() => expect(at('Nintendo Entertainment System')).toMatch(/^On/));
