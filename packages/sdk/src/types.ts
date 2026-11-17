@@ -1123,7 +1123,8 @@ export interface ShaderPage {
   enabled: boolean;
   /**
    * The shader at this level as one choice (`shaders.choose`): `none`, `crt:<preset>` or
-   * `set:<name>`. Globally always chosen. Since 1.35.0.
+   * `set:<name>`; globally also `default` (Batocera's own, what a new install has, since
+   * 1.40.0). Globally always chosen. Since 1.35.0.
    */
   shader: {
     /** Chosen at this level; `null` when it has the level above's. */

@@ -110,8 +110,12 @@ function allScreen(forma: Forma, page: Page, scope: OptionsScope): () => Promise
   };
 }
 
-/** A shader choice's label (`crt:<preset>` too, when its preset is not among them). */
+/** A shader choice's label (`crt:<preset>` too, when its preset is not among them, and
+ * Batocera's default below global, where it is not a choice but is inherited). */
 function choiceLabel(s: ShaderPage, value: string): string {
+  if (value === 'default' && !s.shader.choices.some((c) => c.value === value)) {
+    return 'Batocera default';
+  }
   return (
     s.shader.choices.find((c) => c.value === value)?.label ??
     `CRT · ${value.split('/').pop()!.replace(/[-_]/g, ' ')}`

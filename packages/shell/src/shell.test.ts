@@ -569,15 +569,16 @@ describe('Forma’s shell', () => {
     };
     await vi.waitFor(() => expect(rows()).toContain('Shader'));
     // One place to choose it: Batocera's shader set is not among the picture options.
-    expect(at('Shader')).toBe('None');
+    expect(at('Shader')).toBe('Batocera default · sharp bilinear simple');
     expect(rows()).not.toContain('Shader set');
     expect(rows()).not.toContain('All settings…');
     expect(text('.page li.heading').slice(0, 3)).toEqual(['Shader', 'Picture', 'Decorations']);
-    // None, then koko-aio from each preset, then Batocera's.
+    // Batocera's default, none, then koko-aio from each preset, then Batocera's.
     await goTo('Shader');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Shader']));
-    expect(text('.page li.selected .name')).toEqual(['✓ None']);
+    expect(text('.page li.selected .name')).toEqual(['✓ Batocera default · sharp bilinear simple']);
+    await press('down');
     await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(at('Shader')).toBe('CRT · Monitor Balanced'));
@@ -1352,7 +1353,7 @@ describe('Forma’s shell', () => {
     const at = (label: string) => details()[rows().indexOf(label)];
     const selected = () => text('.page li.selected .name')[0];
     await vi.waitFor(() => expect(rows()).toContain('Shader'));
-    expect(at('Shader')).toBe('Default · None (global)');
+    expect(at('Shader')).toBe('Default · Batocera default (global)');
     while (selected() !== 'Shader') await press('down');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page h2')).toEqual(['Shader']));

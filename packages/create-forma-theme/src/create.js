@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const TEMPLATE = fileURLToPath(new URL('../template', import.meta.url));
 
 /** The SDK version new themes start on: kept in step with packages/sdk by a test. */
-export const SDK_VERSION = '1.39.0';
+export const SDK_VERSION = '1.40.0';
 
 /** npm drops dotfiles from a published package, so the template spells them with `_`. */
 const RENAMED = { _gitignore: '.gitignore', _npmrc: '.npmrc' };

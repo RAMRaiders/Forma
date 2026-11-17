@@ -71,6 +71,10 @@ const ESSENTIALS: &[&str] = &[
 const BEZEL: &str = "DO_BEZEL";
 /// Forma's shader set, its presets and its own file, under the user's shaders folder.
 const SET: &str = "forma";
+/// The global choice that writes no `global.shaderset`: Batocera's own default applies.
+const DEFAULT_CHOICE: &str = "default";
+/// Where Batocera keeps its defaults, under its folder (`shaderset:` among them).
+const CONFIGGEN_DEFAULTS: &str = "configgen/configgen-defaults.yml";
 /// How deep presets may reference one another before Forma stops following.
 const MAX_DEPTH: usize = 12;
 
@@ -311,12 +315,12 @@ impl Shaders {
         self.apply(state)
     }
 
-    /// Batocera's shader sets a level can have instead of Forma's (folders of `shaders/configs`,
-    /// Batocera's and the user's): not Forma's own, nor its stock koko-aio, which Forma's is.
+    /// Batocera's own shader sets a level can have instead of Forma's (folders of its
+    /// `shaders/configs`): not the user's folder's, where sets made by hand or by tests pile up,
+    /// nor Forma's own, nor its stock koko-aio, which Forma's is.
     fn sets(&self) -> Vec<String> {
-        let mut names: Vec<String> = [self.batocera.join("configs"), self.user.join("configs")]
-            .iter()
-            .filter_map(|d| std::fs::read_dir(d).ok())
+        let mut names: Vec<String> = std::fs::read_dir(self.batocera.join("configs"))
+            .into_iter()
             .flatten()
             .flatten()
             .filter(|e| e.path().is_dir())
@@ -328,21 +332,45 @@ impl Shaders {
         names
     }
 
-    /// Every shader a level can have, as one list: none, Forma's from each preset, Batocera's.
-    fn shader_choices(&self, presets: &[OptionChoice]) -> Vec<OptionChoice> {
-        std::iter::once(OptionChoice {
-            value: "none".into(),
-            label: "None".into(),
-        })
-        .chain(presets.iter().map(|p| OptionChoice {
-            value: format!("crt:{}", p.value),
-            label: format!("CRT · {}", p.label),
-        }))
-        .chain(self.sets().into_iter().map(|n| OptionChoice {
-            label: format!("Batocera · {}", n.replace(['_', '-'], " ")),
-            value: format!("set:{n}"),
-        }))
-        .collect()
+    /// Batocera's default shader set (`shaderset:` in its defaults), for the default's label.
+    fn batocera_default(&self) -> Option<String> {
+        let path = self.batocera.parent()?.join(CONFIGGEN_DEFAULTS);
+        std::fs::read_to_string(path)
+            .ok()?
+            .lines()
+            .find_map(|l| {
+                l.trim()
+                    .strip_prefix("shaderset:")
+                    .map(|v| v.trim().to_owned())
+            })
+            .filter(|v| !v.is_empty())
+    }
+
+    /// Every shader a level can have, as one list: (globally) Batocera's default, none, Forma's
+    /// koko-aio from each of its presets, Batocera's sets.
+    fn shader_choices(&self, presets: &[OptionChoice], global: bool) -> Vec<OptionChoice> {
+        let default = global.then(|| OptionChoice {
+            value: DEFAULT_CHOICE.into(),
+            label: match self.batocera_default() {
+                Some(name) => format!("Batocera default · {}", name.replace(['_', '-'], " ")),
+                None => "Batocera default".into(),
+            },
+        });
+        default
+            .into_iter()
+            .chain(std::iter::once(OptionChoice {
+                value: "none".into(),
+                label: "None".into(),
+            }))
+            .chain(presets.iter().map(|p| OptionChoice {
+                value: format!("crt:{}", p.value),
+                label: format!("CRT · {}", p.label),
+            }))
+            .chain(self.sets().into_iter().map(|n| OptionChoice {
+                label: format!("Batocera · {}", n.replace(['_', '-'], " ")),
+                value: format!("set:{n}"),
+            }))
+            .collect()
     }
 
     /// The shader `scope` has, as a choice's value, and the level it comes from.
@@ -354,15 +382,16 @@ impl Shaders {
                 false => Some(l.set.as_ref().map_or("none".into(), |n| format!("set:{n}"))),
             }
         };
+        // Globally, no set is Batocera's default; `none` is said.
         let global = || {
             if state.enabled {
                 format!("crt:{}", self.chain(state, scope).0)
             } else {
-                state
-                    .global
-                    .set
-                    .as_ref()
-                    .map_or("none".into(), |n| format!("set:{n}"))
+                match state.global.set.as_deref() {
+                    None => DEFAULT_CHOICE.into(),
+                    Some("none") => "none".into(),
+                    Some(n) => format!("set:{n}"),
+                }
             }
         };
         match scope {
@@ -404,7 +433,7 @@ impl Shaders {
                     from
                 },
             },
-            choices: self.shader_choices(presets),
+            choices: self.shader_choices(presets, matches!(scope, Scope::Global)),
         }
     }
 
@@ -415,6 +444,8 @@ impl Shaders {
         self.catalog().ok_or_else(not_installed)?;
         enum Pick {
             Inherit,
+            /// Globally: no `global.shaderset`, Batocera's default.
+            Default,
             Off(Option<String>),
             Crt(String),
         }
@@ -425,6 +456,7 @@ impl Shaders {
                 ));
             }
             None => Pick::Inherit,
+            Some(DEFAULT_CHOICE) if matches!(scope, Scope::Global) => Pick::Default,
             Some("none") => Pick::Off(None),
             Some(c) => match (c.strip_prefix("crt:"), c.strip_prefix("set:")) {
                 (Some(p), _) if self.presets().iter().any(|x| x.value == p) => {
@@ -449,13 +481,18 @@ impl Shaders {
                 }
                 Pick::Off(set) => {
                     state.enabled = false;
-                    state.global.set = set;
+                    state.global.set = Some(set.unwrap_or_else(|| "none".into()));
+                }
+                Pick::Default => {
+                    state.enabled = false;
+                    state.global.set = None;
                 }
                 Pick::Inherit => unreachable!("refused above"),
             }
             return self.apply(state);
         }
         self.change(scope, |level| match pick {
+            Pick::Default => unreachable!("only globally"),
             Pick::Inherit => {
                 level.enabled = None;
                 level.set = None;
@@ -905,9 +942,14 @@ impl Shaders {
             .filter(|k| k.ends_with(".shaderset"))
             .map(|k| (k.clone(), None))
             .collect();
+        // Globally, no set is none written: Batocera's default.
         want.insert(
             "global.shaderset".into(),
-            Some(shaderset(&state.global, state.enabled)),
+            if state.enabled {
+                Some(SET.to_owned())
+            } else {
+                state.global.set.clone()
+            },
         );
         let mut scopes = Vec::new();
         for system in state.systems.keys() {
@@ -1063,6 +1105,10 @@ fn adopt(state: &mut State, conf: &HashMap<String, String>) {
         if prefix == "global" {
             let mut global = std::mem::take(&mut state.global);
             state.enabled = take(&mut global, value);
+            // Globally `none` is said; no key at all is Batocera's default.
+            if matches!(value.as_str(), "none" | "") {
+                global.set = Some("none".into());
+            }
             state.global = global;
         } else if let Some((system, rest)) = prefix.split_once("[\"") {
             let Some(name) = rest.strip_suffix("\"]") else {
