@@ -1,11 +1,9 @@
 import type {
   Forma,
   MediaKind,
-  ScrapeScope,
   ScraperSettings,
   ScraperSource,
-  ScraperStatus,
-  ShellContext
+  ScraperStatus
 } from '@ramraiders/forma-sdk';
 import type { Page, Row } from './page.js';
 
@@ -43,20 +41,12 @@ function moved(settings: ScraperSettings, id: string, step: -1 | 1) {
 }
 
 /**
- * Start → Games → Scrapers: choose the scrapers (in order) and their accounts, what to fetch,
- * and scrape the selected game, a system or everything, in the background. The page follows a
- * run as it goes.
+ * Start → ROMs → Media: the scrapers' accounts, the region profile, and scraping the systems
+ * chosen, in the background. What is fetched is the theme's to say. The page follows a run.
  */
-export function scraperScreen(
-  forma: Forma,
-  page: Page,
-  context: ShellContext
-): () => Promise<Row[]> {
-  const start = (scope: ScrapeScope, what: string) =>
-    page.run(`Starting ${what}…`, async () => {
-      await forma.scraper.start(scope);
-      return 'Scraping in the background: it carries on if you leave this page';
-    });
+export function mediaScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+  // The systems to scrape, chosen on this page: every one until the user says otherwise.
+  let chosen: Set<string> | null = null;
 
   const build = async (): Promise<Row[]> => {
     const [settings, status] = await Promise.all([
@@ -64,7 +54,6 @@ export function scraperScreen(
       forma.scraper.status()
     ]);
     const rows: Row[] = [];
-    const usable = settings.sources.some((s) => s.enabled && s.ready);
     if (status.running) {
       rows.push(
         {
@@ -78,78 +67,39 @@ export function scraperScreen(
           run: () => page.run('Stopping…', () => forma.scraper.stop())
         }
       );
-    } else {
-      rows.push({
-        heading: 'Scrape',
-        label: 'Start scraping',
-        detail: usable
-          ? 'A game, a system, or everything'
-          : 'Turn on a scraper that is set up first',
-        run: usable ? () => page.push('Start scraping', scope) : undefined
-      });
-      if (status.scope) {
-        rows.push({ label: `Last: ${status.scope}`, detail: summary(status) });
-      }
+    } else if (status.scope) {
+      rows.push({ heading: 'Last run', label: status.scope, detail: summary(status) });
     }
     for (const problem of status.problems.slice(-3)) rows.push({ label: problem });
-
-    rows.push(
-      ...settings.sources.map((s, i) => ({
-        heading: i === 0 ? 'Scrapers, asked in this order' : undefined,
-        label: s.name,
-        detail: sourceDetail(s),
-        run: () => page.push(s.name, sourceScreen(forma, page, s.id)),
-        alt: {
-          label: s.enabled ? 'Turn off' : 'Turn on',
-          run: saving(page, () =>
-            forma.scraper.configure({
-              sources: settings.sources.map((x) => ({
-                id: x.id,
-                enabled: x.id === s.id ? !x.enabled : x.enabled
-              }))
-            })
-          )
-        }
-      })),
-      {
-        heading: 'Options',
-        label: 'What to fetch',
-        detail: `${settings.media.length} kinds of media${settings.metadata ? ' and details' : ''}`,
-        run: () => page.push('What to fetch', fetchScreen(forma, page))
-      }
-    );
-    return rows;
-  };
-
-  /** What a run covers: the selected game, its system, one to choose, or everything. */
-  const scope = (): Row[] => {
-    const leaving = (what: string, target: ScrapeScope) => async () => {
-      await page.pop();
-      await start(target, what);
-    };
-    const rows: Row[] = [];
-    if (context.game) {
-      rows.push({
-        label: `Scrape ${context.game.name}`,
-        run: leaving(context.game.name, { kind: 'game', id: context.game.id })
-      });
-    }
-    if (context.system) {
-      const name = context.system.fullname || context.system.name;
-      rows.push({
-        label: `Scrape every ${name} game`,
-        run: leaving(name, { kind: 'system', name: context.system.name })
-      });
-    }
+    const on = settings.sources.filter((s) => s.enabled);
+    const unready = on.filter((s) => !s.ready).length;
     rows.push(
       {
-        label: 'Scrape a system…',
-        run: () => page.push('Scrape a system', systemsScreen(forma, page, start))
+        heading: 'Media',
+        label: 'Accounts',
+        detail: `${on.length} of ${settings.sources.length} services on${unready ? ` · ${unready} to set up` : ''}`,
+        run: () => page.push('Accounts', accountsScreen(forma, page))
       },
       {
-        label: 'Scrape everything',
-        detail: 'Every game of every system',
-        run: leaving('everything', { kind: 'all' })
+        label: 'Profile',
+        detail: profileSummary(settings),
+        run: () => page.push('Profile', profileScreen(forma, page))
+      },
+      {
+        label: 'Scrape',
+        detail: status.running ? 'Scraping now: see above' : 'Choose the systems, then start',
+        run: status.running
+          ? undefined
+          : () =>
+              page.push(
+                'Scrape',
+                scrapeScreen(
+                  forma,
+                  page,
+                  () => chosen,
+                  (c) => (chosen = c)
+                )
+              )
       }
     );
     return rows;
@@ -162,70 +112,204 @@ export function scraperScreen(
   return build;
 }
 
-/** What a run fetches: details, media kinds, and what the theme in use needs. */
-function fetchScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+/** The profile in a line: `This game's own region, then World, USA, Europe`. */
+function profileSummary(s: ScraperSettings): string {
+  const list = s.regions.join(', ') || 'none chosen';
+  return s.ownRegion ? `The game's own region, then ${list}` : list;
+}
+
+/** The services, in the order they are asked: A sets one up, Y turns it on or off. */
+function accountsScreen(forma: Forma, page: Page): () => Promise<Row[]> {
   return async () => {
     const settings = await forma.scraper.settings();
-    const kinds = new Set(settings.media);
-    const toggleKind = (kind: MediaKind) =>
-      saving(page, () =>
-        forma.scraper.configure({
-          media: kinds.has(kind)
-            ? settings.media.filter((k) => k !== kind)
-            : [...settings.media, kind]
-        })
-      );
-    const metadata = saving(page, () => forma.scraper.configure({ metadata: !settings.metadata }));
-    const replace = saving(page, () => forma.scraper.configure({ replace: !settings.replace }));
-    const theme = settings.theme;
-    const fromTheme = new Set(theme && settings.themeNeeds ? theme.media : []);
-    const themeNeeds = saving(page, () =>
-      forma.scraper.configure({ themeNeeds: !settings.themeNeeds })
+    return settings.sources.map((s, i) => ({
+      heading: i === 0 ? 'Asked in this order' : undefined,
+      label: s.name,
+      detail: sourceDetail(s),
+      run: () => page.push(s.name, sourceScreen(forma, page, s.id)),
+      alt: {
+        label: s.enabled ? 'Turn off' : 'Turn on',
+        run: saving(page, () =>
+          forma.scraper.configure({
+            sources: settings.sources.map((x) => ({
+              id: x.id,
+              enabled: x.id === s.id ? !x.enabled : x.enabled
+            }))
+          })
+        )
+      }
+    }));
+  };
+}
+
+/**
+ * The region profile: whether a game's own region (from its file name) comes first, and the
+ * regions preferred, best first, which also choose between a game's several. Left and right
+ * move one up or down the list; Y takes it off.
+ */
+function profileScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+  return async () => {
+    const settings = await forma.scraper.settings();
+    const { regions } = settings;
+    const set = (next: string[]) => saving(page, () => forma.scraper.configure({ regions: next }));
+    const own = saving(page, () => forma.scraper.configure({ ownRegion: !settings.ownRegion }));
+    const left = settings.allRegions.filter((r) => !regions.includes(r));
+    return [
+      {
+        label: "The game's own region first",
+        detail: settings.ownRegion
+          ? 'On: a Europe copy gets its European name and box. Of several, the one higher below'
+          : 'Off: always the regions below, whatever the game is',
+        run: own,
+        adjust: own
+      },
+      ...regions.map((r, i): Row => ({
+        heading: i === 0 ? 'Preferred regions, best first' : undefined,
+        // The name alone: the selection follows it as it moves.
+        label: r,
+        detail: `${i + 1} of ${regions.length} · ◀ ▶ to move it · Y to take it off`,
+        adjust: (step) => {
+          const to = i + step;
+          if (to < 0 || to >= regions.length) return;
+          const next = [...regions];
+          [next[i], next[to]] = [next[to]!, next[i]!];
+          return set(next)();
+        },
+        alt: { label: 'Take off', run: set(regions.filter((x) => x !== r)) }
+      })),
+      ...(left.length > 0
+        ? [
+            {
+              heading: regions.length === 0 ? 'Preferred regions, best first' : undefined,
+              label: 'Add a region…',
+              detail: 'A country, or a region such as Europe',
+              run: () =>
+                page.push('Add a region', () =>
+                  left.map((r) => ({
+                    label: r,
+                    run: async () => {
+                      await page.pop();
+                      await set([...regions, r])();
+                    }
+                  }))
+                )
+            }
+          ]
+        : [])
+    ];
+  };
+}
+
+/** What a run does with a game already scraped. */
+const EXISTING = [
+  { skipScraped: true, replace: false, label: 'Skip them' },
+  { skipScraped: false, replace: false, label: 'Fill in what is missing' },
+  { skipScraped: false, replace: true, label: 'Replace what they have' }
+] as const;
+
+/**
+ * Scrape: the systems to scrape, what to do with games already scraped, what is fetched (the
+ * theme's), and Start.
+ */
+function scrapeScreen(
+  forma: Forma,
+  page: Page,
+  chosen: () => Set<string> | null,
+  choose: (systems: Set<string>) => void
+): () => Promise<Row[]> {
+  return async () => {
+    const [settings, systems] = await Promise.all([
+      forma.scraper.settings(),
+      forma.library.systems()
+    ]);
+    const withGames = systems.filter((s) => s.gameCount > 0);
+    const picked = chosen() ?? new Set(withGames.map((s) => s.name));
+    const names = withGames.filter((s) => picked.has(s.name));
+    const games = names.reduce((n, s) => n + s.gameCount, 0);
+    const at = EXISTING.findIndex(
+      (e) => e.skipScraped === settings.skipScraped && e.replace === settings.replace
+    );
+    const existing = (step: -1 | 1) => {
+      const next = EXISTING[(at + step + EXISTING.length) % EXISTING.length]!;
+      return saving(page, () =>
+        forma.scraper.configure({ skipScraped: next.skipScraped, replace: next.replace })
+      )();
+    };
+    const usable = settings.sources.some((s) => s.enabled && s.ready);
+    const fetched = settings.media.map(
+      (k) => settings.mediaKinds.find((x) => x.kind === k)?.label ?? k
     );
     return [
       {
-        label: 'Details',
-        detail: `${onOff(settings.metadata)} · name, description, developer, genre, date, rating`,
-        run: metadata,
-        adjust: metadata
+        label: 'Systems',
+        detail:
+          names.length === withGames.length
+            ? `Every system · ${games} games`
+            : `${names.length} of ${withGames.length} · ${games} games`,
+        run: () => page.push('Systems', systemsScreen(page, withGames, picked, choose))
       },
       {
-        label: 'Games that have some',
-        detail: settings.replace ? 'Replace what they have' : 'Only fill what is missing',
-        run: replace,
-        adjust: replace
+        label: 'Games already scraped',
+        detail: EXISTING[Math.max(0, at)]!.label,
+        run: () => existing(1),
+        adjust: existing
       },
-      ...(theme
-        ? [
-            {
-              label: `What ${theme.name} asks for`,
-              detail: `${onOff(settings.themeNeeds)}${theme.view ? ` · for its ${theme.view} view` : ''} · ${themeAsks(theme, settings.mediaKinds)}`,
-              run: themeNeeds,
-              adjust: themeNeeds
-            }
-          ]
-        : []),
-      ...[
-        ...settings.mediaKinds.filter(({ kind }) => themeUse(theme, kind) !== 'unused'),
-        ...settings.mediaKinds.filter(({ kind }) => themeUse(theme, kind) === 'unused')
-      ].map(({ kind, label }, i, all) => {
-        const unused = themeUse(theme, kind) === 'unused';
-        const firstUnused = unused && (i === 0 || themeUse(theme, all[i - 1]!.kind) !== 'unused');
-        const state =
-          !kinds.has(kind) && fromTheme.has(kind)
-            ? `On · for ${theme?.name ?? 'the theme'}`
-            : onOff(kinds.has(kind));
-        return {
-          heading: firstUnused ? `Not used by ${theme?.name ?? 'this theme'}` : undefined,
-          label,
-          detail:
-            themeUse(theme, kind) === 'backup'
-              ? `${state} · ${backupNote(theme, kind, settings.mediaKinds)}`
-              : state,
-          run: toggleKind(kind),
-          adjust: toggleKind(kind)
-        };
-      })
+      {
+        label: 'What is fetched',
+        detail: `Details and ${fetched.join(', ')}${settings.theme ? ` · as ${settings.theme.name} asks` : ''}`
+      },
+      {
+        heading: 'Ready',
+        label: 'Start scraping',
+        detail: !usable
+          ? 'Turn on a service that is set up first, under Accounts'
+          : names.length === 0
+            ? 'Choose a system first'
+            : 'In the background: it carries on if you leave',
+        run:
+          usable && names.length > 0
+            ? () =>
+                page.run('Starting…', async () => {
+                  await forma.scraper.start({ kind: 'systems', names: names.map((s) => s.name) });
+                  await page.pop();
+                  return 'Scraping in the background: ROMs → Media shows how far it is';
+                })
+            : undefined
+      }
+    ];
+  };
+}
+
+/** Every system with games, each one on or off for the run; A flips one. */
+function systemsScreen(
+  page: Page,
+  systems: { name: string; fullname: string; gameCount: number }[],
+  picked: Set<string>,
+  choose: (systems: Set<string>) => void
+): () => Row[] {
+  const flip = (change: (next: Set<string>) => void) => async () => {
+    const next = new Set(picked);
+    change(next);
+    picked = next;
+    choose(next);
+    await page.refresh();
+  };
+  return () => {
+    const all = systems.every((s) => picked.has(s.name));
+    return [
+      {
+        label: all ? 'Choose none' : 'Choose every system',
+        run: flip((next) => {
+          next.clear();
+          if (!all) for (const s of systems) next.add(s.name);
+        })
+      },
+      ...systems.map((s, i): Row => ({
+        heading: i === 0 ? 'Systems' : undefined,
+        label: s.fullname || s.name,
+        detail: `${onOff(picked.has(s.name))} · ${s.gameCount} games`,
+        run: flip((next) => (next.has(s.name) ? next.delete(s.name) : next.add(s.name)))
+      }))
     ];
   };
 }
@@ -251,35 +335,6 @@ export function backupNote(
 ): string {
   const main = theme?.backups[kind];
   return `${theme?.name ?? 'The theme'} uses this only when there is no ${kinds.find((k) => k.kind === main)?.label ?? main}`;
-}
-
-/** What a theme asks the scraper for, in words: `Box spine, Cartridge, age ratings`. */
-function themeAsks(
-  theme: { media: MediaKind[]; fields: string[] },
-  kinds: { kind: MediaKind; label: string }[]
-): string {
-  const words = theme.media.map((k) => kinds.find((x) => x.kind === k)?.label ?? k);
-  if (theme.fields.includes('ageRating')) words.push('age ratings');
-  return words.join(', ');
-}
-
-/** Every system with games, each scraping it. */
-function systemsScreen(
-  forma: Forma,
-  page: Page,
-  start: (scope: ScrapeScope, what: string) => Promise<void>
-): () => Promise<Row[]> {
-  return async () => {
-    const systems = await forma.library.systems();
-    return systems.map((s) => ({
-      label: s.fullname || s.name,
-      detail: `${s.gameCount} games`,
-      run: async () => {
-        await page.pop();
-        await start({ kind: 'system', name: s.name }, s.fullname || s.name);
-      }
-    }));
-  };
 }
 
 /** One source: on or off, where it is in the order, and its account. */

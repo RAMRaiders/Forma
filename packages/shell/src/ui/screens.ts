@@ -615,7 +615,7 @@ export function systemsScreen(
               run: () =>
                 page.run('Starting…', async () => {
                   await forma.scraper.start({ kind: 'system', name: system.name });
-                  return 'Scraping in the background: Start → Scrapers shows how far it is';
+                  return 'Scraping in the background: Start → ROMs → Media shows how far it is';
                 })
             }
           ]

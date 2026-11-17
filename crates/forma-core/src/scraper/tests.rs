@@ -130,6 +130,7 @@ pub(super) fn game(path: &str, name: &str) -> Game {
     }
 }
 
+/// A config asking `ids` in order, for a theme that draws `media` (none said: the default).
 fn config(ids: &[&str], media: &[MediaKind]) -> Config {
     Config {
         sources: ids
@@ -139,11 +140,11 @@ fn config(ids: &[&str], media: &[MediaKind]) -> Config {
                 enabled: true,
             })
             .collect(),
-        media: media.to_vec(),
-        metadata: true,
-        replace: false,
-        theme_needs: true,
-        needs: super::Needs::default(),
+        needs: super::Needs {
+            shows: media.to_vec(),
+            ..Default::default()
+        },
+        ..Config::default()
     }
 }
 
@@ -289,9 +290,31 @@ fn fills_only_what_is_missing_and_stops_asking_once_done() {
     g.media
         .insert("thumbnail".into(), box_png.to_string_lossy().into_owned());
     let mut cfg = config(&["a", "b"], &[MediaKind::Thumbnail]);
-    cfg.metadata = false;
+    cfg.skip_scraped = true;
 
-    // It has its box and metadata is off: nothing to do, nobody asked.
+    // It has been scraped, and those are skipped: nothing to do, nobody asked.
+    let out = scrape_game(
+        &http,
+        &paths(dir.path()),
+        &sources,
+        &cfg,
+        &BTreeMap::new(),
+        &g,
+        &system(dir.path()),
+        &mut HashSet::new(),
+    )
+    .unwrap();
+    assert!(out.skipped);
+    assert!(http.asked.lock().unwrap().is_empty());
+    cfg.skip_scraped = false;
+
+    // It has its box and every detail: nothing to do either.
+    g.developer = Some("Me".into());
+    g.publisher = Some("Me".into());
+    g.genre = Some("Action".into());
+    g.players = Some("1".into());
+    g.release_date = Some("1994".into());
+    g.rating = Some(0.5);
     let out = scrape_game(
         &http,
         &paths(dir.path()),
@@ -308,7 +331,6 @@ fn fills_only_what_is_missing_and_stops_asking_once_done() {
 
     // Replacing: A gives the box, so B is not asked.
     cfg.replace = true;
-    cfg.metadata = true;
     let out = scrape_game(
         &http,
         &paths(dir.path()),
@@ -363,7 +385,7 @@ fn a_source_that_refuses_is_dropped_for_the_run_and_one_not_ready_is_skipped() {
 #[test]
 fn config_lists_every_source_keeping_the_users_order() {
     let all = builtin();
-    let stored = r#"{"sources":[{"id":"libretro","enabled":true},{"id":"gone","enabled":true},{"id":"igdb","enabled":false},{"id":"libretro","enabled":false}],"media":["video","thumbnail","video"]}"#;
+    let stored = r#"{"sources":[{"id":"libretro","enabled":true},{"id":"gone","enabled":true},{"id":"igdb","enabled":false},{"id":"libretro","enabled":false}],"regions":["Europe","Mars","USA"],"ownRegion":false}"#;
     let c = Config::load(Some(stored), &all);
     let ids: Vec<&str> = c.sources.iter().map(|s| s.id.as_str()).collect();
     assert_eq!(
@@ -381,12 +403,12 @@ fn config_lists_every_source_keeping_the_users_order() {
         ]
     );
     assert!(!c.sources[1].enabled);
-    assert_eq!(c.media, [MediaKind::Thumbnail, MediaKind::Video]);
-    assert!(c.metadata && !c.replace);
+    assert_eq!(c.regions, ["Europe", "USA"], "unknown regions left out");
+    assert!(!c.own_region && !c.replace && !c.skip_scraped);
     assert_eq!(Config::load(None, &all).sources.len(), 9);
     assert_eq!(
-        Config::load(Some("not json"), &all).media,
-        Config::default().media
+        Config::load(Some("not json"), &all).regions,
+        ["World", "USA", "Europe"]
     );
 }
 
@@ -503,16 +525,28 @@ fn a_theme_adds_what_it_needs_unless_turned_off() {
     );
     assert!(needs.age_rating);
 
-    let mut cfg = config(&[], &[MediaKind::Thumbnail, MediaKind::Video]);
+    let mut cfg = config(&[], &[]);
     cfg.needs = needs;
+    // A theme that does not say what it draws: the usual kinds, then what it asks for.
     assert_eq!(
         cfg.all_media(),
-        [MediaKind::Thumbnail, MediaKind::Video, MediaKind::Boxside]
+        [
+            MediaKind::Thumbnail,
+            MediaKind::Image,
+            MediaKind::Marquee,
+            MediaKind::Wheel,
+            MediaKind::Video,
+            MediaKind::Boxside
+        ]
     );
     assert!(cfg.wants_age_rating());
-    cfg.theme_needs = false;
-    assert_eq!(cfg.all_media(), [MediaKind::Thumbnail, MediaKind::Video]);
-    assert!(!cfg.wants_age_rating());
+    // One that does: what it draws, but not a backup.
+    cfg.needs.shows = vec![MediaKind::Thumbnail, MediaKind::Wheel, MediaKind::Marquee];
+    cfg.needs.backups = vec![(MediaKind::Marquee, MediaKind::Wheel)];
+    assert_eq!(
+        cfg.all_media(),
+        [MediaKind::Thumbnail, MediaKind::Wheel, MediaKind::Boxside]
+    );
 }
 
 #[test]
@@ -536,7 +570,12 @@ fn a_missing_age_rating_is_scraped_only_for_a_theme_that_shows_it() {
     g.players = Some("1".into());
     g.release_date = Some("1994".into());
     g.rating = Some(0.5);
-    let mut cfg = config(&["a"], &[]);
+    // The theme draws only a box, which the game has.
+    let thumb = dir.path().join("thumb.png");
+    std::fs::write(&thumb, b"png").unwrap();
+    g.media
+        .insert("thumbnail".into(), thumb.to_string_lossy().into_owned());
+    let mut cfg = config(&["a"], &[MediaKind::Thumbnail]);
     let run = |cfg: &Config| {
         scrape_game(
             &http,
@@ -747,4 +786,40 @@ fn deleting_a_game_takes_its_parts_entry_and_media_but_nothing_else() {
         );
     }
     assert!(folder.join("Other.md").exists());
+}
+
+#[test]
+fn a_themes_backup_comes_only_when_what_it_stands_in_for_cannot_be_had() {
+    let run = |media: Vec<(MediaKind, String)>| {
+        let dir = tempfile::tempdir().unwrap();
+        let http = Serve::new(&[("https://a/wheel.png", PNG), ("https://a/marquee.png", PNG)]);
+        let found = Found {
+            metadata: Metadata::default(),
+            media,
+            notes: Default::default(),
+        };
+        let sources: Vec<Box<dyn Source>> = vec![Fake::new(
+            "a",
+            &[MediaKind::Wheel, MediaKind::Marquee],
+            Ok(Some(found)),
+        )];
+        let mut cfg = config(&["a"], &[MediaKind::Wheel, MediaKind::Marquee]);
+        cfg.needs.backups = vec![(MediaKind::Marquee, MediaKind::Wheel)];
+        let out = scrape_game(
+            &http,
+            &paths(dir.path()),
+            &sources,
+            &cfg,
+            &BTreeMap::new(),
+            &game("Game.sfc", "Game"),
+            &system(dir.path()),
+            &mut HashSet::new(),
+        )
+        .unwrap();
+        out.media
+    };
+    let wheel = (MediaKind::Wheel, "https://a/wheel.png".to_owned());
+    let marquee = (MediaKind::Marquee, "https://a/marquee.png".to_owned());
+    assert_eq!(run(vec![wheel, marquee.clone()]), [MediaKind::Wheel]);
+    assert_eq!(run(vec![marquee]), [MediaKind::Marquee]);
 }

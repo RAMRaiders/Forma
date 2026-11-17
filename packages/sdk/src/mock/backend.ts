@@ -422,10 +422,29 @@ export function mockBackend(options: MockOptions = {}): Backend {
     }
   ];
   let scraperChoice = scraperSources.map((s) => ({ id: s.id, enabled: true }));
-  let scraperMedia: MediaKind[] = ['thumbnail', 'image', 'marquee', 'wheel', 'video'];
-  let scraperMetadata = true;
   let scraperReplace = false;
-  let scraperThemeNeeds = true;
+  let scraperSkip = false;
+  let scraperOwnRegion = true;
+  const allRegions = [
+    'World',
+    'USA',
+    'Europe',
+    'Japan',
+    'UK',
+    'France',
+    'Germany',
+    'Spain',
+    'Italy',
+    'Netherlands',
+    'Sweden',
+    'Portugal',
+    'Brazil',
+    'Canada',
+    'Australia',
+    'Korea',
+    'Asia'
+  ];
+  let scraperRegions = ['World', 'USA', 'Europe'];
   const scraperCredentials = new Map<string, Map<string, string>>();
   let scraperStatus: ScraperStatus = {
     running: false,
@@ -481,11 +500,14 @@ export function mockBackend(options: MockOptions = {}): Backend {
         }
       ];
     }),
-    media: kindLabels.map(([k]) => k).filter((k) => scraperMedia.includes(k)),
+    // The usual kinds, the theme saying nothing of what it draws, then what it asks for.
+    media: ['thumbnail', 'image', 'marquee', 'wheel', 'video', 'boxside'],
     mediaKinds: kindLabels.map(([kind, label]) => ({ kind, label })),
-    metadata: scraperMetadata,
     replace: scraperReplace,
-    themeNeeds: scraperThemeNeeds,
+    skipScraped: scraperSkip,
+    ownRegion: scraperOwnRegion,
+    regions: scraperRegions,
+    allRegions,
     // As a theme that shows box spines and age ratings asks.
     theme: {
       name: 'Neon',
@@ -1064,7 +1086,7 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperAllowed();
       return scraperSettings();
     },
-    scraper_configure: ({ sources, media, metadata, replace, themeNeeds }) => {
+    scraper_configure: ({ sources, replace, skipScraped, ownRegion, regions }) => {
       scraperAllowed();
       if (Array.isArray(sources)) {
         const given = (sources as { id: string; enabled: boolean }[]).filter((c) =>
@@ -1075,10 +1097,12 @@ export function mockBackend(options: MockOptions = {}): Backend {
           ...scraperChoice.filter((c) => !given.some((g) => g.id === c.id))
         ];
       }
-      if (Array.isArray(media)) scraperMedia = media as MediaKind[];
-      if (typeof metadata === 'boolean') scraperMetadata = metadata;
       if (typeof replace === 'boolean') scraperReplace = replace;
-      if (typeof themeNeeds === 'boolean') scraperThemeNeeds = themeNeeds;
+      if (typeof skipScraped === 'boolean') scraperSkip = skipScraped;
+      if (typeof ownRegion === 'boolean') scraperOwnRegion = ownRegion;
+      if (Array.isArray(regions)) {
+        scraperRegions = (regions as string[]).filter((r) => allRegions.includes(r));
+      }
       return scraperSettings();
     },
     scraper_set_credential: ({ source, key: k, value }) => {
@@ -1096,13 +1120,16 @@ export function mockBackend(options: MockOptions = {}): Backend {
     scraper_start: ({ scope }) => {
       scraperAllowed();
       if (scraperStatus.running) fail('busy', 'the scraper is already running');
-      const sc = scope as { kind: string; id?: number; name?: string };
+      const sc = scope as { kind: string; id?: number; name?: string; names?: string[] };
+      if (sc.kind === 'systems' && !sc.names?.length) fail('invalid', 'no system chosen');
       const list = [...games.values()].filter((g) =>
         sc.kind === 'game'
           ? g.id === sc.id
           : sc.kind === 'system'
             ? g.system === sc.name
-            : sc.kind === 'all'
+            : sc.kind === 'systems'
+              ? sc.names!.includes(g.system)
+              : sc.kind === 'all'
       );
       if (sc.kind === 'game' && list.length === 0) fail('notFound', `no game ${String(sc.id)}`);
       const label =
@@ -1111,7 +1138,11 @@ export function mockBackend(options: MockOptions = {}): Backend {
           : sc.kind === 'system'
             ? (snapshot.systems.find((x) => x.name === sc.name)?.fullname ??
               fail('notFound', `no system \`${String(sc.name)}\``))
-            : 'Everything';
+            : sc.kind === 'systems'
+              ? sc.names!.length === 1
+                ? (snapshot.systems.find((x) => x.name === sc.names![0])?.fullname ?? sc.names![0]!)
+                : `${sc.names!.length} systems`
+              : 'Everything';
       scraperStop = false;
       scraperStatus = {
         running: true,

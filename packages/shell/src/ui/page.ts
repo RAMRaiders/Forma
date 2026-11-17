@@ -1,7 +1,7 @@
 import type { InputEvent } from '@ramraiders/forma-sdk';
 import { FormaError } from '@ramraiders/forma-sdk';
 
-import { moveList } from '../logic/nav.js';
+import { moveList, moveTiles } from '../logic/nav.js';
 import { el, themeLogo } from './dom.js';
 import { type Ask, Keyboard } from './keyboard.js';
 
@@ -18,6 +18,11 @@ export interface Row {
   heading?: string;
   /** A picture under the row: a choice between pictures. */
   image?: string | null;
+  /**
+   * Drawn as a tile, its picture over its name: tiles one after another make a grid, moved
+   * through with the D-pad in every direction. Left and right move, so a tile does not adjust.
+   */
+  tile?: boolean;
   /** A logo drawn in place of the label's name (`name`), followed by `text`. */
   logo?: { src: string; name: string; text?: string };
   /** A small tag beside the label: about the row, apart from its value. `kept`: nothing new. */
@@ -38,6 +43,9 @@ export interface Row {
   /** It destroys something: shown apart, in red. */
   danger?: boolean;
 }
+
+/** Tiles across, in a grid of them (`Row.tile`). */
+const TILES_ACROSS = 4;
 
 /** A page left for a deeper one, to come back to where it was. */
 interface Level {
@@ -241,6 +249,11 @@ export class Page {
   input(e: InputEvent): void {
     if (this.keyboard.open) return this.keyboard.input(e);
     if (!e.pressed || this.#busy) return;
+    if (e.action === 'up' || e.action === 'down' || e.action === 'left' || e.action === 'right') {
+      const slots = this.#rows.map((r) => ({ tile: !!r.tile, heading: !!r.heading }));
+      const to = moveTiles(this.#selected, slots, e.action, TILES_ACROSS);
+      if (to !== null) return this.#move(to);
+    }
     if (e.action === 'up' || e.action === 'down') {
       return this.#move(moveList(this.#selected, this.#rows.length, e.action, 6, e.repeat));
     }
@@ -268,14 +281,48 @@ export class Page {
     this.changed();
   }
 
+  /** A tile: its picture (or a frame saying there is none), its name, and what it is. */
+  #tile(row: Row, i: number): HTMLElement {
+    return el(
+      'li',
+      {
+        role: 'option',
+        class: ['tile', i === this.#selected ? 'selected' : '', row.run ? '' : 'info']
+          .filter(Boolean)
+          .join(' ')
+      },
+      row.image
+        ? el('img', { class: 'picture', src: row.image, alt: '' })
+        : el('span', { class: 'picture none', 'aria-hidden': 'true' }),
+      el('span', { class: 'name' }, row.label),
+      row.badge
+        ? el('span', { class: row.badge.kept ? 'badge current' : 'badge' }, row.badge.text)
+        : null,
+      el('span', { class: 'description' }, row.detail ?? '')
+    );
+  }
+
   #render(): void {
     this.#selected = Math.min(this.#selected, Math.max(0, this.#rows.length - 1));
     // A redraw (after a change) stays where the panel was scrolled to.
     const scrolled = this.root.querySelector('.panel')?.scrollTop ?? 0;
     const items: HTMLElement[] = [];
+    // The grid the tiles go in, while one run of them lasts.
+    let grid: HTMLElement | null = null;
     this.#rows.forEach((row, i) => {
-      if (row.heading)
+      if (row.heading) {
+        grid = null;
         items.push(el('li', { class: 'heading', role: 'presentation' }, row.heading));
+      }
+      if (row.tile) {
+        if (!grid) {
+          grid = el('ul', { class: 'tiles', role: 'group' });
+          items.push(el('li', { class: 'tiles', role: 'presentation' }, grid));
+        }
+        grid.append(this.#tile(row, i));
+        return;
+      }
+      grid = null;
       items.push(
         el(
           'li',

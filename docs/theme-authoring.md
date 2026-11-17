@@ -57,8 +57,9 @@ it wide and short (about 4:1), legible at 30 px high, on a transparent backgroun
 
 ### What the theme needs from the scraper
 
-A theme that shows more than the usual box, screenshot, marquee, logo and video says so, and
-Forma's scraper fetches it too while the theme is in use, on top of what the user chose:
+The theme decides what Forma's scraper fetches while it is in use (since SDK 1.36.0; the user
+chooses only the sources, their regions and the games). A theme that shows more than the usual
+box, screenshot, marquee, logo and video says so:
 
 ```json
 "scraper": {
@@ -83,8 +84,8 @@ With no `viewSetting`, the view in use is the one the theme reports in `setConte
 `media` are media kinds as `forma.media.url` names them. `fields` are details beyond the usual
 ones (name, description, developer, publisher, genre, players, date, rating): for now
 `ageRating`, which makes a game without age ratings count as missing details. Kinds and fields
-Forma does not know are ignored. The scraper's page in Forma's menu shows what the theme asks
-for, marks those kinds "for <theme>", and lets the user turn it off.
+Forma does not know are ignored. Start → ROMs → Media → Scrape shows what is fetched, and for
+which theme.
 
 `shows` says every kind the theme draws, in any view, and `backups` which of them it draws only
 when another is missing (since SDK 1.26.0, and a theme using them needs `"sdk": "^1.26"`):
@@ -96,10 +97,11 @@ when another is missing (since SDK 1.26.0, and a theme using them needs `"sdk": 
 }
 ```
 
-Forma's scraper menus then set every other kind apart under "Not used by <theme>", and a game's
-Scrape screen does not pick those by default, nor a backup when what it replaces is on offer.
-They can still be fetched: the files serve other themes and programs. A theme with no `shows`
-has nothing set apart.
+A run then fetches every kind in `shows` (and `media` on top), and a backup only for a game
+where what it stands in for cannot be had. A game's Scrape screen on Select sets the other
+kinds apart under "Not used by <theme>" and does not pick those by default, nor a backup when
+what it replaces is on offer; they can still be chosen there by hand. A theme with no `shows`
+gets the usual kinds fetched, and nothing set apart.
 
 Start → Interface lists the themes you can pick. Forma's plain **Default** theme is a safety net
 for when no other theme can start, so it is listed only while it is in use.

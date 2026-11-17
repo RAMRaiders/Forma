@@ -111,9 +111,9 @@ const GIVES: [MediaKind; 18] = {
 /// The regions anybody can read, in order: after the ROM's own (`regions_for`).
 const REGIONS: [&str; 8] = ["wor", "us", "eu", "ss", "uk", "fr", "de", "jp"];
 
-/// ScreenScraper's regions in the ROM's name (`Sonic (Europe).md`, `(USA, Europe)`), in the
-/// order they come, then the usual ones: a European copy gets its European name, box and date.
-pub(super) fn regions_for(stem: &str) -> Vec<&'static str> {
+/// ScreenScraper's regions for `regions`, the profile's order ([`super::super::regions::order`]),
+/// then the usual ones: a European copy gets its European name, box and date.
+pub(super) fn regions_for(regions: &[String]) -> Vec<&'static str> {
     const TAGS: [(&str, &[&str]); 17] = [
         ("World", &["wor"]),
         ("USA", &["us"]),
@@ -134,16 +134,47 @@ pub(super) fn regions_for(stem: &str) -> Vec<&'static str> {
         ("Asia", &["asi"]),
     ];
     let mut order: Vec<&'static str> = Vec::new();
-    let tags = stem
-        .split(['(', ')', ','])
-        .map(str::trim)
-        .filter_map(|word| TAGS.iter().find(|(tag, _)| *tag == word));
+    let tags = regions
+        .iter()
+        .filter_map(|r| TAGS.iter().find(|(tag, _)| tag == r));
     for code in tags
         .flat_map(|(_, codes)| codes.iter())
         .chain(REGIONS.iter())
     {
         if !order.contains(code) {
             order.push(code);
+        }
+    }
+    order
+}
+
+/// The languages to read descriptions in: the regions' own, then the usual ones.
+fn languages_for(regions: &[String]) -> Vec<&'static str> {
+    const SPOKEN: [(&str, &str); 9] = [
+        ("France", "fr"),
+        ("Germany", "de"),
+        ("Spain", "es"),
+        ("Italy", "it"),
+        ("Netherlands", "nl"),
+        ("Sweden", "sv"),
+        ("Portugal", "pt"),
+        ("Brazil", "pt"),
+        ("Japan", "ja"),
+    ];
+    let mut order: Vec<&'static str> = Vec::new();
+    // English for the regions that read it, where one comes before any other language.
+    for r in regions {
+        let lang = SPOKEN
+            .iter()
+            .find(|(region, _)| region == r)
+            .map_or("en", |(_, l)| *l);
+        if !order.contains(&lang) {
+            order.push(lang);
+        }
+    }
+    for lang in ["en", "fr", "de", "es"] {
+        if !order.contains(&lang) {
+            order.push(lang);
         }
     }
     order
@@ -178,7 +209,7 @@ impl Source for ScreenScraper {
         credentials: &Credentials,
         query: &Query<'_>,
     ) -> Result<Option<Found>, LookupError> {
-        Ok(ask(http, credentials, query)?.and_then(|game| parse(&game, query.stem)))
+        Ok(ask(http, credentials, query)?.and_then(|game| parse(&game, query.regions)))
     }
 }
 
@@ -366,16 +397,17 @@ fn variant(media_type: &str) -> Option<String> {
     Some(name.to_owned())
 }
 
-/// The game ScreenScraper answered, for the ROM `stem`: what is shown first (its name, release
-/// date and media) is the ROM's own region's, where there is one ([`regions_for`]).
-pub(super) fn parse(game: &Value, stem: &str) -> Option<Found> {
+/// The game ScreenScraper answered: what is shown first (its name, release date and media) is
+/// of the first of `regions` it has, the profile's order ([`regions_for`]).
+pub(super) fn parse(game: &Value, regions: &[String]) -> Option<Found> {
     if !game.is_object() {
         return None;
     }
-    let regions = regions_for(stem);
+    let languages = languages_for(regions);
+    let regions = regions_for(regions);
     let mut names = names_by_region(&game["noms"], &regions).into_iter();
     let name = names.next();
-    let description = by_region_noted(&game["synopsis"], "langue", &["en", "fr", "de", "es"]);
+    let description = by_region_noted(&game["synopsis"], "langue", &languages);
     let released = by_region_noted(&game["dates"], "region", &regions);
     let genre = game["genres"].as_array().and_then(|genres| {
         let principal = genres

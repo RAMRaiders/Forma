@@ -12,6 +12,7 @@ mod engine;
 pub(crate) use text::title_key;
 pub mod pick;
 pub mod platforms;
+pub mod regions;
 mod sources;
 pub(crate) mod text;
 
@@ -298,6 +299,8 @@ pub struct Query<'a> {
     pub hashes: Option<&'a Hashes>,
     /// The media kinds still wanted, so a source can skip calls for the rest.
     pub wanted: &'a [MediaKind],
+    /// The regions whose names, boxes and dates to prefer, best first ([`regions::order`]).
+    pub regions: &'a [String],
     pub wants_metadata: bool,
 }
 
@@ -385,31 +388,43 @@ pub struct SourceChoice {
     pub enabled: bool,
 }
 
-/// What the user chose: sources in order, media kinds, and what to overwrite.
+/// What the user chose: sources in order, their region profile, and what to do with games
+/// already scraped. What to fetch is the theme's ([`Needs`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Config {
     pub sources: Vec<SourceChoice>,
-    pub media: Vec<MediaKind>,
-    pub metadata: bool,
     /// Replace what a game already has; otherwise only fill what is missing.
     pub replace: bool,
-    /// Fetch what the theme in use asks for too (see [`Needs`]).
-    #[serde(default = "yes")]
-    pub theme_needs: bool,
+    /// Leave a game that has been scraped (a description or any media) as it is.
+    pub skip_scraped: bool,
+    /// The ROM's own regions (from its file name) come before `regions`.
+    pub own_region: bool,
+    /// The regions to prefer, best first: names, boxes and dates of the first one there is.
+    pub regions: Vec<String>,
     /// What the theme in use asks for; set for a run, not stored.
     #[serde(skip)]
     pub needs: Needs,
 }
 
-fn yes() -> bool {
-    true
-}
+/// What a run fetches for a theme that does not say what it draws.
+pub const DEFAULT_MEDIA: [MediaKind; 5] = [
+    MediaKind::Thumbnail,
+    MediaKind::Image,
+    MediaKind::Marquee,
+    MediaKind::Wheel,
+    MediaKind::Video,
+];
 
-/// What a theme asks the scraper for, on top of the user's choice.
+/// What the theme in use asks the scraper for: it decides what is fetched.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Needs {
+    /// What it asks for, on top of what it draws (or of [`DEFAULT_MEDIA`]).
     pub media: Vec<MediaKind>,
+    /// Every kind it draws, backups among them; empty when it does not say.
+    pub shows: Vec<MediaKind>,
+    /// Kinds it draws only when another is missing: the kind, and the one it stands in for.
+    pub backups: Vec<(MediaKind, MediaKind)>,
     /// The game's age ratings (`ageRating`): not otherwise wanted.
     pub age_rating: bool,
 }
@@ -429,8 +444,18 @@ impl Needs {
             .fields
             .iter()
             .chain(extra.iter().flat_map(|e| e.fields.iter()));
+        let backups = asked
+            .backups
+            .iter()
+            .filter_map(|(kind, main)| {
+                let pair = known_kinds([kind, main]);
+                (pair.len() == 2).then(|| (pair[0], pair[1]))
+            })
+            .collect();
         Self {
             media,
+            shows: known_kinds(&asked.shows),
+            backups,
             age_rating: fields.any(|f| f == "ageRating"),
         }
     }
@@ -451,22 +476,36 @@ pub fn known_kinds<'a>(names: impl IntoIterator<Item = &'a String>) -> Vec<Media
 }
 
 impl Config {
-    /// The media kinds to fetch: the user's, then the theme's they did not choose (when on).
+    /// The media kinds to fetch: what the theme draws (else [`DEFAULT_MEDIA`]), but not its
+    /// backups, which come only when what they stand in for cannot be had; then what it asks for.
     pub fn all_media(&self) -> Vec<MediaKind> {
-        let mut all = self.media.clone();
-        if self.theme_needs {
-            for kind in &self.needs.media {
-                if !all.contains(kind) {
-                    all.push(*kind);
-                }
+        let needs = &self.needs;
+        let mut all: Vec<MediaKind> = if needs.shows.is_empty() {
+            DEFAULT_MEDIA.to_vec()
+        } else {
+            needs
+                .shows
+                .iter()
+                .filter(|k| !needs.backups.iter().any(|(b, _)| b == *k))
+                .copied()
+                .collect()
+        };
+        for kind in &needs.media {
+            if !all.contains(kind) && !needs.backups.iter().any(|(b, _)| b == kind) {
+                all.push(*kind);
             }
         }
         all
     }
 
-    /// Whether the age rating is wanted: the theme asks for it, and its needs are on.
+    /// Whether the age rating is wanted: the theme asks for it.
     pub fn wants_age_rating(&self) -> bool {
-        self.theme_needs && self.needs.age_rating
+        self.needs.age_rating
+    }
+
+    /// The regions to look for with the ROM `stem`, best first.
+    pub fn regions_for(&self, stem: &str) -> Vec<String> {
+        regions::order(stem, self.own_region, &self.regions)
     }
 }
 
@@ -474,16 +513,10 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             sources: Vec::new(),
-            media: vec![
-                MediaKind::Thumbnail,
-                MediaKind::Image,
-                MediaKind::Marquee,
-                MediaKind::Wheel,
-                MediaKind::Video,
-            ],
-            metadata: true,
             replace: false,
-            theme_needs: true,
+            skip_scraped: false,
+            own_region: true,
+            regions: regions::default_order(),
             needs: Needs::default(),
         }
     }
@@ -510,9 +543,8 @@ impl Config {
             }
         }
         config
-            .media
-            .sort_by_key(|k| MediaKind::ALL.iter().position(|a| a == k));
-        config.media.dedup();
+            .regions
+            .retain(|r| regions::REGIONS.contains(&r.as_str()));
         config
     }
 }

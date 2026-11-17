@@ -410,71 +410,89 @@ describe('Forma’s shell', () => {
     expect(details()).toEqual(['Rockman (Japan).nes', 'Mega Man (USA).nes']);
   });
 
-  it('scraper: runs in the background, chooses what to fetch, sets up a source', async () => {
-    const { press, text, openMenu } = start(['scraper.manage']);
-    await openMenu('Scrapers');
+  it('ROMs → Media: accounts, a region profile, and the systems to scrape', async () => {
+    const { press, text, openMenu, forma } = start(['scraper.manage']);
+    await openMenu('Media');
     const rows = () => text('.page > .panel li[role=option] .name');
     const details = () => text('.page > .panel li[role=option] .description');
     const selected = () => text('.page li.selected .name')[0];
+    const at = (label: string) => details()[rows().indexOf(label)];
     const goTo = async (label: string) => {
       for (let i = 0; i < 40 && selected() !== label; i++) await press('down');
       expect(selected()).toBe(label);
     };
-    await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
-    expect(text('.page li.heading')).toEqual([
-      'Scrape',
-      'Scrapers, asked in this order',
-      'Options'
-    ]);
-    expect(rows()).toContain('ScreenScraper');
-    const at = (label: string) => details()[rows().indexOf(label)];
+    await vi.waitFor(() => expect(rows()).toEqual(['Accounts', 'Profile', 'Scrape']));
+    expect(at('Profile')).toBe("The game's own region, then World, USA, Europe");
+
+    // Accounts: the services; A on one, its credentials.
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('ScreenScraper'));
     expect(at('ScreenScraper')).toBe('On · needs setting up: A');
     expect(at('libretro thumbnails')).toBe('On · nothing to set up');
-
-    // Everything, in the background: the page follows it to the end.
-    await goTo('Start scraping');
+    await goTo('TheGamesDB');
     await press('confirm');
-    await vi.waitFor(() => expect(rows()).toContain('Scrape everything'));
-    await goTo('Scrape everything');
-    await press('confirm');
-    await vi.waitFor(() => expect(rows().some((r) => r.startsWith('Last: Everything'))).toBe(true));
-    expect(at('Last: Everything')).toMatch(/^\d+ found · \d+ not found$/);
-
-    // Manuals on.
-    await goTo('What to fetch');
-    await press('confirm');
-    await vi.waitFor(() => expect(rows()).toContain('Manual'));
-    expect(at('Manual')).toBe('Off');
-    await goTo('Manual');
-    await press('confirm');
-    await vi.waitFor(() => expect(at('Manual')).toBe('On'));
-
-    // What the theme asks for, on top: marked on its kinds, and can be turned off.
-    expect(at('What Neon asks for')).toBe('On · Box spine, age ratings');
-    expect(at('Box spine')).toBe('On · for Neon');
-    await goTo('What Neon asks for');
-    await press('confirm');
-    await vi.waitFor(() => expect(at('Box spine')).toBe('Off'));
-    await press('back');
-    await vi.waitFor(() => expect(rows()).toContain('TheGamesDB'));
-
-    // TheGamesDB's key, typed on the keyboard.
-    await press('up');
-    for (let i = 0; i < 40 && selected() !== 'TheGamesDB'; i++) await press('up');
-    await press('confirm');
-    await vi.waitFor(() => expect(text('.page h2')).toEqual(['TheGamesDB']));
     await vi.waitFor(() => expect(rows()).toContain('API key'));
     await goTo('API key');
-    expect(details()[rows().indexOf('API key')]).toBe('Needed: A to enter');
+    expect(at('API key')).toBe('Needed: A to enter');
     await press('confirm');
     expect(text('.keyboard h2')).toEqual(['API key']);
     for (const key of 'abc123') window.dispatchEvent(new KeyboardEvent('keydown', { key }));
     await press('start');
-    await vi.waitFor(() =>
-      expect(details()[rows().indexOf('API key')]).toBe('Entered · Y to clear')
-    );
+    await vi.waitFor(() => expect(at('API key')).toBe('Entered · Y to clear'));
     await press('back');
     await vi.waitFor(() => expect(at('TheGamesDB')).toBe('On · set up'));
+    await press('back');
+
+    // Profile: France first, whatever the game says.
+    await goTo('Profile');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()[0]).toBe("The game's own region first"));
+    await press('confirm');
+    await vi.waitFor(() => expect(at("The game's own region first")).toMatch(/^Off/));
+    await goTo('Add a region…');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page > .panel > h2')).toEqual(['Add a region']));
+    await goTo('France');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('France')).toMatch(/^4 of 4/));
+    for (let i = 0; i < 40 && selected() !== 'France'; i++) await press('up');
+    for (let i = 0; i < 3; i++) {
+      await press('left');
+      await vi.waitFor(() => expect(at('France')).toMatch(new RegExp(`^${3 - i} of 4`)));
+    }
+    expect(selected()).toBe('France');
+    expect(rows()[1]).toBe('France');
+    expect((await forma.scraper.settings()).regions).toEqual(['France', 'World', 'USA', 'Europe']);
+    await press('back');
+    await vi.waitFor(() => expect(at('Profile')).toBe('France, World, USA, Europe'));
+
+    // Scrape: one system, skipping what was scraped; then the run, followed to its end.
+    await goTo('Scrape');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Start scraping'));
+    expect(at('Systems')).toMatch(/^Every system · \d+ games$/);
+    expect(at('What is fetched')).toContain('Box spine');
+    await goTo('Games already scraped');
+    expect(at('Games already scraped')).toBe('Fill in what is missing');
+    await press('left');
+    await vi.waitFor(() => expect(at('Games already scraped')).toBe('Skip them'));
+    expect((await forma.scraper.settings()).skipScraped).toBe(true);
+    for (let i = 0; i < 40 && selected() !== 'Systems'; i++) await press('up');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()[0]).toBe('Choose none'));
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()[0]).toBe('Choose every system'));
+    await goTo('Nintendo Entertainment System');
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Nintendo Entertainment System')).toMatch(/^On/));
+    await press('back');
+    await vi.waitFor(() => expect(at('Systems')).toMatch(/^1 of \d+ · \d+ games$/));
+    await goTo('Start scraping');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Nintendo Entertainment System'));
+    await vi.waitFor(() =>
+      expect(at('Nintendo Entertainment System')).toMatch(/^\d+ found · \d+ not found/)
+    );
   });
 
   it('emulator options: the shader, picture and decorations among them, which give way to it', async () => {
@@ -580,7 +598,14 @@ describe('Forma’s shell', () => {
         'Remove and delete'
       ])
     );
-    await press('down');
+    // Pictures side by side: the next is to the right, and what is chosen says so.
+    expect(text('.page li.tile .name')).toEqual([
+      'Keep what it has',
+      'ScreenScraper',
+      'libretro thumbnails'
+    ]);
+    expect(text('.page li.selected .badge')).toEqual(['Chosen']);
+    await press('right');
     await press('confirm');
     await vi.waitFor(() => expect(badges()[1]).toBe('From ScreenScraper'));
     expect(at('Save')).toBe('2 changes');
@@ -1191,7 +1216,7 @@ describe('Forma’s shell', () => {
       'Views',
       'Magazines',
       'Downloads',
-      'Scrapers',
+      'Media',
       'Emulator options',
       'ROM check',
       'Game versions',
@@ -1211,7 +1236,7 @@ describe('Forma’s shell', () => {
     ]);
     expect(text('.page li.heading')).toEqual([
       'Library',
-      'Games',
+      'ROMs',
       'Play',
       'Settings',
       'Devices',
@@ -1290,7 +1315,7 @@ describe('Forma’s shell', () => {
     expect(at()).toBe('Views');
     for (let i = 0; i < 3; i++) await press('down');
     // Into the next section.
-    expect(at()).toBe('Scrapers');
+    expect(at()).toBe('Media');
     await press('up');
     expect(at()).toBe('Downloads');
   });

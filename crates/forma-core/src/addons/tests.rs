@@ -281,6 +281,7 @@ fn a_scraper_addon_is_a_source() {
         hashes: None,
         wanted: &wanted,
         wants_metadata: true,
+        regions: &[],
     };
     let found = source.lookup(&*echo(""), &creds, &q).unwrap().unwrap();
     assert_eq!(found.metadata.name.as_deref(), Some("Super Metroid"));

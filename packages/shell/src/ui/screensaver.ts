@@ -440,7 +440,7 @@ export class Screensaver {
           { class: 'name' },
           s.type === 'video' ? 'No game has a video yet' : 'No game has that picture yet'
         ),
-        el('span', { class: 'system' }, 'Scrape your games from Start → Games → Scrapers')
+        el('span', { class: 'system' }, 'Scrape your games from Start → ROMs → Media')
       );
       this.#info.hidden = false;
       return;

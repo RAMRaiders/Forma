@@ -485,6 +485,69 @@
   border-radius: 0.3em;
 }
 
+/* Tiles: pictures to choose from, four across, each with its name and what tells it apart. */
+.page li.tiles {
+  display: block;
+  padding: 0.2em 0;
+}
+
+.page ul.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.page li.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  padding: 0.5em;
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+
+.page li.tile .picture {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  border-radius: 0.25em;
+  background: rgb(0 0 0 / 35%);
+}
+
+/* No picture to show: a dashed frame keeps the grid even. */
+.page li.tile .picture.none {
+  box-sizing: border-box;
+  border: 1px dashed var(--line);
+  background: none;
+}
+
+.page li.tile .name,
+.page li.tile .description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page li.tile .description {
+  font-size: 0.8em;
+}
+
+.page li.tile .badge {
+  align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page li.tile.selected {
+  border-color: transparent;
+}
+
 .switcher .note {
   margin: -0.3em 0 0.9em;
   color: var(--muted);

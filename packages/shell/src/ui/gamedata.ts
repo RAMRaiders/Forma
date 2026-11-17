@@ -155,7 +155,7 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
   };
 }
 
-/** Start → Games → Game versions: which titles have several files, per system. Read only. */
+/** Start → ROMs → Game versions: which titles have several files, per system. Read only. */
 export function versionsScreen(
   forma: Forma,
   page: Page,
@@ -181,7 +181,7 @@ export function versionsScreen(
 }
 
 /**
- * Start → Games → Sibling games: games that are one game under different names, per
+ * Start → ROMs → Sibling games: games that are one game under different names, per
  * system, by LaunchBox. Read only.
  */
 export function duplicatesScreen(
@@ -391,9 +391,14 @@ function pickScreen(
     await page.pop();
   };
 
+  // What the game has now, to show on its tile while it is kept.
+  const current = (section: ScraperOffers['media'][number]) =>
+    section.current ? forma.library.mediaUrl(id, section.kind, 320) : null;
+
   const mediaRow = (section: ScraperOffers['media'][number]): Row => {
     const offer = section.offers.find((o) => o.id === media.get(section.kind));
     return {
+      tile: true,
       label: section.label,
       detail: [
         offer && offerNote(offer),
@@ -406,7 +411,7 @@ function pickScreen(
         : removed.has(section.kind)
           ? { text: 'Will be deleted' }
           : keptBadge(section.current),
-      image: offer ? previews.get(offer.id) : undefined,
+      image: offer ? previews.get(offer.id) : removed.has(section.kind) ? null : current(section),
       run: () =>
         page.run(`Loading ${section.label}…`, async () => {
           for (const [n, o] of section.offers.entries()) {
@@ -414,41 +419,69 @@ function pickScreen(
             page.progress(`Loading ${section.label}: ${n + 1} of ${section.offers.length}…`);
             previews.set(o.id, await forma.scraper.preview(o.id));
           }
-          await page.push(section.label, () => [
-            {
-              label: section.current ? 'Keep what it has' : 'Leave empty',
-              run: choose(() => {
-                media.delete(section.kind);
-                removed.delete(section.kind);
-              })
-            },
-            ...section.offers.map((o) => ({
-              label: o.source,
-              detail: offerNote(o) || (previews.get(o.id) ? '' : 'No details from this source'),
-              image: previews.get(o.id),
-              run: choose(() => {
-                removed.delete(section.kind);
-                media.set(section.kind, o.id);
-              })
-            })),
-            ...(section.current
-              ? [
-                  {
-                    label: 'Remove and delete',
-                    detail: 'Deletes its file, and takes nothing in its place',
-                    run: choose(() => {
-                      media.delete(section.kind);
-                      removed.add(section.kind);
-                    })
-                  }
-                ]
-              : [])
-          ]);
+          const chosen = media.get(section.kind);
+          await page.push(
+            section.label,
+            () => [
+              {
+                tile: true,
+                label: section.current ? 'Keep what it has' : 'Leave empty',
+                image: current(section),
+                badge: chosen === undefined ? { text: 'Chosen', kept: true } : undefined,
+                run: choose(() => {
+                  media.delete(section.kind);
+                  removed.delete(section.kind);
+                })
+              },
+              ...section.offers.map((o): Row => ({
+                tile: true,
+                label: o.source,
+                detail: offerNote(o) || (previews.get(o.id) ? '' : 'No details from this source'),
+                image: previews.get(o.id),
+                badge: chosen === o.id ? { text: 'Chosen' } : undefined,
+                run: choose(() => {
+                  removed.delete(section.kind);
+                  media.set(section.kind, o.id);
+                })
+              })),
+              ...(section.current
+                ? [
+                    {
+                      danger: true,
+                      label: 'Remove and delete',
+                      detail: 'Deletes its file, and takes nothing in its place',
+                      run: choose(() => {
+                        media.delete(section.kind);
+                        removed.add(section.kind);
+                      })
+                    }
+                  ]
+                : [])
+            ],
+            undefined,
+            // On what is chosen now.
+            chosen === undefined ? 0 : 1 + section.offers.findIndex((o) => o.id === chosen)
+          );
         })
     };
   };
 
-  return () => {
+  // The pictures chosen, fetched one by one once the page is up, each tile showing its own as
+  // it comes.
+  let loading = false;
+  const loadChosen = async () => {
+    if (loading) return;
+    loading = true;
+    for (const offer of [...media.values()]) {
+      if (previews.has(offer)) continue;
+      previews.set(offer, await forma.scraper.preview(offer).catch(() => null));
+      if (page.showing(build)) await page.refresh();
+    }
+    loading = false;
+  };
+
+  const build = (): Row[] => {
+    void Promise.resolve().then(loadChosen);
     const changes = text.size + media.size + cleared.size + removed.size;
     const unused = offers.media.filter((s) => themeUse(theme, s.kind) === 'unused');
     const sections: Row[] = [
@@ -496,4 +529,5 @@ function pickScreen(
       }
     ];
   };
+  return build;
 }

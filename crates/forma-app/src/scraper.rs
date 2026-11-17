@@ -182,14 +182,19 @@ pub struct MediaKindInfo {
 pub struct ScraperSettings {
     /// In the order they are asked.
     pub sources: Vec<SourceInfo>,
-    /// The kinds to fetch.
+    /// The kinds a run fetches: the theme's ([`Config::all_media`]).
     pub media: Vec<MediaKind>,
     /// Every kind there is, with its name.
     pub media_kinds: Vec<MediaKindInfo>,
-    pub metadata: bool,
     pub replace: bool,
-    /// Whether what the theme asks for is fetched too.
-    pub theme_needs: bool,
+    /// Games already scraped are left as they are.
+    pub skip_scraped: bool,
+    /// The ROM's own regions come before `regions`.
+    pub own_region: bool,
+    /// The regions preferred, best first.
+    pub regions: Vec<String>,
+    /// Every region there is to prefer.
+    pub all_regions: Vec<String>,
     /// What the theme in use asks for, if anything.
     pub theme: Option<ThemeNeedsInfo>,
 }
@@ -288,7 +293,7 @@ fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
         .collect();
     Ok(ScraperSettings {
         sources,
-        media: config.media,
+        media: config.all_media(),
         media_kinds: MediaKind::ALL
             .iter()
             .map(|k| MediaKindInfo {
@@ -296,9 +301,11 @@ fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
                 label: k.label(),
             })
             .collect(),
-        metadata: config.metadata,
         replace: config.replace,
-        theme_needs: config.theme_needs,
+        skip_scraped: config.skip_scraped,
+        own_region: config.own_region,
+        regions: config.regions,
+        all_regions: scraper::regions::REGIONS.map(str::to_owned).to_vec(),
         theme: state
             .current_theme()
             .and_then(|t| t.manifest)
@@ -349,10 +356,10 @@ pub async fn scraper_configure<R: Runtime>(
     app: AppHandle<R>,
     caller: Caller,
     sources: Option<Vec<SourceChoice>>,
-    media: Option<Vec<MediaKind>>,
-    metadata: Option<bool>,
     replace: Option<bool>,
-    theme_needs: Option<bool>,
+    skip_scraped: Option<bool>,
+    own_region: Option<bool>,
+    regions: Option<Vec<String>>,
 ) -> ApiResult<ScraperSettings> {
     off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
@@ -360,17 +367,17 @@ pub async fn scraper_configure<R: Runtime>(
         if let Some(sources) = sources {
             config.sources = sources;
         }
-        if let Some(media) = media {
-            config.media = media;
-        }
-        if let Some(metadata) = metadata {
-            config.metadata = metadata;
-        }
         if let Some(replace) = replace {
             config.replace = replace;
         }
-        if let Some(theme_needs) = theme_needs {
-            config.theme_needs = theme_needs;
+        if let Some(skip_scraped) = skip_scraped {
+            config.skip_scraped = skip_scraped;
+        }
+        if let Some(own_region) = own_region {
+            config.own_region = own_region;
+        }
+        if let Some(regions) = regions {
+            config.regions = regions;
         }
         // Through `load` again: unknown sources dropped, missing ones added.
         let config = Config::load(
@@ -431,8 +438,16 @@ pub async fn scraper_set_credential<R: Runtime>(
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Scope {
-    Game { id: i64 },
-    System { name: String },
+    Game {
+        id: i64,
+    },
+    System {
+        name: String,
+    },
+    /// Several systems, in the library's order.
+    Systems {
+        names: Vec<String>,
+    },
     All,
 }
 
@@ -646,6 +661,25 @@ fn games_in(state: &AppState, scope: &Scope) -> ApiResult<(String, Vec<i64>)> {
                 .ok_or_else(|| ApiError::new(ErrorCode::NotFound, format!("no system `{name}`")))?;
             let ids = library.game_files(name)?.iter().map(|g| g.id).collect();
             (system.fullname, ids)
+        }
+        Scope::Systems { names } => {
+            let chosen: Vec<_> = library
+                .systems_in_order()?
+                .into_iter()
+                .filter(|s| names.contains(&s.name))
+                .collect();
+            if chosen.is_empty() {
+                return Err(ApiError::new(ErrorCode::Invalid, "no system chosen"));
+            }
+            let mut ids = Vec::new();
+            for system in &chosen {
+                ids.extend(library.game_files(&system.name)?.iter().map(|g| g.id));
+            }
+            let name = match chosen.as_slice() {
+                [one] => one.fullname.clone(),
+                many => format!("{} systems", many.len()),
+            };
+            (name, ids)
         }
         Scope::All => {
             let mut ids = Vec::new();

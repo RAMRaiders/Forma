@@ -382,6 +382,7 @@ impl Source for ScraperAddon {
             "hashes": query.hashes.map(|h| json!({ "crc32": h.crc32, "md5": h.md5, "sha1": h.sha1 })),
             "wanted": query.wanted,
             "wantsMetadata": query.wants_metadata,
+            "regions": query.regions,
         });
         let out = self
             .script

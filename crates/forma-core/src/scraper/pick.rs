@@ -180,7 +180,10 @@ pub fn gather(
         .filter(std::fs::Metadata::is_file)
         .map_or(0, |m| m.len());
     let name = super::text::search_name(&game.name);
-    let kinds = config.all_media();
+    // Backups too: here the user sees what each is and chooses.
+    let mut kinds = config.all_media();
+    kinds.extend(config.needs.backups.iter().map(|(b, _)| *b));
+    let regions = config.regions_for(&stem);
     let empty = Credentials::new();
 
     let mut hashes = None;
@@ -211,6 +214,7 @@ pub fn gather(
             hashes: hashes.as_ref().and_then(Option::as_ref),
             wanted: &kinds,
             wants_metadata: true,
+            regions: &regions,
         };
         if !source.covers(&query) {
             continue;
