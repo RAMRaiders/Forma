@@ -483,15 +483,8 @@ function pickScreen(
   const build = (): Row[] => {
     void Promise.resolve().then(loadChosen);
     const changes = text.size + media.size + cleared.size + removed.size;
-    const unused = offers.media.filter((s) => themeUse(theme, s.kind) === 'unused');
-    const sections: Row[] = [
-      ...offers.text.map(textRow),
-      ...offers.media.filter((s) => !unused.includes(s)).map(mediaRow),
-      ...unused.map((s, i) => ({
-        ...mediaRow(s),
-        heading: i === 0 ? `Not used by ${theme?.name ?? 'this theme'}` : undefined
-      }))
-    ];
+    // Only what the theme uses is on offer: Forma asks for nothing else.
+    const sections: Row[] = [...offers.text.map(textRow), ...offers.media.map(mediaRow)];
     sections[0]!.heading ??= 'What will be saved · A to change';
     const problems = offers.problems.map((label, i): Row => ({
       heading: i === 0 ? 'Could not answer' : undefined,
