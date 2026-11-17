@@ -54,7 +54,14 @@ interface Level {
   note: string | null;
   file: string | null;
   selected: number;
+  leave: Leave | null;
 }
+
+/**
+ * Asked when B would leave a page: `true` lets it go; otherwise the page stays, and the guard
+ * has done what it wanted instead (asked to save, say).
+ */
+export type Leave = () => boolean | Promise<boolean>;
 
 /**
  * A settings page over the screen: a title, a note, rows. A runs a row, left/right adjusts it,
@@ -76,6 +83,8 @@ export class Page {
   /** A small line under the title, e.g. the game's file name. */
   #file: string | null = null;
   #parents: Level[] = [];
+  /** Asked before B leaves the page on screen. */
+  #leave: Leave | null = null;
   /** Asked to open, its rows not read yet: it is the shell's already, and shows once whole. */
   #opening = false;
 
@@ -103,23 +112,27 @@ export class Page {
     at = 0
   ): Promise<void> {
     this.#parents = [];
+    this.#leave = null;
     await this.#open(title, build, note, at, file);
   }
 
-  /** A deeper page, starting on row `at`; B comes back here. */
+  /** A deeper page, starting on row `at`; B comes back here, once `leave` lets it. */
   async push(
     title: string,
     build: () => Row[] | Promise<Row[]>,
     note?: string,
-    at = 0
+    at = 0,
+    leave?: Leave
   ): Promise<void> {
     this.#parents.push({
       title: this.#title,
       build: this.#build,
       note: this.#note,
       file: this.#file,
-      selected: this.#selected
+      selected: this.#selected,
+      leave: this.#leave
     });
+    this.#leave = leave ?? null;
     return this.#open(title, build, note, at);
   }
 
@@ -132,6 +145,7 @@ export class Page {
     this.#note = parent.note;
     this.#file = parent.file;
     this.#selected = parent.selected;
+    this.#leave = parent.leave;
     this.#rows = [];
     await this.refresh();
   }
@@ -162,6 +176,7 @@ export class Page {
 
   close(): void {
     this.#parents = [];
+    this.#leave = null;
     this.#opening = false;
     this.root.hidden = true;
     // Nothing of this page is there to flash by when the next one opens.
@@ -292,7 +307,14 @@ export class Page {
     if (e.repeat) return;
     if (e.action === 'confirm') void row?.run?.();
     else if (e.action === 'north') void row?.alt?.run();
-    else if (e.action === 'back') void this.pop();
+    else if (e.action === 'back') void this.#back();
+  }
+
+  /** B: back a page, once the page on screen lets it go. */
+  async #back(): Promise<void> {
+    const leave = this.#leave;
+    if (leave && !(await leave())) return;
+    await this.pop();
   }
 
   /**

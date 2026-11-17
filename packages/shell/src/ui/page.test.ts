@@ -38,6 +38,29 @@ describe('a page', () => {
     expect(names(page)).toEqual(['Scrape']);
   });
 
+  it('asks a page with a guard before B leaves it, and lets it go when the guard says so', async () => {
+    const page = new Page(vi.fn(), vi.fn());
+    const back = async () => {
+      page.input({ action: 'back', button: null, gamepad: 0, pressed: true, repeat: false });
+      await new Promise((done) => setTimeout(done, 0));
+    };
+    const title = () => page.root.querySelector('h2')?.textContent;
+    let unsaved = true;
+    const leave = vi.fn(() => !unsaved);
+    await page.show('Game', () => [{ label: 'Scrape' }]);
+    await page.push('Scrape Sonic', () => [{ label: 'Save' }], undefined, 0, leave);
+    await back();
+    expect(leave).toHaveBeenCalledOnce();
+    expect(title()).toBe('Scrape Sonic');
+    unsaved = false;
+    await back();
+    expect(title()).toBe('Game');
+    // Back on the page under it: no guard of its own.
+    await back();
+    expect(page.open).toBe(false);
+    expect(leave).toHaveBeenCalledTimes(2);
+  });
+
   it('stays shut when it is closed before its rows come', async () => {
     const page = new Page(vi.fn(), vi.fn());
     const slow = later();
