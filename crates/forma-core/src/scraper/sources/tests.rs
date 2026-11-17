@@ -578,9 +578,29 @@ fn launchbox_fetches_its_data_once_and_answers_from_it() {
     let on = vec!["megadrive".to_owned()];
     let no = Credentials::default();
 
+    // A Japanese copy, the profile putting the game's own region first: its Japanese name.
     let q = launchbox_query("Bare Knuckle II", "Bare Knuckle II (Japan)", &on);
     let found = source.lookup(&api, &no, &q).unwrap().unwrap();
-    assert_eq!(found.metadata.name.as_deref(), Some("Streets of Rage 2"));
+    assert_eq!(found.metadata.name.as_deref(), Some("Bare Knuckle II"));
+    assert_eq!(
+        found.notes.text.get("name").map(String::as_str),
+        Some("Japan")
+    );
+    assert_eq!(
+        found.notes.names,
+        [(
+            "Streets of Rage 2".to_owned(),
+            Some("North America".to_owned())
+        )]
+    );
+    // A profile of USA alone: LaunchBox's own name, North America's.
+    let usa = ["USA".to_owned()];
+    let q = Query {
+        regions: &usa,
+        ..launchbox_query("Bare Knuckle II", "Bare Knuckle II (Japan)", &on)
+    };
+    let american = source.lookup(&api, &no, &q).unwrap().unwrap();
+    assert_eq!(american.metadata.name.as_deref(), Some("Streets of Rage 2"));
     assert_eq!(
         found.metadata.description.as_deref(),
         Some("Mr. X & friends.")
@@ -592,7 +612,7 @@ fn launchbox_fetches_its_data_once_and_answers_from_it() {
     assert_eq!(found.metadata.age_rating.as_deref(), Some("ESRB:E10+"));
     // Its other names, each once, not its own again.
     assert_eq!(
-        found.notes.names,
+        american.notes.names,
         [("Bare Knuckle II".to_owned(), Some("Japan".to_owned()))]
     );
     let base = "https://images.launchbox-app.com/";

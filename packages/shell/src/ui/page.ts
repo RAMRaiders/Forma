@@ -403,32 +403,33 @@ export class Page {
         }
       }
     }
-    this.root.replaceChildren(
-      el(
-        'div',
-        { class: 'panel' },
-        el('h2', {}, this.#title, this.#file ? el('small', { class: 'file' }, this.#file) : null),
-        this.#busy
-          ? el(
-              'div',
-              { class: 'busy', role: 'status' },
-              el('p', { class: 'note' }, this.#busy),
-              el('div', { class: 'loader', 'aria-hidden': 'true' }, el('span', {}))
-            )
-          : this.#note
-            ? el('p', { class: 'note' }, this.#note)
-            : null,
-        el('ul', { role: 'listbox' }, ...(this.#busy ? [] : items))
-      ),
-      this.keyboard.root
-    );
-    const panel = this.root.querySelector<HTMLElement>('.panel');
+    const content = [
+      el('h2', {}, this.#title, this.#file ? el('small', { class: 'file' }, this.#file) : null),
+      this.#busy
+        ? el(
+            'div',
+            { class: 'busy', role: 'status' },
+            el('p', { class: 'note' }, this.#busy),
+            el('div', { class: 'loader', 'aria-hidden': 'true' }, el('span', {}))
+          )
+        : this.#note
+          ? el('p', { class: 'note' }, this.#note)
+          : null,
+      el('ul', { role: 'listbox' }, ...(this.#busy ? [] : items))
+    ].filter((n): n is NonNullable<typeof n> => n !== null);
+    // The panel stays while the page is open, only its contents drawn again: a new panel played
+    // its entrance again, the theme showing through as it faded in, at every picture arriving.
+    let panel = this.root.querySelector<HTMLElement>(':scope > .panel');
     if (panel) {
-      panel.scrollTop = scrolled;
-      // Rows stop below the title, however many lines a long name takes.
-      const title = panel.querySelector<HTMLElement>('h2')?.offsetHeight ?? 0;
-      if (title) panel.style.setProperty('--title', `${title}px`);
+      panel.replaceChildren(...content);
+    } else {
+      panel = el('div', { class: 'panel' }, ...content);
+      this.root.replaceChildren(panel, this.keyboard.root);
     }
+    panel.scrollTop = scrolled;
+    // Rows stop below the title, however many lines a long name takes.
+    const title = panel.querySelector<HTMLElement>('h2')?.offsetHeight ?? 0;
+    if (title) panel.style.setProperty('--title', `${title}px`);
     const selected = this.root.querySelector('li.selected');
     if (selected) reveal(selected);
     this.changed();
