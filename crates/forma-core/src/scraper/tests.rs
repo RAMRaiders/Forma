@@ -830,3 +830,31 @@ fn a_themes_backup_comes_only_when_what_it_stands_in_for_cannot_be_had() {
     assert_eq!(run(vec![wheel, marquee.clone()]), [MediaKind::Wheel]);
     assert_eq!(run(vec![marquee]), [MediaKind::Marquee]);
 }
+
+#[test]
+fn a_date_with_its_month_and_day_wins_from_whichever_source_has_it() {
+    use super::date_precision;
+    assert_eq!(date_precision(None), 0);
+    assert_eq!(date_precision(Some("1994")), 1);
+    assert_eq!(date_precision(Some("1994-03")), 2);
+    assert_eq!(date_precision(Some("1994-03-19")), 3);
+    assert_eq!(date_precision(Some("19940319T000000")), 3);
+
+    let mut found = Metadata {
+        release_date: Some("1994".into()),
+        ..Metadata::default()
+    };
+    // The year alone: not done yet, the next source is asked for the day.
+    assert!(!found.is_complete(false));
+    found.fill_from(Metadata {
+        release_date: Some("1994-03-19".into()),
+        ..Metadata::default()
+    });
+    assert_eq!(found.release_date.as_deref(), Some("1994-03-19"));
+    // Never the other way.
+    found.fill_from(Metadata {
+        release_date: Some("1995".into()),
+        ..Metadata::default()
+    });
+    assert_eq!(found.release_date.as_deref(), Some("1994-03-19"));
+}

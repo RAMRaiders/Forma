@@ -260,7 +260,16 @@ pub fn gather(
                         });
                     best.into_iter().chain(others)
                 })
-                .collect(),
+                .collect::<Vec<_>>(),
+        })
+        .map(|mut section| {
+            // Dates with their month and day first, so the one picked by default has them.
+            if section.field == "releaseDate" {
+                section
+                    .offers
+                    .sort_by_key(|o| std::cmp::Reverse(super::date_precision(Some(&o.value))));
+            }
+            section
         })
         // What it has can be removed, offers or not.
         .filter(|s| !s.offers.is_empty() || s.current.is_some())

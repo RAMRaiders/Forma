@@ -290,6 +290,20 @@ fn ask(
     Ok(Some(doc["response"]["jeu"].take()).filter(|game| !game.is_null()))
 }
 
+/// The release date, of the first region of `order` that has one with its month and day; else
+/// with its month; else the year alone. And which region it was.
+fn full_date_first(list: &Value, order: &[&str]) -> Option<(String, Option<String>)> {
+    let items = list.as_array()?;
+    let precise = |i: &&Value| super::super::date_precision(i["text"].as_str());
+    let best = items.iter().map(|i| precise(&i)).max()?;
+    let fullest: Vec<Value> = items
+        .iter()
+        .filter(|i| precise(i) == best)
+        .cloned()
+        .collect();
+    by_region_noted(&Value::Array(fullest), "region", order)
+}
+
 /// The text of the entry for the first region (or language) of `order` there is, and which
 /// region that was.
 fn by_region_noted(list: &Value, key: &str, order: &[&str]) -> Option<(String, Option<String>)> {
@@ -408,7 +422,7 @@ pub(super) fn parse(game: &Value, regions: &[String]) -> Option<Found> {
     let mut names = names_by_region(&game["noms"], &regions).into_iter();
     let name = names.next();
     let description = by_region_noted(&game["synopsis"], "langue", &languages);
-    let released = by_region_noted(&game["dates"], "region", &regions);
+    let released = full_date_first(&game["dates"], &regions);
     let genre = game["genres"].as_array().and_then(|genres| {
         let principal = genres
             .iter()
