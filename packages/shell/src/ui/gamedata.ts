@@ -74,10 +74,6 @@ export function deleteGameRow(forma: Forma, page: Page, game: { id: number; name
     run: async () => {
       const found = await forma.library.game(game.id).catch(() => null);
       const file = found?.path.split('/').pop();
-      // Its box (or a screenshot), so there is no doubt which game goes.
-      const has = (found?.media ?? {}) as Partial<Record<string, string>>;
-      const kind = (['thumbnail', 'image'] as const).find((k) => has[k]);
-      const picture = kind ? forma.library.mediaUrl(game.id, kind, 320) : null;
       await page.push(
         `Delete ${game.name}?`,
         () => [
@@ -93,7 +89,6 @@ export function deleteGameRow(forma: Forma, page: Page, game: { id: number; name
             detail: file
               ? `${file}, its details, pictures and videos`
               : 'Its ROM, details and pictures',
-            image: picture,
             run: () =>
               page.run('Deleting…', async () => {
                 await forma.library.deleteGame(game.id);
