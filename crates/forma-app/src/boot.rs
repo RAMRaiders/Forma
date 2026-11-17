@@ -114,9 +114,15 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         shell: crate::shell::ShellState::default(),
         shell_dir,
         sync: Mutex::new(None),
+        bios: std::sync::OnceLock::new(),
         paths: paths.clone(),
     });
     let state = app.state::<AppState>();
+    // Batocera's BIOS list read now, off the UI: the first launch need not wait for it.
+    let handle = app.handle().clone();
+    std::thread::spawn(move || {
+        handle.state::<AppState>().bios_table();
+    });
 
     // The sync's first full rescan reads every gamelist off the card: at boot, on a Pi, that
     // held the theme's start back past the 30 s the service allows. The library from the last

@@ -17,6 +17,8 @@ pub enum ErrorCode {
     Network,
     /// A feature needs setting up first; the message says how.
     NotConfigured,
+    /// A game's system needs a BIOS that is missing; `bios:missing` says which.
+    BiosMissing,
     Internal,
 }
 

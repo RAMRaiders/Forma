@@ -35,6 +35,7 @@ import type {
   StatusBar,
   SystemSummary,
   Magazine,
+  SystemBios,
   AddonActionResult,
   AddonInfo,
   AddonPage,
@@ -136,6 +137,7 @@ export class Forma {
   readonly netplay;
   readonly collections;
   readonly magazines;
+  readonly bios;
   readonly scraper;
   readonly addons;
   readonly network;
@@ -370,6 +372,12 @@ export class Forma {
      * `pageUrl(m, 0, …)`) and calls `open`; the reader, its controls and where the user left
      * off are Forma's. No permission needed.
      */
+    /** BIOS files, as Batocera lists them, checked by Forma. Since 1.39.0. */
+    this.bios = {
+      /** Every system with games that lists BIOS files, and how its files are. */
+      status: () => invoke<SystemBios[]>('bios_status')
+    };
+
     this.magazines = {
       list: () => invoke<Magazine[]>('magazines_list'),
       /** How many pages it has; the first time, a big archive takes a moment. */

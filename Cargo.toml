@@ -23,6 +23,7 @@ serde_json = "1.0.154"
 thiserror = "2.0.21"
 ureq = "3.5.0"
 # Theme packages from the catalogue: a zip, checked against its SHA-256.
+md-5 = "0.11.0"
 sha2 = "0.11.1"
 # Add-ons run in QuickJS (docs/addons.md).
 rquickjs = { version = "0.14.0", default-features = false, features = ["std"] }

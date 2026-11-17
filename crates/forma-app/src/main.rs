@@ -3,6 +3,7 @@
 
 mod addons;
 mod api;
+mod bios;
 mod bluetooth;
 mod boot;
 mod catalogue;
@@ -90,6 +91,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         commands::system_quit,
         commands::system_power,
         commands::launch_game,
+        bios::bios_status,
         commands::ra_user,
         commands::ra_game,
         ra_match::ra_matches,
