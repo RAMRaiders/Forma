@@ -153,6 +153,7 @@ function profileScreen(forma: Forma, page: Page): () => Promise<Row[]> {
     const { regions } = settings;
     const set = (next: string[]) => saving(page, () => forma.scraper.configure({ regions: next }));
     const own = saving(page, () => forma.scraper.configure({ ownRegion: !settings.ownRegion }));
+    const manuals = saving(page, () => forma.scraper.configure({ manuals: !settings.manuals }));
     const left = settings.allRegions.filter((r) => !regions.includes(r));
     return [
       {
@@ -162,6 +163,14 @@ function profileScreen(forma: Forma, page: Page): () => Promise<Row[]> {
           : 'Off: always the regions below, whatever the game is',
         run: own,
         adjust: own
+      },
+      {
+        label: 'Download manuals',
+        detail: settings.manuals
+          ? 'On: a game gets its manual, where the theme shows manuals. They are large'
+          : 'Off: no manuals, to save space and time',
+        run: manuals,
+        adjust: manuals
       },
       ...regions.map((r, i): Row => ({
         heading: i === 0 ? 'Preferred regions, best first' : undefined,

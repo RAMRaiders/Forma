@@ -547,6 +547,11 @@ fn a_theme_adds_what_it_needs_unless_turned_off() {
         cfg.all_media(),
         [MediaKind::Thumbnail, MediaKind::Wheel, MediaKind::Boxside]
     );
+    // Manuals, when the user does not want them downloaded.
+    cfg.needs.shows.push(MediaKind::Manual);
+    assert!(cfg.all_media().contains(&MediaKind::Manual));
+    cfg.manuals = false;
+    assert!(!cfg.all_media().contains(&MediaKind::Manual));
 }
 
 #[test]

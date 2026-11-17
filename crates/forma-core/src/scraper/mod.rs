@@ -402,6 +402,8 @@ pub struct Config {
     pub own_region: bool,
     /// The regions to prefer, best first: names, boxes and dates of the first one there is.
     pub regions: Vec<String>,
+    /// Download manuals, when the theme draws them: they are large.
+    pub manuals: bool,
     /// What the theme in use asks for; set for a run, not stored.
     #[serde(skip)]
     pub needs: Needs,
@@ -495,6 +497,9 @@ impl Config {
                 all.push(*kind);
             }
         }
+        if !self.manuals {
+            all.retain(|k| *k != MediaKind::Manual);
+        }
         all
     }
 
@@ -517,6 +522,7 @@ impl Default for Config {
             skip_scraped: false,
             own_region: true,
             regions: regions::default_order(),
+            manuals: true,
             needs: Needs::default(),
         }
     }

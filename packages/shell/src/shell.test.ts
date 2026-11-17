@@ -449,6 +449,12 @@ describe('Forma’s shell', () => {
     await vi.waitFor(() => expect(rows()[0]).toBe("The game's own region first"));
     await press('confirm');
     await vi.waitFor(() => expect(at("The game's own region first")).toMatch(/^Off/));
+    // Manuals: on until turned off.
+    await goTo('Download manuals');
+    expect(at('Download manuals')).toMatch(/^On/);
+    await press('confirm');
+    await vi.waitFor(() => expect(at('Download manuals')).toMatch(/^Off/));
+    expect((await forma.scraper.settings()).manuals).toBe(false);
     await goTo('Add a region…');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page > .panel > h2')).toEqual(['Add a region']));
@@ -461,7 +467,7 @@ describe('Forma’s shell', () => {
       await vi.waitFor(() => expect(at('France')).toMatch(new RegExp(`^${3 - i} of 4`)));
     }
     expect(selected()).toBe('France');
-    expect(rows()[1]).toBe('France');
+    expect(rows()[2]).toBe('France');
     expect((await forma.scraper.settings()).regions).toEqual(['France', 'World', 'USA', 'Europe']);
     await press('back');
     await vi.waitFor(() => expect(at('Profile')).toBe('France, World, USA, Europe'));

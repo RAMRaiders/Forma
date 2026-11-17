@@ -52,6 +52,8 @@ Start → ROMs → Media has three pages:
   (`Sonic (USA, Europe)`) come first, and of several, the one higher in the preferred list
   wins; then the preferred regions, in order (World, USA, Europe to start with). Turned off,
   only the list counts: a French profile gets French boxes and text whatever the ROM says.
+  _Download manuals_ (on by default) turns manuals off for every run, even for a theme that
+  draws them: they are large.
 - **Scrape**: the systems to scrape (every one to start with), and what to do with games
   already scraped (a description or any media): skip them, fill in what is missing (the
   default), or replace what they have. Then Start; the run goes on in the background, and
