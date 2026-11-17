@@ -13,7 +13,12 @@ pub fn search_name(name: &str) -> String {
         }
     }
     let out = out.replace('_', " ");
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
+    let mut words: Vec<&str> = out.split_whitespace().collect();
+    // A revision outside brackets, `Raiden Rev A`: no database names a game so.
+    if words.len() > 2 && words[words.len() - 2].eq_ignore_ascii_case("rev") {
+        words.truncate(words.len() - 2);
+    }
+    words.join(" ")
 }
 
 /// For comparing names: lower case, letters and digits only, a leading or trailing "the"
@@ -381,5 +386,15 @@ mod tests {
             encode("Mario & Luigi: 1/2"),
             "Mario%20%26%20Luigi%3A%201%2F2"
         );
+    }
+}
+
+#[cfg(test)]
+mod bare_rev_tests {
+    #[test]
+    fn a_revision_outside_brackets_is_left_out() {
+        assert_eq!(super::search_name("Raiden Rev A (1994)"), "Raiden");
+        assert_eq!(super::search_name("Sonic (USA) (Rev 1)"), "Sonic");
+        assert_eq!(super::search_name("Rev Up"), "Rev Up");
     }
 }
