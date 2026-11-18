@@ -410,8 +410,8 @@ describe('Forma’s shell', () => {
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
   });
 
-  it('sibling games: one game under different names, per system', async () => {
-    const { press, text, openMenu, backend } = start([]);
+  it('sibling games: one game under different names, per system, opened narrowed to them', async () => {
+    const { press, text, openMenu, backend, opened, shell } = start([]);
     const invoke = backend.invoke.bind(backend);
     let answer: unknown = null;
     vi.spyOn(backend, 'invoke').mockImplementation(async (command, args) =>
@@ -437,9 +437,13 @@ describe('Forma’s shell', () => {
     await press('confirm');
     await vi.waitFor(() => expect(rows()).toEqual(['Mega Man']));
     expect(details()).toEqual(['Rockman · Mega Man']);
+    // Chosen: the first shown, the list narrowed to it and its siblings, Start shut.
     await press('confirm');
-    await vi.waitFor(() => expect(rows()).toEqual(['Rockman', 'Mega Man']));
-    expect(details()).toEqual(['Rockman (Japan).nes', 'Mega Man (USA).nes']);
+    await vi.waitFor(() => expect(opened).toContain('game 1'));
+    await vi.waitFor(() =>
+      expect(backend.invoke).toHaveBeenCalledWith('nav_set_filter', { filter: { games: [1, 2] } })
+    );
+    expect(shell.open).toBe(false);
   });
 
   it('ROMs → Media: accounts, a region profile, and the systems to scrape', async () => {
@@ -1287,8 +1291,6 @@ describe('Forma’s shell', () => {
       'Downloads',
       'Media',
       'Emulator options',
-      'ROM check',
-      'Game versions',
       'Sibling games',
       'Achievements',
       'Netplay',
@@ -2079,23 +2081,5 @@ describe('Forma’s screensaver', () => {
     await vi.waitFor(() =>
       expect(h.text('.screensaver .info .name')).toEqual(['No game has that picture yet'])
     );
-  });
-});
-
-describe('ROM check', () => {
-  it('shows each system’s dump check under Start → ROM check, and turns it off', async () => {
-    const { press, text, openMenu, forma } = start(['settings.system']);
-    await openMenu('ROM check');
-    const rows = () => text('.page > .panel li[role=option] .name');
-    const details = () => text('.page > .panel li[role=option] .description');
-    await vi.waitFor(() => expect(rows()[0]).toBe('Check ROMs: On'));
-    const nes = rows().findIndex(
-      (r) => r.startsWith('Nintendo Entertainment System') || r === 'nes'
-    );
-    expect(nes).toBeGreaterThan(0);
-    expect(details()[nes]).toMatch(/^1 of \d+ games verified · 1 not catalogued/);
-    await press('confirm');
-    await vi.waitFor(() => expect(rows()[0]).toBe('Check ROMs: Off'));
-    expect(await forma.settings.getSystem('library.verifyDumps')).toBe(false);
   });
 });
