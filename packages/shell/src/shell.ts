@@ -26,8 +26,7 @@ import {
   systemsScreen
 } from './ui/screens.js';
 import { magazinesScreen } from './ui/magazines.js';
-import { duplicatesScreen, versionsScreen } from './ui/gamedata.js';
-import { dumpsScreen } from './ui/dumps.js';
+import { duplicatesScreen } from './ui/gamedata.js';
 import { addonsScreen } from './ui/addons.js';
 import { mediaScreen } from './ui/scraper.js';
 import { Reader } from './ui/reader.js';
@@ -455,13 +454,16 @@ export class Shell {
       page.close();
       void go();
     };
-    // A game chosen in a list of games: Start shuts and the theme shows it.
-    const openGame = (id: number) => {
+    // Sibling games chosen: the first shown, the list only them (whatever filter it had).
+    const openSiblings = (ids: number[]) => {
       this.#returnTo = null;
       this.#closeAll();
-      this.calls.openGame(id).catch((error: unknown) => {
-        this.notify(FormaError.from(error).message);
-      });
+      this.calls
+        .openGame(ids[0]!)
+        .then(() => forma.nav.setFilter({ games: ids }))
+        .catch((error: unknown) => {
+          this.notify(FormaError.from(error).message);
+        });
     };
     return [
       {
@@ -502,19 +504,9 @@ export class Shell {
         run: push('Emulator options', () => emulatorScreen(forma, page, { level: 'global' }))
       },
       {
-        label: 'ROM check',
-        detail: 'Which files are the dumps No-Intro and Redump list',
-        run: push('ROM check', () => dumpsScreen(forma, page))
-      },
-      {
-        label: 'Game versions',
-        detail: 'Which games have several versions, per system',
-        run: push('Game versions', () => versionsScreen(forma, page, openGame))
-      },
-      {
         label: 'Sibling games',
         detail: 'One game under different names, by LaunchBox',
-        run: push('Sibling games', () => duplicatesScreen(forma, page, openGame))
+        run: push('Sibling games', () => duplicatesScreen(forma, page, openSiblings))
       },
       {
         heading: 'Play',
