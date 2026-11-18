@@ -559,6 +559,21 @@ export interface ScraperStatus {
 }
 
 /**
+ * Forma reading new or changed game files to identify them (their checksums, for the dump
+ * check and RetroAchievements), one system at a time. Since 1.41.0.
+ */
+export interface IdentifyStatus {
+  running: boolean;
+  /** The system being read (Batocera's folder name, e.g. `nes`); `''` once all are done. */
+  system: string;
+  /** Of the system's new or changed files, how many were read; once done, of the whole pass. */
+  done: number;
+  total: number;
+  /** The file being read, relative to the system's folder. */
+  current: string | null;
+}
+
+/**
  * A magazine in `/userdata/magazines`: a CBZ/ZIP, CBR/RAR, CB7/7Z, CBT/TAR or PDF file, or a
  * folder of page images. Folders below group them.
  */
@@ -699,6 +714,8 @@ export interface EventMap {
   'bios:missing': BiosMissing;
   /** After each game of a scraper run, and when it ends. */
   'scraper:progress': ScraperStatus;
+  /** While new or changed game files are read to identify them, and when done. Since 1.41.0. */
+  'library:identifying': IdentifyStatus;
   /** A setting changed in Forma's menu: one of the theme's own, or Forma's (`display.margins`). */
   'settings:changed': SettingsChanged;
   'music:changed': MusicStatus;

@@ -33,6 +33,7 @@ import { Reader } from './ui/reader.js';
 import { biosAskScreen } from './ui/bios.js';
 import { systemSettingsScreen } from './ui/settings.js';
 import { emulatorScreen } from './ui/shader.js';
+import { IdentifyProgress } from './ui/identifyprogress.js';
 import { ScrapeProgress } from './ui/scrapeprogress.js';
 import { StatusView } from './ui/status.js';
 import { storeScreen } from './ui/store.js';
@@ -206,7 +207,13 @@ export class Shell {
       this.#hints,
       this.#status.root,
       this.#song,
-      new ScrapeProgress(forma).root,
+      // Background work, stacked in the bottom-left corner.
+      el(
+        'div',
+        { class: 'progress-cards' },
+        new ScrapeProgress(forma).root,
+        new IdentifyProgress(forma).root
+      ),
       this.#unlocks.root,
       this.#reader.root,
       this.#saver.root,

@@ -107,6 +107,8 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
             }
         }
         RUNNING.store(true, Ordering::SeqCst);
+        // New or changed files read this pass, for Forma's shell: shown only when there are.
+        let mut read = 0;
         if hash {
             for target in ra_match::targets(&state.paths) {
                 if !all && !systems.contains(&target.system) {
@@ -116,7 +118,16 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                 while state.playing.load(Ordering::SeqCst) {
                     std::thread::sleep(Duration::from_secs(2));
                 }
-                match ra_match::hash_system(&target, &mut cache) {
+                let mut told = Instant::now();
+                let mut on_read = |p: ra_match::Progress<'_>| {
+                    read += 1;
+                    // The first of a system at once, then a few a second: not one per file.
+                    if p.done == 0 || told.elapsed() >= TELL_EVERY {
+                        told = Instant::now();
+                        identifying(app, true, p.system, p.done, p.total, Some(p.path));
+                    }
+                };
+                match ra_match::hash_system(&target, &mut cache, &mut on_read) {
                     Ok((found, report)) => {
                         let stored = if ra_match::has_console(&target.system) {
                             state
@@ -145,9 +156,50 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                 }
             }
         }
+        if read > 0 {
+            identifying(app, false, "", read, read, None);
+        }
         match_now(state);
         RUNNING.store(false, Ordering::SeqCst);
     }
+}
+
+/// Files being identified, as Forma's shell shows it: `library:identifying`.
+pub const EVENT_IDENTIFYING: &str = "library:identifying";
+/// How often a system's reading is told, at most.
+const TELL_EVERY: Duration = Duration::from_millis(250);
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Identifying<'a> {
+    running: bool,
+    /// The system being read (Batocera's folder name); empty once all are done.
+    system: &'a str,
+    /// Of its new or changed files: how many were read, of how many. Once done, of the pass.
+    done: usize,
+    total: usize,
+    /// The file being read, relative to the system's folder.
+    current: Option<&'a str>,
+}
+
+fn identifying<R: Runtime>(
+    app: &AppHandle<R>,
+    running: bool,
+    system: &str,
+    done: usize,
+    total: usize,
+    current: Option<&str>,
+) {
+    let _ = app.emit(
+        EVENT_IDENTIFYING,
+        Identifying {
+            running,
+            system,
+            done,
+            total,
+            current,
+        },
+    );
 }
 
 /// The dump check of one hashed system (#115), when it is on and a DAT covers the system:

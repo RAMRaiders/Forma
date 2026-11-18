@@ -46,8 +46,29 @@ pub struct Report {
     pub skipped: Vec<String>,
 }
 
+/// A file about to be read (not one the cache answers): of a system's files to read, which.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Progress<'a> {
+    pub system: &'a str,
+    /// Relative to the system folder.
+    pub path: &'a str,
+    /// Files of this system read before this one, and how many it has to read.
+    pub done: usize,
+    pub total: usize,
+}
+
 /// Hashes every ROM in `targets`, reading only files the cache does not already know.
 pub fn identify(targets: &[Target], cache: &mut Cache) -> Result<(Vec<Identified>, Report)> {
+    identify_with(targets, cache, &mut |_| {})
+}
+
+/// [`identify`], told of each file as it is read: the cache's answers come first, so
+/// `total` is known before the first file read.
+pub fn identify_with(
+    targets: &[Target],
+    cache: &mut Cache,
+    on_read: &mut dyn FnMut(Progress<'_>),
+) -> Result<(Vec<Identified>, Report)> {
     let mut out = Vec::new();
     let mut report = Report::default();
     cache.batch(|cache| {
@@ -55,6 +76,8 @@ pub fn identify(targets: &[Target], cache: &mut Cache) -> Result<(Vec<Identified
             let (files, skipped) = scan(target);
             report.skipped.extend(skipped);
             let console = ra::console_for(&target.system);
+            // Each file with what the cache knows of it, to count the ones to read first.
+            let mut known = Vec::with_capacity(files.len());
             for file in files {
                 report.files += 1;
                 let stamp = match Stamp::of(&file.full) {
@@ -71,20 +94,32 @@ pub fn identify(targets: &[Target], cache: &mut Cache) -> Result<(Vec<Identified
                     .filter(|e| {
                         !((is_cue(&file.full) || chd::is_chd(&file.full)) && e.inner.is_none())
                     });
+                known.push((file, stamp, cached));
+            }
+            let total = known.iter().filter(|(_, _, c)| c.is_none()).count();
+            let mut done = 0;
+            for (file, stamp, cached) in known {
                 let entry = match cached {
                     Some(entry) => {
                         report.cached += 1;
                         entry
                     }
-                    None => match learn(&file.full, console, &mut report.skipped) {
-                        Some(entry) => {
-                            report.hashed += 1;
-                            report.bytes_read += entry.size;
-                            cache.put(&file.full, stamp, &entry)?;
-                            entry
-                        }
-                        None => continue,
-                    },
+                    None => {
+                        on_read(Progress {
+                            system: &target.system,
+                            path: &file.path,
+                            done,
+                            total,
+                        });
+                        done += 1;
+                        let Some(entry) = learn(&file.full, console, &mut report.skipped) else {
+                            continue;
+                        };
+                        report.hashed += 1;
+                        report.bytes_read += entry.size;
+                        cache.put(&file.full, stamp, &entry)?;
+                        entry
+                    }
                 };
                 if console.is_some() {
                     if entry.ra.is_some() {
@@ -267,6 +302,32 @@ mod tests {
         let (again, second) = identify(&targets, &mut cache).unwrap();
         assert_eq!((second.hashed, second.cached, second.bytes_read), (0, 2, 0));
         assert_eq!(again, found);
+    }
+
+    #[test]
+    fn tells_of_each_file_read_counting_only_those_the_cache_does_not_answer() {
+        let dir = tempfile::tempdir().unwrap();
+        let targets = library(dir.path());
+        let mut cache = Cache::in_memory().unwrap();
+        let mut seen = Vec::new();
+        identify_with(&targets, &mut cache, &mut |p| {
+            seen.push((p.system.to_owned(), p.path.to_owned(), p.done, p.total));
+        })
+        .unwrap();
+        assert_eq!(
+            seen,
+            [
+                ("nes".to_owned(), "A.nes".to_owned(), 0, 2),
+                ("nes".to_owned(), "B.nes".to_owned(), 1, 2)
+            ]
+        );
+        // All in the cache now: nothing read, nothing told.
+        seen.clear();
+        identify_with(&targets, &mut cache, &mut |p| {
+            seen.push((String::new(), String::new(), p.done, p.total))
+        })
+        .unwrap();
+        assert!(seen.is_empty());
     }
 
     #[test]

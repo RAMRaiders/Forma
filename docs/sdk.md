@@ -355,6 +355,12 @@ SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation wr
 `media:changed` (since 1.27.0) says a game's pictures were replaced, often under the same file
 names: `library.mediaUrl` gives new URLs for it from then on, so draw that game again.
 
+`library:identifying` (since 1.41.0) comes while Forma reads new or changed game files to
+identify them, one system at a time: `{ running, system, done, total, current }`, a few times a
+second, then once with `running: false` when the pass ends (`done` and `total` then count the
+whole pass). Files Forma already knows are not read and not counted. Forma's shell shows it in
+the bottom-left corner.
+
 `scraper:progress` carries the status after each game and at the end. `MediaKind` now lists
 every kind ES knows (`thumbnail`, `image`, `titleshot`, `marquee`, `wheel`, `boxback`,
 `boxart`, `fanart`, `cartridge`, `map`, `bezel`, `mix`, `video`, `manual`), plus Forma's own
