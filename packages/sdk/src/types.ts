@@ -174,7 +174,7 @@ export interface GameDump {
    */
   status: 'verified' | 'crcOnly' | 'badDump' | 'notCatalogued';
   /** `null` when not catalogued. */
-  catalogue: 'no-intro' | 'redump' | null;
+  catalogue: 'no-intro' | 'redump' | 'tosec' | null;
   /** The catalogue's name for it, e.g. `Super Mario Bros. (World)`. */
   name: string | null;
   region: string | null;

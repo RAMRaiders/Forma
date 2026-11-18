@@ -1,6 +1,7 @@
-//! No-Intro and Redump DATs: reading them, and telling whether a ROM is a catalogued dump.
+//! No-Intro, Redump and TOSEC DATs: reading them, and telling whether a ROM is a catalogued
+//! dump.
 //!
-//! The DATs come from libretro-database (`metadat/no-intro`, `metadat/redump`), free to fetch
+//! The DATs come from libretro-database (`metadat/no-intro`, `metadat/redump`, `metadat/tosec`), free to fetch
 //! and use; romdex says which files a Batocera system needs ([`dats_for`]) and where they are
 //! ([`DatFile::url`]), and the caller fetches and caches them. Both formats libretro-database
 //! and the catalogues' own sites use are read: clrmamepro's text and Logiqx XML.
@@ -23,14 +24,18 @@ use crate::hash::Hashes;
 pub enum Catalogue {
     NoIntro,
     Redump,
+    /// TOSEC: what No-Intro leaves out (pirate carts, multicarts, computers' tapes and disks),
+    /// asked after the others.
+    Tosec,
 }
 
 impl Catalogue {
-    /// `no-intro`, `redump`: libretro-database's folder, and the name stored by callers.
+    /// `no-intro`, `redump`, `tosec`: libretro-database's folder, and the name stored by callers.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::NoIntro => "no-intro",
             Self::Redump => "redump",
+            Self::Tosec => "tosec",
         }
     }
 
@@ -38,15 +43,17 @@ impl Catalogue {
         match s {
             "no-intro" => Some(Self::NoIntro),
             "redump" => Some(Self::Redump),
+            "tosec" => Some(Self::Tosec),
             _ => None,
         }
     }
 
-    /// As people write it: `No-Intro`, `Redump`.
+    /// As people write it: `No-Intro`, `Redump`, `TOSEC`.
     pub fn label(self) -> &'static str {
         match self {
             Self::NoIntro => "No-Intro",
             Self::Redump => "Redump",
+            Self::Tosec => "TOSEC",
         }
     }
 }
@@ -92,32 +99,60 @@ const fn rd(name: &'static str) -> DatFile {
     }
 }
 
-/// The DATs whose dumps a Batocera system's folder holds; none for systems no catalogue covers
+const fn tc(name: &'static str) -> DatFile {
+    DatFile {
+        catalogue: Catalogue::Tosec,
+        name,
+    }
+}
+
+/// The DATs whose dumps a Batocera system's folder holds, in the order they are asked: No-Intro
+/// or Redump first, TOSEC after, for what they leave out; none for systems no catalogue covers
 /// (arcade, computers' disk images…). Folder names as Batocera 43 has them.
 pub fn dats_for(system: &str) -> Vec<DatFile> {
     match system {
-        "nes" | "famicom" => vec![ni("Nintendo - Nintendo Entertainment System")],
+        "nes" | "famicom" => vec![
+            ni("Nintendo - Nintendo Entertainment System"),
+            tc("Nintendo - Nintendo Entertainment System"),
+        ],
         "fds" => vec![ni("Nintendo - Family Computer Disk System")],
-        "snes" | "sfc" => vec![ni("Nintendo - Super Nintendo Entertainment System")],
+        "snes" | "sfc" => vec![
+            ni("Nintendo - Super Nintendo Entertainment System"),
+            tc("Nintendo - Super Nintendo Entertainment System"),
+        ],
         "satellaview" => vec![ni("Nintendo - Satellaview")],
         "sufami" => vec![ni("Nintendo - Sufami Turbo")],
         "n64" => vec![ni("Nintendo - Nintendo 64")],
         "n64dd" => vec![ni("Nintendo - Nintendo 64DD")],
-        "gb" | "sgb" | "gb2players" => vec![ni("Nintendo - Game Boy")],
-        "gbc" | "gbc2players" => vec![ni("Nintendo - Game Boy Color")],
-        "gba" => vec![ni("Nintendo - Game Boy Advance")],
+        "gb" | "sgb" | "gb2players" => vec![ni("Nintendo - Game Boy"), tc("Nintendo - Game Boy")],
+        "gbc" | "gbc2players" => {
+            vec![
+                ni("Nintendo - Game Boy Color"),
+                tc("Nintendo - Game Boy Color"),
+            ]
+        }
+        "gba" => vec![
+            ni("Nintendo - Game Boy Advance"),
+            tc("Nintendo - Game Boy Advance"),
+        ],
         "nds" => vec![ni("Nintendo - Nintendo DS"), ni("Nintendo - Nintendo DSi")],
         "3ds" => vec![ni("Nintendo - Nintendo 3DS")],
         "virtualboy" => vec![ni("Nintendo - Virtual Boy")],
         "pokemini" => vec![ni("Nintendo - Pokemon Mini")],
         "gamecube" => vec![rd("Nintendo - GameCube")],
         "wii" => vec![rd("Nintendo - Wii")],
-        "megadrive" | "genesis" => vec![ni("Sega - Mega Drive - Genesis")],
-        "mastersystem" => vec![ni("Sega - Master System - Mark III")],
-        "gamegear" => vec![ni("Sega - Game Gear")],
-        "sg1000" => vec![ni("Sega - SG-1000")],
-        "sega32x" => vec![ni("Sega - 32X")],
-        "pico" => vec![ni("Sega - PICO")],
+        "megadrive" | "genesis" => vec![
+            ni("Sega - Mega Drive - Genesis"),
+            tc("Sega - Mega Drive - Genesis"),
+        ],
+        "mastersystem" => vec![
+            ni("Sega - Master System - Mark III"),
+            tc("Sega - Master System - Mark III"),
+        ],
+        "gamegear" => vec![ni("Sega - Game Gear"), tc("Sega - Game Gear")],
+        "sg1000" => vec![ni("Sega - SG-1000"), tc("Sega - SG-1000")],
+        "sega32x" => vec![ni("Sega - 32X"), tc("Sega - 32X")],
+        "pico" => vec![ni("Sega - PICO"), tc("Sega - PICO")],
         "segacd" | "megacd" => vec![rd("Sega - Mega-CD - Sega CD")],
         "saturn" => vec![rd("Sega - Saturn")],
         "dreamcast" => vec![rd("Sega - Dreamcast")],
@@ -125,25 +160,25 @@ pub fn dats_for(system: &str) -> Vec<DatFile> {
         "supergrafx" => vec![ni("NEC - PC Engine SuperGrafx")],
         "pcenginecd" => vec![rd("NEC - PC Engine CD - TurboGrafx-CD")],
         "pcfx" => vec![rd("NEC - PC-FX")],
-        "pc98" => vec![rd("NEC - PC-98")],
+        "pc98" => vec![rd("NEC - PC-98"), tc("NEC - PC-98")],
         "psx" => vec![rd("Sony - PlayStation")],
         "ps2" => vec![rd("Sony - PlayStation 2")],
         "psp" => vec![rd("Sony - PlayStation Portable")],
         "ngp" => vec![ni("SNK - Neo Geo Pocket")],
         "ngpc" => vec![ni("SNK - Neo Geo Pocket Color")],
         "neogeocd" => vec![rd("SNK - Neo Geo CD")],
-        "atari2600" => vec![ni("Atari - 2600")],
-        "atari5200" => vec![ni("Atari - 5200")],
-        "atari7800" => vec![ni("Atari - 7800")],
-        "atari800" => vec![ni("Atari - 8-bit Family")],
-        "jaguar" => vec![ni("Atari - Jaguar")],
+        "atari2600" => vec![ni("Atari - 2600"), tc("Atari - 2600")],
+        "atari5200" => vec![ni("Atari - 5200"), tc("Atari - 5200")],
+        "atari7800" => vec![ni("Atari - 7800"), tc("Atari - 7800")],
+        "atari800" => vec![ni("Atari - 8-bit Family"), tc("Atari - 8-bit Family")],
+        "jaguar" => vec![ni("Atari - Jaguar"), tc("Atari - Jaguar")],
         "jaguarcd" => vec![rd("Atari - Jaguar CD")],
-        "lynx" => vec![ni("Atari - Lynx")],
-        "atarist" => vec![ni("Atari - ST")],
+        "lynx" => vec![ni("Atari - Lynx"), tc("Atari - Lynx")],
+        "atarist" => vec![ni("Atari - ST"), tc("Atari - ST")],
         "wswan" => vec![ni("Bandai - WonderSwan")],
         "wswanc" => vec![ni("Bandai - WonderSwan Color")],
         "colecovision" => vec![ni("Coleco - ColecoVision")],
-        "intellivision" => vec![ni("Mattel - Intellivision")],
+        "intellivision" => vec![ni("Mattel - Intellivision"), tc("Mattel - Intellivision")],
         "vectrex" => vec![ni("GCE - Vectrex")],
         "odyssey2" | "o2em" => vec![ni("Magnavox - Odyssey2")],
         "videopacplus" => vec![ni("Philips - Videopac+")],
@@ -166,17 +201,26 @@ pub fn dats_for(system: &str) -> Vec<DatFile> {
         "c64" => vec![ni("Commodore - 64")],
         "c20" => vec![ni("Commodore - VIC-20")],
         "cplus4" => vec![ni("Commodore - Plus-4")],
-        "amiga500" | "amiga1200" => vec![ni("Commodore - Amiga")],
+        "amiga500" | "amiga1200" => vec![ni("Commodore - Amiga"), tc("Commodore - Amiga")],
         "amigacd32" => vec![rd("Commodore - CD32")],
         "amigacdtv" => vec![rd("Commodore - CDTV")],
         "msx1" => vec![ni("Microsoft - MSX")],
         "msx2" | "msx2+" => vec![ni("Microsoft - MSX2")],
-        "x68000" => vec![ni("Sharp - X68000")],
-        "x1" => vec![ni("Sharp - X1")],
+        "x68000" => vec![ni("Sharp - X68000"), tc("Sharp - X68000")],
+        "x1" => vec![ni("Sharp - X1"), tc("Sharp - X1")],
         "3do" => vec![rd("The 3DO Company - 3DO")],
         "cdi" => vec![rd("Philips - CD-i")],
         "fmtowns" => vec![rd("Fujitsu - FM Towns")],
         "xbox" => vec![rd("Microsoft - Xbox")],
+        // Only TOSEC lists these.
+        "amstradcpc" => vec![tc("Amstrad - CPC")],
+        "gx4000" => vec![tc("Amstrad - GX4000")],
+        "apple2" => vec![tc("Apple - II")],
+        "pet" => vec![tc("Commodore - PET")],
+        "pc88" => vec![tc("NEC - PC-88")],
+        "zxspectrum" => vec![tc("Sinclair - ZX Spectrum")],
+        "spectravideo" => vec![tc("Spectravideo - SVI-318 - SVI-328")],
+        "thomson" => vec![tc("Thomson - MOTO")],
         _ => vec![],
     }
 }
@@ -690,5 +734,25 @@ game (
             dats_for("videopacplus")[0].url(),
             "https://raw.githubusercontent.com/libretro/libretro-database/master/metadat/no-intro/Philips%20-%20Videopac%2B.dat"
         );
+        // TOSEC after No-Intro, for what No-Intro leaves out; alone where it is all there is.
+        let atari: Vec<_> = dats_for("atari2600").iter().map(|d| d.catalogue).collect();
+        assert_eq!(atari, [Catalogue::NoIntro, Catalogue::Tosec]);
+        assert_eq!(
+            dats_for("atari2600")[1].url(),
+            "https://raw.githubusercontent.com/libretro/libretro-database/master/metadat/tosec/Atari%20-%202600.dat"
+        );
+        assert_eq!(dats_for("zxspectrum")[0].catalogue, Catalogue::Tosec);
+        assert_eq!(Catalogue::parse("tosec"), Some(Catalogue::Tosec));
+        assert_eq!(Catalogue::Tosec.label(), "TOSEC");
+    }
+
+    #[test]
+    fn the_first_catalogue_to_list_a_dump_names_it() {
+        let mut index = Index::new();
+        index.add(Catalogue::NoIntro, parse(CLRMAMEPRO).unwrap());
+        index.add(Catalogue::Tosec, parse(CLRMAMEPRO).unwrap());
+        let sha1 = "ea343f4e445a9050d4b4fbac2c77d0693b1d0922";
+        let m = index.lookup(40976, &hashes("3337EC46", sha1)).unwrap();
+        assert_eq!(m.catalogue, Catalogue::NoIntro);
     }
 }

@@ -1,5 +1,5 @@
 //! Telling whether each game's file is a catalogued dump (#115): its hashes (romdex, in the
-//! background hasher) looked up in the No-Intro and Redump DATs of its system.
+//! background hasher) looked up in the No-Intro, Redump and TOSEC DATs of its system.
 //!
 //! The DATs are libretro-database's copies, fetched for the systems present only, kept in
 //! `system/forma/dats/` and fetched again when a month old; one that cannot be fetched keeps
@@ -170,17 +170,23 @@ mod tests {
     fn fetches_a_systems_dats_once_then_checks_its_games() {
         let dir = tempfile::tempdir().unwrap();
         let paths = paths(dir.path());
-        let http = FakeHttp::default().fixture(
-            "no-intro/Nintendo%20-%20Nintendo%20Entertainment%20System.dat",
-            "dats/nes.dat",
-        );
-        assert_eq!(fetch(&http, &paths, "nes").unwrap(), 1);
+        // No-Intro's and TOSEC's (the same dumps here: No-Intro, asked first, names them).
+        let http = FakeHttp::default()
+            .fixture(
+                "no-intro/Nintendo%20-%20Nintendo%20Entertainment%20System.dat",
+                "dats/nes.dat",
+            )
+            .fixture(
+                "tosec/Nintendo%20-%20Nintendo%20Entertainment%20System.dat",
+                "dats/nes.dat",
+            );
+        assert_eq!(fetch(&http, &paths, "nes").unwrap(), 2);
         assert_eq!(
             fetch(&http, &paths, "nes").unwrap(),
             0,
             "a month before it is old"
         );
-        assert_eq!(http.calls(), 1);
+        assert_eq!(http.calls(), 2);
 
         let index = index(&paths, "nes").unwrap();
         let checked = check(
