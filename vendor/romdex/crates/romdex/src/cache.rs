@@ -52,7 +52,14 @@ pub struct Entry {
 
 /// Bump when what is cached changes meaning. A cache is only a shortcut, so an old one is
 /// dropped and rebuilt rather than migrated.
-const VERSION: i64 = 4;
+const VERSION: i64 = 5;
+
+/// From version 4: only archives that were not identified (several files inside) are read
+/// again, as one named after a file it holds now is; the rest of the cache stands.
+const FROM_4: &str = r"
+DELETE FROM hash
+WHERE inner IS NULL AND (lower(path) LIKE '%.zip' OR lower(path) LIKE '%.7z');
+";
 
 const SCHEMA: &str = r"
 DROP TABLE IF EXISTS hash;
@@ -91,7 +98,10 @@ impl Cache {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version != VERSION {
+        if version == 4 {
+            conn.execute_batch(FROM_4)?;
+            conn.pragma_update(None, "user_version", VERSION)?;
+        } else if version != VERSION {
             conn.execute_batch(SCHEMA)?;
             conn.pragma_update(None, "user_version", VERSION)?;
         }
@@ -242,6 +252,42 @@ mod tests {
             cache.get(Path::new("/a"), stamp).unwrap(),
             Some(hashes("new"))
         );
+    }
+
+    #[test]
+    fn from_version_4_only_unidentified_archives_are_read_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("cache.db");
+        let stamp = Stamp {
+            size: 1,
+            mtime_ns: 1,
+        };
+        let whole = Entry {
+            inner: None,
+            ..hashes("set")
+        };
+        {
+            let cache = Cache::open(&file).unwrap();
+            cache
+                .put(Path::new("/nes/One.zip"), stamp, &hashes("one"))
+                .unwrap();
+            cache
+                .put(Path::new("/nes/Merged (USA).zip"), stamp, &whole)
+                .unwrap();
+            cache
+                .put(Path::new("/snes/Merged (USA).7Z"), stamp, &whole)
+                .unwrap();
+            cache
+                .put(Path::new("/nes/Plain.nes"), stamp, &whole)
+                .unwrap();
+            cache.conn.pragma_update(None, "user_version", 4).unwrap();
+        }
+        let cache = Cache::open(&file).unwrap();
+        let got = |p: &str| cache.get(Path::new(p), stamp).unwrap();
+        assert_eq!(got("/nes/One.zip"), Some(hashes("one")));
+        assert_eq!(got("/nes/Merged (USA).zip"), None);
+        assert_eq!(got("/snes/Merged (USA).7Z"), None);
+        assert_eq!(got("/nes/Plain.nes"), Some(whole));
     }
 
     #[test]
