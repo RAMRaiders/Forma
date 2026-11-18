@@ -55,19 +55,19 @@ placeholder images for media. `forma.backendKind` says which one you got.
 
 ## `library`
 
-| Method                      | Returns                                                       |
-| --------------------------- | ------------------------------------------------------------- |
-| `systems()`                 | Systems with visible games, in the order the user chose       |
-| `game(id)`                  | One game, or `null`                                           |
-| `versions(system)`          | Titles with several versions, from file names (since 1.26.0)  |
-| `duplicates(system)`        | One game under different names, by LaunchBox (since 1.31.0)   |
-| `search(query, limit = 50)` | Games matching every word as a prefix, accents ignored        |
-| `random(options)`           | Games in a random order, with some media (since 1.31.0)       |
-| `dumpChecks()`              | The No-Intro / Redump check, per system (since 1.32.0)        |
-| `manual(id)`                | A game's manual as pages, or `null` (since 1.33.0)            |
-| `openManual(id)`            | Opens it in Forma's reader (since 1.33.0)                     |
-| `setFavorite(id, favorite)` | Records the user's choice; emits `library:changed`            |
-| `mediaUrl(gameId, kind)`    | A URL for a game's `image`, `video`, `marquee`… (synchronous) |
+| Method                      | Returns                                                        |
+| --------------------------- | -------------------------------------------------------------- |
+| `systems()`                 | Systems with visible games, in the order the user chose        |
+| `game(id)`                  | One game, or `null`                                            |
+| `versions(system)`          | Titles with several versions, from file names (since 1.26.0)   |
+| `duplicates(system)`        | One game under different names, by LaunchBox (since 1.31.0)    |
+| `search(query, limit = 50)` | Games matching every word as a prefix, accents ignored         |
+| `random(options)`           | Games in a random order, with some media (since 1.31.0)        |
+| `dumpChecks()`              | The No-Intro / Redump / TOSEC check, per system (since 1.32.0) |
+| `manual(id)`                | A game's manual as pages, or `null` (since 1.33.0)             |
+| `openManual(id)`            | Opens it in Forma's reader (since 1.33.0)                      |
+| `setFavorite(id, favorite)` | Records the user's choice; emits `library:changed`             |
+| `mediaUrl(gameId, kind)`    | A URL for a game's `image`, `video`, `marquee`… (synchronous)  |
 
 A `Game` carries what the gamelist and Forma know: name, description, developer, publisher,
 genre, players, release date, rating, region and languages (since 1.22.0), age ratings as
@@ -264,11 +264,11 @@ it, and the game's pictures and video, on Select's page for the game.
 
 ### Is it a catalogued dump?
 
-`Game.dump` (since 1.32.0) says whether the game's file is a dump No-Intro or Redump lists,
+`Game.dump` (since 1.32.0) says whether the game's file is a dump No-Intro, Redump or TOSEC lists,
 by its checksums: `{ status, catalogue, name, region }`, `null` while unknown. `status` is
 `verified` (size, CRC32 and SHA1 as listed), `crcOnly` (size and CRC32; that DAT has no SHA1),
 `badDump` (a dump the DAT marks bad) or `notCatalogued` (a hack, a translation, homebrew, or a
-changed file). `catalogue` is `no-intro` or `redump`, and `name` the catalogue's name for it.
+changed file). `catalogue` is `no-intro`, `redump` or `tosec`, and `name` the catalogue's name for it.
 
 Forma works it out in the background, from the hashes it already takes for RetroAchievements:
 it fetches libretro-database's DATs for the systems present (once a month) and checks each

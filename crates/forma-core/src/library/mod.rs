@@ -104,7 +104,7 @@ pub struct Dump {
     /// the DAT having no SHA1. `badDump`: a dump the DAT marks bad. `notCatalogued`: in no
     /// DAT of its system (a hack, a translation, homebrew, a changed or bad file).
     pub status: String,
-    /// `no-intro` or `redump`; `None` when not catalogued.
+    /// `no-intro`, `redump` or `tosec`; `None` when not catalogued.
     pub catalogue: Option<String>,
     /// The DAT's name for it, e.g. `Super Mario Bros. (World)`.
     pub name: Option<String>,
