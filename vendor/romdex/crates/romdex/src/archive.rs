@@ -1,8 +1,9 @@
 //! What is inside a `.zip` or `.7z`: DATs and RetroAchievements list the ROM, not its archive.
 //!
-//! A single-file archive is identified as the file inside it. An archive with several files
-//! (an arcade set, a ROM with a readme) is not guessed at: the caller hashes the archive itself
-//! and reports why. macOS metadata (`__MACOSX/`, `.DS_Store`) does not count as a file.
+//! A single-file archive is identified as the file inside it. An archive with several files is
+//! identified as the one it is named after (`Game (USA).zip` holding `Game (USA).nes` and the
+//! game's other versions, as merged sets have it); otherwise (an arcade set, a ROM with a readme)
+//! it is not guessed at: the caller hashes the archive itself and reports why. macOS metadata (`__MACOSX/`, `.DS_Store`) does not count as a file.
 
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -54,6 +55,21 @@ fn read_rom(reader: impl Read, size: u64, keep_up_to: Option<u64>) -> std::io::R
     }
 }
 
+/// Of several files, the one the archive is named after, if just one is: its name without the
+/// extension (and without any folder) the archive's own.
+fn named_after(path: &Path, names: &[&str]) -> Option<usize> {
+    let own = path.file_stem()?.to_str()?;
+    let stem = |name: &str| {
+        let file = name.rsplit('/').next().unwrap_or(name);
+        file.rsplit_once('.')
+            .map_or(file, |(stem, _)| stem)
+            .to_owned()
+    };
+    let mut found = names.iter().enumerate().filter(|(_, n)| stem(n) == own);
+    let (at, _) = found.next()?;
+    found.next().is_none().then_some(at)
+}
+
 fn is_junk(name: &str) -> bool {
     name.starts_with("__MACOSX/") || name.rsplit('/').next() == Some(".DS_Store")
 }
@@ -67,6 +83,12 @@ fn zip(path: &Path, keep: Option<u64>) -> Result<Contents> {
         let name = entry.name().map_err(|e| bad(path, e))?.into_owned();
         if entry.is_file() && !is_junk(&name) {
             roms.push((i, name));
+        }
+    }
+    if roms.len() > 1 {
+        let names: Vec<&str> = roms.iter().map(|(_, n)| n.as_str()).collect();
+        if let Some(at) = named_after(path, &names) {
+            roms = vec![roms.swap_remove(at)];
         }
     }
     match roms.as_slice() {
@@ -98,13 +120,19 @@ fn zip(path: &Path, keep: Option<u64>) -> Result<Contents> {
 fn seven_z(path: &Path, keep: Option<u64>) -> Result<Contents> {
     let mut reader = sevenz_rust2::ArchiveReader::open(path, sevenz_rust2::Password::empty())
         .map_err(|e| bad(path, e))?;
-    let roms: Vec<String> = reader
+    let mut roms: Vec<String> = reader
         .archive()
         .files
         .iter()
         .filter(|f| f.has_stream() && !f.is_directory() && !is_junk(f.name()))
         .map(|f| f.name().to_owned())
         .collect();
+    if roms.len() > 1 {
+        let names: Vec<&str> = roms.iter().map(String::as_str).collect();
+        if let Some(at) = named_after(path, &names) {
+            roms = vec![roms.swap_remove(at)];
+        }
+    }
     let [name] = roms.as_slice() else {
         return Ok(if roms.is_empty() {
             Contents::Empty
@@ -202,6 +230,34 @@ pub(crate) mod tests {
         let (name, hashes, _) = single(inspect(&path, None).unwrap().unwrap());
         assert_eq!(name, "Game (USA).sfc");
         assert_eq!(hashes.md5, "9e107d9d372bb6826bd81d3542a419d6");
+    }
+
+    #[test]
+    fn of_several_versions_the_one_the_archive_is_named_after_is_the_rom() {
+        let dir = tempfile::tempdir().unwrap();
+        let zip = dir.path().join("Game (USA).zip");
+        write_zip(
+            &zip,
+            &[
+                ("Game (Europe).nes", b"eu"),
+                ("Game (USA).nes", ROM),
+                ("Game (Japan).nes", b"jp"),
+            ],
+        );
+        let (name, hashes, _) = single(inspect(&zip, None).unwrap().unwrap());
+        assert_eq!(name, "Game (USA).nes");
+        assert_eq!(hashes.crc32, "414fa339");
+        let seven = dir.path().join("Game (USA).7z");
+        write_7z(
+            &seven,
+            &[("Game (Japan).sfc", b"jp"), ("Game (USA).sfc", ROM)],
+        );
+        let (name, _, _) = single(inspect(&seven, None).unwrap().unwrap());
+        assert_eq!(name, "Game (USA).sfc");
+        // Two files by that name (a ROM and its readme): still not guessed.
+        let two = dir.path().join("Game.zip");
+        write_zip(&two, &[("Game.nes", b"1"), ("Game.txt", b"2")]);
+        assert_eq!(inspect(&two, None).unwrap().unwrap(), Contents::Several(2));
     }
 
     #[test]
