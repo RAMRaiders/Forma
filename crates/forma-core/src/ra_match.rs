@@ -53,11 +53,19 @@ pub fn has_console(system: &str) -> bool {
 
 /// One system's files, identified: hashes, and RA hashes where RetroAchievements has the
 /// system. Reads only changed files.
+/// A file about to be read, of a system's files to read: for progress.
+pub use romdex::Progress;
+
 pub fn hash_system(
     target: &Target,
     cache: &mut HashCache,
+    on_read: &mut dyn FnMut(Progress<'_>),
 ) -> Result<(Vec<romdex::Identified>, romdex::Report)> {
-    Ok(romdex::identify(std::slice::from_ref(target), cache)?)
+    Ok(romdex::identify_with(
+        std::slice::from_ref(target),
+        cache,
+        on_read,
+    )?)
 }
 
 /// The RA hashes among identified files, by path relative to the system's folder.
@@ -191,7 +199,7 @@ mod tests {
             "CHDs are hashed"
         );
         let mut cache = romdex::cache::Cache::in_memory().unwrap();
-        let (found, report) = hash_system(&nes, &mut cache).unwrap();
+        let (found, report) = hash_system(&nes, &mut cache, &mut |_| {}).unwrap();
         let hashes = ra_hashes(&found);
         assert_eq!(report.ra_hashed, hashes.len());
         assert!(!hashes.is_empty());
@@ -268,7 +276,7 @@ mod tests {
             .find(|t| t.system == "nes")
             .unwrap();
         let mut hashes = romdex::cache::Cache::in_memory().unwrap();
-        let (found, _) = hash_system(&nes, &mut hashes).unwrap();
+        let (found, _) = hash_system(&nes, &mut hashes, &mut |_| {}).unwrap();
         lib.set_ra_hashes("nes", &ra_hashes(&found)).unwrap();
         let game = lib
             .games("nes")

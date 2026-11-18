@@ -20,4 +20,4 @@ pub mod ra;
 pub mod scan;
 
 pub use error::{Error, Result};
-pub use identify::{Identified, Report, identify};
+pub use identify::{Identified, Progress, Report, identify, identify_with};
