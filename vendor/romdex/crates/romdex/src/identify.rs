@@ -44,6 +44,8 @@ pub struct Report {
     /// (rcheevos declined them: unrecognised data, or a disc it cannot find the boot files of).
     pub ra_hashed: usize,
     pub ra_unknown: usize,
+    /// New or changed files the caller said not to read (`skip`), left out.
+    pub not_read: usize,
     /// Passed over, with why (unreadable files, folder games…).
     pub skipped: Vec<String>,
 }
@@ -61,11 +63,14 @@ pub struct Progress<'a> {
 
 /// Hashes every ROM in `targets`, reading only files the cache does not already know.
 pub fn identify(targets: &[Target], cache: &mut Cache) -> Result<(Vec<Identified>, Report)> {
-    identify_with(targets, cache, 1, &mut |_| {})
+    identify_with(targets, cache, 1, &|_| false, &mut |_| {})
 }
 
 /// [`identify`], reading `readers` files at once, and told of each file as it starts being
 /// read: the cache's answers come first, so `total` is known before the first file read.
+/// `skip` (a path relative to the system folder) leaves out a new or changed file the caller
+/// has no need to read (a disc already known by its RetroAchievements hash, say); what the
+/// cache knows is given all the same, costing nothing.
 /// A disc is slow to decompress and hash, a core's work: more readers use more of them. The
 /// calls to `on_read` hold the next files back, so a caller that waits in it (a game started)
 /// pauses the reading, the files under way finished first.
@@ -73,6 +78,7 @@ pub fn identify_with(
     targets: &[Target],
     cache: &mut Cache,
     readers: usize,
+    skip: &dyn Fn(&str) -> bool,
     on_read: &mut dyn FnMut(Progress<'_>),
 ) -> Result<(Vec<Identified>, Report)> {
     let mut out = Vec::new();
@@ -101,6 +107,10 @@ pub fn identify_with(
                 .filter(|e| {
                     !((is_cue(&file.full) || chd::is_chd(&file.full)) && e.inner.is_none())
                 });
+            if cached.is_none() && skip(&file.path) {
+                report.not_read += 1;
+                continue;
+            }
             known.push((file, stamp, cached));
         }
         let to_read: Vec<usize> = (0..known.len()).filter(|&i| known[i].2.is_none()).collect();
@@ -424,7 +434,7 @@ mod tests {
         let targets = library(dir.path());
         let mut cache = Cache::in_memory().unwrap();
         let mut seen = Vec::new();
-        identify_with(&targets, &mut cache, 1, &mut |p| {
+        identify_with(&targets, &mut cache, 1, &|_| false, &mut |p| {
             seen.push((p.system.to_owned(), p.path.to_owned(), p.done, p.total));
         })
         .unwrap();
@@ -437,7 +447,7 @@ mod tests {
         );
         // All in the cache now: nothing read, nothing told.
         seen.clear();
-        identify_with(&targets, &mut cache, 1, &mut |p| {
+        identify_with(&targets, &mut cache, 1, &|_| false, &mut |p| {
             seen.push((String::new(), String::new(), p.done, p.total))
         })
         .unwrap();
@@ -453,7 +463,7 @@ mod tests {
         let a = dir.path().join("roms/nes/A.nes");
         let stamp = Stamp::of(&a).unwrap();
         let mut kept = None;
-        identify_with(&targets, &mut cache, 1, &mut |p| {
+        identify_with(&targets, &mut cache, 1, &|_| false, &mut |p| {
             if p.path == "B.nes" {
                 // Another connection, as after a restart: A is there already.
                 let other = Cache::open(&file).unwrap();
@@ -462,6 +472,29 @@ mod tests {
         })
         .unwrap();
         assert_eq!(kept, Some(true));
+    }
+
+    #[test]
+    fn leaves_out_new_files_the_caller_skips_but_gives_what_is_known() {
+        let dir = tempfile::tempdir().unwrap();
+        let targets = library(dir.path());
+        let mut cache = Cache::in_memory().unwrap();
+        let mut told = Vec::new();
+        let (found, report) = identify_with(&targets, &mut cache, 1, &|p| p == "B.nes", &mut |p| {
+            told.push(p.path.to_owned());
+        })
+        .unwrap();
+        assert_eq!(told, ["A.nes"]);
+        assert_eq!(
+            found.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(),
+            ["A.nes"]
+        );
+        assert_eq!((report.files, report.hashed, report.not_read), (2, 1, 1));
+        // A, known now, is given though skipped.
+        let (found, report) =
+            identify_with(&targets, &mut cache, 1, &|_| true, &mut |_| panic!("read")).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!((report.cached, report.not_read), (1, 1));
     }
 
     #[test]
@@ -641,7 +674,7 @@ mod cue_tests {
         let (one, one_report) = identify(&targets, &mut Cache::in_memory().unwrap()).unwrap();
         let mut cache = Cache::in_memory().unwrap();
         let mut told = Vec::new();
-        let (three, report) = identify_with(&targets, &mut cache, 3, &mut |p| {
+        let (three, report) = identify_with(&targets, &mut cache, 3, &|_| false, &mut |p| {
             told.push(p.path.to_owned());
             assert_eq!(p.total, 14);
         })
@@ -653,7 +686,8 @@ mod cue_tests {
         told.dedup();
         assert_eq!(told.len(), 14);
         // All kept: nothing read the second time.
-        let (_, again) = identify_with(&targets, &mut cache, 3, &mut |_| panic!("read")).unwrap();
+        let (_, again) =
+            identify_with(&targets, &mut cache, 3, &|_| false, &mut |_| panic!("read")).unwrap();
         assert_eq!(again.cached, 14);
     }
 

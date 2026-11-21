@@ -3,6 +3,7 @@
 //! Web API once an account and key are set. It runs at start, for systems whose files change,
 //! and again when the RetroAchievements key or login changes.
 
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Mutex, OnceLock};
@@ -113,6 +114,8 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
             // First the discs' achievements alone, a few MB of each: matched in minutes, before
             // hours of reading every disc whole.
             let mut quick = 0;
+            // Per system, the discs RetroAchievements identified: not read whole after.
+            let mut known: HashMap<String, HashSet<String>> = HashMap::new();
             for target in ra_match::targets(&state.paths) {
                 if (!all && !systems.contains(&target.system))
                     || !ra_match::has_console(&target.system)
@@ -143,6 +146,13 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                         if let Err(e) = state.library().set_ra_hashes(&target.system, &found) {
                             eprintln!("forma: {}: {e}", target.system);
                         }
+                        let ids = ra_match::known_discs(
+                            &*state.http,
+                            &state.http_cache(),
+                            &target.system,
+                            &found,
+                        );
+                        known.insert(target.system.clone(), ids);
                     }
                     Ok(_) => {}
                     Err(e) => {
@@ -183,7 +193,8 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                         );
                     }
                 };
-                match ra_match::hash_system(&target, &mut cache, &mut on_read) {
+                let skip = known.remove(&target.system).unwrap_or_default();
+                match ra_match::hash_system(&target, &mut cache, &skip, &mut on_read) {
                     Ok((found, report)) => {
                         let stored = if ra_match::has_console(&target.system) {
                             state
@@ -196,12 +207,13 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                         check_dumps(app, state, &target.system, &found);
                         if report.hashed > 0 && ra_match::has_console(&target.system) {
                             eprintln!(
-                                "forma: RetroAchievements hashes for {}: {} of {} files read, {} hashed, {} unknown",
+                                "forma: RetroAchievements hashes for {}: {} of {} files read, {} hashed, {} unknown, {} identified discs not read",
                                 target.system,
                                 report.hashed,
                                 report.files,
                                 report.ra_hashed,
-                                report.ra_unknown
+                                report.ra_unknown,
+                                report.not_read
                             );
                         }
                         if let Err(e) = stored {
