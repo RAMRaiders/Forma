@@ -82,6 +82,18 @@ CREATE TABLE hash (
 ) WITHOUT ROWID;
 ";
 
+/// RetroAchievements hashes of discs taken before their whole contents are (a quick pass over a
+/// collection that takes hours to read whole). Added beside `hash`, whatever its version.
+const RA_SCHEMA: &str = r"
+CREATE TABLE IF NOT EXISTS ra (
+    path       TEXT PRIMARY KEY,
+    size       INTEGER NOT NULL,
+    mtime_ns   INTEGER NOT NULL,
+    ra_console INTEGER NOT NULL,
+    ra         TEXT
+) WITHOUT ROWID;
+";
+
 impl Cache {
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(dir) = path.parent() {
@@ -105,7 +117,45 @@ impl Cache {
             conn.execute_batch(SCHEMA)?;
             conn.pragma_update(None, "user_version", VERSION)?;
         }
+        conn.execute_batch(RA_SCHEMA)?;
         Ok(Self { conn })
+    }
+
+    /// The RetroAchievements hash taken of a disc on its own (see [`crate::ra_first`]), if it
+    /// has not changed since: `Some(None)` when rcheevos could not hash it.
+    pub fn get_ra(
+        &self,
+        path: &Path,
+        stamp: Stamp,
+        console: u32,
+    ) -> Result<Option<Option<String>>> {
+        Ok(self
+            .conn
+            .prepare_cached(
+                "SELECT ra FROM ra WHERE path = ?1 AND size = ?2 AND mtime_ns = ?3
+                 AND ra_console = ?4",
+            )?
+            .query_row(
+                params![key(path), size(stamp.size), stamp.mtime_ns, console],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
+    pub fn put_ra(&self, path: &Path, stamp: Stamp, console: u32, ra: Option<&str>) -> Result<()> {
+        self.conn
+            .prepare_cached(
+                "INSERT OR REPLACE INTO ra (path, size, mtime_ns, ra_console, ra)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+            )?
+            .execute(params![
+                key(path),
+                size(stamp.size),
+                stamp.mtime_ns,
+                console,
+                ra
+            ])?;
+        Ok(())
     }
 
     /// What is cached for the file, if it has not changed since.

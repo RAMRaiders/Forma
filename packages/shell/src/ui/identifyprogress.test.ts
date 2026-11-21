@@ -31,6 +31,7 @@ describe('IdentifyProgress', () => {
     const { card, text, tell } = fake();
     expect(card.root.hidden).toBe(true);
     tell({
+      pass: 'whole',
       running: true,
       system: 'nes',
       done: 3,
@@ -45,7 +46,7 @@ describe('IdentifyProgress', () => {
     expect(text('.rom')).toBe('Blaster Master (USA).zip');
     expect(card.root.querySelector<HTMLElement>('.bar i')!.style.transform).toBe('scaleX(0.25)');
 
-    tell({ running: false, system: '', done: 12, total: 12, current: null });
+    tell({ pass: 'whole', running: false, system: '', done: 12, total: 12, current: null });
     await vi.waitFor(() => expect(text('.title')).toBe('Games identified'));
     expect(text('.count')).toBe('12 files');
     vi.advanceTimersByTime(LINGER_MS);
@@ -56,7 +57,14 @@ describe('IdentifyProgress', () => {
     vi.useFakeTimers();
     const { text, tell } = fake();
     const at = (done: number) =>
-      tell({ running: true, system: 'nes', done, total: 1000, current: `${done}.nes` });
+      tell({
+        pass: 'whole',
+        running: true,
+        system: 'nes',
+        done,
+        total: 1000,
+        current: `${done}.nes`
+      });
     at(0);
     await vi.waitFor(() => expect(text('.count')).toBe('0 / 1000'));
     vi.advanceTimersByTime(20_000);
@@ -67,17 +75,33 @@ describe('IdentifyProgress', () => {
     at(20);
     await vi.waitFor(() => expect(text('.count')).toBe('20 / 1000 · ~49 min left'));
     // Another system starts over.
-    tell({ running: true, system: 'snes', done: 0, total: 5000, current: 'a.sfc' });
+    tell({ pass: 'whole', running: true, system: 'snes', done: 0, total: 5000, current: 'a.sfc' });
     await vi.waitFor(() => expect(text('.count')).toBe('0 / 5000'));
     vi.advanceTimersByTime(60_000);
-    tell({ running: true, system: 'snes', done: 20, total: 5000, current: 'b.sfc' });
+    tell({ pass: 'whole', running: true, system: 'snes', done: 20, total: 5000, current: 'b.sfc' });
     await vi.waitFor(() => expect(text('.count')).toBe('20 / 5000 · ~4 h 9 min left'));
+  });
+
+  it('says when it is finding achievements, the quick pass', async () => {
+    const { text, tell } = fake();
+    tell({
+      pass: 'achievements',
+      running: true,
+      system: 'nes',
+      done: 1,
+      total: 4,
+      current: 'A.cue'
+    });
+    await vi.waitFor(() =>
+      expect(text('.title')).toBe('Finding achievements: Nintendo Entertainment System')
+    );
+    expect(text('.count')).toBe('1 / 4');
   });
 
   it('an earlier file still waiting for the names never covers the end', async () => {
     const { text, tell } = fake();
-    tell({ running: true, system: 'nes', done: 0, total: 1, current: 'A.nes' });
-    tell({ running: false, system: '', done: 1, total: 1, current: null });
+    tell({ pass: 'whole', running: true, system: 'nes', done: 0, total: 1, current: 'A.nes' });
+    tell({ pass: 'whole', running: false, system: '', done: 1, total: 1, current: null });
     await new Promise((r) => setTimeout(r, 0));
     expect(text('.title')).toBe('Games identified');
     expect(text('.count')).toBe('1 file');

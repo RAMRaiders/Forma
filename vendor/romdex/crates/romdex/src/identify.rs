@@ -3,6 +3,8 @@
 use serde::Serialize;
 
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
 
 use crate::archive::{self, Contents};
 use crate::batocera::Target;
@@ -59,14 +61,18 @@ pub struct Progress<'a> {
 
 /// Hashes every ROM in `targets`, reading only files the cache does not already know.
 pub fn identify(targets: &[Target], cache: &mut Cache) -> Result<(Vec<Identified>, Report)> {
-    identify_with(targets, cache, &mut |_| {})
+    identify_with(targets, cache, 1, &mut |_| {})
 }
 
-/// [`identify`], told of each file as it is read: the cache's answers come first, so
-/// `total` is known before the first file read.
+/// [`identify`], reading `readers` files at once, and told of each file as it starts being
+/// read: the cache's answers come first, so `total` is known before the first file read.
+/// A disc is slow to decompress and hash, a core's work: more readers use more of them. The
+/// calls to `on_read` hold the next files back, so a caller that waits in it (a game started)
+/// pauses the reading, the files under way finished first.
 pub fn identify_with(
     targets: &[Target],
     cache: &mut Cache,
+    readers: usize,
     on_read: &mut dyn FnMut(Progress<'_>),
 ) -> Result<(Vec<Identified>, Report)> {
     let mut out = Vec::new();
@@ -97,30 +103,65 @@ pub fn identify_with(
                 });
             known.push((file, stamp, cached));
         }
-        let total = known.iter().filter(|(_, _, c)| c.is_none()).count();
-        let mut done = 0;
-        for (file, stamp, cached) in known {
+        let to_read: Vec<usize> = (0..known.len()).filter(|&i| known[i].2.is_none()).collect();
+        let mut learnt: Vec<Option<Entry>> = (0..known.len()).map(|_| None).collect();
+        if !to_read.is_empty() {
+            let total = to_read.len();
+            let next = AtomicUsize::new(0);
+            std::thread::scope(|s| -> Result<()> {
+                // Unbuffered: a reader starts its next file only once told it may.
+                let (tx, rx) = mpsc::sync_channel::<Read>(0);
+                for _ in 0..readers.clamp(1, total) {
+                    let tx = tx.clone();
+                    let (known, to_read, next) = (&known, &to_read, &next);
+                    s.spawn(move || {
+                        while let Some(&i) = to_read.get(next.fetch_add(1, Ordering::Relaxed)) {
+                            if tx.send(Read::Starts(i)).is_err() {
+                                break;
+                            }
+                            let mut skipped = Vec::new();
+                            let entry =
+                                learn(&known[i].0.full, console, &mut skipped).map(Box::new);
+                            if tx.send(Read::Done(i, entry, skipped)).is_err() {
+                                break;
+                            }
+                        }
+                    });
+                }
+                drop(tx);
+                let mut done = 0;
+                for read in rx {
+                    match read {
+                        Read::Starts(i) => on_read(Progress {
+                            system: &target.system,
+                            path: &known[i].0.path,
+                            done,
+                            total,
+                        }),
+                        Read::Done(i, entry, skipped) => {
+                            done += 1;
+                            report.skipped.extend(skipped);
+                            let Some(entry) = entry else { continue };
+                            report.hashed += 1;
+                            report.bytes_read += entry.size;
+                            cache.put(&known[i].0.full, known[i].1, &entry)?;
+                            learnt[i] = Some(*entry);
+                        }
+                    }
+                }
+                Ok(())
+            })?;
+        }
+        for (i, (file, _, cached)) in known.into_iter().enumerate() {
             let entry = match cached {
                 Some(entry) => {
                     report.cached += 1;
                     entry
                 }
-                None => {
-                    on_read(Progress {
-                        system: &target.system,
-                        path: &file.path,
-                        done,
-                        total,
-                    });
-                    done += 1;
-                    let Some(entry) = learn(&file.full, console, &mut report.skipped) else {
-                        continue;
-                    };
-                    report.hashed += 1;
-                    report.bytes_read += entry.size;
-                    cache.put(&file.full, stamp, &entry)?;
-                    entry
-                }
+                None => match learnt[i].take() {
+                    Some(entry) => entry,
+                    None => continue,
+                },
             };
             if console.is_some() {
                 if entry.ra.is_some() {
@@ -140,6 +181,80 @@ pub fn identify_with(
         }
     }
     Ok((out, report))
+}
+
+/// From a reader: the file it starts on, then what it learnt of it.
+enum Read {
+    Starts(usize),
+    Done(usize, Option<Box<Entry>>, Vec<String>),
+}
+
+/// A disc's RetroAchievements hash, taken on its own by [`ra_first`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RaFound {
+    pub system: String,
+    /// Relative to the system folder.
+    pub path: String,
+    /// `None` when rcheevos could not hash it.
+    pub ra: Option<String>,
+}
+
+/// The RetroAchievements hashes of `targets`' discs (CHDs, CUE sheets) alone, reading of each
+/// only what rcheevos needs (its boot files, a few MB), not the whole disc: a collection's
+/// achievements known in minutes, hours before [`identify`] has read every disc whole. Discs
+/// [`identify`] already read are answered from its cache; the rest are kept apart, so they are
+/// not read for this again.
+pub fn ra_first(
+    targets: &[Target],
+    cache: &mut Cache,
+    on_read: &mut dyn FnMut(Progress<'_>),
+) -> Result<Vec<RaFound>> {
+    let mut out = Vec::new();
+    for target in targets {
+        let Some(console) = ra::console_for(&target.system).filter(|c| !c.hashes_by_name()) else {
+            continue;
+        };
+        let (files, _) = scan(target);
+        let mut todo = Vec::new();
+        for file in files.into_iter().filter(|f| is_disc(&f.full)) {
+            let Ok(stamp) = Stamp::of(&file.full) else {
+                continue;
+            };
+            let known = match cache.get(&file.full, stamp)? {
+                Some(e) if e.ra_console == Some(console.0) && e.inner.is_some() => Some(e.ra),
+                _ => cache.get_ra(&file.full, stamp, console.0)?,
+            };
+            match known {
+                Some(ra) => out.push(RaFound {
+                    system: file.system,
+                    path: file.path,
+                    ra,
+                }),
+                None => todo.push((file, stamp)),
+            }
+        }
+        let total = todo.len();
+        for (done, (file, stamp)) in todo.into_iter().enumerate() {
+            on_read(Progress {
+                system: &target.system,
+                path: &file.path,
+                done,
+                total,
+            });
+            let ra = ra::hash_file(console, &file.full);
+            cache.put_ra(&file.full, stamp, console.0, ra.as_deref())?;
+            out.push(RaFound {
+                system: file.system,
+                path: file.path,
+                ra,
+            });
+        }
+    }
+    Ok(out)
+}
+
+fn is_disc(path: &Path) -> bool {
+    chd::is_chd(path) || is_cue(path)
 }
 
 /// The largest archived ROM read into memory for rcheevos: more than any cartridge.
@@ -271,7 +386,7 @@ mod tests {
     use super::*;
     use std::path::Path;
 
-    fn library(dir: &Path) -> Vec<Target> {
+    pub(super) fn library(dir: &Path) -> Vec<Target> {
         let nes = dir.join("roms/nes");
         std::fs::create_dir_all(&nes).unwrap();
         std::fs::write(
@@ -309,7 +424,7 @@ mod tests {
         let targets = library(dir.path());
         let mut cache = Cache::in_memory().unwrap();
         let mut seen = Vec::new();
-        identify_with(&targets, &mut cache, &mut |p| {
+        identify_with(&targets, &mut cache, 1, &mut |p| {
             seen.push((p.system.to_owned(), p.path.to_owned(), p.done, p.total));
         })
         .unwrap();
@@ -322,7 +437,7 @@ mod tests {
         );
         // All in the cache now: nothing read, nothing told.
         seen.clear();
-        identify_with(&targets, &mut cache, &mut |p| {
+        identify_with(&targets, &mut cache, 1, &mut |p| {
             seen.push((String::new(), String::new(), p.done, p.total))
         })
         .unwrap();
@@ -338,7 +453,7 @@ mod tests {
         let a = dir.path().join("roms/nes/A.nes");
         let stamp = Stamp::of(&a).unwrap();
         let mut kept = None;
-        identify_with(&targets, &mut cache, &mut |p| {
+        identify_with(&targets, &mut cache, 1, &mut |p| {
             if p.path == "B.nes" {
                 // Another connection, as after a restart: A is there already.
                 let other = Cache::open(&file).unwrap();
@@ -509,6 +624,95 @@ mod cue_tests {
         );
         assert_eq!(chd[0].ra, from_cue[0].ra);
         assert!(cue.is_file());
+    }
+
+    #[test]
+    fn several_readers_learn_what_one_does_in_the_same_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let targets = super::tests::library(dir.path());
+        let nes = dir.path().join("roms/nes");
+        for n in 0..12u8 {
+            std::fs::write(
+                nes.join(format!("G{n:02}.nes")),
+                vec![n; 4096 + usize::from(n)],
+            )
+            .unwrap();
+        }
+        let (one, one_report) = identify(&targets, &mut Cache::in_memory().unwrap()).unwrap();
+        let mut cache = Cache::in_memory().unwrap();
+        let mut told = Vec::new();
+        let (three, report) = identify_with(&targets, &mut cache, 3, &mut |p| {
+            told.push(p.path.to_owned());
+            assert_eq!(p.total, 14);
+        })
+        .unwrap();
+        assert_eq!(three, one);
+        assert_eq!(report, one_report);
+        told.sort();
+        assert_eq!(told.len(), 14, "each file told once");
+        told.dedup();
+        assert_eq!(told.len(), 14);
+        // All kept: nothing read the second time.
+        let (_, again) = identify_with(&targets, &mut cache, 3, &mut |_| panic!("read")).unwrap();
+        assert_eq!(again.cached, 14);
+    }
+
+    #[test]
+    fn takes_a_discs_ra_hash_alone_as_identify_would_and_keeps_it() {
+        use crate::chd::tests::{TestTrack, mode1, write_disc};
+        let dir = tempfile::tempdir().unwrap();
+        let saturn = dir.path().join("roms/saturn");
+        std::fs::create_dir_all(&saturn).unwrap();
+        let sectors = (0..20u32)
+            .map(|lba| {
+                let mut data = vec![lba as u8; 2048];
+                data[..16].copy_from_slice(b"SEGA SEGASATURN ");
+                mode1(lba, &data)
+            })
+            .collect();
+        let track = TestTrack {
+            cue_mode: "MODE1/2352",
+            chd_type: "MODE1_RAW",
+            sectors,
+            pregap: 0,
+        };
+        write_disc(&saturn, "Game", &[track]);
+        let targets = vec![Target {
+            system: "saturn".into(),
+            root: saturn.clone(),
+            extensions: vec![".chd".into(), ".cue".into()],
+        }];
+        let (whole, _) = identify(&targets, &mut Cache::in_memory().unwrap()).unwrap();
+
+        let mut cache = Cache::in_memory().unwrap();
+        let mut read = 0;
+        let found = ra_first(&targets, &mut cache, &mut |_| read += 1).unwrap();
+        assert_eq!(read, 2, "the CHD and the CUE sheet");
+        assert_eq!(found.len(), 2);
+        for f in &found {
+            let w = whole.iter().find(|w| w.path == f.path).unwrap();
+            assert!(f.ra.is_some());
+            assert_eq!(f.ra, w.ra, "{}", f.path);
+        }
+        // Kept: not read again, and identify reads them whole all the same.
+        assert_eq!(
+            ra_first(&targets, &mut cache, &mut |_| panic!("read")).unwrap(),
+            found
+        );
+        let (_, report) = identify(&targets, &mut cache).unwrap();
+        assert_eq!(report.hashed, 2);
+        // A cache that read them whole answers at once.
+        assert_eq!(
+            ra_first(&targets, &mut cache, &mut |_| panic!("read")).unwrap(),
+            found
+        );
+        // Not a disc system's cartridges: nothing.
+        let nes = super::tests::library(dir.path());
+        assert!(
+            ra_first(&nes, &mut cache, &mut |_| panic!("read"))
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

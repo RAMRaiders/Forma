@@ -14,7 +14,7 @@ export class IdentifyProgress {
   /** The latest event: an earlier one still waiting for the names is then dropped. */
   #latest = 0;
   /** Where the time left is measured from: the system's first file seen, and when. */
-  #since: { system: string; done: number; at: number } | null = null;
+  #since: { system: string; pass: string; done: number; at: number } | null = null;
 
   constructor(private readonly forma: Forma) {
     forma.events.on('library:identifying', (status) => void this.show(status));
@@ -43,7 +43,7 @@ export class IdentifyProgress {
     // Its file name alone: the folders above it say nothing new.
     const file = status.current?.split('/').pop() ?? '';
     this.#card.show(
-      `Identifying ${name}`,
+      status.pass === 'achievements' ? `Finding achievements: ${name}` : `Identifying ${name}`,
       `${status.done} / ${status.total}${left ? ` · ${left}` : ''}`,
       file,
       status.total ? status.done / status.total : 0
@@ -61,8 +61,13 @@ export class IdentifyProgress {
       this.#since = null;
       return '';
     }
-    if (!since || since.system !== status.system || status.done < since.done) {
-      this.#since = { system: status.system, done: status.done, at: now };
+    if (
+      !since ||
+      since.system !== status.system ||
+      since.pass !== status.pass ||
+      status.done < since.done
+    ) {
+      this.#since = { system: status.system, pass: status.pass, done: status.done, at: now };
       return '';
     }
     const read = status.done - since.done;
