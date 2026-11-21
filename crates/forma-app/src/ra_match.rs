@@ -110,6 +110,50 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
         // New or changed files read this pass, for Forma's shell: shown only when there are.
         let mut read = 0;
         if hash {
+            // First the discs' achievements alone, a few MB of each: matched in minutes, before
+            // hours of reading every disc whole.
+            let mut quick = 0;
+            for target in ra_match::targets(&state.paths) {
+                if (!all && !systems.contains(&target.system))
+                    || !ra_match::has_console(&target.system)
+                {
+                    continue;
+                }
+                let mut told = Instant::now();
+                let mut on_read = |p: ra_match::Progress<'_>| {
+                    while state.playing.load(Ordering::SeqCst) {
+                        std::thread::sleep(Duration::from_secs(2));
+                    }
+                    quick += 1;
+                    if p.done == 0 || told.elapsed() >= TELL_EVERY {
+                        told = Instant::now();
+                        identifying(
+                            app,
+                            Pass::Achievements,
+                            true,
+                            p.system,
+                            p.done,
+                            p.total,
+                            Some(p.path),
+                        );
+                    }
+                };
+                match ra_match::ra_first(&target, &mut cache, &mut on_read) {
+                    Ok(found) if !found.is_empty() => {
+                        if let Err(e) = state.library().set_ra_hashes(&target.system, &found) {
+                            eprintln!("forma: {}: {e}", target.system);
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("forma: RetroAchievements hashes of {}: {e}", target.system)
+                    }
+                }
+            }
+            if quick > 0 {
+                eprintln!("forma: RetroAchievements hashes of {quick} discs taken first");
+                match_now(state);
+            }
             for target in ra_match::targets(&state.paths) {
                 if !all && !systems.contains(&target.system) {
                     continue;
@@ -120,11 +164,23 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                 }
                 let mut told = Instant::now();
                 let mut on_read = |p: ra_match::Progress<'_>| {
+                    // Between files too: a system of discs is hours of reading.
+                    while state.playing.load(Ordering::SeqCst) {
+                        std::thread::sleep(Duration::from_secs(2));
+                    }
                     read += 1;
                     // The first of a system at once, then a few a second: not one per file.
                     if p.done == 0 || told.elapsed() >= TELL_EVERY {
                         told = Instant::now();
-                        identifying(app, true, p.system, p.done, p.total, Some(p.path));
+                        identifying(
+                            app,
+                            Pass::Whole,
+                            true,
+                            p.system,
+                            p.done,
+                            p.total,
+                            Some(p.path),
+                        );
                     }
                 };
                 match ra_match::hash_system(&target, &mut cache, &mut on_read) {
@@ -157,11 +213,19 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
             }
         }
         if read > 0 {
-            identifying(app, false, "", read, read, None);
+            identifying(app, Pass::Whole, false, "", read, read, None);
         }
         match_now(state);
         RUNNING.store(false, Ordering::SeqCst);
     }
+}
+
+/// What a pass over the files reads: discs' achievements alone, or every file whole.
+#[derive(Serialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+enum Pass {
+    Achievements,
+    Whole,
 }
 
 /// Files being identified, as Forma's shell shows it: `library:identifying`.
@@ -172,6 +236,7 @@ const TELL_EVERY: Duration = Duration::from_millis(250);
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Identifying<'a> {
+    pass: Pass,
     running: bool,
     /// The system being read (Batocera's folder name); empty once all are done.
     system: &'a str,
@@ -184,6 +249,7 @@ struct Identifying<'a> {
 
 fn identifying<R: Runtime>(
     app: &AppHandle<R>,
+    pass: Pass,
     running: bool,
     system: &str,
     done: usize,
@@ -193,6 +259,7 @@ fn identifying<R: Runtime>(
     let _ = app.emit(
         EVENT_IDENTIFYING,
         Identifying {
+            pass,
             running,
             system,
             done,

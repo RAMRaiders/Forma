@@ -563,6 +563,11 @@ export interface ScraperStatus {
  * check and RetroAchievements), one system at a time. Since 1.41.0.
  */
 export interface IdentifyStatus {
+  /**
+   * What is read: `achievements`, discs' RetroAchievements hashes alone (a few MB each, first);
+   * `whole`, every file whole (for the dump check and the scrapers too).
+   */
+  pass: 'achievements' | 'whole';
   running: boolean;
   /** The system being read (Batocera's folder name, e.g. `nes`); `''` once all are done. */
   system: string;

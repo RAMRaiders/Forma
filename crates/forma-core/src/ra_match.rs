@@ -64,8 +64,30 @@ pub fn hash_system(
     Ok(romdex::identify_with(
         std::slice::from_ref(target),
         cache,
+        READERS,
         on_read,
     )?)
+}
+
+/// Files read at once: a disc is a core's work to decompress and hash (15 MB/s on a Pi 5, its
+/// disk giving 170). Two, not all four: the menus share the cores, and a Pi without a fan
+/// throttles when they all run.
+const READERS: usize = 2;
+
+/// A system's discs' RA hashes alone, by path relative to its folder: read in minutes where
+/// [`hash_system`] reads for hours, so their achievements are matched first. Nothing for a
+/// system of cartridges, nor one RetroAchievements does not have.
+pub fn ra_first(
+    target: &Target,
+    cache: &mut HashCache,
+    on_read: &mut dyn FnMut(Progress<'_>),
+) -> Result<Vec<(String, String)>> {
+    Ok(
+        romdex::ra_first(std::slice::from_ref(target), cache, on_read)?
+            .into_iter()
+            .filter_map(|f| Some((f.path, f.ra?.to_ascii_lowercase())))
+            .collect(),
+    )
 }
 
 /// The RA hashes among identified files, by path relative to the system's folder.

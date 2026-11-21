@@ -4,9 +4,9 @@ import { el } from './dom.js';
 export const LINGER_MS = 5000;
 
 /**
- * Work Forma does in the background (a scrape, games being identified), in the bottom-left
- * corner over any theme: what it is, how far, and what it is on, over a bar. Clear of the music
- * card (top right) and of the hints (bottom right). Several stack there, each its own.
+ * Work Forma does in the background (a scrape, games being identified), at the top centre
+ * over any theme: what it is, how far, and what it is on, over a bar. Clear of the music card
+ * (top right) and of the breadcrumbs (top left). Several stack there, each its own.
  */
 export class ProgressCard {
   readonly root: HTMLElement;

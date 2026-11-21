@@ -1044,7 +1044,7 @@ kbd {
 .shell.saving .status,
 .shell.saving .song,
 .shell.saving .progress-cards,
-.shell.open .progress-cards {
+.shell.open .scrape-progress {
   visibility: hidden;
 }
 
@@ -1192,18 +1192,18 @@ kbd {
   white-space: nowrap;
 }
 
-/* A background scrape: one slim line bottom left, in the hints' row (a theme's hints are on the
-   right), clear of the music card at the top right; its bar along its bottom edge. Hidden while
-   Forma's own pages show (Media has its own). */
-/* Background work, a card each, stacked upward from the bottom-left corner. */
+/* Background work, a card each, stacked down from the top centre, clear of a theme's corners
+   (breadcrumbs top left, status and the music card top right). Identifying stays over Forma's
+   own pages; a scrape's card does not (Media has its own). */
 .progress-cards {
   position: fixed;
-  bottom: calc(1em + var(--margin, 0vh));
-  left: calc(2.4em + var(--margin, 0vh));
+  top: calc(0.8em + var(--margin, 0vh));
+  left: 50%;
   display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   gap: 0.5em;
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -1212,7 +1212,7 @@ kbd {
   display: flex;
   align-items: baseline;
   gap: 0.7em;
-  max-width: min(30em, 42vw);
+  max-width: min(40em, 60vw);
   overflow: hidden;
   padding: 0.4em 0.9em 0.5em;
   border: 1px solid var(--line);
@@ -1224,7 +1224,14 @@ kbd {
   line-height: 1.2;
   white-space: nowrap;
   pointer-events: none;
-  animation: rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: drop 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes drop {
+  from {
+    transform: translateY(-0.8em) scale(0.98);
+    opacity: 0;
+  }
 }
 
 .progress-card[hidden] {
