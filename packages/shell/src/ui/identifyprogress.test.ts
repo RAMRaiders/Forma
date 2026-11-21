@@ -52,6 +52,28 @@ describe('IdentifyProgress', () => {
     expect(card.root.hidden).toBe(true);
   });
 
+  it('tells about how long the system has left, once there is enough to tell', async () => {
+    vi.useFakeTimers();
+    const { text, tell } = fake();
+    const at = (done: number) =>
+      tell({ running: true, system: 'nes', done, total: 1000, current: `${done}.nes` });
+    at(0);
+    await vi.waitFor(() => expect(text('.count')).toBe('0 / 1000'));
+    vi.advanceTimersByTime(20_000);
+    at(10);
+    await vi.waitFor(() => expect(text('.count')).toBe('10 / 1000'));
+    // 20 files a minute: 980 to go is 49 minutes.
+    vi.advanceTimersByTime(40_000);
+    at(20);
+    await vi.waitFor(() => expect(text('.count')).toBe('20 / 1000 · ~49 min left'));
+    // Another system starts over.
+    tell({ running: true, system: 'snes', done: 0, total: 5000, current: 'a.sfc' });
+    await vi.waitFor(() => expect(text('.count')).toBe('0 / 5000'));
+    vi.advanceTimersByTime(60_000);
+    tell({ running: true, system: 'snes', done: 20, total: 5000, current: 'b.sfc' });
+    await vi.waitFor(() => expect(text('.count')).toBe('20 / 5000 · ~4 h 9 min left'));
+  });
+
   it('an earlier file still waiting for the names never covers the end', async () => {
     const { text, tell } = fake();
     tell({ running: true, system: 'nes', done: 0, total: 1, current: 'A.nes' });

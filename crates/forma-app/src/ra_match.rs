@@ -120,6 +120,10 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                 }
                 let mut told = Instant::now();
                 let mut on_read = |p: ra_match::Progress<'_>| {
+                    // Between files too: a system of discs is hours of reading.
+                    while state.playing.load(Ordering::SeqCst) {
+                        std::thread::sleep(Duration::from_secs(2));
+                    }
                     read += 1;
                     // The first of a system at once, then a few a second: not one per file.
                     if p.done == 0 || told.elapsed() >= TELL_EVERY {

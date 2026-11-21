@@ -181,21 +181,6 @@ impl Cache {
             ])?;
         Ok(())
     }
-
-    /// Groups writes into one transaction: one fsync for a whole scan, not one per file.
-    pub fn batch<T>(&mut self, f: impl FnOnce(&Self) -> Result<T>) -> Result<T> {
-        self.conn.execute_batch("BEGIN")?;
-        match f(self) {
-            Ok(v) => {
-                self.conn.execute_batch("COMMIT")?;
-                Ok(v)
-            }
-            Err(e) => {
-                let _ = self.conn.execute_batch("ROLLBACK");
-                Err(e)
-            }
-        }
-    }
 }
 
 fn key(path: &Path) -> String {
@@ -339,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    fn persists_on_disk_and_a_failed_batch_rolls_back() {
+    fn persists_on_disk() {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("deep/cache.db");
         let stamp = Stamp {
@@ -347,18 +332,10 @@ mod tests {
             mtime_ns: 1,
         };
         {
-            let mut cache = Cache::open(&file).unwrap();
-            cache
-                .batch(|c| c.put(Path::new("/a"), stamp, &hashes("a")))
-                .unwrap();
-            let failed: Result<()> = cache.batch(|c| {
-                c.put(Path::new("/b"), stamp, &hashes("b"))?;
-                Err(Error::io(Path::new("/b"), std::io::Error::other("boom")))
-            });
-            assert!(failed.is_err());
+            let cache = Cache::open(&file).unwrap();
+            cache.put(Path::new("/a"), stamp, &hashes("a")).unwrap();
         }
         let cache = Cache::open(&file).unwrap();
         assert!(cache.get(Path::new("/a"), stamp).unwrap().is_some());
-        assert!(cache.get(Path::new("/b"), stamp).unwrap().is_none());
     }
 }

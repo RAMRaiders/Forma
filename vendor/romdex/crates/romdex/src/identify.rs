@@ -71,75 +71,74 @@ pub fn identify_with(
 ) -> Result<(Vec<Identified>, Report)> {
     let mut out = Vec::new();
     let mut report = Report::default();
-    cache.batch(|cache| {
-        for target in targets {
-            let (files, skipped) = scan(target);
-            report.skipped.extend(skipped);
-            let console = ra::console_for(&target.system);
-            // Each file with what the cache knows of it, to count the ones to read first.
-            let mut known = Vec::with_capacity(files.len());
-            for file in files {
-                report.files += 1;
-                let stamp = match Stamp::of(&file.full) {
-                    Ok(stamp) => stamp,
-                    Err(e) => {
-                        report.skipped.push(e.to_string());
-                        continue;
-                    }
-                };
-                let cached = cache
-                    .get(&file.full, stamp)?
-                    .filter(|e| e.ra_console == console.map(|c| c.0))
-                    // Cached before CUE sheets and CHDs were read to their first track.
-                    .filter(|e| {
-                        !((is_cue(&file.full) || chd::is_chd(&file.full)) && e.inner.is_none())
-                    });
-                known.push((file, stamp, cached));
-            }
-            let total = known.iter().filter(|(_, _, c)| c.is_none()).count();
-            let mut done = 0;
-            for (file, stamp, cached) in known {
-                let entry = match cached {
-                    Some(entry) => {
-                        report.cached += 1;
-                        entry
-                    }
-                    None => {
-                        on_read(Progress {
-                            system: &target.system,
-                            path: &file.path,
-                            done,
-                            total,
-                        });
-                        done += 1;
-                        let Some(entry) = learn(&file.full, console, &mut report.skipped) else {
-                            continue;
-                        };
-                        report.hashed += 1;
-                        report.bytes_read += entry.size;
-                        cache.put(&file.full, stamp, &entry)?;
-                        entry
-                    }
-                };
-                if console.is_some() {
-                    if entry.ra.is_some() {
-                        report.ra_hashed += 1;
-                    } else {
-                        report.ra_unknown += 1;
-                    }
+    // Each file is kept as soon as it is read, not at the end: a pass over a big disc
+    // collection takes hours, and one cut short (a restart, a power cut) must not start over.
+    for target in targets {
+        let (files, skipped) = scan(target);
+        report.skipped.extend(skipped);
+        let console = ra::console_for(&target.system);
+        // Each file with what the cache knows of it, to count the ones to read first.
+        let mut known = Vec::with_capacity(files.len());
+        for file in files {
+            report.files += 1;
+            let stamp = match Stamp::of(&file.full) {
+                Ok(stamp) => stamp,
+                Err(e) => {
+                    report.skipped.push(e.to_string());
+                    continue;
                 }
-                out.push(Identified {
-                    system: file.system,
-                    path: file.path,
-                    inner: entry.inner,
-                    size: entry.size,
-                    hashes: entry.hashes,
-                    ra: entry.ra,
+            };
+            let cached = cache
+                .get(&file.full, stamp)?
+                .filter(|e| e.ra_console == console.map(|c| c.0))
+                // Cached before CUE sheets and CHDs were read to their first track.
+                .filter(|e| {
+                    !((is_cue(&file.full) || chd::is_chd(&file.full)) && e.inner.is_none())
                 });
-            }
+            known.push((file, stamp, cached));
         }
-        Ok(())
-    })?;
+        let total = known.iter().filter(|(_, _, c)| c.is_none()).count();
+        let mut done = 0;
+        for (file, stamp, cached) in known {
+            let entry = match cached {
+                Some(entry) => {
+                    report.cached += 1;
+                    entry
+                }
+                None => {
+                    on_read(Progress {
+                        system: &target.system,
+                        path: &file.path,
+                        done,
+                        total,
+                    });
+                    done += 1;
+                    let Some(entry) = learn(&file.full, console, &mut report.skipped) else {
+                        continue;
+                    };
+                    report.hashed += 1;
+                    report.bytes_read += entry.size;
+                    cache.put(&file.full, stamp, &entry)?;
+                    entry
+                }
+            };
+            if console.is_some() {
+                if entry.ra.is_some() {
+                    report.ra_hashed += 1;
+                } else {
+                    report.ra_unknown += 1;
+                }
+            }
+            out.push(Identified {
+                system: file.system,
+                path: file.path,
+                inner: entry.inner,
+                size: entry.size,
+                hashes: entry.hashes,
+                ra: entry.ra,
+            });
+        }
+    }
     Ok((out, report))
 }
 
@@ -328,6 +327,26 @@ mod tests {
         })
         .unwrap();
         assert!(seen.is_empty());
+    }
+
+    #[test]
+    fn keeps_each_file_as_it_is_read_not_at_the_end() {
+        let dir = tempfile::tempdir().unwrap();
+        let targets = library(dir.path());
+        let file = dir.path().join("cache.db");
+        let mut cache = Cache::open(&file).unwrap();
+        let a = dir.path().join("roms/nes/A.nes");
+        let stamp = Stamp::of(&a).unwrap();
+        let mut kept = None;
+        identify_with(&targets, &mut cache, &mut |p| {
+            if p.path == "B.nes" {
+                // Another connection, as after a restart: A is there already.
+                let other = Cache::open(&file).unwrap();
+                kept = Some(other.get(&a, stamp).unwrap().is_some());
+            }
+        })
+        .unwrap();
+        assert_eq!(kept, Some(true));
     }
 
     #[test]
