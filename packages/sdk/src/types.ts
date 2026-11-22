@@ -565,7 +565,8 @@ export interface ScraperStatus {
 export interface IdentifyStatus {
   /**
    * What is read: `achievements`, discs' RetroAchievements hashes alone (a few MB each, first);
-   * `whole`, every file whole (for the dump check and the scrapers too).
+   * `whole`, files read whole for the dump check: every cartridge, and the discs
+   * RetroAchievements did not identify by their boot files.
    */
   pass: 'achievements' | 'whole';
   running: boolean;

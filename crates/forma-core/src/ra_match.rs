@@ -3,7 +3,7 @@
 //! RetroAchievements' list of the console's games and hashes. Imported hashes and ids win
 //! over these (see [`crate::library::Source::Forma`]).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 
 use romdex::batocera::Target;
@@ -56,17 +56,44 @@ pub fn has_console(system: &str) -> bool {
 /// A file about to be read, of a system's files to read: for progress.
 pub use romdex::Progress;
 
+/// Files in `skip` (relative paths) are not read, unless known already: discs
+/// [`known_discs`] identified.
 pub fn hash_system(
     target: &Target,
     cache: &mut HashCache,
+    skip: &HashSet<String>,
     on_read: &mut dyn FnMut(Progress<'_>),
 ) -> Result<(Vec<romdex::Identified>, romdex::Report)> {
     Ok(romdex::identify_with(
         std::slice::from_ref(target),
         cache,
         READERS,
+        &|path| skip.contains(path),
         on_read,
     )?)
+}
+
+/// The discs of `found` (a system's [`ra_first`] hashes) RetroAchievements knows: identified
+/// by their boot files already, so not read whole for the dump check, hours of reading a big
+/// collection on a Pi. The rest (unknown to it, a patched disc, say) are. Its list of hashes
+/// needs no sign-in; without it (offline), none are known and every disc is read.
+pub fn known_discs(
+    http: &dyn Http,
+    cache: &Cache,
+    system: &str,
+    found: &[(String, String)],
+) -> HashSet<String> {
+    let Some(console) = romdex::ra::console_for(system) else {
+        return HashSet::new();
+    };
+    let Ok(index) = hash_index(http, cache, console.0) else {
+        return HashSet::new();
+    };
+    found
+        .iter()
+        .filter(|(_, hash)| index.data.contains_key(hash))
+        .map(|(path, _)| path.clone())
+        .collect()
 }
 
 /// Files read at once: a disc is a core's work to decompress and hash (15 MB/s on a Pi 5, its
@@ -192,6 +219,30 @@ mod tests {
     use crate::test_support::fixture_copy;
 
     #[test]
+    fn discs_retroachievements_knows_are_not_read_whole_unknown_ones_are() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("http"));
+        let found = vec![
+            ("Known (USA).chd".to_owned(), "aa11".to_owned()),
+            ("Patched (USA).chd".to_owned(), "bb22".to_owned()),
+        ];
+        let mut http = FakeHttp::default();
+        // No sign-in needed: the list of hashes alone.
+        http.routes.insert(
+            "hashlibrary",
+            Ok(br#"{"Success": true, "MD5List": {"AA11": 4242}}"#.to_vec()),
+        );
+        let known = known_discs(&http, &cache, "psx", &found);
+        assert_eq!(known, HashSet::from(["Known (USA).chd".to_owned()]));
+        // Offline, nothing cached: every disc is read.
+        let offline = FakeHttp::default();
+        let empty = Cache::new(dir.path().join("empty"));
+        assert!(known_discs(&offline, &empty, "psx", &found).is_empty());
+        // A system RetroAchievements does not have: none.
+        assert!(known_discs(&http, &cache, "notasystem", &found).is_empty());
+    }
+
+    #[test]
     fn hashes_a_system_matches_through_retroachievements_and_reports_the_rate() {
         let (dir, paths) = fixture_copy();
         // The fixture ROMs are empty, so alike: each gets contents of its own.
@@ -221,7 +272,7 @@ mod tests {
             "CHDs are hashed"
         );
         let mut cache = romdex::cache::Cache::in_memory().unwrap();
-        let (found, report) = hash_system(&nes, &mut cache, &mut |_| {}).unwrap();
+        let (found, report) = hash_system(&nes, &mut cache, &HashSet::new(), &mut |_| {}).unwrap();
         let hashes = ra_hashes(&found);
         assert_eq!(report.ra_hashed, hashes.len());
         assert!(!hashes.is_empty());
@@ -298,7 +349,7 @@ mod tests {
             .find(|t| t.system == "nes")
             .unwrap();
         let mut hashes = romdex::cache::Cache::in_memory().unwrap();
-        let (found, _) = hash_system(&nes, &mut hashes, &mut |_| {}).unwrap();
+        let (found, _) = hash_system(&nes, &mut hashes, &HashSet::new(), &mut |_| {}).unwrap();
         lib.set_ra_hashes("nes", &ra_hashes(&found)).unwrap();
         let game = lib
             .games("nes")
