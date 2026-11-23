@@ -157,11 +157,16 @@ export class Forma {
   #detachInput: Unsubscribe | null = null;
   /** How often each game's media was replaced, so its URLs change and the webview reads it again. */
   readonly #mediaVersions = new Map<number, number>();
+  /** The theme's `media:changed` listeners, called once the game's URLs are new. */
+  readonly #mediaListeners = new Set<(change: MediaChanged) => void>();
 
   constructor(backend: Backend, hostVersion: string, keyboard: boolean) {
     this.#backend = backend;
-    backend.listen<MediaChanged>('media:changed', ({ game }) => {
-      this.#mediaVersions.set(game, (this.#mediaVersions.get(game) ?? 0) + 1);
+    // One listener, the version first and the theme's after: Forma calls a page's listeners in
+    // no set order, and a theme drawing the game again read the old URL (the old picture).
+    backend.listen<MediaChanged>('media:changed', (change) => {
+      this.#mediaVersions.set(change.game, (this.#mediaVersions.get(change.game) ?? 0) + 1);
+      for (const handler of [...this.#mediaListeners]) handler(change);
     });
     this.hostVersion = hostVersion;
     this.backendKind = backend.kind;
@@ -342,7 +347,12 @@ export class Forma {
       on: <K extends Exclude<keyof EventMap, 'input'>>(
         event: K,
         handler: (payload: EventMap[K]) => void
-      ): Unsubscribe => backend.listen<EventMap[K]>(event, handler)
+      ): Unsubscribe => {
+        if (event !== 'media:changed') return backend.listen<EventMap[K]>(event, handler);
+        const listener = handler as (change: MediaChanged) => void;
+        this.#mediaListeners.add(listener);
+        return () => void this.#mediaListeners.delete(listener);
+      }
     };
 
     this.ra = {
