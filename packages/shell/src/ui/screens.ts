@@ -725,6 +725,19 @@ export function gamesScreen(
         run: () => look.media(full)
       });
     }
+    // A spine scanned the other way up: its title on a theme's shelf upside down.
+    if (full?.media.boxside) {
+      rows.push({
+        icon: 'media',
+        label: 'Turn spine',
+        detail: 'Its spine picture half round, when its title shows upside down',
+        run: () =>
+          page.run('Turning…', async () => {
+            await forma.scraper.turnMedia(full.id, 'boxside');
+            return 'Spine turned';
+          })
+      });
+    }
     if (game) {
       rows.push({
         icon: 'collections',

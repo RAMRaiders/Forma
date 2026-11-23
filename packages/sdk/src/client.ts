@@ -468,7 +468,12 @@ export class Forma {
        * shows too). Returns what could not be deleted. Since 1.30.0.
        */
       removeMedia: (id: number, kinds: MediaKind[]) =>
-        invoke<string[]>('scraper_remove_media', { id, kinds })
+        invoke<string[]>('scraper_remove_media', { id, kinds }),
+      /**
+       * Turns a game's picture of `kind` half round, in place: a spine whose title the shelf
+       * shows upside down. Sends `media:changed`. Since 1.42.0.
+       */
+      turnMedia: (id: number, kind: MediaKind) => invoke<void>('scraper_turn_media', { id, kind })
     };
 
     /**
