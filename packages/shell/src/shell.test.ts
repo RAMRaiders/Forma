@@ -1169,6 +1169,23 @@ describe('Forma’s shell', () => {
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
   });
 
+  it('turns a game’s spine picture half round from Select', async () => {
+    const { press, text, backend } = start(['scraper.manage'], {
+      view: 'systems',
+      list: 'games',
+      game: { id: 2, name: 'Super Mario Bros.' }
+    });
+    const spy = vi.spyOn(backend, 'invoke');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Turn spine'));
+    expect(rows().indexOf('Turn spine')).toBe(rows().indexOf('Media') + 1);
+    while (text('.page li.selected .name')[0] !== 'Turn spine') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.toast').join('|')).toBe('Spine turned'));
+    expect(spy).toHaveBeenCalledWith('scraper_turn_media', { id: 2, kind: 'boxside' });
+  });
+
   it('a theme opens a game’s manual in Forma’s reader', async () => {
     const { text, forma } = start();
     await forma.library.openManual(2);

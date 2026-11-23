@@ -942,6 +942,54 @@ fn a_games_picture_is_removed_and_its_file_deleted() {
 }
 
 #[test]
+fn a_games_spine_is_turned_half_round() {
+    let h = Harness::new(&["scraper.manage"]);
+    let found = h
+        .call("library_search", json!({ "query": "zelda" }))
+        .unwrap();
+    let id = found[0]["id"].as_i64().unwrap();
+    let system = found[0]["system"].as_str().unwrap().to_owned();
+    let path = found[0]["path"].as_str().unwrap().to_owned();
+    let dir = h.state().paths.userdata.join(format!("roms/{system}"));
+    let stem = std::path::Path::new(&path)
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    std::fs::create_dir_all(dir.join("images")).unwrap();
+    let picture = dir.join(format!("images/{stem}-boxside.png"));
+    // Two pixels, the top one white: after the turn it is at the bottom.
+    let mut spine = image::RgbImage::new(1, 2);
+    spine.put_pixel(0, 0, image::Rgb([255, 255, 255]));
+    spine.save(&picture).unwrap();
+    h.call(
+        "scraper_edit",
+        json!({ "id": id, "fields": { "genre": "Adventure" } }),
+    )
+    .unwrap();
+    let list = dir.join("gamelist.xml");
+    let xml = std::fs::read_to_string(&list).unwrap();
+    let xml = xml.replace(
+        "<genre>Adventure</genre>",
+        &format!("<genre>Adventure</genre><boxside>./images/{stem}-boxside.png</boxside>"),
+    );
+    std::fs::write(&list, xml).unwrap();
+    h.state().library().refresh(&h.state().paths).unwrap();
+    h.call("scraper_turn_media", json!({ "id": id, "kind": "boxside" }))
+        .unwrap();
+    let turned = image::open(&picture).unwrap().to_rgb8();
+    assert_eq!(turned.get_pixel(0, 0), &image::Rgb([0, 0, 0]));
+    assert_eq!(turned.get_pixel(0, 1), &image::Rgb([255, 255, 255]));
+    let none = h.call("scraper_turn_media", json!({ "id": id, "kind": "marquee" }));
+    assert_eq!(code(&none.unwrap_err()), "invalid");
+    let denied = Harness::new(&[]);
+    let err = denied
+        .call("scraper_turn_media", json!({ "id": id, "kind": "boxside" }))
+        .unwrap_err();
+    assert_eq!(code(&err), "permissionDenied");
+}
+
+#[test]
 fn scraper_settings_accounts_and_a_run_over_a_system() {
     let h = Harness::new(&["scraper.manage"]);
     let settings = h.call("scraper_settings", json!({})).unwrap();

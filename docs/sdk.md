@@ -351,6 +351,7 @@ SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation wr
 | `start(scope)`                                         | Scrapes `{ kind: 'game', id }`, `{ kind: 'system', name }` or `{ kind: 'all' }` in the background |
 | `status()`                                             | The run going on, or the last one                                                                 |
 | `stop()`                                               | Stops after the game it is on                                                                     |
+| `turnMedia(id, kind)`                                  | Turns a game's picture half round, in place (a spine scanned upside down). Since 1.42.0           |
 
 `media:changed` (since 1.27.0) says a game's pictures were replaced, often under the same file
 names: `library.mediaUrl` gives new URLs for it from then on, so draw that game again.
