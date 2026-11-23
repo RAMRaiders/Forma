@@ -4053,6 +4053,30 @@
           "value": null
         },
         {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "On: each save state goes in a new slot. Off: saving replaces the one in the slot.",
+          "group": null,
+          "inherited": null,
+          "key": "incrementalsavestates",
+          "kind": "choice",
+          "label": "INCREMENTAL SAVE STATES",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
           "choices": [],
           "default": "100",
           "description": "Rumble strength, in percent.",
@@ -4862,6 +4886,54 @@
         {
           "choices": [
             {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "Load latest save state on game launch and save state when exiting game.",
+          "group": null,
+          "inherited": null,
+          "key": "autosave",
+          "kind": "choice",
+          "label": "AUTO SAVE/LOAD ON GAME LAUNCH",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "On: each save state goes in a new slot. Off: saving replaces the one in the slot.",
+          "group": null,
+          "inherited": null,
+          "key": "incrementalsavestates",
+          "kind": "choice",
+          "label": "INCREMENTAL SAVE STATES",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
               "label": "Default",
               "value": "default"
             },
@@ -5061,6 +5133,54 @@
           "key": "rewind",
           "kind": "choice",
           "label": "REWIND",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "Load latest save state on game launch and save state when exiting game.",
+          "group": null,
+          "inherited": null,
+          "key": "autosave",
+          "kind": "choice",
+          "label": "AUTO SAVE/LOAD ON GAME LAUNCH",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "On: each save state goes in a new slot. Off: saving replaces the one in the slot.",
+          "group": null,
+          "inherited": null,
+          "key": "incrementalsavestates",
+          "kind": "choice",
+          "label": "INCREMENTAL SAVE STATES",
           "max": null,
           "min": null,
           "step": null,
@@ -5583,6 +5703,54 @@
           "key": "rewind",
           "kind": "choice",
           "label": "REWIND",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "Load latest save state on game launch and save state when exiting game.",
+          "group": null,
+          "inherited": null,
+          "key": "autosave",
+          "kind": "choice",
+          "label": "AUTO SAVE/LOAD ON GAME LAUNCH",
+          "max": null,
+          "min": null,
+          "step": null,
+          "submenu": null,
+          "value": null
+        },
+        {
+          "choices": [
+            {
+              "label": "On",
+              "value": "1"
+            },
+            {
+              "label": "Off",
+              "value": "0"
+            }
+          ],
+          "default": null,
+          "description": "On: each save state goes in a new slot. Off: saving replaces the one in the slot.",
+          "group": null,
+          "inherited": null,
+          "key": "incrementalsavestates",
+          "kind": "choice",
+          "label": "INCREMENTAL SAVE STATES",
           "max": null,
           "min": null,
           "step": null,

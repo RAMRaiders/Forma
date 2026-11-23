@@ -114,6 +114,7 @@ fn global_options_are_es_global_features_with_presets_resolved() {
             "integerscale",
             "bezel",
             "rewind",
+            "incrementalsavestates",
             "rumble_gain",
             "ai_service_url"
         ]
@@ -163,9 +164,20 @@ fn a_system_offers_its_emulators_cores_and_the_chosen_cores_options() {
             "ratio",
             "shaderset",
             "rewind",
+            "autosave",
+            "incrementalsavestates",
             "fceumm_palette"
         ]
     );
+    // Batocera's own, which ES adds beside auto save: off writes `nes.incrementalsavestates=0`.
+    let incremental = item(&page, "incrementalsavestates");
+    assert_eq!(incremental.choices.len(), 2);
+    f.set(
+        &Scope::System("nes".into()),
+        "incrementalsavestates",
+        Some("0"),
+    )
+    .unwrap();
     assert_eq!(item(&page, "core").default.as_deref(), Some("fceumm"));
     assert_eq!(page.flags, ["netplay", "cheevos"]);
 
