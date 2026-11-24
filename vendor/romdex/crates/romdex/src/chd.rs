@@ -7,12 +7,13 @@
 //! does (`vendor/rcheevos/src/rhash/cdreader.c`, ported line for line): the same disc gives
 //! the same RA hash whether it is a CHD or a CUE sheet.
 //!
-//! Its first track, read whole, is what Redump lists for the disc's first `.bin` ([`hash_first_track`]).
+//! Its main track, read whole, is the `.bin` the DATs list for the disc ([`hash_main_track`]).
 
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 
+use chd::header::Header;
 use chd::metadata::{KnownMetadata, Metadata};
 
 use crate::hash::{Hashes, hash_reader};
@@ -38,6 +39,9 @@ pub struct TrackInfo {
     pub kind: String,
     /// Frames stored, the pregap among them when it is stored.
     pub frames: u32,
+    /// Of those, the last ones that are not the track's (GD-ROM `PAD`): zeros chdman stores
+    /// after a GD-ROM track, the gap to the next. The track's `.bin` ends before them.
+    pub pad: u32,
     /// Of those, the pregap's.
     pub pregap: u32,
     /// Bytes of each frame that are the track's: 2352 for raw sectors and audio, 2048 for
@@ -53,6 +57,11 @@ pub struct TrackInfo {
 impl TrackInfo {
     pub fn is_audio(&self) -> bool {
         self.kind == "AUDIO"
+    }
+
+    /// Bytes of the track's `.bin`: its frames but a GD-ROM's padding.
+    pub fn bin_size(&self) -> u64 {
+        u64::from(self.frames - self.pad) * u64::from(self.data_size)
     }
 }
 
@@ -132,14 +141,7 @@ impl Disc {
             Select::Number(n) => t.iter().position(|x| x.number == n),
             Select::FirstData => t.iter().position(|x| !x.is_audio()),
             Select::Last => t.len().checked_sub(1),
-            Select::Largest => t
-                .iter()
-                .enumerate()
-                .filter(|(_, x)| !x.is_audio())
-                // The first of equals, as rcheevos keeps the first it finds.
-                .rev()
-                .max_by_key(|(_, x)| x.frames)
-                .map(|(i, _)| i),
+            Select::Largest => largest_data(t),
             Select::FirstOfSecondSession => None,
         }
     }
@@ -149,7 +151,7 @@ impl Disc {
     pub fn read_track(&mut self, index: usize, offset: u64, buf: &mut [u8]) -> usize {
         let track = &self.tracks[index];
         let data_size = u64::from(track.data_size);
-        let end = u64::from(track.frames) * data_size;
+        let end = track.bin_size();
         let (chd_frame, audio) = (track.chd_frame, track.is_audio());
         let mut done = 0;
         let mut at = offset;
@@ -209,6 +211,10 @@ fn parse_tracks(metadata: &[Metadata]) -> Option<Vec<TrackInfo>> {
         let number = field("TRACK")?.parse().ok()?;
         let kind = field("TYPE")?.to_owned();
         let frames: u32 = field("FRAMES")?.parse().ok()?;
+        let pad = field("PAD")
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(0u32)
+            .min(frames);
         // A pregap is in the data only when its type says so ("V" for "valid data").
         let pregap = match field("PGTYPE") {
             Some(t) if t.starts_with('V') => field("PREGAP").and_then(|p| p.parse().ok()),
@@ -220,6 +226,7 @@ fn parse_tracks(metadata: &[Metadata]) -> Option<Vec<TrackInfo>> {
             number,
             kind,
             frames,
+            pad,
             pregap,
             data_size,
             chd_frame,
@@ -362,28 +369,74 @@ fn msf_sector(header: &[u8]) -> i64 {
     (bcd(header[12]) * 60 + bcd(header[13])) * 75 + bcd(header[14]) - 150
 }
 
-/// The hashes of `path`'s first track, read whole, and its size and name: what Redump lists
-/// for a disc's first `.bin`, as for the first track of a CUE sheet.
-pub fn hash_first_track(path: &Path) -> Result<(Hashes, u64, String), String> {
+/// The hashes of `path`'s main track, read whole, and its size and name (`Track 03`).
+///
+/// The main track is its largest data track, the first of equals: the one RetroArch's scanner
+/// hashes (`CHDSTREAM_TRACK_PRIMARY`), so the one libretro's DATs list for a disc. On most
+/// discs it is the first; on a Dreamcast GD-ROM it is the high-density area (`Track 03`), on a
+/// PC Engine CD the data after the audio warning (`Track 02`).
+pub fn hash_main_track(path: &Path) -> Result<(Hashes, u64, String), String> {
     let mut disc = Disc::open(path)?;
-    let number = disc.tracks[0].number;
+    let index = disc.find(Select::Largest).ok_or("no data track")?;
+    let (number, expected) = (disc.tracks[index].number, disc.tracks[index].bin_size());
     let reader = TrackReader {
         disc: &mut disc,
-        index: 0,
+        index,
         at: 0,
     };
     let (hashes, size) =
         hash_reader(BufReader::with_capacity(1 << 20, reader)).map_err(|e| e.to_string())?;
-    let expected = {
-        let t = &disc.tracks[0];
-        u64::from(t.frames) * u64::from(t.data_size)
-    };
     if size != expected {
         return Err(format!(
             "track {number} ends after {size} of its {expected} bytes"
         ));
     }
     Ok((hashes, size, format!("Track {number:02}")))
+}
+
+/// The name [`hash_main_track`] gives `path`'s main track, from its metadata alone (a few small
+/// reads, not the hunk map [`Disc::open`] loads): whether a cached hash is of that track.
+pub fn main_track_name(path: &Path) -> Option<String> {
+    let mut file = BufReader::with_capacity(4096, File::open(path).ok()?);
+    let header = Header::try_read_header(&mut file).ok()?;
+    let mut metadata = Vec::new();
+    let mut next = header.meta_offset().unwrap_or(0);
+    let mut seen = std::collections::HashSet::new();
+    // The chain is a few entries long: one per track, and a few more.
+    while next != 0 && seen.insert(next) && seen.len() <= 1024 {
+        let mut head = [0u8; 16];
+        file.seek(SeekFrom::Start(next)).ok()?;
+        file.read_exact(&mut head).ok()?;
+        let metatag = u32::from_be_bytes(head[0..4].try_into().ok()?);
+        let length = u32::from_be_bytes([0, head[5], head[6], head[7]]);
+        next = u64::from_be_bytes(head[8..16].try_into().ok()?);
+        let mut value = vec![0u8; usize::try_from(length.min(4096)).ok()?];
+        file.read_exact(&mut value).ok()?;
+        metadata.push(Metadata {
+            metatag,
+            value,
+            flags: head[4],
+            index: 0,
+            length,
+        });
+    }
+    let tracks = parse_tracks(&metadata)?;
+    Some(format!(
+        "Track {:02}",
+        tracks[largest_data(&tracks)?].number
+    ))
+}
+
+/// The index of the largest data track, the first of equals (as rcheevos and RetroArch keep the
+/// first they find).
+fn largest_data(tracks: &[TrackInfo]) -> Option<usize> {
+    tracks
+        .iter()
+        .enumerate()
+        .filter(|(_, t)| !t.is_audio())
+        .rev()
+        .max_by_key(|(_, t)| t.frames - t.pad)
+        .map(|(i, _)| i)
 }
 
 struct TrackReader<'a> {
@@ -556,7 +609,7 @@ pub(crate) mod tests {
         assert_eq!(disc.find(Select::Number(3)), None);
         assert_eq!(disc.find(Select::FirstOfSecondSession), None);
 
-        let (hashes, size, name) = hash_first_track(&chd).unwrap();
+        let (hashes, size, name) = hash_main_track(&chd).unwrap();
         let bin = std::fs::read(dir.path().join("Disc (Track 1).bin")).unwrap();
         let (want, want_size) = hash_reader(&bin[..]).unwrap();
         assert_eq!((hashes, size, name.as_str()), (want, want_size, "Track 01"));
@@ -591,6 +644,28 @@ pub(crate) mod tests {
             "the next sector's data follows, its header left out"
         );
         assert_eq!(track.read_sector(10, &mut buf), 0, "before the track");
+    }
+
+    #[test]
+    fn a_gd_roms_padding_is_stored_but_not_its_tracks() {
+        // As chdman writes 4x4 Evo (USA): Track 03's last 150 frames are the gap to Track 04.
+        let gd = |text: &str| Metadata {
+            metatag: KnownMetadata::GdRomTrack as u32,
+            value: format!("{text}\0").into_bytes(),
+            flags: 0,
+            index: 0,
+            length: 0,
+        };
+        let tracks = parse_tracks(&[
+            gd("TRACK:1 TYPE:MODE1_RAW SUBTYPE:NONE FRAMES:756 PAD:150 PREGAP:0 PGTYPE:MODE1"),
+            gd("TRACK:2 TYPE:AUDIO SUBTYPE:NONE FRAMES:44244 PAD:43718 PREGAP:0 PGTYPE:MODE1"),
+            gd("TRACK:3 TYPE:MODE1_RAW SUBTYPE:NONE FRAMES:326986 PAD:150 PREGAP:0 PGTYPE:MODE1"),
+            gd("TRACK:4 TYPE:AUDIO SUBTYPE:NONE FRAMES:17294 PAD:0 PREGAP:0 PGTYPE:MODE1"),
+        ])
+        .unwrap();
+        assert_eq!(tracks[2].bin_size(), 768_718_272, "Redump's Track 03");
+        assert_eq!(tracks[2].chd_frame, 756 + 44244, "padding is stored");
+        assert_eq!(largest_data(&tracks), Some(2));
     }
 
     #[test]
