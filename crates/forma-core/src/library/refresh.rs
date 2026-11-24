@@ -9,9 +9,11 @@ use serde::Serialize;
 use super::{Library, Source, default_name, materialise};
 
 use crate::error::{Result, Warning};
+use crate::field;
 use crate::gamelist::parse_gamelist;
 use crate::paths::Paths;
 use crate::scan::{ScannedRom, scan_system};
+use crate::scraper::regions;
 use crate::systems::{System, load_systems};
 
 /// Counts cover the systems that were refreshed (all of them, or the ones asked for).
@@ -202,6 +204,8 @@ fn refresh_system(
     report.games += roms.len();
     report.added += added.len();
     changed |= !added.is_empty();
+    let regions = playlist_regions(tx, roms, &seen)?;
+    changed |= !regions.is_empty();
 
     // The gamelist, only when it (or the set of games it can describe) changed.
     let file = system.rom_path.join("gamelist.xml");
@@ -214,7 +218,59 @@ fn refresh_system(
         report.gamelists_unchanged += usize::from(file.exists());
         added.clone()
     };
+    let mut affected = affected;
+    for id in regions {
+        if !affected.contains(&id) {
+            affected.push(id);
+        }
+    }
     materialise(tx, &affected, &added)?;
+    Ok(changed)
+}
+
+/// Gives each playlist whose name has no region its discs' (see [`regions::of_playlist`]), as
+/// Forma's own value: a gamelist's, an import's or the user's still wins. Returns the games
+/// whose value changed.
+fn playlist_regions(
+    tx: &Transaction<'_>,
+    roms: &[ScannedRom],
+    ids: &HashMap<String, i64>,
+) -> Result<Vec<i64>> {
+    let mut old = tx.prepare_cached(
+        "SELECT value FROM game_field WHERE game_id = ?1 AND field = ?2 AND source = ?3",
+    )?;
+    let mut put = tx.prepare_cached(
+        "INSERT OR REPLACE INTO game_field (game_id, field, source, value) VALUES (?1, ?2, ?3, ?4)",
+    )?;
+    let mut drop = tx.prepare_cached(
+        "DELETE FROM game_field WHERE game_id = ?1 AND field = ?2 AND source = ?3",
+    )?;
+    let forma = Source::Forma as i64;
+    let mut changed = Vec::new();
+    for rom in roms.iter().filter(|r| !r.discs.is_empty()) {
+        let Some(&id) = ids.get(rom.path.to_string_lossy().as_ref()) else {
+            continue;
+        };
+        let stem = |p: &Path| {
+            p.file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        };
+        let discs: Vec<String> = rom.discs.iter().map(|d| stem(d)).collect();
+        let discs: Vec<&str> = discs.iter().map(String::as_str).collect();
+        let region = regions::of_playlist(&stem(&rom.path), &discs);
+        let was: Option<String> = old
+            .query_row(params![id, field::REGION, forma], |r| r.get(0))
+            .optional()?;
+        if was == region {
+            continue;
+        }
+        match &region {
+            Some(region) => put.execute(params![id, field::REGION, forma, region])?,
+            None => drop.execute(params![id, field::REGION, forma])?,
+        };
+        changed.push(id);
+    }
     Ok(changed)
 }
 
