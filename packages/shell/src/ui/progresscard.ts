@@ -42,4 +42,11 @@ export class ProgressCard {
     if (last) this.#linger = setTimeout(() => (this.root.hidden = true), LINGER_MS);
     this.root.hidden = false;
   }
+
+  /** Gone at once: the work came to nothing worth a word. */
+  hide(): void {
+    if (this.#linger) clearTimeout(this.#linger);
+    this.#linger = null;
+    this.root.hidden = true;
+  }
 }

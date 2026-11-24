@@ -108,8 +108,12 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
             }
         }
         RUNNING.store(true, Ordering::SeqCst);
-        // New or changed files read this pass, for Forma's shell: shown only when there are.
+        // New or changed files identified this pass, for Forma's shell: shown only when there
+        // are. Not those that could not be read: one that fails fails again at every pass (a
+        // game deleted, the system read again), and "1 file" came up each time for nothing.
         let mut read = 0;
+        // Whether the shell was told of files being read: it is told when they are done too.
+        let mut told_any = false;
         if hash {
             // First the discs' achievements alone, a few MB of each: matched in minutes, before
             // hours of reading every disc whole.
@@ -130,6 +134,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                     quick += 1;
                     if p.done == 0 || told.elapsed() >= TELL_EVERY {
                         told = Instant::now();
+                        told_any = true;
                         identifying(
                             app,
                             Pass::Achievements,
@@ -178,10 +183,10 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                     while state.playing.load(Ordering::SeqCst) {
                         std::thread::sleep(Duration::from_secs(2));
                     }
-                    read += 1;
                     // The first of a system at once, then a few a second: not one per file.
                     if p.done == 0 || told.elapsed() >= TELL_EVERY {
                         told = Instant::now();
+                        told_any = true;
                         identifying(
                             app,
                             Pass::Whole,
@@ -196,6 +201,10 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                 let skip = known.remove(&target.system).unwrap_or_default();
                 match ra_match::hash_system(&target, &mut cache, &skip, &mut on_read) {
                     Ok((found, report)) => {
+                        read += report.hashed;
+                        for problem in &report.skipped {
+                            eprintln!("forma: not identified in {}: {problem}", target.system);
+                        }
                         let stored = if ra_match::has_console(&target.system) {
                             state
                                 .library()
@@ -224,7 +233,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, state: &AppState, rx: &Receiver<Work>) {
                 }
             }
         }
-        if read > 0 {
+        if read > 0 || told_any {
             identifying(app, Pass::Whole, false, "", read, read, None);
         }
         match_now(state);
