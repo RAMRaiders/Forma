@@ -39,6 +39,48 @@ pub fn in_name(stem: &str) -> Vec<&'static str> {
     found
 }
 
+/// A region's code as gamelists give it (`us`, `eu`, `wor`), as EmulationStation and themes
+/// read a game's `region`.
+pub fn code(region: &str) -> Option<&'static str> {
+    Some(match region {
+        "World" => "wor",
+        "USA" => "us",
+        "Europe" => "eu",
+        "Japan" => "jp",
+        "UK" => "uk",
+        "France" => "fr",
+        "Germany" => "de",
+        "Spain" => "es",
+        "Italy" => "it",
+        "Netherlands" => "nl",
+        "Sweden" => "se",
+        "Portugal" => "pt",
+        "Brazil" => "br",
+        "Canada" => "ca",
+        "Australia" => "au",
+        "Korea" => "kr",
+        "Asia" => "asi",
+        _ => return None,
+    })
+}
+
+/// A playlist's region, from its discs' names when its own gives none: one code when they agree
+/// (`us`), each once when they do not (`us,eu`). `None` when its name gives one, or no disc does.
+pub fn of_playlist(stem: &str, discs: &[&str]) -> Option<String> {
+    if !in_name(stem).is_empty() {
+        return None;
+    }
+    let mut codes: Vec<&str> = Vec::new();
+    for disc in discs {
+        for c in in_name(disc).into_iter().filter_map(code) {
+            if !codes.contains(&c) {
+                codes.push(c);
+            }
+        }
+    }
+    (!codes.is_empty()).then(|| codes.join(","))
+}
+
 /// The regions to look for, best first. With `own`, the ROM's own regions come first: of
 /// several (`USA, Europe`), the one `preferred` puts first wins. Then `preferred`, in order.
 pub fn order(stem: &str, own: bool, preferred: &[String]) -> Vec<String> {
@@ -61,6 +103,28 @@ mod tests {
 
     fn list(items: &[&str]) -> Vec<String> {
         items.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    #[test]
+    fn a_playlist_without_a_region_takes_its_discs() {
+        let same = ["Alice (USA) (Disc 1) (Unl)", "Alice (USA) (Disc 2) (Unl)"];
+        assert_eq!(of_playlist("Alice", &same).as_deref(), Some("us"));
+        let mixed = [
+            "Game (USA) (Disc 1)",
+            "Game (Europe) (Disc 2)",
+            "Game (USA, Japan) (Disc 3)",
+        ];
+        assert_eq!(of_playlist("Game", &mixed).as_deref(), Some("us,eu,jp"));
+        assert_eq!(
+            of_playlist("Game (Japan)", &mixed),
+            None,
+            "its own name says"
+        );
+        assert_eq!(
+            of_playlist("Game", &["Game (Disc 1)"]),
+            None,
+            "no disc says"
+        );
     }
 
     #[test]
