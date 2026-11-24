@@ -77,13 +77,14 @@ impl VideoPlayer {
     /// first picture is up: `true`. `false` if it could not, or another play or a stop came
     /// meanwhile.
     pub fn play(&self, file: &Path, sound: bool, area: Option<Area>) -> Result<bool> {
-        let generation = {
-            let mut state = self.state();
-            state.generation += 1;
-            state.playing = Some(file.to_path_buf());
-            state.sound = sound;
-            state.generation
-        };
+        // Held until mpv has the file: a stop meanwhile (a game starting) waits, then stops it.
+        // Let go sooner, the stop could reach mpv before the file did, and the video play on
+        // under the game.
+        let mut state = self.state();
+        state.generation += 1;
+        state.playing = Some(file.to_path_buf());
+        state.sound = sound;
+        let generation = state.generation;
         self.backend.send(json!(["set_property", "mute", !sound]))?;
         let [left, right, top, bottom] = area.map_or([0.0; 4], Area::margins);
         for (side, value) in [
@@ -100,6 +101,7 @@ impl VideoPlayer {
         }
         self.backend.send(json!(["loadfile", file, "replace"]))?;
         self.backend.send(json!(["set_property", "pause", false]))?;
+        drop(state);
         let deadline = Instant::now() + FIRST_PICTURE;
         loop {
             if self.state().generation != generation {
@@ -167,10 +169,15 @@ mod tests {
         props: Mutex<HashMap<String, Value>>,
         running: AtomicBool,
         blind: bool,
+        /// Slow to answer its first command, as a busy mpv.
+        slow: bool,
     }
 
     impl Backend for &'static Fake {
         fn send(&self, command: Value) -> Result<Value> {
+            if self.slow && !self.running.swap(true, Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(150));
+            }
             self.running.store(true, Ordering::SeqCst);
             let args = command.as_array().unwrap().clone();
             let mut props = self.props.lock().unwrap();
@@ -204,10 +211,14 @@ mod tests {
     }
 
     fn player(blind: bool) -> (&'static Fake, VideoPlayer) {
-        let fake: &'static Fake = Box::leak(Box::new(Fake {
+        fake_player(Fake {
             blind,
             ..Fake::default()
-        }));
+        })
+    }
+
+    fn fake_player(fake: Fake) -> (&'static Fake, VideoPlayer) {
+        let fake: &'static Fake = Box::leak(Box::new(fake));
         (fake, VideoPlayer::new(Box::new(fake)))
     }
 
@@ -283,6 +294,26 @@ mod tests {
         );
         assert!(!player.playing());
         assert_eq!(sent(fake).last().unwrap(), "stop");
+    }
+
+    #[test]
+    fn a_stop_while_a_video_is_starting_stops_it_once_mpv_has_it() {
+        // A game launched while its video was on its way to mpv: the video must not play on.
+        let (fake, player) = fake_player(Fake {
+            slow: true,
+            ..Fake::default()
+        });
+        std::thread::scope(|s| {
+            let play = s.spawn(|| player.play(Path::new("/roms/a.mp4"), true, None).unwrap());
+            std::thread::sleep(Duration::from_millis(40));
+            player.stop().unwrap();
+            assert!(!play.join().unwrap(), "the play gave up");
+        });
+        let sent = sent(fake);
+        let load = sent.iter().position(|c| c == "loadfile").unwrap();
+        let stop = sent.iter().rposition(|c| c == "stop").unwrap();
+        assert!(load < stop, "stopped after mpv had the file: {sent:?}");
+        assert!(!player.playing());
     }
 
     #[test]
