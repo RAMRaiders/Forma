@@ -646,6 +646,25 @@ pub async fn scraper_remove_media<R: Runtime>(
     Ok(problems)
 }
 
+/// Turns a game's picture of one kind half round, in place (a spine scanned upside down).
+#[tauri::command]
+pub async fn scraper_turn_media<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    id: i64,
+    kind: MediaKind,
+) -> ApiResult<()> {
+    let events = app.clone();
+    off_thread(app, move |state| {
+        caller.require(state, permissions::SCRAPER_MANAGE)?;
+        let (game, system) = target(state, id)?;
+        pick::turn_media(&game, &system, kind).map_err(|e| ApiError::new(ErrorCode::Invalid, e))
+    })
+    .await?;
+    let _ = events.emit(EVENT_MEDIA_CHANGED, MediaChanged { game: id });
+    Ok(())
+}
+
 /// Changes a game's details by hand; an empty value clears one.
 #[tauri::command]
 pub async fn scraper_edit<R: Runtime>(
