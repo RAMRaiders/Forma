@@ -1,6 +1,6 @@
 //! Finding the games in a system's ROM folder.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::error::Warning;
@@ -14,6 +14,8 @@ pub struct ScannedRom {
     pub size: u64,
     /// Modification time, nanoseconds since the Unix epoch.
     pub mtime_ns: i64,
+    /// For an `.m3u` playlist, the discs it lists, relative to the ROM folder, in its order.
+    pub discs: Vec<PathBuf>,
 }
 
 /// Deep enough for `system/collection/series/game`, shallow enough that a symlink loop ends.
@@ -36,8 +38,11 @@ pub fn scan_system(system: &System) -> (Vec<ScannedRom>, Vec<Warning>) {
         walk(system, &system.rom_path, 0, &mut roms, &mut warnings);
     }
 
-    let in_playlists = playlist_members(system, &roms);
+    let (in_playlists, mut discs) = playlist_members(system, &roms);
     roms.retain(|r| !in_playlists.contains(&r.path));
+    for rom in &mut roms {
+        rom.discs = discs.remove(&rom.path).unwrap_or_default();
+    }
     roms.sort_by(|a, b| a.path.cmp(&b.path));
     (roms, warnings)
 }
@@ -86,6 +91,7 @@ fn walk(
                 path: rel,
                 size: if meta.is_dir() { 0 } else { meta.len() },
                 mtime_ns,
+                discs: Vec::new(),
             });
         } else if meta.is_dir() && depth < MAX_DEPTH {
             walk(system, &path, depth + 1, roms, warnings);
@@ -93,8 +99,13 @@ fn walk(
     }
 }
 
-fn playlist_members(system: &System, roms: &[ScannedRom]) -> HashSet<PathBuf> {
+/// The files the playlists among `roms` leave out, and each playlist's discs.
+fn playlist_members(
+    system: &System,
+    roms: &[ScannedRom],
+) -> (HashSet<PathBuf>, HashMap<PathBuf, Vec<PathBuf>>) {
     let mut members = HashSet::new();
+    let mut discs: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
     // The games that have a playlist: each disc's folder and name without its disc.
     let mut games: HashSet<(PathBuf, String)> = HashSet::new();
     for rom in roms {
@@ -117,6 +128,7 @@ fn playlist_members(system: &System, roms: &[ScannedRom]) -> HashSet<PathBuf> {
                 if let Some(game) = without_disc(&stem(&rel)) {
                     games.insert((rel.parent().unwrap_or(Path::new("")).to_path_buf(), game));
                 }
+                discs.entry(rom.path.clone()).or_default().push(rel.clone());
                 members.insert(rel);
             }
         }
@@ -130,7 +142,7 @@ fn playlist_members(system: &System, roms: &[ScannedRom]) -> HashSet<PathBuf> {
             members.insert(rom.path.clone());
         }
     }
-    members
+    (members, discs)
 }
 
 fn is_m3u(path: &Path) -> bool {

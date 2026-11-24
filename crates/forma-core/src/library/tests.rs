@@ -680,3 +680,54 @@ fn dump_checks_are_kept_per_game_and_reported_per_system() {
     assert_eq!(lib.set_dumps("nes", &checks[..1]).unwrap(), 1);
     assert_eq!(lib.game(other.id).unwrap().unwrap().dump, None);
 }
+
+#[test]
+fn a_playlist_without_a_region_takes_its_discs_unless_something_else_gives_one() {
+    let (_dir, paths) = fixture_copy();
+    let psx = paths.roms().join("psx");
+    let disc = |name: &str| std::fs::write(psx.join(name), b"").unwrap();
+    disc("Alice (USA) (Disc 1).cue");
+    disc("Alice (USA) (Disc 2).cue");
+    std::fs::write(
+        psx.join("Alice.m3u"),
+        "Alice (USA) (Disc 1).cue\nAlice (USA) (Disc 2).cue\n",
+    )
+    .unwrap();
+    let mut lib = Library::open_in_memory().unwrap();
+    lib.refresh(&paths).unwrap();
+    let region =
+        |lib: &Library, name: &str| by_name(&lib.games("psx").unwrap(), name).region.clone();
+    assert_eq!(
+        region(&lib, "Alice").as_deref(),
+        Some("us"),
+        "one, the discs agreeing"
+    );
+    assert_eq!(region(&lib, "Final Fantasy VII"), None, "no disc names one");
+
+    disc("Alice (Europe) (Disc 2).cue");
+    std::fs::write(
+        psx.join("Alice.m3u"),
+        "Alice (USA) (Disc 1).cue\nAlice (Europe) (Disc 2).cue\n",
+    )
+    .unwrap();
+    lib.refresh(&paths).unwrap();
+    assert_eq!(
+        region(&lib, "Alice").as_deref(),
+        Some("us,eu"),
+        "each, when they differ"
+    );
+
+    let gamelist = std::fs::read_to_string(psx.join("gamelist.xml"))
+        .unwrap()
+        .replace(
+            "</gameList>",
+            "<game><path>./Alice.m3u</path><name>Alice</name><region>jp</region></game></gameList>",
+        );
+    std::fs::write(psx.join("gamelist.xml"), gamelist).unwrap();
+    lib.refresh(&paths).unwrap();
+    assert_eq!(
+        region(&lib, "Alice").as_deref(),
+        Some("jp"),
+        "the gamelist's wins"
+    );
+}
