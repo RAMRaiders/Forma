@@ -21,7 +21,8 @@ pub struct Identified {
     /// Relative to the system folder, as the import format keys it.
     pub path: String,
     /// The file that was identified, when not `path` itself: the one inside a single-file
-    /// archive, a CUE sheet's first track, or a CHD's (`Track 01`).
+    /// archive, a CUE sheet's main track, or a CHD's (`Track 03`): its largest data track,
+    /// the one DATs list for a disc.
     pub inner: Option<String>,
     /// Of the ROM: uncompressed, for an archive.
     pub size: u64,
@@ -103,9 +104,11 @@ pub fn identify_with(
             let cached = cache
                 .get(&file.full, stamp)?
                 .filter(|e| e.ra_console == console.map(|c| c.0))
-                // Cached before CUE sheets and CHDs were read to their first track.
-                .filter(|e| {
-                    !((is_cue(&file.full) || chd::is_chd(&file.full)) && e.inner.is_none())
+                // A disc's hashes are of its main track: not those cached of another (its first,
+                // before), nor of the sheet or CHD itself (before that).
+                .filter(|e| match main_track_name(&file.full) {
+                    Some(main) => e.inner.as_deref() == Some(main.as_str()),
+                    None => !is_cue(&file.full) && !chd::is_chd(&file.full),
                 });
             if cached.is_none() && skip(&file.path) {
                 report.not_read += 1;
@@ -315,9 +318,9 @@ fn learn(path: &Path, console: Option<Console>, skipped: &mut Vec<String>) -> Op
         }
         None => {}
     }
-    // A CHD is a compressed disc: its first track, uncompressed, is the `.bin` DATs list.
+    // A CHD is a compressed disc: its main track, uncompressed, is the `.bin` DATs list.
     if chd::is_chd(path) {
-        return match chd::hash_first_track(path) {
+        return match chd::hash_main_track(path) {
             Ok((hashes, size, name)) => Some(Entry {
                 hashes,
                 inner: Some(name),
@@ -331,8 +334,8 @@ fn learn(path: &Path, console: Option<Console>, skipped: &mut Vec<String>) -> Op
             }
         };
     }
-    // A CUE sheet is a few lines of text: the disc is its tracks, and DATs list the first.
-    if let Some(track) = is_cue(path).then(|| first_track(path)).flatten() {
+    // A CUE sheet is a few lines of text: the disc is its tracks, and DATs list the main one.
+    if let Some(track) = is_cue(path).then(|| main_file(path)).flatten() {
         return match std::fs::File::open(&track)
             .and_then(|f| hash_reader(std::io::BufReader::new(f)))
         {
@@ -369,16 +372,51 @@ fn is_cue(path: &Path) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case("cue"))
 }
 
-/// The first `FILE` a CUE sheet names, beside it: the first track, data on every disc a DAT
-/// lists. `None` for a sheet with no file in it.
-fn first_track(cue: &Path) -> Option<std::path::PathBuf> {
+/// What [`learn`] names the main track of a disc, if `path` is one: a CHD's `Track 03`, or a
+/// CUE sheet's main file. Cheap: a CHD's metadata, a CUE sheet and its files' sizes.
+fn main_track_name(path: &Path) -> Option<String> {
+    if chd::is_chd(path) {
+        return chd::main_track_name(path);
+    }
+    let file = is_cue(path).then(|| main_file(path)).flatten()?;
+    Some(file.file_name()?.to_string_lossy().into_owned())
+}
+
+/// The main file of a CUE sheet, beside it: the largest that holds a data track, the first of
+/// equals, as RetroArch's scanner picks the one libretro's DATs list. The first `FILE` when
+/// none holds data (an audio CD).
+fn main_file(cue: &Path) -> Option<std::path::PathBuf> {
     let text = std::fs::read(cue).ok()?;
     let text = String::from_utf8_lossy(&text);
-    let line = text
-        .lines()
-        .map(str::trim)
-        .find(|l| l.len() > 5 && l[..5].eq_ignore_ascii_case("FILE "))?;
-    let rest = line[5..].trim();
+    // Each file, and whether a data track is in it.
+    let mut files: Vec<(std::path::PathBuf, bool)> = Vec::new();
+    for line in text.lines().map(str::trim) {
+        let word = |w: &str| line.len() > w.len() && line[..w.len()].eq_ignore_ascii_case(w);
+        if word("FILE ") {
+            if let Some(file) = cue_file(cue, line[5..].trim()) {
+                files.push((file, false));
+            }
+        } else if word("TRACK ")
+            && let Some(last) = files.last_mut()
+            && line
+                .split_ascii_whitespace()
+                .nth(2)
+                .is_some_and(|mode| !mode.eq_ignore_ascii_case("AUDIO"))
+        {
+            last.1 = true;
+        }
+    }
+    let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
+    let largest = files
+        .iter()
+        .filter(|(_, data)| *data)
+        .rev()
+        .max_by_key(|(p, _)| size(p));
+    largest.or(files.first()).map(|(p, _)| p.clone())
+}
+
+/// The file a `FILE` line names (`rest`, after the keyword), beside the sheet.
+fn cue_file(cue: &Path, rest: &str) -> Option<std::path::PathBuf> {
     let name = if let Some(quoted) = rest.strip_prefix('"') {
         quoted.split('"').next()?
     } else {
@@ -587,7 +625,7 @@ mod cue_tests {
     use super::*;
 
     #[test]
-    fn a_cue_sheet_is_identified_by_its_first_track() {
+    fn a_cue_sheet_is_identified_by_its_data_track() {
         let dir = tempfile::tempdir().unwrap();
         let psx = dir.path().join("roms/psx");
         std::fs::create_dir_all(&psx).unwrap();
@@ -619,7 +657,7 @@ mod cue_tests {
     }
 
     #[test]
-    fn a_chd_is_identified_by_its_first_track_with_the_ra_hash_of_its_cue_sheet() {
+    fn a_chd_is_identified_by_its_data_track_with_the_ra_hash_of_its_cue_sheet() {
         use crate::chd::tests::{TestTrack, mode1, write_disc};
         let dir = tempfile::tempdir().unwrap();
         let saturn = dir.path().join("roms/saturn");
@@ -657,6 +695,84 @@ mod cue_tests {
         );
         assert_eq!(chd[0].ra, from_cue[0].ra);
         assert!(cue.is_file());
+    }
+
+    #[test]
+    fn a_disc_is_identified_by_its_largest_data_track_and_an_old_first_track_hash_is_dropped() {
+        use crate::chd::tests::{TestTrack, mode1, write_disc};
+        // As a GD-ROM: a small data track, audio, then the game's data, the largest.
+        let dir = tempfile::tempdir().unwrap();
+        let dc = dir.path().join("roms/dreamcast");
+        std::fs::create_dir_all(&dc).unwrap();
+        let data = |n: u32, first: u32, fill: u8| -> Vec<Vec<u8>> {
+            (0..n).map(|i| mode1(first + i, &[fill; 2048])).collect()
+        };
+        let tracks = [
+            TestTrack {
+                cue_mode: "MODE1/2352",
+                chd_type: "MODE1_RAW",
+                sectors: data(6, 0, 1),
+                pregap: 0,
+            },
+            TestTrack {
+                cue_mode: "AUDIO",
+                chd_type: "AUDIO",
+                sectors: (0..40).map(|_| vec![9u8; 2352]).collect(),
+                pregap: 0,
+            },
+            TestTrack {
+                cue_mode: "MODE1/2352",
+                chd_type: "MODE1_RAW",
+                sectors: data(21, 46, 3),
+                pregap: 0,
+            },
+            TestTrack {
+                cue_mode: "MODE1/2352",
+                chd_type: "MODE1_RAW",
+                sectors: data(21, 67, 4),
+                pregap: 0,
+            },
+        ];
+        write_disc(&dc, "Game", &tracks);
+        let bin = std::fs::read(dc.join("Game (Track 3).bin")).unwrap();
+        let (want, _) = hash_reader(&bin[..]).unwrap();
+        let targets = |ext: &str| {
+            vec![Target {
+                system: "dreamcast".into(),
+                root: dc.clone(),
+                extensions: vec![ext.into()],
+            }]
+        };
+        let mut cache = Cache::in_memory().unwrap();
+        let chd_path = dc.join("Game.chd");
+        // What an earlier romdex kept: the first track's hashes.
+        let first = Entry {
+            hashes: hash_reader(&std::fs::read(dc.join("Game (Track 1).bin")).unwrap()[..])
+                .unwrap()
+                .0,
+            inner: Some("Track 01".into()),
+            size: 6 * 2352,
+            ra: None,
+            ra_console: ra::console_for("dreamcast").map(|c| c.0),
+        };
+        cache
+            .put(&chd_path, Stamp::of(&chd_path).unwrap(), &first)
+            .unwrap();
+
+        let (chd, report) = identify(&targets(".chd"), &mut cache).unwrap();
+        assert_eq!(report.hashed, 1, "the first track's hashes are not kept");
+        assert_eq!(chd[0].inner.as_deref(), Some("Track 03"));
+        assert_eq!((&chd[0].hashes, chd[0].size), (&want, 21 * 2352));
+        let (cue, _) = identify(&targets(".cue"), &mut cache).unwrap();
+        assert_eq!(cue[0].inner.as_deref(), Some("Game (Track 3).bin"));
+        assert_eq!(cue[0].hashes, want);
+
+        let (_, again) = identify(&targets(".chd"), &mut cache).unwrap();
+        assert_eq!(
+            (again.hashed, again.cached),
+            (0, 1),
+            "its main track is kept"
+        );
     }
 
     #[test]
@@ -754,10 +870,10 @@ mod cue_tests {
         let dir = tempfile::tempdir().unwrap();
         let cue = dir.path().join("a.cue");
         std::fs::write(&cue, "REM x\nfile track1.bin BINARY\n").unwrap();
-        assert_eq!(first_track(&cue), Some(dir.path().join("track1.bin")));
+        assert_eq!(main_file(&cue), Some(dir.path().join("track1.bin")));
         std::fs::write(&cue, "FILE \"../../etc/passwd\" BINARY\n").unwrap();
-        assert_eq!(first_track(&cue), Some(dir.path().join("passwd")));
+        assert_eq!(main_file(&cue), Some(dir.path().join("passwd")));
         std::fs::write(&cue, "TRACK 01 AUDIO\n").unwrap();
-        assert_eq!(first_track(&cue), None);
+        assert_eq!(main_file(&cue), None);
     }
 }

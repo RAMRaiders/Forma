@@ -40,7 +40,7 @@ pub struct Entry {
     /// Of the ROM: the file itself, or the one file inside its archive.
     pub hashes: Hashes,
     /// The file the hashes are of, when not the file itself: the one inside a single-file
-    /// archive, or a CUE sheet's first track.
+    /// archive, or a disc's main track (a CUE sheet's file, a CHD's `Track 03`).
     pub inner: Option<String>,
     /// The ROM's size: uncompressed, for an archive.
     pub size: u64,
