@@ -30,6 +30,9 @@ pub struct Identified {
     /// The RetroAchievements hash, when the system has an RA console and rcheevos could hash
     /// the file. `None` is "unknown", never "no achievements".
     pub ra: Option<String>,
+    /// For a disc an `.m3u` lists: that playlist, as `path` is. The game is the playlist; its
+    /// discs are here for what is told disc by disc (the DATs).
+    pub playlist: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
@@ -190,6 +193,7 @@ pub fn identify_with(
                 size: entry.size,
                 hashes: entry.hashes,
                 ra: entry.ra,
+                playlist: file.playlist,
             });
         }
     }
@@ -229,7 +233,12 @@ pub fn ra_first(
         };
         let (files, _) = scan(target);
         let mut todo = Vec::new();
-        for file in files.into_iter().filter(|f| is_disc(&f.full)) {
+        // Not a playlist's discs: its game's achievements are its playlist's, and a disc known
+        // here is not read whole, which a playlist's dump check needs.
+        for file in files
+            .into_iter()
+            .filter(|f| f.playlist.is_none() && is_disc(&f.full))
+        {
             let Ok(stamp) = Stamp::of(&file.full) else {
                 continue;
             };
@@ -805,6 +814,61 @@ mod cue_tests {
         let (_, again) =
             identify_with(&targets, &mut cache, 3, &|_| false, &mut |_| panic!("read")).unwrap();
         assert_eq!(again.cached, 14);
+    }
+
+    #[test]
+    fn a_playlists_discs_are_identified_as_its_and_left_to_be_read_whole() {
+        use crate::chd::tests::{TestTrack, mode1, write_disc};
+        let dir = tempfile::tempdir().unwrap();
+        let saturn = dir.path().join("roms/saturn");
+        std::fs::create_dir_all(&saturn).unwrap();
+        let disc = |name: &str, fill: u8| {
+            let sectors = (0..20u32)
+                .map(|lba| {
+                    let mut data = vec![fill; 2048];
+                    data[..16].copy_from_slice(b"SEGA SEGASATURN ");
+                    mode1(lba, &data)
+                })
+                .collect();
+            let track = TestTrack {
+                cue_mode: "MODE1/2352",
+                chd_type: "MODE1_RAW",
+                sectors,
+                pregap: 0,
+            };
+            write_disc(&saturn, name, &[track]);
+        };
+        disc("Game (Disc 1)", 1);
+        disc("Game (Disc 2)", 2);
+        disc("Other", 3);
+        std::fs::write(
+            saturn.join("Game.m3u"),
+            "Game (Disc 1).chd\nGame (Disc 2).chd\n",
+        )
+        .unwrap();
+        let targets = vec![Target {
+            system: "saturn".into(),
+            root: saturn.clone(),
+            extensions: vec![".chd".into(), ".m3u".into()],
+        }];
+        let (found, _) = identify(&targets, &mut Cache::in_memory().unwrap()).unwrap();
+        let of = |path: &str| found.iter().find(|f| f.path == path).unwrap();
+        assert_eq!(of("Game.m3u").playlist, None);
+        for n in [1, 2] {
+            let d = of(&format!("Game (Disc {n}).chd"));
+            assert_eq!(d.playlist.as_deref(), Some("Game.m3u"));
+            assert!(d.inner.is_some(), "read by its main track, as any disc");
+        }
+        assert_ne!(
+            of("Game (Disc 1).chd").hashes.sha1,
+            of("Game (Disc 2).chd").hashes.sha1
+        );
+        assert_eq!(of("Other.chd").playlist, None);
+
+        // Its discs not taken first: one RetroAchievements knows would never be read whole.
+        let quick = ra_first(&targets, &mut Cache::in_memory().unwrap(), &mut |_| {}).unwrap();
+        let paths: Vec<&str> = quick.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, ["Other.chd"]);
     }
 
     #[test]
