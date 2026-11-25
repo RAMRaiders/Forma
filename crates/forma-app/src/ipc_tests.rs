@@ -1441,6 +1441,49 @@ fn the_shell_opens_a_view_in_the_theme() {
 }
 
 #[test]
+fn a_deleted_game_leaves_the_list_at_once_not_when_the_disk_is_read_again() {
+    let h = Harness::new(&[]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let names = |h: &Harness| -> Vec<String> {
+        h.call("nav_browse", json!({ "view": "systems", "path": ["nes"] }))
+            .unwrap()["listing"]["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|g| g["name"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let mario = h
+        .call("nav_browse", json!({ "view": "systems", "path": ["nes"] }))
+        .unwrap()["listing"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["name"] == "Super Mario Bros.")
+        .unwrap()["id"]
+        .as_i64()
+        .unwrap();
+    let told = Arc::new(Mutex::new(Vec::new()));
+    let seen = told.clone();
+    h.window
+        .listen_any(crate::commands::EVENT_LIBRARY_CHANGED, move |e| {
+            seen.lock().unwrap().push(e.payload().to_owned());
+        });
+    h.call_as_shell(token, "library_delete_game", json!({ "id": mario }))
+        .unwrap();
+    // No refresh yet: the watcher's would come seconds later.
+    assert!(!names(&h).contains(&"Super Mario Bros.".to_owned()));
+    assert_eq!(told.lock().unwrap().as_slice(), [r#"{"systems":["nes"]}"#]);
+    // A second delete of it, the list not reloaded yet: told so, nothing else touched.
+    assert!(
+        h.call_as_shell(token, "library_delete_game", json!({ "id": mario }))
+            .is_err()
+    );
+}
+
+#[test]
 fn deleting_the_one_game_a_filter_kept_shows_every_game_from_the_one_beside_it() {
     let h = Harness::new(&[]);
     h.state().shell.new_page();
