@@ -163,6 +163,7 @@ mod tests {
                 headerless: None,
             },
             ra: None,
+            playlist: None,
         }
     }
 
