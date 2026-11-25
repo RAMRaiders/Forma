@@ -270,11 +270,13 @@ fn a_library_from_before_the_new_tags_reads_its_gamelists_again_once() {
         let report = lib.refresh(&fixture_paths()).unwrap();
         assert_eq!(report.gamelists_imported, 3);
     }
-    // As a database from before the last two migrations was left (they add a column and a
-    // table, so those are taken away too, as they were).
+    // As a database from before the last three migrations was left (they add a column and
+    // two tables, so those are taken away too, as they were).
     let conn = Connection::open(&path).unwrap();
-    conn.execute_batch("ALTER TABLE game DROP COLUMN age_rating; DROP TABLE game_dump;")
-        .unwrap();
+    conn.execute_batch(
+        "ALTER TABLE game DROP COLUMN age_rating; DROP TABLE game_dump; DROP TABLE game_disc;",
+    )
+    .unwrap();
     conn.pragma_update(None, "user_version", 8).unwrap();
     drop(conn);
 
@@ -730,4 +732,44 @@ fn a_playlist_without_a_region_takes_its_discs_unless_something_else_gives_one()
         Some("jp"),
         "the gamelist's wins"
     );
+}
+
+#[test]
+fn a_playlists_discs_are_kept_in_its_order_and_follow_it() {
+    let (_dir, paths) = fixture_copy();
+    let psx = paths.roms().join("psx");
+    for name in ["Alice (USA) (Disc 1).cue", "Alice (USA) (Disc 2).cue"] {
+        std::fs::write(psx.join(name), b"").unwrap();
+    }
+    let playlist = psx.join("Alice.m3u");
+    std::fs::write(
+        &playlist,
+        "Alice (USA) (Disc 2).cue\nAlice (USA) (Disc 1).cue\n",
+    )
+    .unwrap();
+    let mut lib = Library::open_in_memory().unwrap();
+    lib.refresh(&paths).unwrap();
+    let discs = |lib: &Library| by_name(&lib.games("psx").unwrap(), "Alice").discs.clone();
+    assert_eq!(
+        discs(&lib),
+        ["Alice (USA) (Disc 2).cue", "Alice (USA) (Disc 1).cue"],
+        "as the playlist lists them"
+    );
+    assert_eq!(
+        by_name(&lib.games("psx").unwrap(), "Final Fantasy VII").discs,
+        [
+            "Final Fantasy VII/Final Fantasy VII (Disc 1).cue",
+            "Final Fantasy VII/Final Fantasy VII (Disc 2).cue"
+        ],
+        "relative to the system's folder, a playlist's in a folder too"
+    );
+    let nes = lib.games("nes").unwrap();
+    assert!(
+        nes.iter().all(|g| g.discs.is_empty()),
+        "none for a cartridge"
+    );
+
+    std::fs::write(&playlist, "Alice (USA) (Disc 1).cue\n").unwrap();
+    lib.refresh(&paths).unwrap();
+    assert_eq!(discs(&lib), ["Alice (USA) (Disc 1).cue"]);
 }
