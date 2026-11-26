@@ -12,10 +12,12 @@ mod names;
 mod recommend;
 mod refresh;
 mod schema;
+mod users;
 mod versions;
 
 pub use dumps::DumpReport;
 pub use names::{DEFAULT_PREFIXES, NAME_STYLE_SETTING, NameRule, NameStyle};
+pub use users::{ADMIN, CURRENT_USER_SETTING, User};
 pub use versions::{GameVersion, VersionGroup};
 
 use std::collections::{BTreeMap, HashSet};
@@ -34,14 +36,14 @@ pub use collections::Collection;
 pub use computed::RaMatch;
 pub use refresh::RefreshReport;
 
-/// Where a field value came from. A higher variant wins.
+/// Where a field value came from. A higher variant wins; above them all, the values of the user
+/// playing (`user_field`, users.rs). 3 was the user's own before there were users.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Source {
     /// Worked out by Forma: RetroAchievements hashes and matches.
     Forma = 0,
     Gamelist = 1,
     Import = 2,
-    User = 3,
 }
 
 pub struct Library {
@@ -292,20 +294,7 @@ impl Library {
 
     /// Records the user's choice, which outranks anything a gamelist or import says.
     pub fn set_favorite(&mut self, id: i64, favorite: bool) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        tx.execute(
-            "INSERT INTO game_field (game_id, field, source, value) VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT (game_id, field, source) DO UPDATE SET value = excluded.value",
-            params![
-                id,
-                field::FAVORITE,
-                Source::User as i64,
-                if favorite { "1" } else { "0" }
-            ],
-        )?;
-        materialise(&tx, &[id], &[])?;
-        tx.commit()?;
-        Ok(())
+        self.set_user_field(id, field::FAVORITE, Some(if favorite { "1" } else { "0" }))
     }
 
     /// Game `id`'s file was deleted: out of the lists at once, as the next refresh would have it
@@ -346,10 +335,10 @@ impl Library {
         )?;
         let seconds = i64::try_from(played.as_secs()).unwrap_or(i64::MAX);
         let mut set = tx.prepare_cached(
-            "INSERT INTO game_field (game_id, field, source, value) VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT (game_id, field, source) DO UPDATE SET value = excluded.value",
+            "INSERT INTO user_field (game_id, field, user_id, value) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT (user_id, game_id, field) DO UPDATE SET value = excluded.value",
         )?;
-        let user = Source::User as i64;
+        let (user, _) = users::current(&tx)?;
         set.execute(params![
             id,
             field::PLAY_COUNT,
@@ -381,7 +370,10 @@ impl Library {
     /// The re-import this causes through the watcher is harmless: the values came from the
     /// user's own fields, which outrank the gamelist, and only a change made in Forma writes.
     pub fn write_back_to_gamelist(&self, paths: &Paths, id: i64) -> Result<bool> {
-        if self.setting(GAMELIST_WRITE_BACK_SETTING)?.as_deref() != Some("true") {
+        // EmulationStation's files have one favourite and one history: the admin's.
+        if self.setting(GAMELIST_WRITE_BACK_SETTING)?.as_deref() != Some("true")
+            || !users::current(&self.conn)?.1
+        {
             return Ok(false);
         }
         let Some((game, system)) = self.launch_target(id)? else {
@@ -543,6 +535,10 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
     let mut fields = tx.prepare_cached(
         "SELECT field, value FROM game_field WHERE game_id = ?1 ORDER BY source DESC",
     )?;
+    let (user, admin) = users::current(tx)?;
+    let mut own = tx.prepare_cached(
+        "SELECT field, value FROM user_field WHERE user_id = ?1 AND game_id = ?2",
+    )?;
     let names = NameRule::load(
         tx.query_row(
             "SELECT value FROM setting WHERE key = ?1",
@@ -577,6 +573,19 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
         for row in fields.query_map([id], |r| Ok((r.get::<_, String>(0)?, r.get(1)?)))? {
             let (key, value) = row?;
             won.entry(key).or_insert(value);
+        }
+        // Another user's history and favourites are theirs alone, not the gamelist's (the
+        // admin's); then the user's own values, over everything.
+        if !admin {
+            for key in users::PER_USER {
+                won.remove(key);
+            }
+        }
+        for row in own.query_map(params![user, id], |r| {
+            Ok((r.get::<_, String>(0)?, r.get(1)?))
+        })? {
+            let (key, value) = row?;
+            won.insert(key, value);
         }
         let Some((path, old_text)) = current
             .query_row([id], |r| {
@@ -626,7 +635,8 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
             get(field::RATING).and_then(|r| r.parse::<f64>().ok()),
             get(field::REGION),
             get(field::LANG),
-            flag(field::HIDDEN),
+            // Hidden from everyone (the pool's), or taken off this user's list.
+            flag(field::HIDDEN) || flag(field::REMOVED),
             flag(field::FAVORITE),
             get(field::PLAY_COUNT)
                 .and_then(|n| n.parse::<i64>().ok())

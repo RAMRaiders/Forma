@@ -721,6 +721,26 @@ export interface MediaChanged {
   game: number;
 }
 
+/**
+ * Someone who plays on this box (#301). The first, the admin, owns the library (the pool) and
+ * Forma's settings; each user has their own favourites, play history, list, saves and
+ * RetroAchievements and netplay accounts. Since 1.45.0.
+ */
+export interface User {
+  id: number;
+  name: string;
+  /** May change the library, Forma and its users. */
+  admin: boolean;
+  /** Entering as them asks for a PIN. */
+  pin: boolean;
+}
+
+/** The users, the admin first, and the one in. Since 1.45.0. */
+export interface Users {
+  users: User[];
+  current: User;
+}
+
 export interface EventMap {
   /** The user picked a view in Forma's views list (Select): show it. */
   'nav:open': NavOpen;
@@ -762,6 +782,11 @@ export interface EventMap {
    */
   'ra:unlocked': RaSession;
   'library:changed': LibraryChanged;
+  /**
+   * Another user entered (or the one in was removed): who is in now. `library:changed` follows
+   * for every system, as games' favourites, history and lists are theirs. Since 1.45.0.
+   */
+  'users:changed': User;
   /**
    * A game's pictures were replaced, often under the same file names: `library.mediaUrl` has
    * new URLs for it from now on, so draw again whatever shows it. Sent after a pick is saved

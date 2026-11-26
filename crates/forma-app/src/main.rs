@@ -24,6 +24,7 @@ mod status;
 mod store;
 mod system_settings;
 mod updates;
+mod users;
 
 #[cfg(test)]
 mod ipc_tests;
@@ -152,6 +153,14 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         shell::shell_screensaver,
         shell::shell_started,
         status::status_get,
+        users::users_list,
+        users::users_enter,
+        users::users_add,
+        users::users_rename,
+        users::users_remove,
+        users::users_set_pin,
+        users::library_set_listed,
+        users::library_unlisted,
         shell::shell_set_context,
         shell::shell_info,
         shell::shell_set_theme_setting,

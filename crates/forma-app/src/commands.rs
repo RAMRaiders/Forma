@@ -297,6 +297,7 @@ pub async fn library_delete_game<R: Runtime>(
     let events = app.clone();
     let (deleted_from, beside) = off_thread(app, move |state| {
         caller.shell_only()?;
+        crate::users::require_admin(state)?;
         let (game, system) = state
             .library()
             .launch_target(id)?
@@ -563,6 +564,7 @@ pub fn nav_default_view(state: State<'_, AppState>) -> ApiResult<DefaultView> {
 /// Sets the view Forma opens with. Any theme may: it is the user's choice, made in the UI.
 #[tauri::command]
 pub fn nav_set_default_view(state: State<'_, AppState>, id: Option<String>) -> ApiResult<()> {
+    crate::users::require_admin(&state)?;
     if let Some(id) = &id
         && state.views().get(id).is_none()
     {
@@ -608,6 +610,10 @@ pub fn settings_set<R: Runtime>(
 ) -> ApiResult<()> {
     let scope = scope.unwrap_or(Scope::Theme);
     let stored = permissions::setting_key(&theme(&state)?, scope, &key, caller.shell)?;
+    // Forma's settings are the admin's, but for the user's own RetroAchievements account.
+    if scope == Scope::System && !crate::users::OWN_SETTINGS.contains(&stored.as_str()) {
+        crate::users::require_admin(&state)?;
+    }
     let json = value.as_ref().map(Value::to_string);
     state.library().set_setting(&stored, json.as_deref())?;
     if stored == crate::music::VIDEO_SOUND_SETTING {
@@ -763,6 +769,7 @@ pub fn themes_select<R: Runtime>(
     state: State<'_, AppState>,
     id: String,
 ) -> ApiResult<()> {
+    crate::users::require_admin(&state)?;
     let theme = state.available_theme(&id).ok_or_else(|| {
         ApiError::new(
             ErrorCode::NotFound,

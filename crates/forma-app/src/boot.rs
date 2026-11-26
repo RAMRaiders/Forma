@@ -109,6 +109,9 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         theme_ready: AtomicBool::new(false),
         ready_file: std::env::var_os("FORMA_READY_FILE").map(PathBuf::from),
         on_batocera: Path::new(BATOCERA_VERSION_FILE).is_file(),
+        saves: Path::new(BATOCERA_VERSION_FILE).is_file().then(|| {
+            forma_core::saves::UserSaves::new(Box::new(SystemShell), &paths.userdata.join("saves"))
+        }),
         see_through: Path::new(BATOCERA_VERSION_FILE).is_file() && crate::splash::drawn(),
         input: Mutex::new(None),
         shell: crate::shell::ShellState::default(),
@@ -118,6 +121,8 @@ pub fn start(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         paths: paths.clone(),
     });
     let state = app.state::<AppState>();
+    // The saves of the user who was in last, before anything can be launched.
+    crate::users::restore(&state);
     // Batocera's BIOS list read now, off the UI: the first launch need not wait for it.
     let handle = app.handle().clone();
     std::thread::spawn(move || {

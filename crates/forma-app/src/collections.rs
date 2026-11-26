@@ -27,6 +27,7 @@ pub async fn collections_of<R: Runtime>(app: AppHandle<R>, game_id: i64) -> ApiR
 #[tauri::command]
 pub fn collections_create<R: Runtime>(app: AppHandle<R>, name: String) -> ApiResult<String> {
     let state = app.state::<AppState>();
+    crate::users::require_admin(&state)?;
     let name = state.library().create_collection(&state.paths, &name)?;
     changed(&app, None);
     Ok(name)
@@ -35,6 +36,7 @@ pub fn collections_create<R: Runtime>(app: AppHandle<R>, name: String) -> ApiRes
 #[tauri::command]
 pub fn collections_delete<R: Runtime>(app: AppHandle<R>, name: String) -> ApiResult<()> {
     let state = app.state::<AppState>();
+    crate::users::require_admin(&state)?;
     state.library().delete_collection(&state.paths, &name)?;
     changed(&app, None);
     Ok(())
@@ -49,6 +51,7 @@ pub fn collections_set<R: Runtime>(
     member: bool,
 ) -> ApiResult<()> {
     let state = app.state::<AppState>();
+    crate::users::require_admin(&state)?;
     let system = {
         let mut lib = state.library();
         lib.set_in_collection(&state.paths, &name, game_id, member)?;

@@ -342,6 +342,31 @@ A scraper add-on's settings are also its credentials in `scraper` (`scraperSourc
 there). A `music` add-on's stations are web radios in `music.sources()`, with ids
 `addon:<id>:<url>`.
 
+## `users`
+
+Who plays on this box (since 1.45.0). The first user, the admin, owns the library (the pool)
+and Forma's settings. Each user has their own favourites, play history, list, saves and
+RetroAchievements and netplay accounts; every game a theme reads (`favorite`, `playCount`,
+`hidden`…) is the user in's already, so a theme needs nothing of its own for users.
+
+| Method             | Does                                                                     |
+| ------------------ | ------------------------------------------------------------------------ |
+| `list()`           | `{ users, current }`: every user (the admin first) and the one in        |
+| `enter(id, pin)`   | Enters as a user (Forma's menu only); the admin's PIN when set           |
+| `add(name)`        | A new user, their list the whole pool (Forma's menu, the admin only)     |
+| `rename(id, name)` | Renames a user, the admin too (Forma's menu, the admin only)             |
+| `remove(id)`       | Removes a user with their favourites, history and list (not their saves) |
+| `setPin(pin)`      | The admin's PIN, 4 to 8 digits; `null` takes it off (the admin only)     |
+
+`users:changed` carries the user in after another enters, and `library:changed` follows for
+every system. `library.setListed(id, listed)` takes a game off the user's list (hidden for them
+alone) or puts it back; `library.unlisted(system)` lists those to put back.
+
+A user who is not the admin may only shut down and restart, and set up netplay and
+RetroAchievements: anything else that needs a permission is refused to them, whatever the theme
+declares, and so are deleting games, choosing the theme or its settings, collections and
+Forma's own settings.
+
 ## `scraper`
 
 Forma's scraper: details and media for games from ScreenScraper, TheGamesDB, IGDB, MobyGames,
@@ -358,6 +383,12 @@ SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation wr
 | `status()`                                             | The run going on, or the last one                                                                 |
 | `stop()`                                               | Stops after the game it is on                                                                     |
 | `turnMedia(id, kind)`                                  | Turns a game's picture half round, in place (a spine scanned upside down). Since 1.42.0           |
+
+`nameStyle` (since 1.44.0) is how games' names are shown and sorted: `asGiven`, `articleLast`
+(`Legend of Zelda, The`) or `subjectFirst` (a leading phrase of `namePrefixes`, else an
+article, moved to the end: `Batman & Robin, The Adventures of`). The name as given is kept, so
+`asGiven` restores every name; `configure` with either sends `library:changed` for every
+system, as each game's `name` changes.
 
 `nameStyle` (since 1.44.0) is how games' names are shown and sorted: `asGiven`, `articleLast`
 (`Legend of Zelda, The`) or `subjectFirst` (a leading phrase of `namePrefixes`, else an

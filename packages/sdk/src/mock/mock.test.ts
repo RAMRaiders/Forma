@@ -14,6 +14,8 @@ import type {
   Fetched,
   ScraperSettings,
   ScraperStatus,
+  User,
+  Users,
   WifiNetwork
 } from '../types.js';
 import { mockBackend } from './backend.js';
@@ -570,5 +572,29 @@ describe('mock backend', () => {
     await expect(b.invoke('addons_page', { id: 'web-radios', path: [] })).rejects.toMatchObject({
       code: 'invalid'
     });
+  });
+
+  it('has users: the admin adds one, who has their own list', async () => {
+    const b = mockBackend();
+    const list = () => b.invoke<Users>('users_list');
+    expect((await list()).current).toMatchObject({ id: 1, admin: true, pin: false });
+    const ann = await b.invoke<User>('users_add', { name: 'Ann' });
+    await b.invoke('users_set_pin', { pin: '2468' });
+    await b.invoke('users_enter', { id: ann.id });
+    await expect(b.invoke('users_add', { name: 'Bob' })).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    const nes = await browse(b, 'systems', ['nes']);
+    const total = nes.listing.kind === 'games' ? nes.listing.total : 0;
+    const first = nes.listing.kind === 'games' ? nes.listing.items[0]! : null;
+    await b.invoke('library_set_listed', { id: first!.id, listed: false });
+    const after = await browse(b, 'systems', ['nes']);
+    expect(after.listing.kind === 'games' && after.listing.total).toBe(total - 1);
+    const off = await b.invoke<Game[]>('library_unlisted', { system: 'nes' });
+    expect(off.map((g) => g.id)).toEqual([first!.id]);
+    await expect(b.invoke('users_enter', { id: 1 })).rejects.toMatchObject({
+      code: 'permissionDenied'
+    });
+    expect((await b.invoke<User>('users_enter', { id: 1, pin: '2468' })).admin).toBe(true);
   });
 });

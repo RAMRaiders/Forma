@@ -110,6 +110,7 @@ impl Harness {
             theme_ready: AtomicBool::new(false),
             ready_file: Some(root.join("forma.ready")),
             on_batocera: false,
+            saves: None,
             see_through: false,
             input: Mutex::new(None),
             shell: crate::shell::ShellState::default(),
@@ -1825,5 +1826,93 @@ fn the_dump_check_reports_systems_a_catalogue_covers_and_can_be_turned_off() {
     assert_eq!(
         h.call("library_dump_checks", json!({})).unwrap()["on"],
         false
+    );
+}
+
+#[test]
+fn the_admin_adds_users_and_a_user_may_not_do_what_is_the_admins() {
+    let h = Harness::new(&["scraper.manage"]);
+    h.state().shell.new_page();
+    let token = h.call("shell_claim", json!({})).unwrap();
+    let token = token.as_str().unwrap();
+    let shell = |cmd: &str, args: Value| h.call_as_shell(token, cmd, args);
+
+    let users = h.call("users_list", json!({})).unwrap();
+    assert_eq!(users["current"]["admin"], true);
+    // A theme may not add a user, only Forma's menu.
+    assert_eq!(
+        code(&h.call("users_add", json!({ "name": "Ann" })).unwrap_err()),
+        "permissionDenied"
+    );
+    let ann = shell("users_add", json!({ "name": "Ann" })).unwrap();
+    let ann = ann["id"].as_i64().unwrap();
+    shell("users_set_pin", json!({ "pin": "2468" })).unwrap();
+    assert!(h.call("scraper_settings", json!({})).is_ok());
+
+    let entered = shell("users_enter", json!({ "id": ann })).unwrap();
+    assert_eq!(entered["name"], "Ann");
+    // The scraper, Forma's settings and users are the admin's.
+    for (cmd, args) in [
+        ("scraper_settings", json!({})),
+        ("users_add", json!({ "name": "Bob" })),
+        ("users_set_pin", json!({ "pin": null })),
+        (
+            "settings_set",
+            json!({ "key": "library.gamelistWriteBack", "value": true, "scope": "system" }),
+        ),
+    ] {
+        assert_eq!(
+            code(&shell(cmd, args).unwrap_err()),
+            "permissionDenied",
+            "{cmd}"
+        );
+    }
+    assert_eq!(
+        code(&h.call("scraper_settings", json!({})).unwrap_err()),
+        "permissionDenied",
+        "a theme neither, whatever it declares"
+    );
+    // Their own RetroAchievements account is theirs to set.
+    shell(
+        "settings_set",
+        json!({ "key": "ra.username", "value": "ann", "scope": "system" }),
+    )
+    .unwrap();
+
+    // Their list: a game taken off it, and back.
+    let nes = || {
+        h.call("nav_browse", json!({ "view": "systems", "path": ["nes"] }))
+            .unwrap()["listing"]["total"]
+            .as_i64()
+            .unwrap()
+    };
+    let before = nes();
+    let game = h
+        .call("nav_browse", json!({ "view": "systems", "path": ["nes"] }))
+        .unwrap()["listing"]["items"][0]["id"]
+        .as_i64()
+        .unwrap();
+    h.call("library_set_listed", json!({ "id": game, "listed": false }))
+        .unwrap();
+    assert_eq!(nes(), before - 1);
+    let off = h
+        .call("library_unlisted", json!({ "system": "nes" }))
+        .unwrap();
+    assert_eq!(off[0]["id"], game);
+
+    // The admin's PIN is asked.
+    assert_eq!(
+        code(&shell("users_enter", json!({ "id": 1 })).unwrap_err()),
+        "permissionDenied"
+    );
+    shell("users_enter", json!({ "id": 1, "pin": "2468" })).unwrap();
+    assert_eq!(nes(), before, "the admin's pool is whole");
+    shell("users_remove", json!({ "id": ann })).unwrap();
+    assert_eq!(
+        h.call("users_list", json!({})).unwrap()["users"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
     );
 }

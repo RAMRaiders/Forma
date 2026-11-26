@@ -31,6 +31,14 @@ const SOUNDS_DIR: &str = "/usr/share/libretro/assets/sounds";
 /// Batocera's netplay relays, as ES offers them (RetroArch's `netplay_mitm_server` ids).
 const RELAYS: &[&str] = &["none", "nyc", "madrid", "montreal", "saopaulo", "custom"];
 
+/// The keys that are each user's own (#301).
+pub const ACCOUNT_KEYS: [&str; 4] = [
+    "global.retroachievements.username",
+    "global.retroachievements.password",
+    "global.retroachievements.token",
+    "global.netplay.nickname",
+];
+
 const KEYS: &[(&str, Kind)] = &[
     ("global.retroachievements", Kind::Bool),
     ("global.retroachievements.username", Kind::Text),
@@ -110,6 +118,31 @@ impl BatoceraSettings {
                 }
             })
             .collect()
+    }
+
+    /// The accounts that are each user's own (#301), as they are saved: RetroAchievements' (its
+    /// session token too) and the netplay nickname. Empty when not set.
+    pub fn accounts(&self) -> Vec<(&'static str, String)> {
+        let conf = batocera_conf(&self.conf);
+        ACCOUNT_KEYS
+            .iter()
+            .map(|&key| (key, conf.get(key).cloned().unwrap_or_default()))
+            .collect()
+    }
+
+    /// Saves a user's accounts as [`Self::accounts`] gave them; a key left out is cleared.
+    pub fn set_accounts(&self, accounts: &[(&str, &str)]) -> Result<()> {
+        let pairs: Vec<(&str, &str)> = ACCOUNT_KEYS
+            .iter()
+            .map(|&key| {
+                let value = accounts
+                    .iter()
+                    .find(|(k, _)| *k == key)
+                    .map_or("", |(_, v)| *v);
+                (key, value)
+            })
+            .collect();
+        self.write(&pairs)
     }
 
     /// Sets one setting. An empty value clears it (Batocera has no "remove").
@@ -439,5 +472,36 @@ mod tests {
     fn query_values_are_percent_encoded() {
         assert_eq!(encode("a b&c=d/é"), "a%20b%26c%3Dd%2F%C3%A9");
         assert_eq!(encode("Az09-_.~"), "Az09-_.~");
+    }
+
+    #[test]
+    fn a_users_accounts_are_read_and_saved_whole() {
+        let (ran, settings, _dir) = setup();
+        let accounts = settings.accounts();
+        assert_eq!(
+            accounts,
+            [
+                ("global.retroachievements.username", "crazyamon".to_owned()),
+                ("global.retroachievements.password", "hunter2".to_owned()),
+                ("global.retroachievements.token", String::new()),
+                ("global.netplay.nickname", String::new()),
+            ]
+        );
+        settings
+            .set_accounts(&[("global.netplay.nickname", "ann")])
+            .unwrap();
+        assert_eq!(
+            *ran.0.lock().unwrap(),
+            [[
+                "global.retroachievements.username",
+                "",
+                "global.retroachievements.password",
+                "",
+                "global.retroachievements.token",
+                "",
+                "global.netplay.nickname",
+                "ann"
+            ]]
+        );
     }
 }

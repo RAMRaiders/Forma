@@ -87,6 +87,8 @@ function start(): void {
         shell.playing = false;
       });
       listenToKeyboard(shell);
+      // More than the admin: who plays, before anything else.
+      shell.askWho().catch(() => {});
     })
     .catch((error: unknown) => {
       // Someone claimed the page before us: Forma's menus stay away rather than run unproven.
