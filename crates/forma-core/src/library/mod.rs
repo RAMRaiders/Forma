@@ -8,12 +8,14 @@ mod collections;
 mod computed;
 mod dumps;
 mod imports;
+mod names;
 mod recommend;
 mod refresh;
 mod schema;
 mod versions;
 
 pub use dumps::DumpReport;
+pub use names::{DEFAULT_PREFIXES, NAME_STYLE_SETTING, NameRule, NameStyle};
 pub use versions::{GameVersion, VersionGroup};
 
 use std::collections::{BTreeMap, HashSet};
@@ -66,7 +68,12 @@ pub struct Game {
     pub id: i64,
     pub system: String,
     pub path: String,
+    /// Its name as shown and sorted: in the user's [`NameRule`].
     pub name: String,
+    /// Its name as the gamelist, the scraper or the user gave it, before the [`NameRule`]: what
+    /// the scraper searches with and writes back.
+    #[serde(skip)]
+    pub given_name: String,
     pub description: Option<String>,
     pub developer: Option<String>,
     pub publisher: Option<String>,
@@ -116,7 +123,9 @@ pub struct Dump {
 
 pub(crate) const GAME_COLUMNS: &str = "g.id, g.system, g.path, g.name, g.description, g.developer, \
      g.publisher, g.genre, g.players, g.release_date, g.rating, g.favorite, g.hidden, \
-     g.play_count, g.last_played, g.ra_game_id, g.game_time, g.region, g.lang, g.age_rating";
+     g.play_count, g.last_played, g.ra_game_id, g.game_time, g.region, g.lang, g.age_rating, \
+     COALESCE((SELECT f.value FROM game_field f WHERE f.game_id = g.id AND f.field = 'name' \
+               ORDER BY f.source DESC LIMIT 1), g.name)";
 
 /// A game's id, name and file: all a whole system's list needs when nothing else is read.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -383,7 +392,7 @@ impl Library {
             paths,
             Path::new(&game.path),
             &crate::gamelist::PlayStats {
-                name: &game.name,
+                name: &game.given_name,
                 favorite: game.favorite,
                 play_count: game.play_count,
                 last_played: game.last_played.as_deref(),
@@ -410,6 +419,29 @@ impl Library {
                 Ok(text) => text,
                 Err(_) => raw,
             }))
+    }
+
+    /// How games' names are shown and sorted ([`NAME_STYLE_SETTING`]).
+    pub fn name_rule(&self) -> Result<NameRule> {
+        Ok(NameRule::load(self.setting(NAME_STYLE_SETTING)?.as_deref()))
+    }
+
+    /// Shows and sorts every game's name in `rule` from now on: each game is worked out again.
+    pub fn set_name_rule(&mut self, rule: &NameRule) -> Result<()> {
+        let raw = serde_json::to_string(rule).map_err(|e| Error::Invalid(e.to_string()))?;
+        let tx = self.conn.transaction()?;
+        tx.execute(
+            "INSERT INTO setting (key, value) VALUES (?1, ?2)
+             ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            params![NAME_STYLE_SETTING, raw],
+        )?;
+        let ids: Vec<i64> = tx
+            .prepare("SELECT id FROM game")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        materialise(&tx, &ids, &[])?;
+        tx.commit()?;
+        Ok(())
     }
 
     /// Sets a Forma setting; `None` clears it.
@@ -456,6 +488,7 @@ impl Library {
                     region: r.get(17)?,
                     lang: r.get(18)?,
                     age_rating: r.get(19)?,
+                    given_name: r.get(20)?,
                     iconic: false,
                     media: BTreeMap::new(),
                     dump: None,
@@ -464,7 +497,7 @@ impl Library {
             })?
             .collect::<rusqlite::Result<_>>()?;
         for game in &mut games {
-            game.iconic = crate::iconic::is_iconic(&game.system, &game.name, &game.path);
+            game.iconic = crate::iconic::is_iconic(&game.system, &game.given_name, &game.path);
         }
 
         let mut media = self
@@ -510,6 +543,15 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
     let mut fields = tx.prepare_cached(
         "SELECT field, value FROM game_field WHERE game_id = ?1 ORDER BY source DESC",
     )?;
+    let names = NameRule::load(
+        tx.query_row(
+            "SELECT value FROM setting WHERE key = ?1",
+            [NAME_STYLE_SETTING],
+            |r| r.get::<_, String>(0),
+        )
+        .optional()?
+        .as_deref(),
+    );
     let mut current = tx.prepare_cached(
         "SELECT path, name, description, developer, publisher FROM game WHERE id = ?1",
     )?;
@@ -548,7 +590,8 @@ fn materialise(tx: &Transaction<'_>, ids: &[i64], fresh: &[i64]) -> Result<()> {
 
         let get = |key: &str| won.get(key).cloned();
         let flag = |key: &str| won.get(key).is_some_and(|v| v == "1");
-        let name = get(field::NAME).unwrap_or_else(|| default_name(&path));
+        // In the user's style; the file's name (no name found yet) as it is.
+        let name = get(field::NAME).map_or_else(|| default_name(&path), |n| names.apply(&n));
         let players = get(field::PLAYERS);
         let max_players = players.as_deref().and_then(players_max);
         let release_date = get(field::RELEASE_DATE);

@@ -142,7 +142,7 @@ fn found_text(found: &Metadata, field: &str) -> Option<String> {
 fn game_text(game: &Game, stem: &str, field: &str) -> Option<String> {
     match field {
         // A name that is only the file's is no name yet.
-        "name" => Some(game.name.clone()).filter(|n| n != stem),
+        "name" => Some(game.given_name.clone()).filter(|n| n != stem),
         "description" => game.description.clone(),
         "developer" => game.developer.clone(),
         "publisher" => game.publisher.clone(),
@@ -179,7 +179,7 @@ pub fn gather(
         .ok()
         .filter(std::fs::Metadata::is_file)
         .map_or(0, |m| m.len());
-    let name = super::text::search_name(&game.name);
+    let name = super::text::search_name(&game.given_name);
     // Backups and manuals too (even with manuals off): here the user sees each and chooses.
     let mut kinds = config.theme_media();
     kinds.extend(config.needs.backups.iter().map(|(b, _)| *b));
@@ -432,7 +432,7 @@ pub fn apply(
         }
     }
     if !tags.is_empty() {
-        set_tags(&system.rom_path, paths, rom, &game.name, &tags)?;
+        set_tags(&system.rom_path, paths, rom, &game.given_name, &tags)?;
     }
     Ok(problems)
 }
@@ -475,7 +475,7 @@ pub fn remove_media(
             &system.rom_path,
             paths,
             Path::new(&game.path),
-            &game.name,
+            &game.given_name,
             &tags,
         )?;
     }
@@ -540,7 +540,7 @@ pub fn edit(
             &system.rom_path,
             paths,
             Path::new(&game.path),
-            &game.name,
+            &game.given_name,
             &tags,
         )
         .map_err(|e| e.to_string())?;

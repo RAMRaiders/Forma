@@ -42,6 +42,7 @@ import type {
   CatalogueAddon,
   ScrapeScope,
   ScraperOffers,
+  NameStyle,
   ScraperSettings,
   ScraperStatus,
   ThemeCatalogue,
@@ -451,6 +452,10 @@ export class Forma {
         regions?: string[];
         /** Since 1.37.0. */
         manuals?: boolean;
+        /** Since 1.44.0. Every game's name is shown and sorted anew; `library:changed` follows. */
+        nameStyle?: NameStyle;
+        /** Since 1.44.0. */
+        namePrefixes?: string[];
       }) => invoke<ScraperSettings>('scraper_configure', changes),
       /** Sets one of a source's credentials; `null` clears it. */
       setCredential: (source: string, key: string, value: string | null) =>

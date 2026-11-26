@@ -108,6 +108,7 @@ pub(super) fn game(path: &str, name: &str) -> Game {
         system: "snes".into(),
         path: path.into(),
         name: name.into(),
+        given_name: name.into(),
         description: None,
         developer: None,
         publisher: None,
@@ -287,6 +288,7 @@ fn fills_only_what_is_missing_and_stops_asking_once_done() {
     let sources: Vec<Box<dyn Source>> = vec![first, second];
     let mut g = game("Game.sfc", "Game");
     g.name = "A Game".into();
+    g.given_name = g.name.clone();
     g.description = Some("Mine".into());
     g.media
         .insert("thumbnail".into(), box_png.to_string_lossy().into_owned());

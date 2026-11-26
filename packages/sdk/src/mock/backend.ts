@@ -12,6 +12,7 @@ import type {
   AddonInfo,
   AddonPage,
   AddonRow,
+  NameStyle,
   CatalogueAddon,
   BluetoothDevice,
   MediaKind,
@@ -465,6 +466,15 @@ export function mockBackend(options: MockOptions = {}): Backend {
   ];
   let scraperRegions = ['World', 'USA', 'Europe'];
   let scraperManuals = true;
+  let nameStyle: NameStyle = 'asGiven';
+  let namePrefixes = [
+    'The Adventures of',
+    'The New Adventures of',
+    'The Legend of',
+    'Adventures of',
+    'Legend of',
+    "Disney's"
+  ];
   const scraperCredentials = new Map<string, Map<string, string>>();
   let scraperStatus: ScraperStatus = {
     running: false,
@@ -524,6 +534,8 @@ export function mockBackend(options: MockOptions = {}): Backend {
     // The usual kinds, the theme saying nothing of what it draws, then what it asks for.
     media: ['thumbnail', 'image', 'marquee', 'wheel', 'video', 'boxside'],
     manuals: scraperManuals,
+    nameStyle,
+    namePrefixes,
     mediaKinds: kindLabels.map(([kind, label]) => ({ kind, label })),
     replace: scraperReplace,
     skipScraped: scraperSkip,
@@ -1113,7 +1125,16 @@ export function mockBackend(options: MockOptions = {}): Backend {
       scraperAllowed();
       return scraperSettings();
     },
-    scraper_configure: ({ sources, replace, skipScraped, ownRegion, regions, manuals }) => {
+    scraper_configure: ({
+      sources,
+      replace,
+      skipScraped,
+      ownRegion,
+      regions,
+      manuals,
+      nameStyle: style,
+      namePrefixes: prefixes
+    }) => {
       scraperAllowed();
       if (Array.isArray(sources)) {
         const given = (sources as { id: string; enabled: boolean }[]).filter((c) =>
@@ -1128,6 +1149,10 @@ export function mockBackend(options: MockOptions = {}): Backend {
       if (typeof skipScraped === 'boolean') scraperSkip = skipScraped;
       if (typeof ownRegion === 'boolean') scraperOwnRegion = ownRegion;
       if (typeof manuals === 'boolean') scraperManuals = manuals;
+      if (style === 'asGiven' || style === 'articleLast' || style === 'subjectFirst') {
+        nameStyle = style;
+      }
+      if (Array.isArray(prefixes)) namePrefixes = (prefixes as string[]).map(String);
       if (Array.isArray(regions)) {
         scraperRegions = (regions as string[]).filter((r) => allRegions.includes(r));
       }
