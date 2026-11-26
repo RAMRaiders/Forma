@@ -16,6 +16,7 @@ import { deleteGameRow, gameRows } from './gamedata.js';
 import { emulatorScreen } from './shader.js';
 import { hostRow, playRows } from './netplay.js';
 import { type Page, type Row, onOff } from './page.js';
+import { unlistRow } from './users.js';
 import { catalogueScreen, themeScreen } from './themes.js';
 
 /** Music: what plays, the controls, and everything there is to play. */
@@ -692,12 +693,14 @@ export function gamesScreen(
   game: { id: number; name: string } | null,
   views?: () => void,
   close: () => void = () => page.close(),
-  look?: GameLook
+  look?: GameLook,
+  /** The admin in: the game's details, settings and file are theirs to change (#301). */
+  admin = true
 ): () => Promise<Row[]> {
   // Its siblings do not change while the page is open: asked once, not at every redraw.
   let siblings: Promise<number[]> | undefined;
   return async () => {
-    const rows: Row[] = game ? gameRows(forma, page, game) : [];
+    const rows: Row[] = game && admin ? gameRows(forma, page, game) : [];
     // Everything the page reads, asked at once: it opens as soon as the slowest answers.
     const [same, full, filter, own, netplay] = await Promise.all([
       game ? (siblings ??= sameGame(forma, game.id)) : [],
@@ -754,9 +757,10 @@ export function gamesScreen(
         run: () => page.push('Filter list', filterScreen(forma, page))
       });
     }
-    if (own) rows.push({ ...own, icon: 'theme' });
+    if (own && admin) rows.push({ ...own, icon: 'theme' });
     if (views) rows.push({ heading: 'Views', label: 'Change view', run: views });
-    if (game) rows.push(deleteGameRow(forma, page, game));
+    // The admin deletes a game from the pool; another user takes it off their list.
+    if (game) rows.push(admin ? deleteGameRow(forma, page, game) : unlistRow(forma, page, game));
     return rows;
   };
 }

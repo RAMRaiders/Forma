@@ -6,6 +6,7 @@ import type {
   RaSession,
   ShellContext,
   StatusBar,
+  User,
   ViewInfo
 } from '@ramraiders/forma-sdk';
 import { FormaError } from '@ramraiders/forma-sdk';
@@ -43,6 +44,7 @@ import { controllersScreen } from './ui/controllers.js';
 import { Switcher } from './ui/switcher.js';
 import { Screensaver, screensaverScreen } from './ui/screensaver.js';
 import { freezeTheme } from './ui/freeze.js';
+import { myGamesScreen, usersScreen, whoScreen } from './ui/users.js';
 
 /** What `shell_info` answers: the theme's context and its settings. */
 export interface ShellInfo {
@@ -116,6 +118,9 @@ export class Shell {
   #wasOpen = false;
   /** Which page is open at the bottom: `start`, `context` (Select's) or `magazines`. */
   #pageKind: string | null = null;
+  /** Who plays now, and whether there is anyone else to switch to (#301). */
+  #user: User | null = null;
+  #others = false;
   /** The Audio page, while open somewhere: it follows what plays. */
   #music: (() => Promise<Row[]>) | null = null;
   /** A game is running: the shell stays shut. */
@@ -181,6 +186,9 @@ export class Shell {
         this.#page.close();
         this.#changed();
       }
+    });
+    forma.events.on('users:changed', (user) => {
+      this.#user = user;
     });
     forma.events.on('status:changed', (status) => void this.showStatus(status));
     forma.status
@@ -260,6 +268,30 @@ export class Shell {
 
   get open(): boolean {
     return this.#switcher.open || this.#network.open || this.#page.open || this.#reader.open;
+  }
+
+  /**
+   * At start: who plays, asked when there is more than the admin. Nothing else opens until one
+   * is chosen (`whoFirst`); from Start, B goes back.
+   */
+  async askWho(whoFirst = true): Promise<void> {
+    const { users, current } = await this.forma.users.list();
+    this.#user = current;
+    this.#others = users.length > 1;
+    if (whoFirst && !this.#others) return;
+    this.#closeAll();
+    this.#pageKind = whoFirst ? 'who' : 'switch';
+    await this.#page.show(
+      "Who's playing?",
+      whoScreen(this.forma, this.#page, (user) => {
+        this.#user = user;
+        this.#pageKind = null;
+        this.#closeAll();
+        this.notify(`${user.name} is playing`);
+      }),
+      'Each has their own list, favourites, saves and accounts'
+    );
+    this.#changed();
   }
 
   /** Forma's magazines page; with `id`, straight into that magazine (B then shows the list). */
@@ -347,6 +379,15 @@ export class Shell {
           void this.#toggleFavourites();
         }, HOLD_MS);
       }
+      return;
+    }
+    // Who's playing at start: someone must be chosen first.
+    if (
+      this.#pageKind === 'who' &&
+      this.#page.open &&
+      !this.#typing() &&
+      (e.action === 'back' || e.action === 'start' || e.action === 'select')
+    ) {
       return;
     }
     // Select shuts the page it opened, as it shuts the views list.
@@ -472,7 +513,59 @@ export class Shell {
           this.notify(FormaError.from(error).message);
         });
     };
-    return [
+    const admin = this.#user?.admin ?? true;
+    const user = this.#user;
+    const who: Row[] = [
+      ...(this.#others && user
+        ? [
+            {
+              heading: 'Users',
+              label: 'Switch user',
+              detail: `${user.name} is playing: another enters`,
+              run: away(() => this.askWho(false))
+            }
+          ]
+        : []),
+      ...(admin
+        ? [
+            {
+              heading: this.#others ? undefined : 'Users',
+              label: 'Manage users',
+              detail: 'Who plays here: add or remove them, and your PIN',
+              run: push('Users', () => {
+                const build = usersScreen(forma, page);
+                // Another added or removed: Switch user follows.
+                return async () => {
+                  const rows = await build();
+                  this.#others = rows.length > 2;
+                  return rows;
+                };
+              })
+            }
+          ]
+        : [
+            {
+              heading: this.#others ? undefined : 'Users',
+              label: 'Add games',
+              detail: 'Put back on your list the games you took off it',
+              run: push('Add games', () => myGamesScreen(forma, page))
+            }
+          ])
+    ];
+    // What only the admin may do: the pool and Forma's settings.
+    const mine = new Set([
+      'Downloads',
+      'Media',
+      'Emulator options',
+      'Interface',
+      'Screensaver',
+      'Audio',
+      'System',
+      'Add-ons',
+      'Controllers',
+      'Network'
+    ]);
+    const rows: Row[] = [
       {
         heading: 'Library',
         label: 'Collections',
@@ -598,6 +691,19 @@ export class Shell {
         run: () => this.#power('shutdown')
       }
     ];
+    // Users just before Power, where switching user is looked for.
+    const power = rows.findIndex((r) => r.heading === 'Power');
+    rows.splice(power, 0, ...who);
+    if (admin) return rows;
+    // A heading kept on the first row left of its section.
+    const kept: Row[] = [];
+    let heading: string | undefined;
+    for (const row of rows) {
+      heading = row.heading ?? heading;
+      if (mine.has(row.label)) continue;
+      kept.push(heading && !kept.some((r) => r.heading === heading) ? { ...row, heading } : row);
+    }
+    return kept;
   }
 
   /** Restart and shut down need a second press soon after: a stray A must not shut down. */
@@ -685,14 +791,23 @@ export class Shell {
         )
       : this.#page.show(
           game?.name ?? 'Games',
-          gamesScreen(this.forma, this.#page, theme, game, openViews, () => this.#closeAll(), {
-            manual: (g) => void this.#look(() => this.#reader.showManual(g)),
-            media: (g) =>
-              void this.#look(() =>
-                // Its video played over the theme's: the theme shows the game afresh after.
-                this.#reader.showMedia(g, () => void this.calls.openGame(g.id).catch(() => {}))
-              )
-          }),
+          gamesScreen(
+            this.forma,
+            this.#page,
+            theme,
+            game,
+            openViews,
+            () => this.#closeAll(),
+            {
+              manual: (g) => void this.#look(() => this.#reader.showManual(g)),
+              media: (g) =>
+                void this.#look(() =>
+                  // Its video played over the theme's: the theme shows the game afresh after.
+                  this.#reader.showMedia(g, () => void this.calls.openGame(g.id).catch(() => {}))
+                )
+            },
+            this.#user?.admin ?? true
+          ),
           undefined,
           file
         ));

@@ -1323,6 +1323,7 @@ describe('Forma’s shell', () => {
       'Add-ons',
       'Controllers',
       'Network',
+      'Manage users',
       'Switch to ES',
       'Restart',
       'Shut down'
@@ -1333,6 +1334,7 @@ describe('Forma’s shell', () => {
       'Play',
       'Settings',
       'Devices',
+      'Users',
       'Power'
     ]);
     expect(text('.page li.selected .description')).toEqual(['Your own lists of games']);
@@ -2103,5 +2105,59 @@ describe('Forma’s screensaver', () => {
     await vi.waitFor(() =>
       expect(h.text('.screensaver .info .name')).toEqual(['No game has that picture yet'])
     );
+  });
+});
+
+describe('users', () => {
+  it('asks who plays at start once there is another, and a user sees only what is theirs', async () => {
+    const { forma, shell, press, text, root } = start([], {
+      view: 'systems',
+      list: 'games',
+      game: { id: 1, name: 'Sonic' }
+    });
+    // The admin alone: nothing is asked.
+    await shell.askWho();
+    expect(shell.open).toBe(false);
+
+    const ann = await forma.users.add('Ann');
+    await forma.users.setPin('2468');
+    await shell.askWho();
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(["Who's playing?"]));
+    expect(text('.page li .name')).toEqual(['Admin', 'Ann']);
+    // Someone must be chosen.
+    await press('back');
+    await press('start');
+    expect(text('.page h2')).toEqual(["Who's playing?"]);
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(shell.open).toBe(false));
+    expect((await forma.users.list()).current.id).toBe(ann.id);
+
+    // Start: no scraping, settings or users of the admin's; their own list's games.
+    await press('start');
+    await vi.waitFor(() => expect(text('.page h2')[0]).toMatch(/^Forma/));
+    const labels = text('.page li .name');
+    for (const gone of ['Media', 'Emulator options', 'System', 'Add-ons', 'Manage users']) {
+      expect(labels).not.toContain(gone);
+    }
+    expect(labels).toEqual(
+      expect.arrayContaining(['Achievements', 'Netplay', 'Switch user', 'Add games', 'Shut down'])
+    );
+    await press('start');
+
+    // Select on a game: off their list, not deleted, and no editing it.
+    await press('select');
+    await vi.waitFor(() => expect(text('.page h2')).toEqual(['SonicHomebrew Demo.nes']));
+    const rows = text('.page li .name');
+    expect(rows).toContain('Remove from my list');
+    for (const gone of ['Scrape', 'Edit details', 'Game settings', 'Delete']) {
+      expect(rows).not.toContain(gone);
+    }
+    while (text('.page li.selected .name')[0] !== 'Remove from my list') await press('down');
+    await press('confirm');
+    await vi.waitFor(async () =>
+      expect((await forma.library.unlisted('nes')).map((g) => g.id)).toEqual([1])
+    );
+    expect(root.querySelector('.toast')?.textContent).toBe('Sonic is off your list');
   });
 });
