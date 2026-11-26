@@ -155,6 +155,7 @@ fn handlers<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static 
         users::users_list,
         users::users_enter,
         users::users_add,
+        users::users_rename,
         users::users_remove,
         users::users_set_pin,
         users::library_set_listed,

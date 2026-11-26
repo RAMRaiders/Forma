@@ -66,10 +66,23 @@ export function usersScreen(forma: Forma, page: Page): () => Promise<Row[]> {
         return 'PIN set: it is asked when entering as the admin';
       });
     };
+    const rename = (u: User) => async () => {
+      const name = (await page.ask({ title: 'Their name', value: u.name }))?.trim();
+      if (!name || name === u.name) return;
+      await page.run('Renaming…', async () => {
+        await forma.users.rename(u.id, name);
+        return `Renamed ${name}`;
+      });
+    };
     return [
       {
         heading: 'Admin',
         label: admin?.name ?? 'Admin',
+        detail: 'The library and Forma are theirs. A to rename',
+        run: admin ? rename(admin) : undefined
+      },
+      {
+        label: 'PIN',
         detail: admin?.pin
           ? 'PIN set: A to change it · Y to take it off'
           : 'No PIN: anyone can enter as the admin. A to set one',
@@ -88,7 +101,8 @@ export function usersScreen(forma: Forma, page: Page): () => Promise<Row[]> {
       ...others.map((u, i): Row => ({
         heading: i === 0 ? 'Users' : undefined,
         label: u.name,
-        detail: 'Their own list, favourites, saves and accounts · Y to remove',
+        detail: 'Their own list, favourites, saves and accounts · A to rename · Y to remove',
+        run: rename(u),
         alt: { label: 'Remove', run: () => removeUser(forma, page, u) }
       })),
       {

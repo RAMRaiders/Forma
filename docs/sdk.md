@@ -349,13 +349,14 @@ and Forma's settings. Each user has their own favourites, play history, list, sa
 RetroAchievements and netplay accounts; every game a theme reads (`favorite`, `playCount`,
 `hidden`…) is the user in's already, so a theme needs nothing of its own for users.
 
-| Method           | Does                                                                     |
-| ---------------- | ------------------------------------------------------------------------ |
-| `list()`         | `{ users, current }`: every user (the admin first) and the one in        |
-| `enter(id, pin)` | Enters as a user (Forma's menu only); the admin's PIN when set           |
-| `add(name)`      | A new user, their list the whole pool (Forma's menu, the admin only)     |
-| `remove(id)`     | Removes a user with their favourites, history and list (not their saves) |
-| `setPin(pin)`    | The admin's PIN, 4 to 8 digits; `null` takes it off (the admin only)     |
+| Method             | Does                                                                     |
+| ------------------ | ------------------------------------------------------------------------ |
+| `list()`           | `{ users, current }`: every user (the admin first) and the one in        |
+| `enter(id, pin)`   | Enters as a user (Forma's menu only); the admin's PIN when set           |
+| `add(name)`        | A new user, their list the whole pool (Forma's menu, the admin only)     |
+| `rename(id, name)` | Renames a user, the admin too (Forma's menu, the admin only)             |
+| `remove(id)`       | Removes a user with their favourites, history and list (not their saves) |
+| `setPin(pin)`      | The admin's PIN, 4 to 8 digits; `null` takes it off (the admin only)     |
 
 `users:changed` carries the user in after another enters, and `library:changed` follows for
 every system. `library.setListed(id, listed)` takes a game off the user's list (hidden for them

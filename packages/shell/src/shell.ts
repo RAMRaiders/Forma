@@ -537,7 +537,7 @@ export class Shell {
                 // Another added or removed: Switch user follows.
                 return async () => {
                   const rows = await build();
-                  this.#others = rows.length > 2;
+                  this.#others = rows.length > 3;
                   return rows;
                 };
               })

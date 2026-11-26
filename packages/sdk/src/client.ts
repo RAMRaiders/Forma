@@ -181,6 +181,8 @@ export class Forma {
       /** Enters as user `id`; `pin` when they have one. Not while a game runs. */
       enter: (id: number, pin?: string) => invoke<User>('users_enter', { id, pin: pin ?? null }),
       add: (name: string) => invoke<User>('users_add', { name }),
+      /** Renames a user, the admin too; `users:changed` follows for the one in. */
+      rename: (id: number, name: string) => invoke<User>('users_rename', { id, name }),
       /** Removes a user and their favourites, history, list and accounts (not their saves). */
       remove: (id: number) => invoke<void>('users_remove', { id }),
       /** The admin's PIN, 4 to 8 digits; `null` takes it off. */

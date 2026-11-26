@@ -104,8 +104,9 @@ impl Library {
             .ok_or_else(|| invalid("no admin user"))
     }
 
-    /// A new user, their list the whole pool. Names are unique, whatever their case.
-    pub fn add_user(&mut self, name: &str) -> Result<User> {
+    /// `name` trimmed, if it is one a user (other than `except`) may take: 1 to [`NAME_MAX`]
+    /// characters, no other user's, whatever its case.
+    fn free_name<'n>(&self, name: &'n str, except: Option<i64>) -> Result<&'n str> {
         let name = name.trim();
         if name.is_empty() || name.chars().count() > NAME_MAX {
             return Err(invalid(format!("a name is 1–{NAME_MAX} characters")));
@@ -113,10 +114,16 @@ impl Library {
         if self
             .users()?
             .iter()
-            .any(|u| u.name.eq_ignore_ascii_case(name))
+            .any(|u| Some(u.id) != except && u.name.to_lowercase() == name.to_lowercase())
         {
             return Err(invalid(format!("there is a user called {name} already")));
         }
+        Ok(name)
+    }
+
+    /// A new user, their list the whole pool. Names are unique, whatever their case.
+    pub fn add_user(&mut self, name: &str) -> Result<User> {
+        let name = self.free_name(name, None)?;
         self.conn
             .execute("INSERT INTO user (name) VALUES (?1)", [name])?;
         let id = self.conn.last_insert_rowid();
@@ -126,6 +133,22 @@ impl Library {
             admin: false,
             pin: false,
         })
+    }
+
+    /// Renames a user (the admin too), keeping names unique.
+    pub fn rename_user(&mut self, id: i64, name: &str) -> Result<User> {
+        let name = self.free_name(name, Some(id))?;
+        if self
+            .conn
+            .execute("UPDATE user SET name = ?2 WHERE id = ?1", params![id, name])?
+            == 0
+        {
+            return Err(invalid(format!("no user {id}")));
+        }
+        self.users()?
+            .into_iter()
+            .find(|u| u.id == id)
+            .ok_or_else(|| invalid(format!("no user {id}")))
     }
 
     /// Removes a user, with their favourites, history, list and accounts. Not the admin. If

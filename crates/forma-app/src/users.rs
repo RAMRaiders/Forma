@@ -213,6 +213,30 @@ pub async fn users_add<R: Runtime>(
     .await
 }
 
+/// Renames a user, the admin too (the admin only).
+#[tauri::command]
+pub async fn users_rename<R: Runtime>(
+    app: AppHandle<R>,
+    caller: Caller,
+    id: i64,
+    name: String,
+) -> ApiResult<User> {
+    caller.shell_only()?;
+    let events = app.clone();
+    let user = off_thread(app, move |state| {
+        require_admin(state)?;
+        Ok(state.library().rename_user(id, &name)?)
+    })
+    .await?;
+    // The one in renamed: whoever shows their name follows.
+    if let Ok(current) = events.state::<AppState>().library().current_user()
+        && current.id == user.id
+    {
+        let _ = events.emit(EVENT_USERS_CHANGED, &current);
+    }
+    Ok(user)
+}
+
 /// Removes a user and what is theirs in the library (the admin only, never themselves). Their
 /// saves folder stays on disk.
 #[tauri::command]

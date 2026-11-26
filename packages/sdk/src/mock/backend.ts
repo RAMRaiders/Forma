@@ -1439,6 +1439,20 @@ export function mockBackend(options: MockOptions = {}): Backend {
       users.push(user);
       return userOf(user);
     },
+    users_rename: ({ id, name }) => {
+      adminOnly();
+      const user = users.find((u) => u.id === id) ?? fail('notFound', `no user ${String(id)}`);
+      const trimmed = String(name).trim();
+      if (
+        !trimmed ||
+        users.some((u) => u.id !== id && u.name.toLowerCase() === trimmed.toLowerCase())
+      ) {
+        fail('invalid', 'a user needs a name of their own');
+      }
+      user.name = trimmed;
+      if (user.id === currentUser) emit('users:changed', userOf(user));
+      return userOf(user);
+    },
     users_remove: ({ id }) => {
       adminOnly();
       if (id === 1) fail('invalid', 'the admin cannot be removed');

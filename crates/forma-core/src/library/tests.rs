@@ -925,6 +925,11 @@ fn users_have_unique_names_and_the_admin_stays() {
         lib.user_setting(again.id, "netplay.nickname").unwrap(),
         None
     );
+    // Renamed, the admin too; a name taken stays refused, its case may change.
+    let admin = lib.rename_user(ADMIN, " Sam ").unwrap();
+    assert_eq!((admin.name.as_str(), admin.admin), ("Sam", true));
+    assert!(lib.rename_user(ADMIN, &again.name).is_err());
+    assert_eq!(lib.rename_user(ADMIN, "SAM").unwrap().name, "SAM");
 }
 
 #[test]
