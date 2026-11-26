@@ -37,7 +37,7 @@ pub fn open_cache(paths: &Paths) -> Result<HashCache> {
 
 /// The systems to hash: those RetroAchievements supports, and those a No-Intro or Redump DAT
 /// covers (#115), as romdex reads them from Batocera's systems. CHD disc images included:
-/// romdex reads them for rcheevos, and hashes their first track as Redump lists it.
+/// romdex reads them for rcheevos, and hashes their largest data track, the one the DATs list.
 pub fn targets(paths: &Paths) -> Vec<Target> {
     let (targets, _) = romdex::batocera::targets(&paths.userdata, &paths.systems_cfg);
     targets

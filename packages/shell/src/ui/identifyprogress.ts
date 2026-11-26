@@ -25,6 +25,8 @@ export class IdentifyProgress {
     const files = (n: number) => `${n} ${n === 1 ? 'file' : 'files'}`;
     const left = this.#left(status);
     if (!status.running) {
+      // Files tried that could not be read (Forma logs why): no "Games identified" for none.
+      if (status.total === 0) return this.#card.hide();
       this.#card.show(
         'Games identified',
         files(status.total),

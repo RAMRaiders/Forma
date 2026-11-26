@@ -1,6 +1,7 @@
-//! Deleting a game for good: its ROM (with the files a multi-file game is made of), its entry
-//! in `gamelist.xml`, and the media scraped for it. The library drops it through the watcher,
-//! as for any file that goes.
+//! Deleting a game for good: its ROM (with the files a multi-file game is made of: an `.m3u`'s
+//! discs, their tracks), its entry in `gamelist.xml`, and the media scraped for it; a playlist's
+//! discs' own entries and media too, from before they were in it. The library drops it through
+//! the watcher, as for any file that goes.
 
 use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
@@ -8,7 +9,13 @@ use std::path::{Component, Path, PathBuf};
 use crate::gamelist::remove_game;
 use crate::library::Game;
 use crate::paths::Paths;
+use crate::scraper::MediaKind;
 use crate::systems::System;
+
+/// The extensions a scraped picture, video or manual is saved with.
+const MEDIA_EXTENSIONS: [&str; 9] = [
+    "png", "jpg", "jpeg", "gif", "webp", "mp4", "webm", "mkv", "pdf",
+];
 
 /// Whether `relative` stays inside the folder it is relative to.
 fn stays_inside(relative: &Path) -> bool {
@@ -18,7 +25,8 @@ fn stays_inside(relative: &Path) -> bool {
             .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
 }
 
-/// The files a `.cue`, `.gdi` or `.m3u` names, next to it, as far as they stay in its folder.
+/// The files a `.cue`, `.gdi` or `.m3u` names: next to it, below it, or a full path (some tools
+/// write an `.m3u`'s discs so; [`delete_game`] keeps to the system's folder).
 fn parts_of(file: &Path) -> Vec<PathBuf> {
     let extension = file
         .extension()
@@ -69,7 +77,7 @@ fn parts_of(file: &Path) -> Vec<PathBuf> {
     names
         .iter()
         .map(|n| Path::new(n.as_str()))
-        .filter(|n| stays_inside(n))
+        .filter(|n| n.is_absolute() || stays_inside(n))
         .map(|n| folder.join(n))
         .collect()
 }
@@ -94,8 +102,12 @@ pub fn delete_game(paths: &Paths, game: &Game, system: &System) -> std::result::
         return Err(format!("`{}` is not inside the system's folder", game.path));
     }
     let full = system.rom_path.join(rom);
-    let (inside, target) = match (full.canonicalize(), system.rom_path.canonicalize()) {
-        (Ok(target), Ok(folder)) => (target != folder && target.starts_with(&folder), target),
+    let (inside, target, folder) = match (full.canonicalize(), system.rom_path.canonicalize()) {
+        (Ok(target), Ok(folder)) => (
+            target != folder && target.starts_with(&folder),
+            target,
+            folder,
+        ),
         (Err(e), _) | (_, Err(e)) => return Err(format!("{}: {e}", game.path)),
     };
     if !inside {
@@ -109,15 +121,41 @@ pub fn delete_game(paths: &Paths, game: &Game, system: &System) -> std::result::
             problems.push(format!("{}: {e}", game.path));
         }
     } else {
+        // A playlist's discs, each once a game of its own (its tracks are not).
+        let discs: BTreeSet<PathBuf> = if is_playlist(&full) {
+            parts_of(&full)
+                .iter()
+                .filter_map(|d| d.canonicalize().ok())
+                .collect()
+        } else {
+            BTreeSet::new()
+        };
         for file in with_parts(full.clone()) {
-            match std::fs::remove_file(&file) {
+            // Never out of the system's folder: a part named `/etc/…` or reached by a link.
+            let Ok(real) = file.canonicalize() else {
+                continue; // A part another entry already took, or a name that was never there.
+            };
+            let Ok(relative) = real.strip_prefix(&folder).map(Path::to_path_buf) else {
+                continue;
+            };
+            if relative.as_os_str().is_empty() || real.is_dir() {
+                continue;
+            }
+            match std::fs::remove_file(&real) {
                 Ok(()) => {}
-                // A part another entry already took, or a name that was never there.
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
                 Err(e) => problems.push(format!("{}: {e}", file.display())),
             }
+            // A playlist's disc: its own entry and media, if it had them before the playlist.
+            if discs.contains(&real) {
+                if let Err(e) = remove_game(&system.rom_path, paths, &relative) {
+                    problems.push(e.to_string());
+                }
+                remove_scraped(&system.rom_path, &relative, &mut problems);
+            }
         }
     }
+    remove_scraped(&system.rom_path, rom, &mut problems);
 
     // Only what was scraped for this game: named after its ROM, in the system's folder.
     let stem = rom
@@ -126,10 +164,14 @@ pub fn delete_game(paths: &Paths, game: &Game, system: &System) -> std::result::
         .unwrap_or_default();
     let prefix = format!("{stem}-");
     for file in game.media.values().map(Path::new) {
+        // `<rom>-<kind>.png` as ES and Forma save it, or `<rom>.png` as other scrapers do.
         let its_own = file.starts_with(&system.rom_path)
-            && file
+            && (file
                 .file_name()
-                .is_some_and(|n| n.to_string_lossy().starts_with(&prefix));
+                .is_some_and(|n| n.to_string_lossy().starts_with(&prefix))
+                || file
+                    .file_stem()
+                    .is_some_and(|n| n.to_string_lossy() == stem));
         if its_own
             && let Err(e) = std::fs::remove_file(file)
             && e.kind() != std::io::ErrorKind::NotFound
@@ -138,6 +180,31 @@ pub fn delete_game(paths: &Paths, game: &Game, system: &System) -> std::result::
         }
     }
     problems.into_iter().next().map_or(Ok(()), Err)
+}
+
+fn is_playlist(file: &Path) -> bool {
+    file.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("m3u"))
+}
+
+/// The media scraped for `rom` (relative to the system's folder) as ES and Forma save it:
+/// `<folder>/<rom's name>-<kind>.<ext>`, beside the system's ROMs.
+fn remove_scraped(system_dir: &Path, rom: &Path, problems: &mut Vec<String>) {
+    let Some(stem) = rom.file_stem().map(|s| s.to_string_lossy().into_owned()) else {
+        return;
+    };
+    for kind in MediaKind::ALL {
+        for ext in MEDIA_EXTENSIONS {
+            let file = system_dir
+                .join(kind.folder())
+                .join(format!("{stem}-{}.{ext}", kind.suffix()));
+            match std::fs::remove_file(&file) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => problems.push(format!("{}: {e}", file.display())),
+            }
+        }
+    }
 }
 
 #[cfg(test)]
