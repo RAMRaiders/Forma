@@ -796,6 +796,75 @@ fn deleting_a_game_takes_its_parts_entry_and_media_but_nothing_else() {
 }
 
 #[test]
+fn deleting_a_playlist_takes_its_discs_their_entries_and_all_their_media() {
+    let dir = tempfile::tempdir().unwrap();
+    let system = system(&dir.path().join("dreamcast"));
+    let paths = paths(dir.path());
+    let folder = system.rom_path.clone();
+    let outside = dir.path().join("outside.chd");
+    std::fs::write(&outside, "x").unwrap();
+    for sub in ["images", "videos", ".discs"] {
+        std::fs::create_dir_all(folder.join(sub)).unwrap();
+    }
+    for file in [
+        ".discs/Shenmue (Disc 1).cue",
+        ".discs/Shenmue (Disc 1) (Track 1).bin",
+        "Shenmue (Disc 2).chd",
+        "Shenmue (Disc 3).chd",
+        "images/Shenmue-thumb.png",
+        "images/Shenmue-boxside.jpg",
+        "videos/Shenmue-video.mp4",
+        "images/Shenmue (Disc 1)-image.png",
+        "images/Shenmue (Disc 2)-thumb.png",
+        "images/Shenmue II-thumb.png",
+    ] {
+        std::fs::write(folder.join(file), "x").unwrap();
+    }
+    std::fs::write(
+        folder.join(".discs/Shenmue (Disc 1).cue"),
+        "FILE \"Shenmue (Disc 1) (Track 1).bin\" BINARY\n",
+    )
+    .unwrap();
+    // Relative, in a folder, a full path, and one out of the system's folder (left alone).
+    std::fs::write(
+        folder.join("Shenmue.m3u"),
+        format!(
+            ".discs/Shenmue (Disc 1).cue\r\nShenmue (Disc 2).chd\r\n{}\r\n{}\r\n",
+            folder.join("Shenmue (Disc 3).chd").display(),
+            outside.display()
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        folder.join("gamelist.xml"),
+        "<gameList>\n\t<game>\n\t\t<path>./Shenmue.m3u</path>\n\t\t<name>Shenmue</name>\n\t</game>\n\t<game>\n\t\t<path>./Shenmue (Disc 2).chd</path>\n\t\t<name>Shenmue disc 2</name>\n\t</game>\n\t<game>\n\t\t<path>./Shenmue II.m3u</path>\n\t\t<name>Shenmue II</name>\n\t</game>\n</gameList>\n",
+    )
+    .unwrap();
+    crate::delete::delete_game(&paths, &game("Shenmue.m3u", "Shenmue"), &system).unwrap();
+
+    for gone in [
+        "Shenmue.m3u",
+        ".discs/Shenmue (Disc 1).cue",
+        ".discs/Shenmue (Disc 1) (Track 1).bin",
+        "Shenmue (Disc 2).chd",
+        "Shenmue (Disc 3).chd",
+        "images/Shenmue-thumb.png",
+        "images/Shenmue-boxside.jpg",
+        "videos/Shenmue-video.mp4",
+        "images/Shenmue (Disc 1)-image.png",
+        "images/Shenmue (Disc 2)-thumb.png",
+    ] {
+        assert!(!folder.join(gone).exists(), "{gone}");
+    }
+    assert!(outside.exists());
+    assert!(folder.join("images/Shenmue II-thumb.png").exists());
+    let list = std::fs::read_to_string(folder.join("gamelist.xml")).unwrap();
+    assert!(!list.contains("Shenmue disc 2"), "{list}");
+    assert!(!list.contains("<name>Shenmue</name>"), "{list}");
+    assert!(list.contains("Shenmue II"), "{list}");
+}
+
+#[test]
 fn a_themes_backup_comes_only_when_what_it_stands_in_for_cannot_be_had() {
     let run = |media: Vec<(MediaKind, String)>| {
         let dir = tempfile::tempdir().unwrap();

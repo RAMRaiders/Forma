@@ -360,6 +360,13 @@ pub async fn video_play<R: Runtime>(
     off_thread(app, move |state| {
         // `muted`: silent this once (the screensaver's choice), whatever the setting says.
         let sound = video_sound(state) && muted != Some(true);
+        // A game runs: the page under it asks no video of its own (it would play on, heard).
+        if state.playing.load(std::sync::atomic::Ordering::SeqCst) {
+            return Ok(VideoPlay {
+                playing: false,
+                sound,
+            });
+        }
         let file = state
             .library()
             .game(game_id)?
