@@ -382,6 +382,13 @@ SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation wr
 | `start(scope)`                                         | Scrapes `{ kind: 'game', id }`, `{ kind: 'system', name }` or `{ kind: 'all' }` in the background |
 | `status()`                                             | The run going on, or the last one                                                                 |
 | `stop()`                                               | Stops after the game it is on                                                                     |
+| `turnMedia(id, kind)`                                  | Turns a game's picture half round, in place (a spine scanned upside down). Since 1.42.0           |
+
+`nameStyle` (since 1.44.0) is how games' names are shown and sorted: `asGiven`, `articleLast`
+(`Legend of Zelda, The`) or `subjectFirst` (a leading phrase of `namePrefixes`, else an
+article, moved to the end: `Batman & Robin, The Adventures of`). The name as given is kept, so
+`asGiven` restores every name; `configure` with either sends `library:changed` for every
+system, as each game's `name` changes.
 
 `nameStyle` (since 1.44.0) is how games' names are shown and sorted: `asGiven`, `articleLast`
 (`Legend of Zelda, The`) or `subjectFirst` (a leading phrase of `namePrefixes`, else an

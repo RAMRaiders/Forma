@@ -482,6 +482,38 @@ pub fn remove_media(
     Ok(problems)
 }
 
+/// Turns a game's picture of `kind` half round, in place: a spine whose title the shelf would
+/// show upside down. The file keeps its name and format; thumbnails of it are made again, as
+/// they go by its modification time.
+pub fn turn_media(
+    game: &Game,
+    system: &System,
+    kind: MediaKind,
+) -> std::result::Result<(), String> {
+    let file = game
+        .media
+        .get(kind.tag())
+        .ok_or_else(|| format!("it has no {}", kind.label().to_lowercase()))?;
+    let path = Path::new(file);
+    if !path.starts_with(&system.rom_path) {
+        return Err(format!("{} is outside the system's folder", kind.label()));
+    }
+    let format = image::ImageFormat::from_path(path).map_err(|e| e.to_string())?;
+    let picture = image::open(path).map_err(|e| e.to_string())?.rotate180();
+    // Written aside, then over it: a picture half written is never left.
+    let aside = path.with_extension(format!(
+        "turning.{}",
+        path.extension().and_then(|e| e.to_str()).unwrap_or("png")
+    ));
+    picture
+        .save_with_format(&aside, format)
+        .and_then(|()| std::fs::rename(&aside, path).map_err(image::ImageError::IoError))
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&aside);
+            e.to_string()
+        })
+}
+
 /// Changes a game's details by hand: an empty value clears the field (a game keeps its name).
 pub fn edit(
     paths: &Paths,

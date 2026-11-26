@@ -295,7 +295,7 @@ pub async fn library_delete_game<R: Runtime>(
     id: i64,
 ) -> ApiResult<()> {
     let events = app.clone();
-    let beside = off_thread(app, move |state| {
+    let (deleted_from, beside) = off_thread(app, move |state| {
         caller.shell_only()?;
         crate::users::require_admin(state)?;
         let (game, system) = state
@@ -305,12 +305,25 @@ pub async fn library_delete_game<R: Runtime>(
         let beside = alone_in_filter(state, id)?;
         forma_core::delete::delete_game(&state.paths, &game, &system)
             .map_err(|e| ApiError::new(ErrorCode::Internal, e))?;
+        // Out of the list now, not once the watcher's rescan comes: until then the theme stayed
+        // on it, and a second delete found its file gone ("No such file").
+        if let Err(e) = state.library().mark_gone(id) {
+            eprintln!("forma: deleted game {id} stays listed until the next refresh: {e}");
+        }
         if beside.is_some() {
             list_on_screen(state).filter = ListFilter::default();
         }
-        Ok(beside)
+        Ok((system.name, beside))
     })
     .await?;
+    if beside.is_none() {
+        let _ = events.emit(
+            EVENT_LIBRARY_CHANGED,
+            LibraryChanged {
+                systems: vec![deleted_from],
+            },
+        );
+    }
     // The list on screen was filtered down to this game alone: every game again, the theme on
     // the one that was beside it, as near as can be to where it was.
     if let Some((game, system)) = beside {
