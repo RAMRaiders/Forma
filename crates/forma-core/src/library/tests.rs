@@ -270,11 +270,12 @@ fn a_library_from_before_the_new_tags_reads_its_gamelists_again_once() {
         let report = lib.refresh(&fixture_paths()).unwrap();
         assert_eq!(report.gamelists_imported, 3);
     }
-    // As a database from before the last three migrations was left (they add a column and
-    // two tables, so those are taken away too, as they were).
+    // As a database from before the last four migrations was left (they add a column and
+    // tables, so those are taken away too, as they were).
     let conn = Connection::open(&path).unwrap();
     conn.execute_batch(
-        "ALTER TABLE game DROP COLUMN age_rating; DROP TABLE game_dump; DROP TABLE game_disc;",
+        "ALTER TABLE game DROP COLUMN age_rating; DROP TABLE game_dump; DROP TABLE game_disc;
+         DROP TABLE user_field; DROP TABLE user_setting; DROP TABLE user;",
     )
     .unwrap();
     conn.pragma_update(None, "user_version", 8).unwrap();
@@ -804,4 +805,188 @@ fn names_shown_and_sorted_in_the_users_style_and_back_as_given() {
 
     lib.set_name_rule(&style(NameStyle::AsGiven)).unwrap();
     by_name(&lib.games("nes").unwrap(), "The Legend of Zelda");
+}
+
+/// The fixture's library, and its Super Mario Bros. (a favourite played 12 times, says its
+/// gamelist) and Legend of Zelda.
+fn with_users() -> (Library, i64, i64) {
+    let (lib, _) = refreshed();
+    let nes = lib.games("nes").unwrap();
+    let mario = by_name(&nes, "Super Mario Bros.").id;
+    let zelda = by_name(&nes, "The Legend of Zelda").id;
+    (lib, mario, zelda)
+}
+
+#[test]
+fn a_library_starts_with_its_admin_alone() {
+    let (lib, _, _) = with_users();
+    let users = lib.users().unwrap();
+    assert_eq!(users.len(), 1);
+    assert!(users[0].admin && !users[0].pin);
+    assert_eq!(lib.current_user().unwrap().id, ADMIN);
+}
+
+#[test]
+fn each_user_has_their_own_favourites_and_history() {
+    let (mut lib, mario, zelda) = with_users();
+    let ann = lib.add_user("Ann").unwrap();
+    lib.enter(ann.id).unwrap();
+    let game = lib.game(mario).unwrap().unwrap();
+    assert!(!game.favorite, "the gamelist's favourite is the admin's");
+    assert_eq!(game.play_count, 0);
+    lib.set_favorite(zelda, true).unwrap();
+    lib.record_play(zelda, SystemTime::now(), Duration::from_secs(60))
+        .unwrap();
+    assert!(lib.game(zelda).unwrap().unwrap().favorite);
+
+    lib.enter(ADMIN).unwrap();
+    let mine = lib.game(mario).unwrap().unwrap();
+    assert!(mine.favorite);
+    assert_eq!(mine.play_count, 12);
+    let theirs = lib.game(zelda).unwrap().unwrap();
+    assert!(!theirs.favorite, "Ann's favourite is hers");
+    assert_eq!(theirs.play_count, 0);
+
+    lib.enter(ann.id).unwrap();
+    let zelda = lib.game(zelda).unwrap().unwrap();
+    assert!(zelda.favorite);
+    assert_eq!(zelda.play_count, 1);
+    assert_eq!(zelda.game_time, 60);
+}
+
+#[test]
+fn a_user_takes_games_off_their_list_and_puts_them_back() {
+    let (mut lib, mario, _) = with_users();
+    let ann = lib.add_user("Ann").unwrap();
+    lib.enter(ann.id).unwrap();
+    let before = lib.games("nes").unwrap().len();
+    lib.set_listed(mario, false).unwrap();
+    let nes = lib.games("nes").unwrap();
+    assert_eq!(nes.len(), before - 1);
+    assert!(nes.iter().all(|g| g.id != mario));
+    let off: Vec<i64> = lib
+        .unlisted_games("nes")
+        .unwrap()
+        .iter()
+        .map(|g| g.id)
+        .collect();
+    assert_eq!(off, [mario]);
+
+    lib.enter(ADMIN).unwrap();
+    assert_eq!(lib.games("nes").unwrap().len(), before, "the pool is whole");
+    assert!(lib.unlisted_games("nes").unwrap().is_empty());
+
+    lib.enter(ann.id).unwrap();
+    lib.set_listed(mario, true).unwrap();
+    assert_eq!(lib.games("nes").unwrap().len(), before);
+}
+
+#[test]
+fn the_admins_pin_is_asked_only_once_set() {
+    let (mut lib, _, _) = with_users();
+    let ann = lib.add_user("Ann").unwrap();
+    assert!(lib.pin_matches(ADMIN, None).unwrap());
+    lib.set_pin(Some("2468")).unwrap();
+    assert!(lib.current_user().unwrap().pin);
+    assert!(lib.pin_matches(ADMIN, Some("2468")).unwrap());
+    assert!(!lib.pin_matches(ADMIN, Some("1357")).unwrap());
+    assert!(!lib.pin_matches(ADMIN, None).unwrap());
+    assert!(lib.pin_matches(ann.id, None).unwrap(), "Ann has none");
+    assert!(!lib.pin_matches(99, None).unwrap(), "no such user");
+    assert!(lib.set_pin(Some("12")).is_err());
+    assert!(lib.set_pin(Some("12ab")).is_err());
+    lib.set_pin(None).unwrap();
+    assert!(lib.pin_matches(ADMIN, None).unwrap());
+}
+
+#[test]
+fn users_have_unique_names_and_the_admin_stays() {
+    let (mut lib, _, zelda) = with_users();
+    let ann = lib.add_user(" Ann ").unwrap();
+    assert_eq!(ann.name, "Ann");
+    assert!(lib.add_user("ann").is_err());
+    assert!(lib.add_user("").is_err());
+    assert!(lib.remove_user(ADMIN).is_err());
+
+    lib.enter(ann.id).unwrap();
+    lib.set_favorite(zelda, true).unwrap();
+    lib.set_user_setting("netplay.nickname", Some("annie"))
+        .unwrap();
+    lib.remove_user(ann.id).unwrap();
+    assert_eq!(lib.current_user().unwrap().id, ADMIN, "back to the admin");
+    assert!(!lib.game(zelda).unwrap().unwrap().favorite);
+    assert_eq!(lib.users().unwrap().len(), 1);
+    // A new Ann starts afresh.
+    let again = lib.add_user("Ann").unwrap();
+    lib.enter(again.id).unwrap();
+    assert!(!lib.game(zelda).unwrap().unwrap().favorite);
+    assert_eq!(lib.user_setting("netplay.nickname").unwrap(), None);
+}
+
+#[test]
+fn each_user_has_their_own_settings() {
+    let (mut lib, _, _) = with_users();
+    lib.set_user_setting("ra.username", Some("boss")).unwrap();
+    let ann = lib.add_user("Ann").unwrap();
+    lib.enter(ann.id).unwrap();
+    assert_eq!(lib.user_setting("ra.username").unwrap(), None);
+    lib.set_user_setting("ra.username", Some("ann")).unwrap();
+    lib.enter(ADMIN).unwrap();
+    assert_eq!(
+        lib.user_setting("ra.username").unwrap().as_deref(),
+        Some("boss")
+    );
+    lib.set_user_setting("ra.username", None).unwrap();
+    assert_eq!(lib.user_setting("ra.username").unwrap(), None);
+}
+
+#[test]
+fn only_the_admins_favourites_reach_the_gamelist() {
+    let (dir, paths) = fixture_copy();
+    let mut lib = Library::open(&dir.path().join("library.db")).unwrap();
+    lib.refresh(&paths).unwrap();
+    lib.set_setting(GAMELIST_WRITE_BACK_SETTING, Some("true"))
+        .unwrap();
+    let zelda = by_name(&lib.games("nes").unwrap(), "The Legend of Zelda").id;
+    let ann = lib.add_user("Ann").unwrap();
+    lib.enter(ann.id).unwrap();
+    lib.set_favorite(zelda, true).unwrap();
+    assert!(!lib.write_back_to_gamelist(&paths, zelda).unwrap());
+    lib.enter(ADMIN).unwrap();
+    lib.set_favorite(zelda, true).unwrap();
+    assert!(lib.write_back_to_gamelist(&paths, zelda).unwrap());
+}
+
+#[test]
+fn the_users_own_values_from_before_users_become_the_admins() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("library.db");
+    let zelda;
+    {
+        let mut lib = Library::open(&path).unwrap();
+        lib.refresh(&fixture_paths()).unwrap();
+        zelda = by_name(&lib.games("nes").unwrap(), "The Legend of Zelda").id;
+    }
+    // As a library from before users kept a favourite: as the user's own field.
+    let conn = Connection::open(&path).unwrap();
+    conn.execute_batch("DROP TABLE user_field; DROP TABLE user_setting; DROP TABLE user;")
+        .unwrap();
+    conn.execute(
+        "INSERT INTO game_field (game_id, field, source, value) VALUES (?1, 'favorite', 3, '1')",
+        [zelda],
+    )
+    .unwrap();
+    conn.pragma_update(None, "user_version", 11).unwrap();
+    drop(conn);
+
+    let mut lib = Library::open(&path).unwrap();
+    // Worked out again from its fields: the favourite is the admin's now.
+    lib.enter(ADMIN).unwrap();
+    assert!(
+        lib.game(zelda).unwrap().unwrap().favorite,
+        "the admin's now"
+    );
+    let ann = lib.add_user("Ann").unwrap();
+    lib.enter(ann.id).unwrap();
+    assert!(!lib.game(zelda).unwrap().unwrap().favorite);
 }

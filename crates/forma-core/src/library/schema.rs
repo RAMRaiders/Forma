@@ -5,9 +5,41 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 11;
+pub(crate) const SCHEMA_VERSION: i64 = 12;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
+
+/// Users (#301): the library's first, the admin, owns the pool; each user has their own
+/// favourites, play history, list (games taken off it) and accounts. What was the user's own
+/// data (`game_field` source 3) becomes the admin's.
+const V12: &str = r"
+CREATE TABLE user (
+    id     INTEGER PRIMARY KEY,
+    name   TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    admin  INTEGER NOT NULL DEFAULT 0,
+    pin    TEXT              -- salt$sha256(salt, pin); NULL: none
+);
+INSERT INTO user (id, name, admin) VALUES (1, 'Admin', 1);
+
+CREATE TABLE user_field (
+    user_id  INTEGER NOT NULL REFERENCES user (id) ON DELETE CASCADE,
+    game_id  INTEGER NOT NULL REFERENCES game (id) ON DELETE CASCADE,
+    field    TEXT NOT NULL,
+    value    TEXT NOT NULL,
+    PRIMARY KEY (user_id, game_id, field)
+) WITHOUT ROWID;
+
+CREATE TABLE user_setting (
+    user_id  INTEGER NOT NULL REFERENCES user (id) ON DELETE CASCADE,
+    key      TEXT NOT NULL,
+    value    TEXT NOT NULL,
+    PRIMARY KEY (user_id, key)
+) WITHOUT ROWID;
+
+INSERT INTO user_field (user_id, game_id, field, value)
+    SELECT 1, game_id, field, value FROM game_field WHERE source = 3;
+DELETE FROM game_field WHERE source = 3;
+";
 
 /// A playlist's discs, in its order, relative to the system's folder: their names say what the
 /// playlist's does not (a translation, its languages), and the dump check reads them, not it.

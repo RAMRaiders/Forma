@@ -20,6 +20,8 @@ pub const PLAY_COUNT: &str = "play_count";
 pub const LAST_PLAYED: &str = "last_played";
 /// Total seconds played.
 pub const GAME_TIME: &str = "game_time";
+/// A user took the game off their list (`"1"`): one of their own values, never a gamelist's.
+pub const REMOVED: &str = "removed";
 pub const RA_GAME_ID: &str = "ra_game_id";
 pub const RA_HASH: &str = "ra_hash";
 pub const HASH_CRC32: &str = "hash.crc32";
