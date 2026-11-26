@@ -52,6 +52,7 @@ describe('contract with the engine', () => {
       'name',
       'description',
       'developer',
+      'discs',
       'publisher',
       'genre',
       'players',

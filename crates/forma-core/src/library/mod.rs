@@ -92,8 +92,11 @@ pub struct Game {
     /// Media kind (`image`, `video`, `marquee`…) to absolute path.
     pub media: BTreeMap<String, String>,
     /// Whether its file is a catalogued dump; `None` while unknown (not checked yet, or no
-    /// catalogue covers its system).
+    /// catalogue covers its system). A playlist's, its discs' together.
     pub dump: Option<Dump>,
+    /// A playlist's discs, in its order, relative to the system's folder (as `path` is); empty
+    /// for any other game.
+    pub discs: Vec<String>,
 }
 
 /// What the No-Intro or Redump DATs say of a game's file (see [`crate::dumps`]).
@@ -456,6 +459,7 @@ impl Library {
                     iconic: false,
                     media: BTreeMap::new(),
                     dump: None,
+                    discs: Vec::new(),
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -485,6 +489,14 @@ impl Library {
                     })
                 })
                 .optional()?;
+        }
+        let mut discs = self
+            .conn
+            .prepare_cached("SELECT path FROM game_disc WHERE game_id = ?1 ORDER BY n")?;
+        for game in &mut games {
+            game.discs = discs
+                .query_map([game.id], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
         }
         Ok(games)
     }

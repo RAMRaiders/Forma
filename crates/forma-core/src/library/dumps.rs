@@ -23,9 +23,22 @@ pub struct DumpReport {
 impl Library {
     /// Replaces `system`'s dump checks with `dumps`, by path relative to its folder, with the
     /// file's SHA1. Games not in `dumps` go back to unknown. Returns how many changed.
+    /// A playlist's is its discs' together (see [`of_discs`]), when all were checked; the
+    /// playlist file's own is never kept (it is a list of names, in no DAT).
     pub fn set_dumps(&mut self, system: &str, dumps: &[(String, String, Dump)]) -> Result<usize> {
         let tx = self.conn.transaction()?;
         let mut changed = 0;
+        let dumps = {
+            let mut stmt = tx.prepare_cached(
+                "SELECT g.path, d.path FROM game_disc d JOIN game g ON g.id = d.game_id
+                 WHERE g.system = ?1 ORDER BY g.id, d.n",
+            )?;
+            let rows: Vec<(String, String)> = stmt
+                .query_map([system], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            with_playlists(dumps, &rows)
+        };
+        let dumps = dumps.as_slice();
         {
             let mut id_of =
                 tx.prepare_cached("SELECT id FROM game WHERE system = ?1 AND path = ?2")?;
@@ -127,5 +140,161 @@ impl Library {
             }
         }
         Ok(out)
+    }
+}
+
+/// `dumps` with each playlist's (`playlists`: its path and each of its discs', in order) made of
+/// its discs' in place of its own file's; none for a playlist with a disc not checked.
+fn with_playlists(
+    dumps: &[(String, String, Dump)],
+    playlists: &[(String, String)],
+) -> Vec<(String, String, Dump)> {
+    let mut discs: Vec<(&str, Vec<&str>)> = Vec::new();
+    for (playlist, disc) in playlists {
+        match discs.last_mut() {
+            Some((p, list)) if *p == playlist.as_str() => list.push(disc),
+            _ => discs.push((playlist, vec![disc])),
+        }
+    }
+    let by_path: std::collections::HashMap<&str, (&str, &Dump)> = dumps
+        .iter()
+        .map(|(path, sha1, dump)| (path.as_str(), (sha1.as_str(), dump)))
+        .collect();
+    let mut out: Vec<(String, String, Dump)> = dumps
+        .iter()
+        .filter(|(path, _, _)| !discs.iter().any(|(p, _)| p == path))
+        .cloned()
+        .collect();
+    for (playlist, list) in discs {
+        let checked: Option<Vec<(&str, &Dump)>> =
+            list.iter().map(|d| by_path.get(d).copied()).collect();
+        let Some(checked) = checked else { continue };
+        let Some(&(sha1, _)) = checked.first() else {
+            continue;
+        };
+        let dumps: Vec<&Dump> = checked.iter().map(|(_, d)| *d).collect();
+        out.push((playlist.to_owned(), sha1.to_owned(), of_discs(&dumps)));
+    }
+    out
+}
+
+/// A game of several discs' dump check: as good as its worst disc's (a bad dump, then one in no
+/// DAT, then one matched on its CRC32 alone); its catalogue, name and region the first disc's,
+/// the name without its disc (`Deep Fear (Europe)`).
+pub(crate) fn of_discs(discs: &[&Dump]) -> Dump {
+    let rank = |status: &str| match status {
+        "badDump" => 3,
+        "notCatalogued" => 2,
+        "crcOnly" => 1,
+        _ => 0,
+    };
+    let worst = discs
+        .iter()
+        .map(|d| d.status.as_str())
+        .max_by_key(|s| rank(s))
+        .unwrap_or("notCatalogued");
+    let first = discs.first();
+    let catalogued = worst != "notCatalogued";
+    Dump {
+        status: worst.to_owned(),
+        catalogue: first
+            .and_then(|d| d.catalogue.clone())
+            .filter(|_| catalogued),
+        name: first
+            .and_then(|d| d.name.as_deref())
+            .filter(|_| catalogued)
+            .map(without_disc),
+        region: first.and_then(|d| d.region.clone()).filter(|_| catalogued),
+    }
+}
+
+/// `name` without its `(Disc 2)`-like tags.
+fn without_disc(name: &str) -> String {
+    let mut out = String::new();
+    let mut rest = name;
+    while let Some(open) = rest.find(" (Disc ") {
+        let Some(len) = rest[open..].find(')') else {
+            break;
+        };
+        out.push_str(&rest[..open]);
+        rest = &rest[open + len + 1..];
+    }
+    out.push_str(rest);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dump(status: &str, name: Option<&str>) -> Dump {
+        Dump {
+            status: status.to_owned(),
+            catalogue: name.map(|_| "redump".to_owned()),
+            name: name.map(str::to_owned),
+            region: name.map(|_| "Europe".to_owned()),
+        }
+    }
+
+    #[test]
+    fn a_games_discs_make_one_check_as_good_as_its_worst_disc() {
+        let one = dump("verified", Some("Deep Fear (Europe) (Disc 1)"));
+        let two = dump("verified", Some("Deep Fear (Europe) (Disc 2)"));
+        let both = of_discs(&[&one, &two]);
+        assert_eq!(both.status, "verified");
+        assert_eq!(both.name.as_deref(), Some("Deep Fear (Europe)"));
+        assert_eq!(both.catalogue.as_deref(), Some("redump"));
+
+        let crc = dump("crcOnly", Some("Deep Fear (Europe) (Disc 2)"));
+        assert_eq!(of_discs(&[&one, &crc]).status, "crcOnly");
+        let none = dump("notCatalogued", None);
+        let mixed = of_discs(&[&one, &none]);
+        assert_eq!(mixed.status, "notCatalogued");
+        assert_eq!(mixed.name, None, "not catalogued, as a whole");
+        let bad = dump("badDump", Some("Deep Fear (Europe) (Disc 2)"));
+        assert_eq!(of_discs(&[&none, &bad]).status, "badDump");
+    }
+
+    #[test]
+    fn a_playlist_is_checked_by_its_discs_once_all_are() {
+        let entry = |path: &str, d: Dump| (path.to_owned(), format!("sha-{path}"), d);
+        let dumps = vec![
+            entry("Deep Fear.m3u", dump("notCatalogued", None)),
+            entry(
+                "Deep Fear (Disc 1).chd",
+                dump("verified", Some("Deep Fear (Disc 1)")),
+            ),
+            entry(
+                "Deep Fear (Disc 2).chd",
+                dump("verified", Some("Deep Fear (Disc 2)")),
+            ),
+            entry("Lunacy.m3u", dump("notCatalogued", None)),
+            entry(
+                "Lunacy (Disc 1).chd",
+                dump("verified", Some("Lunacy (Disc 1)")),
+            ),
+        ];
+        let playlists = [
+            ("Deep Fear.m3u", "Deep Fear (Disc 1).chd"),
+            ("Deep Fear.m3u", "Deep Fear (Disc 2).chd"),
+            ("Lunacy.m3u", "Lunacy (Disc 1).chd"),
+            ("Lunacy.m3u", "Lunacy (Disc 2).chd"),
+        ]
+        .map(|(p, d)| (p.to_owned(), d.to_owned()));
+        let out = with_playlists(&dumps, &playlists);
+        let of = |path: &str| {
+            out.iter()
+                .find(|(p, _, _)| p == path)
+                .map(|(_, s, d)| (s, d))
+        };
+        let (sha1, deep) = of("Deep Fear.m3u").expect("checked by its discs");
+        assert_eq!(deep.status, "verified");
+        assert_eq!(deep.name.as_deref(), Some("Deep Fear"));
+        assert_eq!(sha1, "sha-Deep Fear (Disc 1).chd");
+        assert!(of("Lunacy.m3u").is_none(), "a disc not checked: unknown");
+        assert!(
+            of("Deep Fear (Disc 1).chd").is_some(),
+            "the discs' own kept"
+        );
     }
 }

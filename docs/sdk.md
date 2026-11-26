@@ -276,6 +276,12 @@ file, a CUE sheet by its first track. CHD discs are not checked yet. `library:ch
 when results change. The user turns it off in Start → Games → ROM check (Forma's setting
 `library.verifyDumps`); `library.dumpChecks()` gives the counts that page shows.
 
+A game of several discs, an `.m3u` playlist, lists them in `Game.discs` (since 1.43.0), in the
+playlist's order, relative to the system's folder as `path` is (empty for any other game): their
+names say what the playlist's may not (`[T-En by …]`, its languages). Its `dump` is its discs'
+together, once all are checked: as good as the worst of them, with the first disc's catalogue,
+region and name, the name without its `(Disc 1)`.
+
 `library.random({ media, limit, favorites, system })` (since 1.31.0) gives visible games in a
 random order, each with at least one of the `media` kinds (any game when there are none): only
 favourites, or one system's, if asked. At most 200, 50 unless `limit` says.
