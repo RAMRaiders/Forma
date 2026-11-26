@@ -491,6 +491,28 @@ describe('Forma’s shell', () => {
     await press('confirm');
     await vi.waitFor(() => expect(at('Download manuals')).toMatch(/^Off/));
     expect((await forma.scraper.settings()).manuals).toBe(false);
+    // Game names: as scraped, then ◀ ▶ through the styles; Subject first lists its phrases.
+    await goTo('Names: As scraped');
+    await press('right');
+    await vi.waitFor(() => expect(rows()).toContain('Names: Article last'));
+    expect((await forma.scraper.settings()).nameStyle).toBe('articleLast');
+    await press('right');
+    await vi.waitFor(() => expect(rows()).toContain('Phrases moved to the end'));
+    await goTo('Phrases moved to the end');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.page > .panel > h2')).toEqual(['Phrases moved']));
+    expect(rows()[0]).toBe('The Adventures of');
+    expect(rows()).toContain('Add a phrase…');
+    await goTo("Disney's");
+    await press('north');
+    await vi.waitFor(() => expect(rows()).not.toContain("Disney's"));
+    expect((await forma.scraper.settings()).namePrefixes).not.toContain("Disney's");
+    await press('back');
+    await goTo('Names: Subject first');
+    await press('left');
+    await press('left');
+    await vi.waitFor(() => expect(rows()).toContain('Names: As scraped'));
+    expect(rows()).not.toContain('Phrases moved to the end');
     await goTo('Add a region…');
     await press('confirm');
     await vi.waitFor(() => expect(text('.page > .panel > h2')).toEqual(['Add a region']));
@@ -503,7 +525,7 @@ describe('Forma’s shell', () => {
       await vi.waitFor(() => expect(at('France')).toMatch(new RegExp(`^${3 - i} of 4`)));
     }
     expect(selected()).toBe('France');
-    expect(rows()[2]).toBe('France');
+    expect(rows()[3]).toBe('France');
     expect((await forma.scraper.settings()).regions).toEqual(['France', 'World', 'USA', 'Europe']);
     await press('back');
     await vi.waitFor(() => expect(at('Profile')).toBe('France, World, USA, Europe'));

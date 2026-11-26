@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use forma_core::addons::runtime::{ScraperAddon, Script};
 use forma_core::host::Shell;
+use forma_core::library::NameStyle;
 use forma_core::net::Http;
 use forma_core::themes::ThemeManifest;
 
@@ -20,7 +21,9 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::api::{ApiError, ApiResult, ErrorCode};
-use crate::commands::{EVENT_MEDIA_CHANGED, MediaChanged, off_thread};
+use crate::commands::{
+    EVENT_LIBRARY_CHANGED, EVENT_MEDIA_CHANGED, LibraryChanged, MediaChanged, off_thread,
+};
 use crate::permissions;
 use crate::shell::Caller;
 use crate::state::AppState;
@@ -203,6 +206,10 @@ pub struct ScraperSettings {
     pub all_regions: Vec<String>,
     /// Manuals are downloaded, when the theme draws them.
     pub manuals: bool,
+    /// How games' names are shown and sorted.
+    pub name_style: NameStyle,
+    /// The phrases [`NameStyle::SubjectFirst`] moves to the end.
+    pub name_prefixes: Vec<String>,
     /// What the theme in use asks for, if anything.
     pub theme: Option<ThemeNeedsInfo>,
 }
@@ -266,6 +273,7 @@ fn view_in_use(state: &AppState, manifest: &ThemeManifest) -> Option<String> {
 
 fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
     let (all, config, credentials) = load(state)?;
+    let names = state.library().name_rule()?;
     let empty = scraper::Credentials::new();
     let sources = config
         .sources
@@ -315,6 +323,8 @@ fn settings(state: &AppState) -> ApiResult<ScraperSettings> {
         regions: config.regions,
         all_regions: scraper::regions::REGIONS.map(str::to_owned).to_vec(),
         manuals: config.manuals,
+        name_style: names.style,
+        name_prefixes: names.prefixes,
         theme: state
             .current_theme()
             .and_then(|t| t.manifest)
@@ -372,8 +382,12 @@ pub async fn scraper_configure<R: Runtime>(
     own_region: Option<bool>,
     regions: Option<Vec<String>>,
     manuals: Option<bool>,
+    name_style: Option<NameStyle>,
+    name_prefixes: Option<Vec<String>>,
 ) -> ApiResult<ScraperSettings> {
-    off_thread(app, move |state| {
+    let renamed = name_style.is_some() || name_prefixes.is_some();
+    let events = app.clone();
+    let settings = off_thread(app, move |state| {
         caller.require(state, permissions::SCRAPER_MANAGE)?;
         let (all, mut config, _) = load(state)?;
         if let Some(sources) = sources {
@@ -394,6 +408,17 @@ pub async fn scraper_configure<R: Runtime>(
         if let Some(manuals) = manuals {
             config.manuals = manuals;
         }
+        if name_style.is_some() || name_prefixes.is_some() {
+            let mut library = state.library();
+            let mut names = library.name_rule()?;
+            if let Some(style) = name_style {
+                names.style = style;
+            }
+            if let Some(prefixes) = name_prefixes {
+                names.prefixes = prefixes;
+            }
+            library.set_name_rule(&names)?;
+        }
         // Through `load` again: unknown sources dropped, missing ones added.
         let config = Config::load(
             Some(&serde_json::to_string(&config).map_err(internal)?),
@@ -405,7 +430,18 @@ pub async fn scraper_configure<R: Runtime>(
         )?;
         settings(state)
     })
-    .await
+    .await?;
+    // Every list shows its names anew.
+    if renamed {
+        let systems = events.state::<AppState>().library().systems()?;
+        let _ = events.emit(
+            EVENT_LIBRARY_CHANGED,
+            LibraryChanged {
+                systems: systems.into_iter().map(|s| s.name).collect(),
+            },
+        );
+    }
+    Ok(settings)
 }
 
 /// Sets (or, with no value, clears) one of a source's credentials.

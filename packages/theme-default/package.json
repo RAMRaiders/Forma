@@ -11,6 +11,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ramraiders/forma-sdk": "1.43.0"
+    "@ramraiders/forma-sdk": "1.44.0"
   }
 }

@@ -1,6 +1,7 @@
 import type {
   Forma,
   MediaKind,
+  NameStyle,
   ScraperSettings,
   ScraperSource,
   ScraperStatus
@@ -172,6 +173,7 @@ function profileScreen(forma: Forma, page: Page): () => Promise<Row[]> {
         run: manuals,
         adjust: manuals
       },
+      ...nameRows(forma, page, settings),
       ...regions.map((r, i): Row => ({
         heading: i === 0 ? 'Preferred regions, best first' : undefined,
         // The name alone: the selection follows it as it moves.
@@ -205,6 +207,88 @@ function profileScreen(forma: Forma, page: Page): () => Promise<Row[]> {
             }
           ]
         : [])
+    ];
+  };
+}
+
+/** How games' names can be shown and sorted, each with an example. */
+const NAME_STYLES: { style: NameStyle; label: string; detail: string }[] = [
+  {
+    style: 'asGiven',
+    label: 'As scraped',
+    detail: 'The Adventures of Batman & Robin: sorted under T'
+  },
+  {
+    style: 'articleLast',
+    label: 'Article last',
+    detail: 'Adventures of Batman & Robin, The: as No-Intro names games'
+  },
+  {
+    style: 'subjectFirst',
+    label: 'Subject first',
+    detail: 'Batman & Robin, The Adventures of: sorted under B'
+  }
+];
+
+/**
+ * Game names: the style (◀ ▶ through them; every list sorts by it, and back to as scraped
+ * restores every name), and with Subject first, the phrases it moves.
+ */
+function nameRows(forma: Forma, page: Page, settings: ScraperSettings): Row[] {
+  const at = Math.max(
+    0,
+    NAME_STYLES.findIndex((n) => n.style === settings.nameStyle)
+  );
+  const current = NAME_STYLES[at]!;
+  const step = (by: -1 | 1) => {
+    const next = NAME_STYLES[(at + by + NAME_STYLES.length) % NAME_STYLES.length]!;
+    return saving(page, () => forma.scraper.configure({ nameStyle: next.style }))();
+  };
+  const rows: Row[] = [
+    {
+      heading: 'Game names',
+      label: `Names: ${current.label}`,
+      detail: current.detail,
+      run: () => step(1),
+      adjust: step
+    }
+  ];
+  if (settings.nameStyle === 'subjectFirst') {
+    const count = settings.namePrefixes.length;
+    rows.push({
+      label: 'Phrases moved to the end',
+      detail: count
+        ? `${settings.namePrefixes.slice(0, 2).join(', ')}${count > 2 ? ` and ${count - 2} more` : ''}`
+        : 'None: only The, A and An',
+      run: () => page.push('Phrases moved', prefixesScreen(forma, page))
+    });
+  }
+  return rows;
+}
+
+/** The phrases Subject first moves to the end of a name: Y takes one off, or add one. */
+function prefixesScreen(forma: Forma, page: Page): () => Promise<Row[]> {
+  return async () => {
+    const { namePrefixes: prefixes } = await forma.scraper.settings();
+    const set = (next: string[]) =>
+      saving(page, () => forma.scraper.configure({ namePrefixes: next }));
+    return [
+      ...prefixes.map((p, i): Row => ({
+        heading: i === 0 ? 'Moved when a name starts with it' : undefined,
+        label: p,
+        detail: 'Y to take it off',
+        alt: { label: 'Take off', run: set(prefixes.filter((x) => x !== p)) }
+      })),
+      {
+        heading: prefixes.length === 0 ? 'Moved when a name starts with it' : undefined,
+        label: 'Add a phrase…',
+        detail: "Such as Sid Meier's. The, A and An are always moved",
+        run: async () => {
+          const typed = (await page.ask({ title: 'A phrase to move', value: '' }))?.trim();
+          if (!typed || prefixes.some((p) => p.toLowerCase() === typed.toLowerCase())) return;
+          await set([...prefixes, typed])();
+        }
+      }
     ];
   };
 }
