@@ -99,7 +99,7 @@ pub fn scrape_game(
         .filter(std::fs::Metadata::is_file)
         .map_or(0, |m| m.len());
     let mut hashes: Option<Option<Hashes>> = None;
-    let name = super::text::search_name(&game.name);
+    let name = super::text::search_name(&game.given_name);
     let mut metadata = Metadata::default();
     // Kind → the path written in the gamelist.
     let mut saved: BTreeMap<MediaKind, String> = BTreeMap::new();
@@ -213,7 +213,7 @@ pub fn scrape_game(
     outcome.metadata = !text_tags.is_empty();
     tags.extend(text_tags);
     if !tags.is_empty() {
-        set_tags(&system.rom_path, paths, rom, &game.name, &tags)?;
+        set_tags(&system.rom_path, paths, rom, &game.given_name, &tags)?;
     }
     Ok(outcome)
 }
@@ -232,7 +232,7 @@ pub(super) fn has_media(game: &Game, kind: MediaKind) -> bool {
 /// Whether any field is missing; a name that is only the file's counts as missing. The age
 /// rating counts only when it is wanted (`age`).
 fn lacks_metadata(game: &Game, stem: &str, age: bool) -> bool {
-    game.name == stem
+    game.given_name == stem
         || game.description.is_none()
         || game.developer.is_none()
         || game.publisher.is_none()
@@ -268,7 +268,7 @@ fn metadata_tags(
             ));
         }
     };
-    put("name", found.name.clone(), game.name != stem);
+    put("name", found.name.clone(), game.given_name != stem);
     put(
         "desc",
         found.description.clone(),

@@ -352,6 +352,12 @@ SteamGridDB, ArcadeDB and libretro thumbnails, written where EmulationStation wr
 | `status()`                                             | The run going on, or the last one                                                                 |
 | `stop()`                                               | Stops after the game it is on                                                                     |
 
+`nameStyle` (since 1.44.0) is how games' names are shown and sorted: `asGiven`, `articleLast`
+(`Legend of Zelda, The`) or `subjectFirst` (a leading phrase of `namePrefixes`, else an
+article, moved to the end: `Batman & Robin, The Adventures of`). The name as given is kept, so
+`asGiven` restores every name; `configure` with either sends `library:changed` for every
+system, as each game's `name` changes.
+
 `media:changed` (since 1.27.0) says a game's pictures were replaced, often under the same file
 names: `library.mediaUrl` gives new URLs for it from then on, so draw that game again.
 

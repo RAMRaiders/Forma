@@ -731,3 +731,35 @@ fn a_playlist_without_a_region_takes_its_discs_unless_something_else_gives_one()
         "the gamelist's wins"
     );
 }
+
+#[test]
+fn names_shown_and_sorted_in_the_users_style_and_back_as_given() {
+    let (mut lib, _) = refreshed();
+    let style = |style| NameRule {
+        style,
+        ..NameRule::default()
+    };
+
+    lib.set_name_rule(&style(NameStyle::SubjectFirst)).unwrap();
+    assert_eq!(lib.name_rule().unwrap().style, NameStyle::SubjectFirst);
+    let nes = lib.games("nes").unwrap();
+    let zelda = by_name(&nes, "Zelda, The Legend of");
+    // What the scraper searches with, and the iconic games are known by.
+    assert_eq!(zelda.given_name, "The Legend of Zelda");
+    // Sorted by it: after Super Mario Bros. now, under Z.
+    let order: Vec<&str> = nes.iter().map(|g| g.name.as_str()).collect();
+    let at = |n: &str| order.iter().position(|o| *o == n).unwrap();
+    assert!(
+        at("Super Mario Bros.") < at("Zelda, The Legend of"),
+        "{order:?}"
+    );
+    // A gamelist read again keeps it so.
+    lib.refresh(&fixture_paths()).unwrap();
+    by_name(&lib.games("nes").unwrap(), "Zelda, The Legend of");
+
+    lib.set_name_rule(&style(NameStyle::ArticleLast)).unwrap();
+    by_name(&lib.games("nes").unwrap(), "Legend of Zelda, The");
+
+    lib.set_name_rule(&style(NameStyle::AsGiven)).unwrap();
+    by_name(&lib.games("nes").unwrap(), "The Legend of Zelda");
+}

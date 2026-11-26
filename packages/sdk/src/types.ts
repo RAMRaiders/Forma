@@ -457,6 +457,9 @@ export interface ScraperSource {
   metadata: boolean;
 }
 
+/** How games' names are shown and sorted (`ScraperSettings.nameStyle`). Since 1.44.0. */
+export type NameStyle = 'asGiven' | 'articleLast' | 'subjectFirst';
+
 export interface ScraperSettings {
   /** In the order they are asked: the first with an answer wins, per field and per kind. */
   sources: ScraperSource[];
@@ -482,6 +485,14 @@ export interface ScraperSettings {
   allRegions: string[];
   /** Download manuals, when the theme draws them (they are large). Since 1.37.0. */
   manuals: boolean;
+  /**
+   * How games' names are shown and sorted: as given, a leading article moved to the end
+   * (`Legend of Zelda, The`), or a leading phrase of `namePrefixes` (else an article) moved
+   * (`Batman & Robin, The Adventures of`). Since 1.44.0.
+   */
+  nameStyle: NameStyle;
+  /** The phrases `subjectFirst` moves to the end of a name. Since 1.44.0. */
+  namePrefixes: string[];
   /**
    * What the theme in use asks for in its `theme.json` (`scraper`), or null: media kinds, and
    * details beyond the usual ones (`ageRating`). Since 1.24.0. `shows` is every kind it draws

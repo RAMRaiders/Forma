@@ -55,6 +55,13 @@ Start → ROMs → Media has three pages:
   _Download manuals_ (on by default) turns manuals off for every run, even for a theme that
   draws them: they are large. A game's own Scrape on Select still offers its manual, unchosen,
   to add by hand.
+  _Names_ (◀ ▶) is how every game's name is shown and sorted: _As scraped_ (`The Adventures
+of Batman & Robin`, under T), _Article last_ (`Adventures of Batman & Robin, The`, as
+  No-Intro names games) or _Subject first_ (`Batman & Robin, The Adventures of`, under B). Subject
+  first moves the phrases in _Phrases moved to the end_ (The Adventures of, The Legend of,
+  Disney's… Y takes one off, or add your own), else The, A or An. A name already with its
+  article last (`Legend of Zelda, The`) is read with it first. The scraper still searches with
+  the name as given, and _As scraped_ restores every name.
 - **Scrape**: the systems to scrape (every one to start with), and what to do with games
   already scraped (a description or any media): skip them, fill in what is missing (the
   default), or replace what they have. Then Start; the run goes on in the background, and
