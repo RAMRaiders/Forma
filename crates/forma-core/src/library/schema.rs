@@ -14,7 +14,7 @@ const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12]
 /// data (`game_field` source 3) becomes the admin's.
 const V12: &str = r"
 CREATE TABLE user (
-    id     INTEGER PRIMARY KEY,
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,  -- never reused: a user's saves folder is by id
     name   TEXT NOT NULL UNIQUE COLLATE NOCASE,
     admin  INTEGER NOT NULL DEFAULT 0,
     pin    TEXT              -- salt$sha256(salt, pin); NULL: none

@@ -81,6 +81,8 @@ pub struct AppState {
     pub ready_file: Option<PathBuf>,
     /// Running on Batocera: power and network settings go to its own tools.
     pub on_batocera: bool,
+    /// Each user's saves folder over `saves/` (users.rs); on Batocera only.
+    pub saves: Option<forma_core::saves::UserSaves>,
     /// The window starts see-through over Forma's boot picture (on Batocera, once it is drawn).
     pub see_through: bool,
     pub input: Mutex<Option<InputHandle>>,

@@ -161,8 +161,10 @@ pub struct Caller {
 }
 
 impl Caller {
-    /// The shell may do anything Forma offers; a theme what its `theme.json` declares.
+    /// The shell may do anything Forma offers; a theme what its `theme.json` declares. Either
+    /// way, what is the admin's alone only for the admin (users.rs).
     pub fn require(self, state: &AppState, permission: &str) -> ApiResult<()> {
+        crate::users::require_for_user(state, permission)?;
         if self.shell {
             Ok(())
         } else {
@@ -377,6 +379,7 @@ pub fn shell_set_theme_setting<R: Runtime>(
     value: Value,
 ) -> ApiResult<()> {
     caller.shell_only()?;
+    crate::users::require_admin(&state)?;
     let theme = theme(&state)?;
     let setting = theme
         .manifest

@@ -231,9 +231,8 @@ impl Library {
         )
     }
 
-    /// One of the current user's own settings (an account's name, say), if set.
-    pub fn user_setting(&self, key: &str) -> Result<Option<String>> {
-        let (user, _) = current(&self.conn)?;
+    /// One of user `user`'s own settings (an account's name, say), if set.
+    pub fn user_setting(&self, user: i64, key: &str) -> Result<Option<String>> {
         Ok(self
             .conn
             .query_row(
@@ -244,9 +243,8 @@ impl Library {
             .optional()?)
     }
 
-    /// Sets (or with `None`, clears) one of the current user's own settings.
-    pub fn set_user_setting(&mut self, key: &str, value: Option<&str>) -> Result<()> {
-        let (user, _) = current(&self.conn)?;
+    /// Sets (or with `None`, clears) one of user `user`'s own settings.
+    pub fn set_user_setting(&mut self, user: i64, key: &str, value: Option<&str>) -> Result<()> {
         match value {
             Some(value) => self.conn.execute(
                 "INSERT INTO user_setting (user_id, key, value) VALUES (?1, ?2, ?3)

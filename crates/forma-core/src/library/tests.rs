@@ -910,34 +910,38 @@ fn users_have_unique_names_and_the_admin_stays() {
 
     lib.enter(ann.id).unwrap();
     lib.set_favorite(zelda, true).unwrap();
-    lib.set_user_setting("netplay.nickname", Some("annie"))
+    lib.set_user_setting(ann.id, "netplay.nickname", Some("annie"))
         .unwrap();
     lib.remove_user(ann.id).unwrap();
     assert_eq!(lib.current_user().unwrap().id, ADMIN, "back to the admin");
     assert!(!lib.game(zelda).unwrap().unwrap().favorite);
     assert_eq!(lib.users().unwrap().len(), 1);
-    // A new Ann starts afresh.
+    // A new Ann starts afresh, never with the old one's id (her saves folder is by it).
     let again = lib.add_user("Ann").unwrap();
+    assert_ne!(again.id, ann.id);
     lib.enter(again.id).unwrap();
     assert!(!lib.game(zelda).unwrap().unwrap().favorite);
-    assert_eq!(lib.user_setting("netplay.nickname").unwrap(), None);
+    assert_eq!(
+        lib.user_setting(again.id, "netplay.nickname").unwrap(),
+        None
+    );
 }
 
 #[test]
 fn each_user_has_their_own_settings() {
     let (mut lib, _, _) = with_users();
-    lib.set_user_setting("ra.username", Some("boss")).unwrap();
     let ann = lib.add_user("Ann").unwrap();
-    lib.enter(ann.id).unwrap();
-    assert_eq!(lib.user_setting("ra.username").unwrap(), None);
-    lib.set_user_setting("ra.username", Some("ann")).unwrap();
-    lib.enter(ADMIN).unwrap();
+    lib.set_user_setting(ADMIN, "ra.username", Some("boss"))
+        .unwrap();
+    assert_eq!(lib.user_setting(ann.id, "ra.username").unwrap(), None);
+    lib.set_user_setting(ann.id, "ra.username", Some("ann"))
+        .unwrap();
     assert_eq!(
-        lib.user_setting("ra.username").unwrap().as_deref(),
+        lib.user_setting(ADMIN, "ra.username").unwrap().as_deref(),
         Some("boss")
     );
-    lib.set_user_setting("ra.username", None).unwrap();
-    assert_eq!(lib.user_setting("ra.username").unwrap(), None);
+    lib.set_user_setting(ADMIN, "ra.username", None).unwrap();
+    assert_eq!(lib.user_setting(ADMIN, "ra.username").unwrap(), None);
 }
 
 #[test]
