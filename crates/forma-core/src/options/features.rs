@@ -84,10 +84,18 @@ impl Features {
                     .collect()
             })
             .unwrap_or_default();
-        let global = root
+        let mut global = root
             .child("globalFeatures")
             .map(|g| level(g, &shared).features)
             .unwrap_or_default();
+        // ES draws it in its global menu without the file listing it: after rewind there.
+        if !global.iter().any(|f| f.key == INCREMENTAL) {
+            let at = global
+                .iter()
+                .position(|f| f.key == "rewind")
+                .map_or(global.len(), |i| i + 1);
+            global.insert(at, incremental());
+        }
         let emulators = root
             .children_named("emulator")
             .filter_map(|em| {
@@ -162,6 +170,29 @@ impl<'a> Applicable<'a> {
     }
 }
 
+/// Batocera's `incrementalsavestates`: each save state in a new slot (its default) or over the
+/// last. ES adds it to its menus itself; `es_features.cfg` does not list it.
+const INCREMENTAL: &str = "incrementalsavestates";
+
+fn incremental() -> Feature {
+    Feature {
+        key: INCREMENTAL.to_owned(),
+        label: "INCREMENTAL SAVE STATES".to_owned(),
+        group: None,
+        submenu: None,
+        description: Some(
+            "On: each save state goes in a new slot. Off: saving replaces the one in the slot."
+                .to_owned(),
+        ),
+        order: None,
+        choices: vec![
+            ("1".to_owned(), "On".to_owned()),
+            ("0".to_owned(), "Off".to_owned()),
+        ],
+        preset: None,
+    }
+}
+
 fn level(el: &Element, shared: &HashMap<String, Feature>) -> Level {
     let mut features = Vec::new();
     // In document order: shared references and inline features interleave.
@@ -175,6 +206,12 @@ fn level(el: &Element, shared: &HashMap<String, Feature>) -> Level {
             "feature" => features.extend(feature(child)),
             _ => {}
         }
+    }
+    // Beside auto save, as ES draws it, wherever an emulator saves states.
+    if let Some(at) = features.iter().position(|f| f.key == "autosave")
+        && !features.iter().any(|f| f.key == INCREMENTAL)
+    {
+        features.insert(at + 1, incremental());
     }
     let systems = el
         .child("systems")
