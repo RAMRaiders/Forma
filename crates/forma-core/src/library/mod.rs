@@ -296,6 +296,15 @@ impl Library {
         Ok(())
     }
 
+    /// Game `id`'s file was deleted: out of the lists at once, as the next refresh would have it
+    /// (a rescan after the watcher settles, seconds on a big system). Its row stays, as for any
+    /// file that goes, so a copy put back is the same game.
+    pub fn mark_gone(&self, id: i64) -> Result<()> {
+        self.conn
+            .execute("UPDATE game SET present = 0 WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
     /// A game and its system, for launching. Includes games that are hidden or whose file is
     /// missing: the launcher reports the missing file itself, more clearly than "not found".
     pub fn launch_target(&self, id: i64) -> Result<Option<(Game, System)>> {
