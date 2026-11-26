@@ -27,6 +27,40 @@ function fakeBackend(host = SDK_VERSION, rejections: Record<string, object> = {}
   return { backend, calls, listeners };
 }
 
+describe('media:changed', () => {
+  it('gives a theme’s listener the game’s new URLs, whatever order Forma calls listeners in', async () => {
+    // Tauri keeps a page's listeners in a set: called in any order. Here, last first.
+    const listeners: [string, (p: unknown) => void][] = [];
+    const backend: Backend = {
+      kind: 'mock',
+      invoke: <T>(command: string) =>
+        Promise.resolve((command === 'sdk_api_version' ? SDK_VERSION : null) as T),
+      listen<T>(event: string, handler: (p: T) => void) {
+        listeners.push([event, handler as (p: unknown) => void]);
+        return () => {};
+      },
+      mediaUrl: (id, kind, _width, version) => `media/${id}/${kind}?v=${version ?? 0}`
+    };
+    const sdk = await connect({ backend });
+    const seen: string[] = [];
+    const stop = sdk.events.on('media:changed', ({ game }) =>
+      seen.push(sdk.library.mediaUrl(game, 'boxside'))
+    );
+    const fire = (game: number) => {
+      for (const [event, handler] of [...listeners].reverse()) {
+        if (event === 'media:changed') handler({ game });
+      }
+    };
+    fire(4);
+    fire(4);
+    expect(seen).toEqual(['media/4/boxside?v=1', 'media/4/boxside?v=2']);
+    stop();
+    fire(4);
+    expect(seen).toHaveLength(2);
+    expect(sdk.library.mediaUrl(4, 'boxside')).toBe('media/4/boxside?v=3');
+  });
+});
+
 describe('connect', () => {
   it('checks the host version, then reports the theme ready', async () => {
     const { backend, calls } = fakeBackend('1.24.0');

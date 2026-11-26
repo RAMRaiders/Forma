@@ -1,6 +1,7 @@
-import type { Forma, MediaKind, ScraperOffers, ScraperSettings } from '@ramraiders/forma-sdk';
+import type { Forma, Game, MediaKind, ScraperOffers, ScraperSettings } from '@ramraiders/forma-sdk';
 
 import type { Leave, Page, Row } from './page.js';
+import { mediaToShow } from './reader.js';
 import { backupNote, themeUse } from './scraper.js';
 import { emulatorScreen } from './shader.js';
 
@@ -34,7 +35,7 @@ export function gameRows(forma: Forma, page: Page, game: { id: number; name: str
     {
       icon: 'edit',
       label: 'Edit details',
-      detail: 'Change its name, description and more by hand',
+      detail: 'Its name, description and more by hand, and its pictures',
       run: async () =>
         page.push(
           `Edit ${game.name}`,
@@ -117,7 +118,7 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
       releaseDate: game.releaseDate,
       rating: game.rating === null ? null : String(game.rating)
     };
-    return EDITABLE.map(({ field, label, hint }) => {
+    const details = EDITABLE.map(({ field, label, hint }): Row => {
       const value = saved.get(field) ?? stored[field] ?? '';
       const shown = field === 'rating' && value ? percent(value) : value;
       return {
@@ -141,6 +142,77 @@ function editScreen(forma: Forma, page: Page, id: number): () => Promise<Row[]> 
         }
       };
     });
+    return [...details, ...pictureRows(forma, page, game)];
+  };
+}
+
+/** Its pictures, a tile each: A on one turns it (a spine) or removes it. */
+function pictureRows(forma: Forma, page: Page, game: Game): Row[] {
+  const pictures = mediaToShow(game).filter(([kind]) => kind !== 'video');
+  return pictures.map(([kind, label], i) => ({
+    heading: i === 0 ? 'Pictures' : undefined,
+    tile: true,
+    label,
+    image: forma.library.mediaUrl(game.id, kind, 320),
+    run: () => page.push(`${game.name}: ${label}`, pictureScreen(forma, page, game.id, kind, label))
+  }));
+}
+
+function pictureScreen(
+  forma: Forma,
+  page: Page,
+  id: number,
+  kind: MediaKind,
+  label: string
+): () => Promise<Row[]> {
+  return async () => {
+    const game = await forma.library.game(id);
+    if (!game?.media[kind]) return [{ label: 'This picture is gone' }];
+    const rows: Row[] = [{ label, image: forma.library.mediaUrl(id, kind, 640) }];
+    // A spine scanned the other way up: its title on a theme's shelf upside down.
+    if (kind === 'boxside') {
+      rows.push({
+        icon: 'media',
+        label: 'Turn half round',
+        detail: 'When its title shows upside down',
+        run: () =>
+          page.run('Turning…', async () => {
+            await forma.scraper.turnMedia(id, kind);
+            return 'Spine turned';
+          })
+      });
+    }
+    rows.push({
+      icon: 'delete',
+      danger: true,
+      label: 'Remove and delete',
+      detail: 'Off the game, its file deleted',
+      run: () =>
+        page.push(
+          `Delete its ${label.toLowerCase()}?`,
+          () => [
+            { label: 'Keep it', detail: 'Nothing is deleted', run: () => page.pop() },
+            {
+              icon: 'delete',
+              danger: true,
+              label: 'Delete for good',
+              detail: `${game.name}'s ${label.toLowerCase()}`,
+              run: () =>
+                page.run('Deleting…', async () => {
+                  const problems = await forma.scraper.removeMedia(id, [kind]);
+                  // Back to its details, the picture gone from them.
+                  await page.pop();
+                  await page.pop();
+                  return problems.length > 0
+                    ? problems.join(' · ')
+                    : `Deleted its ${label.toLowerCase()}`;
+                })
+            }
+          ],
+          'It goes from the game and from the disk. This cannot be undone.'
+        )
+    });
+    return rows;
   };
 }
 

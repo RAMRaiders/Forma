@@ -1169,6 +1169,44 @@ describe('Forma’s shell', () => {
     expect(root.querySelector<HTMLElement>('.reader')!.hidden).toBe(true);
   });
 
+  it('Edit details shows a game’s pictures: a spine turned, a picture removed', async () => {
+    const { press, text, backend, root } = start(['scraper.manage'], {
+      view: 'systems',
+      list: 'games',
+      game: { id: 2, name: 'Super Mario Bros.' }
+    });
+    const spy = vi.spyOn(backend, 'invoke');
+    const rows = () => text('.page > .panel li[role=option] .name');
+    const selected = () => text('.page li.selected .name')[0];
+    const goTo = async (name: string) => {
+      while (!root.querySelector('.page li.tile.selected')) await press('down');
+      while (selected() !== name) await press('right');
+    };
+    await press('select');
+    await vi.waitFor(() => expect(rows()).toContain('Edit details'));
+    while (selected() !== 'Edit details') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Box spine'));
+    expect(rows()).not.toContain('Video');
+    expect(root.querySelectorAll('.page li.tile img.picture').length).toBeGreaterThan(1);
+    await goTo('Box spine');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toContain('Turn half round'));
+    while (selected() !== 'Turn half round') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.toast')).toContain('Spine turned'));
+    expect(spy).toHaveBeenCalledWith('scraper_turn_media', { id: 2, kind: 'boxside' });
+    while (selected() !== 'Remove and delete') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(rows()).toEqual(['Keep it', 'Delete for good']));
+    await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(text('.toast')).toContain('Deleted its box spine'));
+    expect(spy).toHaveBeenCalledWith('scraper_remove_media', { id: 2, kinds: ['boxside'] });
+    await vi.waitFor(() => expect(rows()).toContain('Name'));
+    expect(rows()).not.toContain('Box spine');
+  });
+
   it('a theme opens a game’s manual in Forma’s reader', async () => {
     const { text, forma } = start();
     await forma.library.openManual(2);
