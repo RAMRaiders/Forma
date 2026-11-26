@@ -48,6 +48,8 @@ import type {
   ThemeCatalogue,
   ThemeInfo,
   Unsubscribe,
+  User,
+  Users,
   VersionGroup,
   DuplicateGroup,
   ViewInfo,
@@ -152,6 +154,7 @@ export class Forma {
   readonly video;
   readonly shell;
   readonly status;
+  readonly users;
 
   readonly #backend: Backend;
   readonly #inputHandlers = new Set<(e: InputEvent) => void>();
@@ -168,6 +171,21 @@ export class Forma {
     this.backendKind = backend.kind;
     const invoke = <T>(command: string, args?: Record<string, unknown>) =>
       call<T>(backend, command, args);
+
+    /**
+     * Who plays on this box (#301). Any theme may know who is in; entering, adding and removing
+     * users and the admin's PIN are Forma's own menu's (the shell's), and the admin's. Since 1.45.0.
+     */
+    this.users = {
+      list: () => invoke<Users>('users_list'),
+      /** Enters as user `id`; `pin` when they have one. Not while a game runs. */
+      enter: (id: number, pin?: string) => invoke<User>('users_enter', { id, pin: pin ?? null }),
+      add: (name: string) => invoke<User>('users_add', { name }),
+      /** Removes a user and their favourites, history, list and accounts (not their saves). */
+      remove: (id: number) => invoke<void>('users_remove', { id }),
+      /** The admin's PIN, 4 to 8 digits; `null` takes it off. */
+      setPin: (pin: string | null) => invoke<void>('users_set_pin', { pin })
+    };
 
     this.library = {
       /** In the order the user chose (`SystemsOrder`): keep it, rather than sorting them. */
@@ -229,6 +247,14 @@ export class Forma {
       openManual: (id: number) => invoke<void>('library_open_manual', { gameId: id }),
       setFavorite: (id: number, favorite: boolean) =>
         invoke<void>('library_set_favorite', { id, favorite }),
+      /**
+       * Puts a game back on the user's list (`listed`), or takes it off: off, it is hidden for
+       * them alone, and `unlisted` has it. `library:changed` follows. Since 1.45.0.
+       */
+      setListed: (id: number, listed: boolean) =>
+        invoke<void>('library_set_listed', { id, listed }),
+      /** A system's games the user took off their list, to put back. Since 1.45.0. */
+      unlisted: (system: string) => invoke<Game[]>('library_unlisted', { system }),
       /**
        * A URL for one kind of a game's media, e.g. a group's `imageGame`. With `width`, images
        * come resized to about that many pixels: ask for what the layout shows, which is much

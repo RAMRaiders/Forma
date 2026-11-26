@@ -13,6 +13,7 @@ import type {
   AddonPage,
   AddonRow,
   NameStyle,
+  User,
   CatalogueAddon,
   BluetoothDevice,
   MediaKind,
@@ -466,6 +467,21 @@ export function mockBackend(options: MockOptions = {}): Backend {
   ];
   let scraperRegions = ['World', 'USA', 'Europe'];
   let scraperManuals = true;
+  // Who plays: the admin alone, until one is added (#301).
+  const users: { id: number; name: string; admin: boolean; pin: string | null }[] = [
+    { id: 1, name: 'Admin', admin: true, pin: null }
+  ];
+  let currentUser = 1;
+  const unlisted = new Set<number>();
+  const userOf = (u: (typeof users)[number]): User => ({
+    id: u.id,
+    name: u.name,
+    admin: u.admin,
+    pin: u.pin !== null
+  });
+  const adminOnly = () => {
+    if (currentUser !== 1) fail('permissionDenied', 'only the admin can do this');
+  };
   let nameStyle: NameStyle = 'asGiven';
   let namePrefixes = [
     'The Adventures of',
@@ -588,14 +604,17 @@ export function mockBackend(options: MockOptions = {}): Backend {
   let listFilter: Record<string, unknown> = {};
   /** A game list with the user's filter: only its `games` is applied here. */
   const narrowed = (browse: Browse): Browse => {
-    if (browse.listing.kind !== 'games' || Object.keys(listFilter).length === 0) return browse;
+    if (browse.listing.kind !== 'games') return browse;
+    // Off the user's list: not in it (#301).
+    const listed = browse.listing.items.filter((g) => !unlisted.has(g.id));
+    if (Object.keys(listFilter).length === 0 && listed.length === browse.listing.items.length) {
+      return browse;
+    }
     const only = listFilter.games as number[] | null | undefined;
-    const items = only
-      ? browse.listing.items.filter((g) => only.includes(g.id))
-      : browse.listing.items;
+    const items = only ? listed.filter((g) => only.includes(g.id)) : listed;
     return {
       ...browse,
-      filtered: true,
+      filtered: Object.keys(listFilter).length > 0 || browse.filtered,
       listing: { ...browse.listing, items, total: items.length }
     };
   };
@@ -1394,6 +1413,59 @@ export function mockBackend(options: MockOptions = {}): Backend {
       }
       return picked.slice(0, Math.min(200, (limit as number | undefined) ?? 50));
     },
+    users_list: () => ({
+      users: users.map(userOf),
+      current: userOf(users.find((u) => u.id === currentUser)!)
+    }),
+    users_enter: ({ id, pin }) => {
+      const user = users.find((u) => u.id === id) ?? fail('notFound', `no user ${String(id)}`);
+      if (user.pin !== null && user.pin !== pin) fail('permissionDenied', 'wrong PIN');
+      currentUser = user.id;
+      emit('users:changed', userOf(user));
+      return userOf(user);
+    },
+    users_add: ({ name }) => {
+      adminOnly();
+      const trimmed = String(name).trim();
+      if (!trimmed || users.some((u) => u.name.toLowerCase() === trimmed.toLowerCase())) {
+        fail('invalid', `a user needs a name of their own`);
+      }
+      const user = {
+        id: Math.max(...users.map((u) => u.id)) + 1,
+        name: trimmed,
+        admin: false,
+        pin: null
+      };
+      users.push(user);
+      return userOf(user);
+    },
+    users_remove: ({ id }) => {
+      adminOnly();
+      if (id === 1) fail('invalid', 'the admin cannot be removed');
+      users.splice(
+        users.findIndex((u) => u.id === id),
+        1
+      );
+      return null;
+    },
+    users_set_pin: ({ pin }) => {
+      adminOnly();
+      users[0]!.pin = typeof pin === 'string' ? pin : null;
+      return null;
+    },
+    library_set_listed: ({ id, listed }) => {
+      const game = games.get(id as number) ?? fail('notFound', `no game with id ${String(id)}`);
+      if (listed) unlisted.delete(game.id);
+      else unlisted.add(game.id);
+      game.hidden = !listed;
+      emit('library:changed', { systems: [game.system] } satisfies LibraryChanged);
+      return null;
+    },
+    library_unlisted: ({ system }) =>
+      [...unlisted]
+        .map((id) => games.get(id))
+        .filter((g): g is Game => g !== undefined && g.system === system)
+        .map(present),
     library_set_favorite: ({ id, favorite }) => {
       const game = games.get(id as number) ?? fail('notFound', `no game with id ${String(id)}`);
       game.favorite = Boolean(favorite);
