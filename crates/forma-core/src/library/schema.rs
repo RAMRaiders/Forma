@@ -5,9 +5,20 @@ use rusqlite::Connection;
 use crate::error::{Error, Result};
 
 /// Bump with every migration appended to [`MIGRATIONS`].
-pub(crate) const SCHEMA_VERSION: i64 = 10;
+pub(crate) const SCHEMA_VERSION: i64 = 11;
 
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
+
+/// A playlist's discs, in its order, relative to the system's folder: their names say what the
+/// playlist's does not (a translation, its languages), and the dump check reads them, not it.
+const V11: &str = r"
+CREATE TABLE game_disc (
+    game_id  INTEGER NOT NULL REFERENCES game (id) ON DELETE CASCADE,
+    n        INTEGER NOT NULL,
+    path     TEXT NOT NULL,
+    PRIMARY KEY (game_id, n)
+) WITHOUT ROWID;
+";
 
 /// Whether each game's file is a catalogued dump (#115): what its hashes found in the No-Intro
 /// and Redump DATs. Worked out by Forma, so kept apart from what gamelists say.

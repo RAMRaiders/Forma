@@ -978,6 +978,7 @@ name = "forma-app"
 version = "0.0.0"
 dependencies = [
  "forma-core",
+ "image",
  "notify",
  "serde",
  "serde_json",

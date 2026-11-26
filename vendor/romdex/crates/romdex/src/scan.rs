@@ -1,7 +1,9 @@
 //! The ROM files in a system's folder, by the same rules as Forma: matching extensions, hidden
-//! entries skipped, and the discs an `.m3u` lists left out so a multi-disc game counts once.
+//! entries skipped. The discs an `.m3u` lists are marked as its (`playlist`), so a multi-disc
+//! game counts once where only games count (the import format), and is still checked disc by
+//! disc where they are needed (the DATs list discs, not playlists).
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
 use crate::batocera::Target;
@@ -12,6 +14,8 @@ pub struct RomFile {
     /// Relative to the system folder, `/`-separated: how the import format keys a game.
     pub path: String,
     pub full: PathBuf,
+    /// For a disc an `.m3u` lists: that playlist, as `path` is.
+    pub playlist: Option<String>,
 }
 
 /// Deep enough for `system/collection/series/game`, shallow enough that a symlink loop ends.
@@ -25,7 +29,9 @@ pub fn scan(target: &Target) -> (Vec<RomFile>, Vec<String>) {
         walk(target, &target.root, 0, &mut files, &mut skipped);
     }
     let in_playlists = playlist_members(target, &files);
-    files.retain(|f| !in_playlists.contains(&f.full));
+    for file in &mut files {
+        file.playlist = in_playlists.get(&file.full).cloned();
+    }
     files.sort_by(|a, b| a.path.cmp(&b.path));
     (files, skipped)
 }
@@ -61,6 +67,7 @@ fn walk(
                     system: target.system.clone(),
                     path,
                     full,
+                    playlist: None,
                 });
             }
         } else if meta.is_dir() && depth < MAX_DEPTH {
@@ -69,8 +76,9 @@ fn walk(
     }
 }
 
-fn playlist_members(target: &Target, files: &[RomFile]) -> HashSet<PathBuf> {
-    let mut members = HashSet::new();
+/// Each disc the playlists among `files` list, with the first playlist listing it.
+fn playlist_members(target: &Target, files: &[RomFile]) -> HashMap<PathBuf, String> {
+    let mut members = HashMap::new();
     for m3u in files
         .iter()
         .filter(|f| f.path.to_lowercase().ends_with(".m3u"))
@@ -81,7 +89,9 @@ fn playlist_members(target: &Target, files: &[RomFile]) -> HashSet<PathBuf> {
         let base = m3u.full.parent().unwrap_or(&target.root);
         for line in text.lines().map(str::trim) {
             if !line.is_empty() && !line.starts_with('#') {
-                members.insert(normalise(&base.join(line)));
+                members
+                    .entry(normalise(&base.join(line)))
+                    .or_insert_with(|| m3u.path.clone());
             }
         }
     }
@@ -119,7 +129,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn finds_roms_skips_hidden_and_folder_games_and_counts_multi_disc_once() {
+    fn finds_roms_skips_hidden_and_folder_games_and_marks_a_playlists_discs() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("psx");
         std::fs::create_dir_all(root.join("FF7")).unwrap();
@@ -144,8 +154,19 @@ mod tests {
             extensions: vec![".cue".into(), ".m3u".into()],
         };
         let (files, skipped) = scan(&target);
-        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
-        assert_eq!(paths, ["FF7.m3u", "Other.cue"]);
+        let paths: Vec<(&str, Option<&str>)> = files
+            .iter()
+            .map(|f| (f.path.as_str(), f.playlist.as_deref()))
+            .collect();
+        assert_eq!(
+            paths,
+            [
+                ("FF7.m3u", None),
+                ("FF7/Disc 1.cue", Some("FF7.m3u")),
+                ("FF7/Disc 2.cue", Some("FF7.m3u")),
+                ("Other.cue", None)
+            ]
+        );
         assert_eq!(skipped.len(), 1);
         assert!(skipped[0].contains("folder game"));
     }

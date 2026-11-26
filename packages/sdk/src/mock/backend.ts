@@ -1308,6 +1308,14 @@ export function mockBackend(options: MockOptions = {}): Backend {
       emit('media:changed', { game: id as number });
       return [];
     },
+    scraper_turn_media: ({ id, kind }) => {
+      scraperAllowed();
+      const game = games.get(id as number) ?? fail('notFound', `no game ${String(id)}`);
+      if (!(game.media as Record<string, string>)[kind as string])
+        fail('invalid', `no ${String(kind)}`);
+      emit('media:changed', { game: id as number });
+      return null;
+    },
     scraper_edit: ({ id, fields }) => {
       scraperAllowed();
       const game = games.get(id as number);

@@ -206,6 +206,7 @@ fn refresh_system(
     changed |= !added.is_empty();
     let regions = playlist_regions(tx, roms, &seen)?;
     changed |= !regions.is_empty();
+    changed |= playlist_discs(tx, roms, &seen)?;
 
     // The gamelist, only when it (or the set of games it can describe) changed.
     let file = system.rom_path.join("gamelist.xml");
@@ -270,6 +271,42 @@ fn playlist_regions(
             None => drop.execute(params![id, field::REGION, forma])?,
         };
         changed.push(id);
+    }
+    Ok(changed)
+}
+
+/// Keeps each game's discs (`game_disc`) as its playlist lists them now: none for a game that
+/// is not one. Whether any changed.
+fn playlist_discs(
+    tx: &Transaction<'_>,
+    roms: &[ScannedRom],
+    ids: &HashMap<String, i64>,
+) -> Result<bool> {
+    let mut old = tx.prepare_cached("SELECT path FROM game_disc WHERE game_id = ?1 ORDER BY n")?;
+    let mut clear = tx.prepare_cached("DELETE FROM game_disc WHERE game_id = ?1")?;
+    let mut put =
+        tx.prepare_cached("INSERT INTO game_disc (game_id, n, path) VALUES (?1, ?2, ?3)")?;
+    let mut changed = false;
+    for rom in roms {
+        let Some(&id) = ids.get(rom.path.to_string_lossy().as_ref()) else {
+            continue;
+        };
+        let discs: Vec<String> = rom
+            .discs
+            .iter()
+            .map(|d| d.to_string_lossy().into_owned())
+            .collect();
+        let was: Vec<String> = old
+            .query_map([id], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        if was == discs {
+            continue;
+        }
+        clear.execute([id])?;
+        for (n, disc) in discs.iter().enumerate() {
+            put.execute(params![id, i64::try_from(n).unwrap_or(i64::MAX), disc])?;
+        }
+        changed = true;
     }
     Ok(changed)
 }

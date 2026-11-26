@@ -163,6 +163,12 @@ export interface Game {
    * system). Since 1.32.0.
    */
   dump: GameDump | null;
+  /**
+   * A playlist's discs (an `.m3u`), in its order, relative to the system's folder as `path` is;
+   * empty for any other game. Their names say what the playlist's may not (a translation, its
+   * languages). Since 1.43.0.
+   */
+  discs: string[];
 }
 
 /** What the No-Intro or Redump DATs say of a game's file. Since 1.32.0. */

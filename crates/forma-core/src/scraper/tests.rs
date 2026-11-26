@@ -128,6 +128,7 @@ pub(super) fn game(path: &str, name: &str) -> Game {
         iconic: false,
         media: BTreeMap::new(),
         dump: None,
+        discs: Vec::new(),
     }
 }
 

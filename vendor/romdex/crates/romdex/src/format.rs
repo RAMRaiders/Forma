@@ -72,6 +72,7 @@ mod tests {
 
     fn item(ra: Option<&str>) -> Identified {
         Identified {
+            playlist: None,
             system: "nes".into(),
             path: "Zelda (USA).zip".into(),
             inner: Some("Zelda (USA).nes".into()),

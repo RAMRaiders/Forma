@@ -99,8 +99,11 @@ pub struct Game {
     /// Media kind (`image`, `video`, `marquee`…) to absolute path.
     pub media: BTreeMap<String, String>,
     /// Whether its file is a catalogued dump; `None` while unknown (not checked yet, or no
-    /// catalogue covers its system).
+    /// catalogue covers its system). A playlist's, its discs' together.
     pub dump: Option<Dump>,
+    /// A playlist's discs, in its order, relative to the system's folder (as `path` is); empty
+    /// for any other game.
+    pub discs: Vec<String>,
 }
 
 /// What the No-Intro or Redump DATs say of a game's file (see [`crate::dumps`]).
@@ -305,6 +308,15 @@ impl Library {
         Ok(())
     }
 
+    /// Game `id`'s file was deleted: out of the lists at once, as the next refresh would have it
+    /// (a rescan after the watcher settles, seconds on a big system). Its row stays, as for any
+    /// file that goes, so a copy put back is the same game.
+    pub fn mark_gone(&self, id: i64) -> Result<()> {
+        self.conn
+            .execute("UPDATE game SET present = 0 WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
     /// A game and its system, for launching. Includes games that are hidden or whose file is
     /// missing: the launcher reports the missing file itself, more clearly than "not found".
     pub fn launch_target(&self, id: i64) -> Result<Option<(Game, System)>> {
@@ -480,6 +492,7 @@ impl Library {
                     iconic: false,
                     media: BTreeMap::new(),
                     dump: None,
+                    discs: Vec::new(),
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -509,6 +522,14 @@ impl Library {
                     })
                 })
                 .optional()?;
+        }
+        let mut discs = self
+            .conn
+            .prepare_cached("SELECT path FROM game_disc WHERE game_id = ?1 ORDER BY n")?;
+        for game in &mut games {
+            game.discs = discs
+                .query_map([game.id], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
         }
         Ok(games)
     }
