@@ -77,6 +77,8 @@ export interface ShellCalls {
 }
 
 /** How long a power action waits for its second press. */
+/** The admin's name until they give theirs (Forma's library starts with it). */
+const DEFAULT_ADMIN_NAME = 'Admin';
 const CONFIRM_MS = 3000;
 /** Select held this long, on a game list, is "favourites only" on or off; shorter, its menu. */
 export const HOLD_MS = 600;
@@ -278,7 +280,11 @@ export class Shell {
     const { users, current } = await this.forma.users.list();
     this.#user = current;
     this.#others = users.length > 1;
-    if (whoFirst && !this.#others) return;
+    if (whoFirst && !this.#others) {
+      // The admin alone, never named: asked their name, the first time and until given.
+      if (current.admin && current.name === DEFAULT_ADMIN_NAME) await this.#askName(current);
+      return;
+    }
     this.#closeAll();
     this.#pageKind = whoFirst ? 'who' : 'switch';
     await this.#page.show(
@@ -292,6 +298,43 @@ export class Shell {
       'Each has their own list, favourites, saves and accounts'
     );
     this.#changed();
+  }
+
+  /** Welcome: the admin's name asked, Later leaving it to the next start. */
+  async #askName(admin: User): Promise<void> {
+    this.#closeAll();
+    this.#pageKind = 'name';
+    const page = this.#page;
+    const done = (user: User | null) => {
+      if (user) this.#user = user;
+      this.#pageKind = null;
+      this.#closeAll();
+      if (user) this.notify(`Welcome, ${user.name}`);
+    };
+    const type = async () => {
+      const name = (await page.ask({ title: 'Your name', value: '' }))?.trim();
+      if (!name) return;
+      try {
+        done(await this.forma.users.rename(admin.id, name));
+      } catch (error) {
+        this.notify(FormaError.from(error).message);
+      }
+    };
+    await page.show(
+      'Welcome to Forma',
+      () => [
+        {
+          heading: 'Who are you?',
+          label: 'Type your name',
+          detail: 'You are the admin: the library and Forma are yours',
+          run: type
+        },
+        { label: 'Later', detail: 'Asked again at the next start', run: () => done(null) }
+      ],
+      'Add more users later in Start, Users'
+    );
+    this.#changed();
+    await type();
   }
 
   /** Forma's magazines page; with `id`, straight into that magazine (B then shows the list). */
@@ -381,9 +424,9 @@ export class Shell {
       }
       return;
     }
-    // Who's playing at start: someone must be chosen first.
+    // Who's playing at start: someone must be chosen first (or the admin's name, or Later).
     if (
-      this.#pageKind === 'who' &&
+      (this.#pageKind === 'who' || this.#pageKind === 'name') &&
       this.#page.open &&
       !this.#typing() &&
       (e.action === 'back' || e.action === 'start' || e.action === 'select')

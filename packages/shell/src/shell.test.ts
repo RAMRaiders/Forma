@@ -2153,7 +2153,9 @@ describe('users', () => {
       list: 'games',
       game: { id: 1, name: 'Sonic' }
     });
-    // The admin alone: nothing is asked.
+    // The admin alone, named: nothing is asked.
+    await forma.users.rename(1, 'Admin ');
+    await forma.users.rename(1, 'Sam');
     await shell.askWho();
     expect(shell.open).toBe(false);
 
@@ -2161,7 +2163,7 @@ describe('users', () => {
     await forma.users.setPin('2468');
     await shell.askWho();
     await vi.waitFor(() => expect(text('.page h2')).toEqual(["Who's playing?"]));
-    expect(text('.page li .name')).toEqual(['Admin', 'Ann']);
+    expect(text('.page li .name')).toEqual(['Sam', 'Ann']);
     // Someone must be chosen.
     await press('back');
     await press('start');
@@ -2197,5 +2199,36 @@ describe('users', () => {
       expect((await forma.library.unlisted('nes')).map((g) => g.id)).toEqual([1])
     );
     expect(root.querySelector('.toast')?.textContent).toBe('Sonic is off your list');
+  });
+});
+
+describe('the admin’s name', () => {
+  it('is asked at the first start, until one is given; Later leaves it to the next', async () => {
+    const { forma, shell, press, text } = start();
+    const asked = async () => {
+      void shell.askWho();
+      await vi.waitFor(() => expect(text('.keyboard:not([hidden]) h2')).toEqual(['Your name']));
+      expect(text('.page h2')[0]).toBe('Welcome to Forma');
+    };
+    // Later: still Admin, asked again.
+    await asked();
+    await press('back');
+    await vi.waitFor(() => expect(text('.keyboard:not([hidden]) h2')).toEqual([]));
+    await press('back');
+    expect(text('.page h2')[0]).toBe('Welcome to Forma');
+    expect(shell.open).toBe(true);
+    while (text('.page li.selected .name')[0] !== 'Later') await press('down');
+    await press('confirm');
+    await vi.waitFor(() => expect(shell.open).toBe(false));
+    expect((await forma.users.list()).current.name).toBe('Admin');
+
+    await asked();
+    for (const key of 'Sam') window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+    await press('start');
+    await vi.waitFor(() => expect(text('.toast')[0]).toBe('Welcome, Sam'));
+    expect(shell.open).toBe(false);
+    expect((await forma.users.list()).current.name).toBe('Sam');
+    await shell.askWho();
+    expect(shell.open).toBe(false);
   });
 });
