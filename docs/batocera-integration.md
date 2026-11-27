@@ -210,11 +210,13 @@ Batocera box and a Raspberry Pi 4. **Not yet run:** it needs the hardware.
 
 ### What to build
 
-The **Spike AppImage** workflow (Actions tab → Run workflow) builds on GitHub's own x86_64 and
-arm64 runners. It runs only when started by hand, and puts what it built on the branch's private
-pre-release, `spike-<branch>` (e.g. `spike-main`), replacing the previous run's. On `main`, or
-with **full** ticked, that is both AppImages:
-`gh release download spike-main -p 'forma-aarch64.AppImage'`. On any other branch it is the Pi's
+The **Spike AppImage** workflow builds on GitHub's own x86_64 and arm64 runners, and puts what
+it built on the branch's pre-release, `spike-<branch>`, replacing the previous run's. Every push
+to `develop` (each merged pull request) runs it by itself, so **`spike-develop` always holds both
+installable AppImages** of what is merged:
+`gh release download spike-develop -p 'forma-x86_64.AppImage'` (or `forma-aarch64.AppImage`).
+Started by hand (Actions tab → Run workflow), `main`, or any branch with **full** ticked, builds
+the AppImages too. On any other branch it is the Pi's
 update alone, `forma-aarch64.tar.gz` for `update.sh`, built in about half the time: no AppImage
 to pack. To build locally instead:
 

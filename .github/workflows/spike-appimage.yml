@@ -1,14 +1,17 @@
-# Builds Forma for testing on Batocera boxes (#39). Manual only. Each run replaces the branch's
-# pre-release, `spike-<branch>` (the repository is private, so it is too), with what it built:
-# release files do not count against the Actions storage that artifacts fill. Nothing else is
-# tagged or published. See docs/batocera-integration.md.
+# Builds Forma for testing on Batocera boxes (#39). Each run replaces the branch's pre-release,
+# `spike-<branch>`, with what it built: release files do not count against the Actions storage
+# that artifacts fill. Nothing else is tagged or published. See docs/batocera-integration.md.
 #
-# A test branch builds the Pi's (aarch64) program alone, with the shell and the themes, as
+# Every push to `develop` (a merged pull request) builds by itself, so `spike-develop` always
+# holds installable AppImages of what is merged there, for both machines. Run by hand, a test
+# branch builds the Pi's (aarch64) program alone, with the shell and the themes, as
 # forma-aarch64.tar.gz: scripts/batocera/update.sh swaps it into an installed Forma, in minutes
-# less than packing an AppImage. `main`, or `full`, builds the AppImages, for both machines.
+# less than packing an AppImage. `develop`, `main`, or `full` build the AppImages too.
 name: Spike AppImage
 
 on:
+  push:
+    branches: [develop]
   workflow_dispatch:
     inputs:
       full:
@@ -51,13 +54,13 @@ jobs:
       matrix:
         # 22.04's glibc (2.35) is older than Batocera's, so what it builds runs there. A test
         # build is for the Pi alone.
-        include: ${{ fromJSON((github.ref_name == 'main' || inputs.full) && '[{"arch":"x86_64","runner":"ubuntu-22.04"},{"arch":"aarch64","runner":"ubuntu-22.04-arm"}]' || '[{"arch":"aarch64","runner":"ubuntu-22.04-arm"}]') }}
+        include: ${{ fromJSON((github.ref_name == 'main' || github.ref_name == 'develop' || inputs.full) && '[{"arch":"x86_64","runner":"ubuntu-22.04"},{"arch":"aarch64","runner":"ubuntu-22.04-arm"}]' || '[{"arch":"aarch64","runner":"ubuntu-22.04-arm"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       # linuxdeploy is itself an AppImage; do not depend on FUSE being there.
       APPIMAGE_EXTRACT_AND_RUN: 1
-      FULL: ${{ github.ref_name == 'main' || inputs.full }}
+      FULL: ${{ github.ref_name == 'main' || github.ref_name == 'develop' || inputs.full }}
     steps:
       - uses: actions/checkout@v4
 
@@ -77,6 +80,13 @@ jobs:
             libayatana-appindicator3-dev libudev-dev file patchelf
             gstreamer1.0-libav gstreamer1.0-plugins-good
           version: ${{ matrix.arch }}-1
+
+      # The cache puts the packages' files back but runs none of their install scripts, so the
+      # links Debian's alternatives make were missing: on arm, libblas.so.3 (BLAS and LAPACK
+      # are alternatives) was not found, and linuxdeploy's GStreamer plugin failed the bundle.
+      # Installing them for real runs those scripts.
+      - name: Libraries behind Debian alternatives
+        run: sudo apt-get install -y --reinstall libblas3 liblapack3
 
       - name: Rust, as rust-toolchain.toml pins it
         run: |
