@@ -410,6 +410,39 @@ pub(in crate::scraper) fn identify(
     Ok(Some(found))
 }
 
+/// The names LaunchBox gives each of `games` (its ids) as released: its own, and its other
+/// names that say where they are used. One without a region is often another of the series
+/// (`DX Jinsei Game II` on `DX Jinsei Game III`). A game not in the data has none.
+pub(in crate::scraper) fn names(
+    file: &Path,
+    games: &[i64],
+) -> Result<HashMap<i64, Vec<String>>, String> {
+    let fail = |e: rusqlite::Error| e.to_string();
+    let db = Connection::open_with_flags(file, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(fail)?;
+    let mut own = db
+        .prepare_cached("SELECT name FROM game WHERE id = ?")
+        .map_err(fail)?;
+    let mut out = HashMap::new();
+    for &game in games {
+        let Some(name) = own
+            .query_row([game], |r| r.get::<_, String>(0))
+            .optional()
+            .map_err(fail)?
+        else {
+            continue;
+        };
+        let mut all = vec![name];
+        all.extend(
+            aliases(&db, game)
+                .into_iter()
+                .filter(|(_, region)| region.as_deref().is_some_and(|r| !r.trim().is_empty()))
+                .map(|(name, _)| name),
+        );
+        out.insert(game, all);
+    }
+    Ok(out)
+}
+
 /// The game's other names, with the region each is used in, as written. None from a database
 /// an older Forma built.
 fn aliases(db: &Connection, game: i64) -> Vec<(String, Option<String>)> {

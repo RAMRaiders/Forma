@@ -1,6 +1,8 @@
 //! Games of a system that are one game under different names: `Rockman (Japan)` and `Mega Man
 //! (USA)`. LaunchBox says which game each one is, by its name and alternate names, from Forma's
-//! own copy of its data: nothing is asked of the network.
+//! own copy of its data: nothing is asked of the network. LaunchBox sometimes holds one game
+//! twice (`Descent Maximum`, also called `Descent 2`, and `Descent II`): two of its games on
+//! one platform sharing a name, its own or another, are taken for one.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -35,12 +37,15 @@ pub fn duplicates(
     let Some(found) = identified(&file, &system.platforms, games)? else {
         return Ok(None);
     };
+    let entries: BTreeMap<i64, &Found> = found.values().map(|f| (f.id, f)).collect();
+    let one = same_game(&entries);
     let mut groups: BTreeMap<i64, (String, Vec<&GameFile>)> = BTreeMap::new();
     for game in games {
-        if let Some((id, title)) = found.get(&game.id) {
+        if let Some(lb) = found.get(&game.id) {
+            let id = one[&lb.id];
             groups
-                .entry(*id)
-                .or_insert_with(|| (title.clone(), Vec::new()))
+                .entry(id)
+                .or_insert_with(|| (entries[&id].title.clone(), Vec::new()))
                 .1
                 .push(game);
         }
@@ -76,6 +81,41 @@ pub fn duplicates(
     Ok(Some(out))
 }
 
+/// For each LaunchBox game in `entries` (by its id), the one it is taken for: the first of those
+/// sharing a name with it, through any chain of them.
+fn same_game(entries: &BTreeMap<i64, &Found>) -> HashMap<i64, i64> {
+    let mut root: HashMap<i64, i64> = entries.keys().map(|&id| (id, id)).collect();
+    fn top(root: &HashMap<i64, i64>, mut id: i64) -> i64 {
+        while root[&id] != id {
+            id = root[&id];
+        }
+        id
+    }
+    let mut by_key: HashMap<&str, i64> = HashMap::new();
+    for (id, f) in entries {
+        for key in &f.keys {
+            match by_key.get(key.as_str()) {
+                Some(&other) => {
+                    let (a, b) = (top(&root, other), top(&root, *id));
+                    root.insert(a.max(b), a.min(b));
+                }
+                None => {
+                    by_key.insert(key, *id);
+                }
+            }
+        }
+    }
+    entries.keys().map(|&id| (id, top(&root, id))).collect()
+}
+
+/// LaunchBox's game for one of ours: its id, its name, and every name it has as compared.
+#[derive(Clone)]
+struct Found {
+    id: i64,
+    title: String,
+    keys: Vec<String>,
+}
+
 /// What LaunchBox said of each game, by its id, for one copy of LaunchBox's data.
 struct Known {
     /// The data's size and time: rebuilt, it is another copy and everything is asked again.
@@ -87,20 +127,20 @@ struct Known {
 /// are what it was asked with.
 struct Said {
     asked: (String, String, Vec<String>),
-    found: Option<(i64, String)>,
+    found: Option<Found>,
 }
 
 /// By the data's file. A game's siblings are asked each time Select opens on it: matching a
 /// whole system again (2,000 games on the Pi: 200 ms) only for the games it has not seen.
 static KNOWN: Mutex<BTreeMap<PathBuf, Known>> = Mutex::new(BTreeMap::new());
 
-/// [`launchbox::identify`] for `games`, asking LaunchBox's data only of those it has not been
-/// asked about as they are now. `None` without the data.
+/// [`launchbox::identify`] for `games`, with each LaunchBox game's names, asking LaunchBox's
+/// data only of those it has not been asked about as they are now. `None` without the data.
 fn identified(
     file: &Path,
     platforms: &[String],
     games: &[GameFile],
-) -> Result<Option<launchbox::Identified>, String> {
+) -> Result<Option<HashMap<i64, Found>>, String> {
     let Ok(meta) = std::fs::metadata(file) else {
         return Ok(None);
     };
@@ -128,13 +168,34 @@ fn identified(
         let Some(mut found) = launchbox::identify(file, platforms, &new)? else {
             return Ok(None);
         };
+        let lb: Vec<i64> = found
+            .values()
+            .map(|f| f.0)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let keys: HashMap<i64, Vec<String>> = launchbox::names(file, &lb)?
+            .into_iter()
+            .map(|(id, names)| {
+                let keys: BTreeSet<String> = names
+                    .iter()
+                    .map(|n| title_key(n))
+                    .filter(|k| !k.is_empty())
+                    .collect();
+                (id, keys.into_iter().collect())
+            })
+            .collect();
         let ids: HashSet<i64> = new.iter().map(|n| n.0).collect();
         for g in games.iter().filter(|g| ids.contains(&g.id)) {
             known.games.insert(
                 g.id,
                 Said {
                     asked: (g.name.clone(), g.path.clone(), platforms.to_vec()),
-                    found: found.remove(&g.id),
+                    found: found.remove(&g.id).map(|(id, title)| Found {
+                        id,
+                        title,
+                        keys: keys.get(&id).cloned().unwrap_or_default(),
+                    }),
                 },
             );
         }
