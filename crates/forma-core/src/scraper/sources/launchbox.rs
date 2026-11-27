@@ -410,6 +410,49 @@ pub(in crate::scraper) fn identify(
     Ok(Some(found))
 }
 
+/// What LaunchBox says one of its games is called, and when it came out.
+pub(in crate::scraper) struct Names {
+    pub name: String,
+    /// Its other names that say where they are used, with that region as LaunchBox writes it.
+    pub regional: Vec<(String, String)>,
+    pub year: Option<i32>,
+}
+
+/// [`Names`] for each of `games` (LaunchBox's ids). A game not in the data has none.
+pub(in crate::scraper) fn names(file: &Path, games: &[i64]) -> Result<HashMap<i64, Names>, String> {
+    let fail = |e: rusqlite::Error| e.to_string();
+    let db = Connection::open_with_flags(file, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(fail)?;
+    let mut own = db
+        .prepare_cached("SELECT name, released FROM game WHERE id = ?")
+        .map_err(fail)?;
+    let mut out = HashMap::new();
+    for &game in games {
+        let Some((name, released)) = own
+            .query_row([game], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+            })
+            .optional()
+            .map_err(fail)?
+        else {
+            continue;
+        };
+        let regional = aliases(&db, game)
+            .into_iter()
+            .filter_map(|(name, region)| Some((name, region.filter(|r| !r.trim().is_empty())?)))
+            .collect();
+        let year = released.and_then(|r| r.get(..4)?.parse().ok());
+        out.insert(
+            game,
+            Names {
+                name,
+                regional,
+                year,
+            },
+        );
+    }
+    Ok(out)
+}
+
 /// The game's other names, with the region each is used in, as written. None from a database
 /// an older Forma built.
 fn aliases(db: &Connection, game: i64) -> Vec<(String, Option<String>)> {
@@ -533,7 +576,7 @@ fn matched(db: &Connection, on: &[&str], query: &Query<'_>) -> rusqlite::Result<
 }
 
 /// LaunchBox's regions for `regions`, the profile's order.
-fn regions_of(regions: &[String]) -> Vec<&'static str> {
+pub(in crate::scraper) fn regions_of(regions: &[String]) -> Vec<&'static str> {
     const NAMES: [(&str, &[&str]); 10] = [
         ("USA", &["North America", "United States"]),
         ("Europe", &["Europe"]),
