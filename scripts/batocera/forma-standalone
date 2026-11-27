@@ -77,6 +77,36 @@ keep_video_under() {
     log "labwc: games' videos kept under Forma"
 }
 
+# Forma's library (favourites, history, users, settings) and its caches go with the share disk:
+# when the disk holds a library, every Batocera box it is plugged into uses that one; without the
+# disk, the box's own copy, in local/. Forma opens them at forma/, where links point at one or
+# the other, chosen again at every start. A library put on the disk (copy local/library.db to
+# /userdata/saves/forma/) starts the sharing.
+FORMA_DIR=/userdata/system/forma
+SHARED=/userdata/saves/forma
+SHARED_FILES="library.db romdex.sqlite cache/launchbox.db"
+choose_library() {
+    local where=local f
+    # The disk, not the card's own saves/ that Batocera falls back on without it.
+    if grep -q ' /userdata/saves ' /proc/mounts && [ -f "$SHARED/library.db" ]; then
+        where=shared
+    fi
+    mkdir -p "$FORMA_DIR/local/cache" "$FORMA_DIR/cache"
+    for f in $SHARED_FILES; do
+        # A box from before this: its own files become its local copy.
+        if [ -f "$FORMA_DIR/$f" ] && [ ! -L "$FORMA_DIR/$f" ]; then
+            [ -e "$FORMA_DIR/local/$f" ] || mv "$FORMA_DIR/$f" "$FORMA_DIR/local/$f"
+            rm -f "$FORMA_DIR/$f-wal" "$FORMA_DIR/$f-shm"
+        fi
+        if [ "$where" = shared ] && [ -f "$SHARED/$f" ]; then
+            ln -sfn "$SHARED/$f" "$FORMA_DIR/$f"
+        else
+            ln -sfn "$FORMA_DIR/local/$f" "$FORMA_DIR/$f"
+        fi
+    done
+    log "library: $where ($(readlink "$FORMA_DIR/library.db"))"
+}
+
 backdrop=
 drop_backdrop() {
     [ -n "$backdrop" ] && kill "$backdrop" 2> /dev/null
@@ -84,6 +114,7 @@ drop_backdrop() {
 }
 
 mkdir -p "$(dirname "$LOG")"
+choose_library
 # A Forma that cannot start hands the screen to EmulationStation rather than leaving it black.
 [ -x "$APP" ] || back_to_emulationstation "no Forma at $APP"
 wait_for 60 wlr-randr || back_to_emulationstation "no Wayland compositor"
