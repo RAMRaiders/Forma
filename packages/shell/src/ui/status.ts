@@ -3,16 +3,31 @@ import type { ControllerKind, NetworkLink, StatusBar } from '@ramraiders/forma-s
 import { el } from './dom.js';
 
 /**
- * Forma's status, in the top-right corner over every theme: one icon per controller connected,
- * drawn for its kind and numbered by player, then the connection. A theme restyles it from
- * outside (`forma-shell::part(status)`, `status-controller`, `status-network`), or draws its own
- * (`"draws": ["status"]` in its theme.json).
+ * Forma's status, in the top-right corner over every theme: who is playing, one icon per
+ * controller connected, drawn for its kind and numbered by player, then the connection. A theme
+ * restyles it from outside (`forma-shell::part(status)`, `status-user`, `status-controller`,
+ * `status-network`), or draws its own (`"draws": ["status"]` in its theme.json).
  */
 export class StatusView {
   readonly root = el('div', { class: 'status', part: 'status', 'aria-label': 'Status' });
+  #status: StatusBar | null = null;
+  #user: string | null = null;
+
+  /** Who is playing, shown first (#301). */
+  user(name: string | null): void {
+    this.#user = name;
+    this.#draw();
+  }
 
   show(status: StatusBar): void {
+    this.#status = status;
+    this.#draw();
+  }
+
+  #draw(): void {
+    const status = this.#status ?? { controllers: [], network: null };
     this.root.replaceChildren(
+      ...(this.#user ? [user(this.#user)] : []),
       ...status.controllers.map((c) => {
         const item = el(
           'span',
@@ -31,6 +46,20 @@ export class StatusView {
     );
   }
 }
+
+function user(name: string): HTMLElement {
+  const item = el(
+    'span',
+    { class: 'user', part: 'status-user', title: `${name} is playing` },
+    el('span', { class: 'name' }, name)
+  );
+  item.insertAdjacentHTML('afterbegin', PERSON);
+  return item;
+}
+
+/** A head and shoulders. */
+const PERSON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.2-6 8-6s6.8 2 8 6"/></svg>';
 
 function network(link: NetworkLink): HTMLElement {
   const label =

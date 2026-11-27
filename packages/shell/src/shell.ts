@@ -189,9 +189,7 @@ export class Shell {
         this.#changed();
       }
     });
-    forma.events.on('users:changed', (user) => {
-      this.#user = user;
-    });
+    forma.events.on('users:changed', (user) => this.#setUser(user));
     forma.events.on('status:changed', (status) => void this.showStatus(status));
     forma.status
       .get()
@@ -278,7 +276,7 @@ export class Shell {
    */
   async askWho(whoFirst = true): Promise<void> {
     const { users, current } = await this.forma.users.list();
-    this.#user = current;
+    this.#setUser(current);
     this.#others = users.length > 1;
     if (whoFirst && !this.#others) {
       // The admin alone, never named: asked their name, the first time and until given.
@@ -290,7 +288,7 @@ export class Shell {
     await this.#page.show(
       "Who's playing?",
       whoScreen(this.forma, this.#page, (user) => {
-        this.#user = user;
+        this.#setUser(user);
         this.#pageKind = null;
         this.#closeAll();
         this.notify(`${user.name} is playing`);
@@ -300,13 +298,19 @@ export class Shell {
     this.#changed();
   }
 
+  /** Who is in: Start's rows follow, and the status corner shows their name. */
+  #setUser(user: User): void {
+    this.#user = user;
+    this.#status.user(user.name);
+  }
+
   /** Welcome: the admin's name asked, Later leaving it to the next start. */
   async #askName(admin: User): Promise<void> {
     this.#closeAll();
     this.#pageKind = 'name';
     const page = this.#page;
     const done = (user: User | null) => {
-      if (user) this.#user = user;
+      if (user) this.#setUser(user);
       this.#pageKind = null;
       this.#closeAll();
       if (user) this.notify(`Welcome, ${user.name}`);

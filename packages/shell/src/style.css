@@ -797,6 +797,27 @@ li.selected .badge {
   text-align: center;
 }
 
+/* Who is playing: their name beside a head and shoulders, a little apart from the icons. */
+.status .user {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  margin-right: 0.4em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.status .user svg {
+  width: 1.2em;
+}
+
+.status .user .name {
+  max-width: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .status .net {
   color: var(--cyan);
 }

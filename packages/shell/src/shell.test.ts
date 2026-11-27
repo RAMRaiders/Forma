@@ -2158,6 +2158,8 @@ describe('users', () => {
     await forma.users.rename(1, 'Sam');
     await shell.askWho();
     expect(shell.open).toBe(false);
+    // Who is playing, in the corner.
+    expect(text('.status .user .name')).toEqual(['Sam']);
 
     const ann = await forma.users.add('Ann');
     await forma.users.setPin('2468');
@@ -2172,6 +2174,7 @@ describe('users', () => {
     await press('confirm');
     await vi.waitFor(() => expect(shell.open).toBe(false));
     expect((await forma.users.list()).current.id).toBe(ann.id);
+    expect(text('.status .user .name')).toEqual(['Ann']);
 
     // Start: no scraping, settings or users of the admin's; their own list's games.
     await press('start');
