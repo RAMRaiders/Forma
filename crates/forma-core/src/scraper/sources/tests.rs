@@ -542,6 +542,12 @@ fn launchbox_zip() -> Vec<u8> {
       <Game><Name>Descent II</Name><Platform>Sega Genesis</Platform><DatabaseID>21</DatabaseID></Game>
       <Game><Name>Descent</Name><Platform>Sega Genesis</Platform><DatabaseID>22</DatabaseID></Game>
       <GameAlternateName><AlternateName>Descent II</AlternateName><DatabaseID>22</DatabaseID></GameAlternateName>
+      <Game><Name>Adventures of Lolo 3</Name><Platform>Sega Genesis</Platform><DatabaseID>23</DatabaseID></Game>
+      <Game><Name>Adventures of Lolo 2</Name><Platform>Sega Genesis</Platform><DatabaseID>24</DatabaseID></Game>
+      <GameAlternateName><AlternateName>Adventures of Lolo II</AlternateName><DatabaseID>23</DatabaseID><Region>Japan</Region></GameAlternateName>
+      <Game><Name>Strikers 1945</Name><Platform>Sega Genesis</Platform><DatabaseID>25</DatabaseID><ReleaseDate>2001-03-27T00:00:00</ReleaseDate></Game>
+      <Game><Name>Strikers 1945 II</Name><Platform>Sega Genesis</Platform><DatabaseID>26</DatabaseID><ReleaseDate>1998-10-22T00:00:00</ReleaseDate></Game>
+      <GameAlternateName><AlternateName>Strikers 1945 II</AlternateName><DatabaseID>25</DatabaseID><Region>Europe</Region></GameAlternateName>
       <GameAlternateName><AlternateName>Descent 2</AlternateName><DatabaseID>20</DatabaseID><Region>Europe</Region></GameAlternateName>
       <GameAlternateName><AlternateName>Bare Knuckle II</AlternateName><DatabaseID>7</DatabaseID><Region>Japan</Region></GameAlternateName>
       <GameAlternateName><AlternateName>Bare Knuckle II</AlternateName><DatabaseID>7</DatabaseID><Region>Asia</Region></GameAlternateName>
@@ -688,8 +694,14 @@ fn launchbox_finds_one_game_under_different_names_in_a_library() {
         // LaunchBox's one game twice: `Descent Maximum` (also `Descent 2`) and `Descent II`.
         game(6, "Descent Maximum", "Descent Maximum (USA).md"),
         game(7, "Descent II", "Descent II (Europe).md"),
-        // Another of the series under a name with no region: not taken for the same game.
+        // Not taken for one game: a name with no region,
         game(8, "Descent", "Descent (USA).md"),
+        // Japan's name for Lolo 3, where the library's Lolo 2 is from the USA,
+        game(9, "Adventures of Lolo 2", "Adventures of Lolo 2 (USA).md"),
+        game(10, "Adventures of Lolo 3", "Adventures of Lolo 3 (USA).md"),
+        // and a name in Europe for a game three years apart.
+        game(11, "Strikers 1945", "Strikers 1945 (USA).md"),
+        game(12, "Strikers 1945 II", "Strikers 1945 II (Europe).md"),
     ];
     let find = || super::super::duplicates::duplicates(&paths, &system, &games).unwrap();
     assert_eq!(find(), None, "nothing without LaunchBox's data");

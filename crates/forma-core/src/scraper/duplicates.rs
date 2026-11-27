@@ -1,8 +1,13 @@
 //! Games of a system that are one game under different names: `Rockman (Japan)` and `Mega Man
 //! (USA)`. LaunchBox says which game each one is, by its name and alternate names, from Forma's
-//! own copy of its data: nothing is asked of the network. LaunchBox sometimes holds one game
-//! twice (`Descent Maximum`, also called `Descent 2`, and `Descent II`): two of its games on
-//! one platform sharing a name, its own or another, are taken for one.
+//! own copy of its data: nothing is asked of the network.
+//!
+//! LaunchBox sometimes holds one game twice: on PlayStation `Descent Maximum`, called
+//! `Descent 2` in Europe, and a `Descent II` of its own. Two of its games are taken for one when
+//! one gives the other's name as its name in a region, a file of the other is from that region,
+//! and they came out within a year of each other. Names alone are not enough: LaunchBox's
+//! regional names often belong to another game of the series (`Adventures of Lolo II` is Japan's
+//! name for `Adventures of Lolo 3`, and a library's `Adventures of Lolo 2` is from the USA).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -11,6 +16,7 @@ use std::time::SystemTime;
 
 use serde::Serialize;
 
+use super::regions;
 use super::sources::launchbox;
 use super::text::title_key;
 use crate::library::GameFile;
@@ -38,7 +44,23 @@ pub fn duplicates(
         return Ok(None);
     };
     let entries: BTreeMap<i64, &Found> = found.values().map(|f| (f.id, f)).collect();
-    let one = same_game(&entries);
+    let mut from: HashMap<i64, HashSet<&str>> = HashMap::new();
+    for game in games {
+        if let Some(lb) = found.get(&game.id) {
+            let stem = Path::new(&game.path)
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let theirs: Vec<String> = regions::in_name(&stem)
+                .into_iter()
+                .map(str::to_owned)
+                .collect();
+            from.entry(lb.id)
+                .or_default()
+                .extend(launchbox::regions_of(&theirs));
+        }
+    }
+    let one = same_game(&entries, &from);
     let mut groups: BTreeMap<i64, (String, Vec<&GameFile>)> = BTreeMap::new();
     for game in games {
         if let Some(lb) = found.get(&game.id) {
@@ -81,9 +103,13 @@ pub fn duplicates(
     Ok(Some(out))
 }
 
-/// For each LaunchBox game in `entries` (by its id), the one it is taken for: the first of those
-/// sharing a name with it, through any chain of them.
-fn same_game(entries: &BTreeMap<i64, &Found>) -> HashMap<i64, i64> {
+/// For each LaunchBox game in `entries` (by its id), the one it is taken for: the first of
+/// those it is one game with (see the module), through any chain of them. `from` holds the
+/// LaunchBox regions of the library's files of each.
+fn same_game(
+    entries: &BTreeMap<i64, &Found>,
+    from: &HashMap<i64, HashSet<&str>>,
+) -> HashMap<i64, i64> {
     let mut root: HashMap<i64, i64> = entries.keys().map(|&id| (id, id)).collect();
     fn top(root: &HashMap<i64, i64>, mut id: i64) -> i64 {
         while root[&id] != id {
@@ -91,16 +117,22 @@ fn same_game(entries: &BTreeMap<i64, &Found>) -> HashMap<i64, i64> {
         }
         id
     }
-    let mut by_key: HashMap<&str, i64> = HashMap::new();
+    let mut by_name: HashMap<&str, Vec<i64>> = HashMap::new();
     for (id, f) in entries {
-        for key in &f.keys {
-            match by_key.get(key.as_str()) {
-                Some(&other) => {
-                    let (a, b) = (top(&root, other), top(&root, *id));
-                    root.insert(a.max(b), a.min(b));
-                }
-                None => {
-                    by_key.insert(key, *id);
+        by_name.entry(f.own.as_str()).or_default().push(*id);
+    }
+    for (a, f) in entries {
+        for (name, region) in &f.regional {
+            for b in by_name.get(name.as_str()).into_iter().flatten() {
+                let other = entries[b];
+                let near = match (f.year, other.year) {
+                    (Some(x), Some(y)) => (x - y).abs() <= 1,
+                    _ => true,
+                };
+                let there = from.get(b).is_some_and(|r| r.contains(region.as_str()));
+                if b != a && near && there {
+                    let (x, y) = (top(&root, *a), top(&root, *b));
+                    root.insert(x.max(y), x.min(y));
                 }
             }
         }
@@ -108,12 +140,15 @@ fn same_game(entries: &BTreeMap<i64, &Found>) -> HashMap<i64, i64> {
     entries.keys().map(|&id| (id, top(&root, id))).collect()
 }
 
-/// LaunchBox's game for one of ours: its id, its name, and every name it has as compared.
+/// LaunchBox's game for one of ours: its id and name, and, as compared, its name and its
+/// regional names with their regions; the year it came out.
 #[derive(Clone)]
 struct Found {
     id: i64,
     title: String,
-    keys: Vec<String>,
+    own: String,
+    regional: Vec<(String, String)>,
+    year: Option<i32>,
 }
 
 /// What LaunchBox said of each game, by its id, for one copy of LaunchBox's data.
@@ -174,27 +209,30 @@ fn identified(
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect();
-        let keys: HashMap<i64, Vec<String>> = launchbox::names(file, &lb)?
-            .into_iter()
-            .map(|(id, names)| {
-                let keys: BTreeSet<String> = names
-                    .iter()
-                    .map(|n| title_key(n))
-                    .filter(|k| !k.is_empty())
-                    .collect();
-                (id, keys.into_iter().collect())
-            })
-            .collect();
+        let names = launchbox::names(file, &lb)?;
         let ids: HashSet<i64> = new.iter().map(|n| n.0).collect();
         for g in games.iter().filter(|g| ids.contains(&g.id)) {
             known.games.insert(
                 g.id,
                 Said {
                     asked: (g.name.clone(), g.path.clone(), platforms.to_vec()),
-                    found: found.remove(&g.id).map(|(id, title)| Found {
-                        id,
-                        title,
-                        keys: keys.get(&id).cloned().unwrap_or_default(),
+                    found: found.remove(&g.id).map(|(id, title)| {
+                        let named = names.get(&id);
+                        Found {
+                            id,
+                            own: title_key(named.map_or(title.as_str(), |n| n.name.as_str())),
+                            regional: named
+                                .map(|n| {
+                                    n.regional
+                                        .iter()
+                                        .map(|(name, region)| (title_key(name), region.clone()))
+                                        .filter(|(name, _)| !name.is_empty())
+                                        .collect()
+                                })
+                                .unwrap_or_default(),
+                            year: named.and_then(|n| n.year),
+                            title,
+                        }
                     }),
                 },
             );
