@@ -77,6 +77,48 @@ keep_video_under() {
     log "labwc: games' videos kept under Forma"
 }
 
+# Forma's library (favourites, history, users, settings: its metadata and preferences), the
+# identify cache, and what it fetched (DATs, the web cache, magazines, thumbnails) go with the
+# share disk: when the disk holds a library, every Batocera box it is plugged into uses that
+# one; without the disk, the box's own copy, in local/. Forma opens them at forma/, where links
+# point at one or the other, chosen again at every start. A library put on the disk (copy
+# local/library.db to /userdata/saves/forma/) starts the sharing. Scraped media and
+# gamelist.xml are in the ROM folders, on the disk already. The GStreamer registry (one per
+# machine's libraries) and themes (one per Forma version) stay on each box.
+FORMA_DIR=/userdata/system/forma
+SHARED=/userdata/saves/forma
+SHARED_FILES="library.db romdex.sqlite cache/launchbox.db"
+SHARED_DIRS="dats cache/http cache/magazines cache/thumbs"
+choose_library() {
+    local where=local f
+    # The disk, not the card's own saves/ that Batocera falls back on without it.
+    if grep -q ' /userdata/saves ' /proc/mounts && [ -f "$SHARED/library.db" ]; then
+        where=shared
+    fi
+    mkdir -p "$FORMA_DIR/local/cache" "$FORMA_DIR/cache"
+    for f in $SHARED_FILES $SHARED_DIRS; do
+        # A box from before this: its own files become its local copy (a local copy there
+        # already, they are kept beside it, never removed).
+        if [ -e "$FORMA_DIR/$f" ] && [ ! -L "$FORMA_DIR/$f" ]; then
+            local to="$FORMA_DIR/local/$f"
+            [ -e "$to" ] && to="$to.kept-$(date +%Y%m%d%H%M%S)"
+            mv "$FORMA_DIR/$f" "$to"
+            [ -f "$FORMA_DIR/$f-wal" ] && mv "$FORMA_DIR/$f-wal" "$to-wal"
+            [ -f "$FORMA_DIR/$f-shm" ] && mv "$FORMA_DIR/$f-shm" "$to-shm"
+        fi
+        case " $SHARED_DIRS " in
+            *" $f "*) mkdir -p "$FORMA_DIR/local/$f"
+                      [ "$where" = shared ] && mkdir -p "$SHARED/$f" ;;
+        esac
+        if [ "$where" = shared ] && [ -e "$SHARED/$f" ]; then
+            ln -sfn "$SHARED/$f" "$FORMA_DIR/$f"
+        else
+            ln -sfn "$FORMA_DIR/local/$f" "$FORMA_DIR/$f"
+        fi
+    done
+    log "library: $where ($(readlink "$FORMA_DIR/library.db"))"
+}
+
 backdrop=
 drop_backdrop() {
     [ -n "$backdrop" ] && kill "$backdrop" 2> /dev/null
@@ -84,6 +126,7 @@ drop_backdrop() {
 }
 
 mkdir -p "$(dirname "$LOG")"
+choose_library
 # A Forma that cannot start hands the screen to EmulationStation rather than leaving it black.
 [ -x "$APP" ] || back_to_emulationstation "no Forma at $APP"
 wait_for 60 wlr-randr || back_to_emulationstation "no Wayland compositor"
